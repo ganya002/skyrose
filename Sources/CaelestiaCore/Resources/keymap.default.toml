@@ -1,0 +1,1245 @@
+# Caelestia for Mac — default keymap (the single source of truth for every bind).
+#
+# Copied to ~/.config/caelestia-mac/keymap.toml on first run; the WM, the Settings app, the
+# cheat-sheet overlay (SUPER + K), `caelestia keys check` and docs/KEYBINDS.md all read it.
+#
+# Chords are written with the Linux modifier names, exactly as in Hyprland:
+#   SUPER, ALT, CTRL, SHIFT + a key name (Left, Page_Up, Equal, F13, ...), a mouse button
+#   (mouse:272 = left, mouse:273 = right), a scroll direction (mouse_up / mouse_down), a media
+#   key (VolumeUp, Play, BrightnessDown, ...) or nothing at all ("SUPER") for a modifier tap.
+# The [modifiers] table maps the Linux names to physical Mac keys. Preset A (default):
+#   SUPER = Left Option (⌥L), ALT = Left Command (⌘L), CTRL = Control, SHIFT = Shift.
+# Only the LEFT Option/Command keys are window-manager modifiers; the right ones keep typing
+# Norwegian characters (æ ø å @ £ $ { } [ ] | \) and ⌘ app shortcuts as usual.
+#
+# Keys are bound by physical position (key code), never by character: "Minus" and "Equal"
+# are the two keys right of 0, which print "+" and "´" on the Norwegian layout; the cheat
+# sheet shows the real characters.
+#
+# Flags mean the same as in Hyprland:
+#   release = fire on key-up      repeat = auto-repeat while held (delay 250 ms, 35/s)
+#   locked  = also on the lock screen (media / volume / brightness only, where macOS allows)
+#   mouse   = drag bind
+#
+# `linux` is the original Hyprland chord (binds.json); several are separated by " | ".
+# A coverage test fails the build if any of the 153 Hyprland binds is missing here.
+#
+# window.resize deltas are PERCENT of the window's current size (Caelestia's
+# resize_active_window(-10, 0) resizes relatively), not pixels.
+#
+# The wm.panic bind at the end is fixed: the parser restores it if it is removed or changed.
+
+[modifiers]
+super = "lopt"
+alt   = "lcmd"
+ctrl  = "ctrl"
+shift = "shift"
+
+# Trackpad gestures (section 3.5). Off by default: macOS uses 3/4-finger swipes for Spaces and
+# Mission Control, so turn those off in System Settings › Trackpad first.
+[gestures]
+enabled               = false
+workspaceSwipeFingers = 4   # horizontal swipe = previous / next workspace
+specialFingers        = 3   # swipe up = open special workspace, swipe down = toggle it closed
+sleepFingers          = 4   # swipe down = sleep
+
+# ───────────────────────────── Shell ─────────────────────────────
+
+[[bind]]
+id          = "launcher.tap"
+keys        = ["SUPER"]
+action      = "launcher.toggle"
+flags       = ["release"]
+linux       = "SUPER + SUPER_L"
+description = "toggle the launcher (Super tapped alone, nothing else pressed)"
+
+[[bind]]
+id          = "launcher.toggle"
+keys        = ["SUPER + Space"]
+action      = "launcher.toggle"
+flags       = []
+linux       = "SUPER + Space"
+description = "toggle the launcher"
+
+[[bind]]
+id          = "session.menu"
+keys        = ["CTRL + ALT + Backspace", "CTRL + ALT + Delete"]
+action      = "session.toggle"
+flags       = []
+linux       = "CTRL + ALT + Delete"
+description = "session menu (lock, sleep, log out, restart, shut down); Delete is fn+⌫ on a MacBook"
+
+[[bind]]
+id          = "sidebar.toggle"
+keys        = ["SUPER + N"]
+action      = "sidebar.toggle"
+flags       = []
+linux       = "SUPER + N"
+description = "sidebar (notifications and utilities)"
+
+[[bind]]
+id          = "notifs.clear"
+keys        = ["CTRL + ALT + C"]
+action      = "notifs.clear"
+flags       = ["locked"]
+linux       = "CTRL + ALT + C"
+description = "clear all notifications"
+
+[[bind]]
+id          = "panels.showAll"
+keys        = ["SUPER + K"]
+action      = "panels.showAll"
+flags       = []
+linux       = "SUPER + K"
+description = "show all panels (and the keybind cheat sheet)"
+
+[[bind]]
+id          = "lock"
+keys        = ["SUPER + L"]
+action      = "lock"
+flags       = []
+linux       = "SUPER + L"
+description = "lock the screen"
+
+[[bind]]
+id          = "shell.restoreLock"
+keys        = ["SUPER + ALT + L"]
+action      = "shell.restoreLock"
+flags       = []
+linux       = "SUPER + ALT + L"
+description = "restore lock: restart the shell, then lock"
+
+[[bind]]
+id          = "shell.kill"
+keys        = ["SUPER + CTRL + SHIFT + R"]
+action      = "shell.kill"
+flags       = ["release"]
+linux       = "SUPER + CTRL + SHIFT + R"
+description = "kill the shell"
+
+[[bind]]
+id          = "shell.restart"
+keys        = ["SUPER + CTRL + ALT + R"]
+action      = "shell.restart"
+flags       = ["release"]
+linux       = "SUPER + CTRL + ALT + R"
+description = "restart the shell"
+
+# ─────────────────────── Workspaces (N = 1..9, 0 = 10) ───────────────────────
+# SUPER + N focuses workspace N of the current group; SUPER + CTRL + N focuses group N
+# (workspace 10·(N−1) + current slot); ALT moves the window and follows; SHIFT moves silently.
+
+[[bind]]
+id          = "ws.focus.1"
+keys        = ["SUPER + 1"]
+action      = "workspace.focus"
+args        = { index = 1 }
+flags       = []
+linux       = "SUPER + 1"
+description = "focus workspace 1"
+
+[[bind]]
+id          = "ws.focus.2"
+keys        = ["SUPER + 2"]
+action      = "workspace.focus"
+args        = { index = 2 }
+flags       = []
+linux       = "SUPER + 2"
+description = "focus workspace 2"
+
+[[bind]]
+id          = "ws.focus.3"
+keys        = ["SUPER + 3"]
+action      = "workspace.focus"
+args        = { index = 3 }
+flags       = []
+linux       = "SUPER + 3"
+description = "focus workspace 3"
+
+[[bind]]
+id          = "ws.focus.4"
+keys        = ["SUPER + 4"]
+action      = "workspace.focus"
+args        = { index = 4 }
+flags       = []
+linux       = "SUPER + 4"
+description = "focus workspace 4"
+
+[[bind]]
+id          = "ws.focus.5"
+keys        = ["SUPER + 5"]
+action      = "workspace.focus"
+args        = { index = 5 }
+flags       = []
+linux       = "SUPER + 5"
+description = "focus workspace 5"
+
+[[bind]]
+id          = "ws.focus.6"
+keys        = ["SUPER + 6"]
+action      = "workspace.focus"
+args        = { index = 6 }
+flags       = []
+linux       = "SUPER + 6"
+description = "focus workspace 6"
+
+[[bind]]
+id          = "ws.focus.7"
+keys        = ["SUPER + 7"]
+action      = "workspace.focus"
+args        = { index = 7 }
+flags       = []
+linux       = "SUPER + 7"
+description = "focus workspace 7"
+
+[[bind]]
+id          = "ws.focus.8"
+keys        = ["SUPER + 8"]
+action      = "workspace.focus"
+args        = { index = 8 }
+flags       = []
+linux       = "SUPER + 8"
+description = "focus workspace 8"
+
+[[bind]]
+id          = "ws.focus.9"
+keys        = ["SUPER + 9"]
+action      = "workspace.focus"
+args        = { index = 9 }
+flags       = []
+linux       = "SUPER + 9"
+description = "focus workspace 9"
+
+[[bind]]
+id          = "ws.focus.10"
+keys        = ["SUPER + 0"]
+action      = "workspace.focus"
+args        = { index = 10 }
+flags       = []
+linux       = "SUPER + 0"
+description = "focus workspace 10"
+
+[[bind]]
+id          = "ws.move.1"
+keys        = ["SUPER + ALT + 1"]
+action      = "workspace.move"
+args        = { index = 1 }
+flags       = []
+linux       = "SUPER + ALT + 1"
+description = "move window to workspace 1 and follow"
+
+[[bind]]
+id          = "ws.move.2"
+keys        = ["SUPER + ALT + 2"]
+action      = "workspace.move"
+args        = { index = 2 }
+flags       = []
+linux       = "SUPER + ALT + 2"
+description = "move window to workspace 2 and follow"
+
+[[bind]]
+id          = "ws.move.3"
+keys        = ["SUPER + ALT + 3"]
+action      = "workspace.move"
+args        = { index = 3 }
+flags       = []
+linux       = "SUPER + ALT + 3"
+description = "move window to workspace 3 and follow"
+
+[[bind]]
+id          = "ws.move.4"
+keys        = ["SUPER + ALT + 4"]
+action      = "workspace.move"
+args        = { index = 4 }
+flags       = []
+linux       = "SUPER + ALT + 4"
+description = "move window to workspace 4 and follow"
+
+[[bind]]
+id          = "ws.move.5"
+keys        = ["SUPER + ALT + 5"]
+action      = "workspace.move"
+args        = { index = 5 }
+flags       = []
+linux       = "SUPER + ALT + 5"
+description = "move window to workspace 5 and follow"
+
+[[bind]]
+id          = "ws.move.6"
+keys        = ["SUPER + ALT + 6"]
+action      = "workspace.move"
+args        = { index = 6 }
+flags       = []
+linux       = "SUPER + ALT + 6"
+description = "move window to workspace 6 and follow"
+
+[[bind]]
+id          = "ws.move.7"
+keys        = ["SUPER + ALT + 7"]
+action      = "workspace.move"
+args        = { index = 7 }
+flags       = []
+linux       = "SUPER + ALT + 7"
+description = "move window to workspace 7 and follow"
+
+[[bind]]
+id          = "ws.move.8"
+keys        = ["SUPER + ALT + 8"]
+action      = "workspace.move"
+args        = { index = 8 }
+flags       = []
+linux       = "SUPER + ALT + 8"
+description = "move window to workspace 8 and follow"
+
+[[bind]]
+id          = "ws.move.9"
+keys        = ["SUPER + ALT + 9"]
+action      = "workspace.move"
+args        = { index = 9 }
+flags       = []
+linux       = "SUPER + ALT + 9"
+description = "move window to workspace 9 and follow"
+
+[[bind]]
+id          = "ws.move.10"
+keys        = ["SUPER + ALT + 0"]
+action      = "workspace.move"
+args        = { index = 10 }
+flags       = []
+linux       = "SUPER + ALT + 0"
+description = "move window to workspace 10 and follow"
+
+[[bind]]
+id          = "ws.focusGroup.1"
+keys        = ["SUPER + CTRL + 1"]
+action      = "workspace.focusGroup"
+args        = { group = 1 }
+flags       = []
+linux       = "SUPER + CTRL + 1"
+description = "focus workspace group 1 (workspaces 1–10)"
+
+[[bind]]
+id          = "ws.focusGroup.2"
+keys        = ["SUPER + CTRL + 2"]
+action      = "workspace.focusGroup"
+args        = { group = 2 }
+flags       = []
+linux       = "SUPER + CTRL + 2"
+description = "focus workspace group 2 (workspaces 11–20)"
+
+[[bind]]
+id          = "ws.focusGroup.3"
+keys        = ["SUPER + CTRL + 3"]
+action      = "workspace.focusGroup"
+args        = { group = 3 }
+flags       = []
+linux       = "SUPER + CTRL + 3"
+description = "focus workspace group 3 (workspaces 21–30)"
+
+[[bind]]
+id          = "ws.focusGroup.4"
+keys        = ["SUPER + CTRL + 4"]
+action      = "workspace.focusGroup"
+args        = { group = 4 }
+flags       = []
+linux       = "SUPER + CTRL + 4"
+description = "focus workspace group 4 (workspaces 31–40)"
+
+[[bind]]
+id          = "ws.focusGroup.5"
+keys        = ["SUPER + CTRL + 5"]
+action      = "workspace.focusGroup"
+args        = { group = 5 }
+flags       = []
+linux       = "SUPER + CTRL + 5"
+description = "focus workspace group 5 (workspaces 41–50)"
+
+[[bind]]
+id          = "ws.focusGroup.6"
+keys        = ["SUPER + CTRL + 6"]
+action      = "workspace.focusGroup"
+args        = { group = 6 }
+flags       = []
+linux       = "SUPER + CTRL + 6"
+description = "focus workspace group 6 (workspaces 51–60)"
+
+[[bind]]
+id          = "ws.focusGroup.7"
+keys        = ["SUPER + CTRL + 7"]
+action      = "workspace.focusGroup"
+args        = { group = 7 }
+flags       = []
+linux       = "SUPER + CTRL + 7"
+description = "focus workspace group 7 (workspaces 61–70)"
+
+[[bind]]
+id          = "ws.focusGroup.8"
+keys        = ["SUPER + CTRL + 8"]
+action      = "workspace.focusGroup"
+args        = { group = 8 }
+flags       = []
+linux       = "SUPER + CTRL + 8"
+description = "focus workspace group 8 (workspaces 71–80)"
+
+[[bind]]
+id          = "ws.focusGroup.9"
+keys        = ["SUPER + CTRL + 9"]
+action      = "workspace.focusGroup"
+args        = { group = 9 }
+flags       = []
+linux       = "SUPER + CTRL + 9"
+description = "focus workspace group 9 (workspaces 81–90)"
+
+[[bind]]
+id          = "ws.focusGroup.10"
+keys        = ["SUPER + CTRL + 0"]
+action      = "workspace.focusGroup"
+args        = { group = 10 }
+flags       = []
+linux       = "SUPER + CTRL + 0"
+description = "focus workspace group 10 (workspaces 91–100)"
+
+[[bind]]
+id          = "ws.moveGroup.1"
+keys        = ["SUPER + CTRL + ALT + 1"]
+action      = "workspace.moveGroup"
+args        = { group = 1 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 1"
+description = "move window to workspace group 1 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.2"
+keys        = ["SUPER + CTRL + ALT + 2"]
+action      = "workspace.moveGroup"
+args        = { group = 2 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 2"
+description = "move window to workspace group 2 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.3"
+keys        = ["SUPER + CTRL + ALT + 3"]
+action      = "workspace.moveGroup"
+args        = { group = 3 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 3"
+description = "move window to workspace group 3 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.4"
+keys        = ["SUPER + CTRL + ALT + 4"]
+action      = "workspace.moveGroup"
+args        = { group = 4 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 4"
+description = "move window to workspace group 4 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.5"
+keys        = ["SUPER + CTRL + ALT + 5"]
+action      = "workspace.moveGroup"
+args        = { group = 5 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 5"
+description = "move window to workspace group 5 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.6"
+keys        = ["SUPER + CTRL + ALT + 6"]
+action      = "workspace.moveGroup"
+args        = { group = 6 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 6"
+description = "move window to workspace group 6 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.7"
+keys        = ["SUPER + CTRL + ALT + 7"]
+action      = "workspace.moveGroup"
+args        = { group = 7 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 7"
+description = "move window to workspace group 7 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.8"
+keys        = ["SUPER + CTRL + ALT + 8"]
+action      = "workspace.moveGroup"
+args        = { group = 8 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 8"
+description = "move window to workspace group 8 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.9"
+keys        = ["SUPER + CTRL + ALT + 9"]
+action      = "workspace.moveGroup"
+args        = { group = 9 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 9"
+description = "move window to workspace group 9 and follow"
+
+[[bind]]
+id          = "ws.moveGroup.10"
+keys        = ["SUPER + CTRL + ALT + 0"]
+action      = "workspace.moveGroup"
+args        = { group = 10 }
+flags       = []
+linux       = "SUPER + CTRL + ALT + 0"
+description = "move window to workspace group 10 and follow"
+
+[[bind]]
+id          = "ws.moveSilent.1"
+keys        = ["SUPER + SHIFT + 1"]
+action      = "workspace.moveSilent"
+args        = { index = 1 }
+flags       = []
+linux       = "SUPER + SHIFT + 1"
+description = "move window to workspace 1 silently"
+
+[[bind]]
+id          = "ws.moveSilent.2"
+keys        = ["SUPER + SHIFT + 2"]
+action      = "workspace.moveSilent"
+args        = { index = 2 }
+flags       = []
+linux       = "SUPER + SHIFT + 2"
+description = "move window to workspace 2 silently"
+
+[[bind]]
+id          = "ws.moveSilent.3"
+keys        = ["SUPER + SHIFT + 3"]
+action      = "workspace.moveSilent"
+args        = { index = 3 }
+flags       = []
+linux       = "SUPER + SHIFT + 3"
+description = "move window to workspace 3 silently"
+
+[[bind]]
+id          = "ws.moveSilent.4"
+keys        = ["SUPER + SHIFT + 4"]
+action      = "workspace.moveSilent"
+args        = { index = 4 }
+flags       = []
+linux       = "SUPER + SHIFT + 4"
+description = "move window to workspace 4 silently"
+
+[[bind]]
+id          = "ws.moveSilent.5"
+keys        = ["SUPER + SHIFT + 5"]
+action      = "workspace.moveSilent"
+args        = { index = 5 }
+flags       = []
+linux       = "SUPER + SHIFT + 5"
+description = "move window to workspace 5 silently"
+
+[[bind]]
+id          = "ws.moveSilent.6"
+keys        = ["SUPER + SHIFT + 6"]
+action      = "workspace.moveSilent"
+args        = { index = 6 }
+flags       = []
+linux       = "SUPER + SHIFT + 6"
+description = "move window to workspace 6 silently"
+
+[[bind]]
+id          = "ws.moveSilent.7"
+keys        = ["SUPER + SHIFT + 7"]
+action      = "workspace.moveSilent"
+args        = { index = 7 }
+flags       = []
+linux       = "SUPER + SHIFT + 7"
+description = "move window to workspace 7 silently"
+
+[[bind]]
+id          = "ws.moveSilent.8"
+keys        = ["SUPER + SHIFT + 8"]
+action      = "workspace.moveSilent"
+args        = { index = 8 }
+flags       = []
+linux       = "SUPER + SHIFT + 8"
+description = "move window to workspace 8 silently"
+
+[[bind]]
+id          = "ws.moveSilent.9"
+keys        = ["SUPER + SHIFT + 9"]
+action      = "workspace.moveSilent"
+args        = { index = 9 }
+flags       = []
+linux       = "SUPER + SHIFT + 9"
+description = "move window to workspace 9 silently"
+
+[[bind]]
+id          = "ws.moveSilent.10"
+keys        = ["SUPER + SHIFT + 0"]
+action      = "workspace.moveSilent"
+args        = { index = 10 }
+flags       = []
+linux       = "SUPER + SHIFT + 0"
+description = "move window to workspace 10 silently"
+
+# Workspace navigation. Hyprland gives the key chords `repeat` but not the scroll chords.
+
+[[bind]]
+id          = "ws.next"
+keys        = ["SUPER + CTRL + Right", "SUPER + PageDown"]
+action      = "workspace.next"
+flags       = ["repeat"]
+linux       = "SUPER + CTRL + Right | SUPER + Page_Down"
+description = "next workspace (Page Down is fn+↓ on a MacBook)"
+
+[[bind]]
+id          = "ws.next.scroll"
+keys        = ["SUPER + mouse_down"]
+action      = "workspace.next"
+flags       = []
+linux       = "SUPER + mouse_down"
+description = "next workspace (scroll down)"
+
+[[bind]]
+id          = "ws.prev"
+keys        = ["SUPER + CTRL + Left", "SUPER + PageUp"]
+action      = "workspace.prev"
+flags       = ["repeat"]
+linux       = "SUPER + CTRL + Left | SUPER + Page_Up"
+description = "previous workspace (Page Up is fn+↑ on a MacBook)"
+
+[[bind]]
+id          = "ws.prev.scroll"
+keys        = ["SUPER + mouse_up"]
+action      = "workspace.prev"
+flags       = []
+linux       = "SUPER + mouse_up"
+description = "previous workspace (scroll up)"
+
+[[bind]]
+id          = "ws.nextGroup.scroll"
+keys        = ["SUPER + CTRL + mouse_down"]
+action      = "workspace.nextGroup"
+flags       = []
+linux       = "SUPER + CTRL + mouse_down"
+description = "next workspace group (+10)"
+
+[[bind]]
+id          = "ws.prevGroup.scroll"
+keys        = ["SUPER + CTRL + mouse_up"]
+action      = "workspace.prevGroup"
+flags       = []
+linux       = "SUPER + CTRL + mouse_up"
+description = "previous workspace group (−10)"
+
+[[bind]]
+id          = "ws.moveToNext"
+keys        = ["SUPER + ALT + PageDown", "SUPER + CTRL + SHIFT + Right"]
+action      = "workspace.moveToNext"
+flags       = ["repeat"]
+linux       = "SUPER + ALT + Page_Down | SUPER + CTRL + SHIFT + Right"
+description = "move window to the next workspace"
+
+[[bind]]
+id          = "ws.moveToNext.scroll"
+keys        = ["SUPER + ALT + mouse_down"]
+action      = "workspace.moveToNext"
+flags       = []
+linux       = "SUPER + ALT + mouse_down"
+description = "move window to the next workspace (scroll down)"
+
+[[bind]]
+id          = "ws.moveToPrev"
+keys        = ["SUPER + ALT + PageUp", "SUPER + CTRL + SHIFT + Left"]
+action      = "workspace.moveToPrev"
+flags       = ["repeat"]
+linux       = "SUPER + ALT + Page_Up | SUPER + CTRL + SHIFT + Left"
+description = "move window to the previous workspace"
+
+[[bind]]
+id          = "ws.moveToPrev.scroll"
+keys        = ["SUPER + ALT + mouse_up"]
+action      = "workspace.moveToPrev"
+flags       = []
+linux       = "SUPER + ALT + mouse_up"
+description = "move window to the previous workspace (scroll up)"
+
+[[bind]]
+id          = "ws.moveToSpecial"
+keys        = ["SUPER + ALT + S", "SUPER + CTRL + SHIFT + Up"]
+action      = "workspace.moveToSpecial"
+args        = { name = "special" }
+flags       = []
+linux       = "SUPER + ALT + S | SUPER + CTRL + SHIFT + Up"
+description = "move window to the special workspace"
+
+[[bind]]
+id          = "ws.moveOutOfSpecial"
+keys        = ["SUPER + CTRL + SHIFT + Down"]
+action      = "workspace.moveOutOfSpecial"
+flags       = []
+linux       = "SUPER + CTRL + SHIFT + Down"
+description = "move window out of the special workspace (to the current one)"
+
+# ─────────────────────── Window cycling and groups ───────────────────────
+# Hyprland cycles with ALT + Tab. On the Mac that is ⌘L+Tab, the app switcher, which is not
+# taken over by default (Settings: "Take over ⌘Tab"), so cycling lives on SUPER + Tab.
+
+[[bind]]
+id          = "window.cycleNext"
+keys        = ["SUPER + Tab"]
+action      = "window.cycleNext"
+flags       = ["repeat"]
+linux       = "ALT + TAB"
+description = "cycle to the next window"
+
+[[bind]]
+id          = "window.cyclePrev"
+keys        = ["SUPER + SHIFT + Tab"]
+action      = "window.cyclePrev"
+flags       = ["repeat"]
+linux       = "ALT + SHIFT + TAB"
+description = "cycle to the previous window"
+
+[[bind]]
+id          = "group.next"
+keys        = ["CTRL + SUPER + Tab"]
+action      = "group.next"
+flags       = ["repeat"]
+linux       = "CTRL + ALT + TAB"
+description = "next window in the group (tab)"
+
+[[bind]]
+id          = "group.prev"
+keys        = ["CTRL + SUPER + SHIFT + Tab"]
+action      = "group.prev"
+flags       = ["repeat"]
+linux       = "CTRL + ALT + SHIFT + TAB"
+description = "previous window in the group"
+
+[[bind]]
+id          = "group.toggle"
+keys        = ["SUPER + Comma"]
+action      = "group.toggle"
+flags       = []
+linux       = "SUPER + Comma"
+description = "toggle group (tabbed) for the active window"
+
+[[bind]]
+id          = "group.moveOut"
+keys        = ["SUPER + U"]
+action      = "group.moveOut"
+flags       = []
+linux       = "SUPER + U"
+description = "move window out of its group"
+
+[[bind]]
+id          = "group.lock"
+keys        = ["SUPER + SHIFT + Comma"]
+action      = "group.lock"
+flags       = []
+linux       = "SUPER + SHIFT + Comma"
+description = "lock the active group"
+
+# ─────────────────────── Focus / move / resize ───────────────────────
+
+[[bind]]
+id          = "window.focus.left"
+keys        = ["SUPER + Left"]
+action      = "window.focus"
+args        = { direction = "left" }
+flags       = []
+linux       = "SUPER + Left"
+description = "focus window to the left"
+
+[[bind]]
+id          = "window.focus.right"
+keys        = ["SUPER + Right"]
+action      = "window.focus"
+args        = { direction = "right" }
+flags       = []
+linux       = "SUPER + Right"
+description = "focus window to the right"
+
+[[bind]]
+id          = "window.focus.up"
+keys        = ["SUPER + Up"]
+action      = "window.focus"
+args        = { direction = "up" }
+flags       = []
+linux       = "SUPER + Up"
+description = "focus window above"
+
+[[bind]]
+id          = "window.focus.down"
+keys        = ["SUPER + Down"]
+action      = "window.focus"
+args        = { direction = "down" }
+flags       = []
+linux       = "SUPER + Down"
+description = "focus window below"
+
+[[bind]]
+id          = "window.swap.left"
+keys        = ["SUPER + SHIFT + Left"]
+action      = "window.swap"
+args        = { direction = "left" }
+flags       = []
+linux       = "SUPER + SHIFT + Left"
+description = "move (swap) window to the left"
+
+[[bind]]
+id          = "window.swap.right"
+keys        = ["SUPER + SHIFT + Right"]
+action      = "window.swap"
+args        = { direction = "right" }
+flags       = []
+linux       = "SUPER + SHIFT + Right"
+description = "move (swap) window to the right"
+
+[[bind]]
+id          = "window.swap.up"
+keys        = ["SUPER + SHIFT + Up"]
+action      = "window.swap"
+args        = { direction = "up" }
+flags       = []
+linux       = "SUPER + SHIFT + Up"
+description = "move (swap) window up"
+
+[[bind]]
+id          = "window.swap.down"
+keys        = ["SUPER + SHIFT + Down"]
+action      = "window.swap"
+args        = { direction = "down" }
+flags       = []
+linux       = "SUPER + SHIFT + Down"
+description = "move (swap) window down"
+
+# Resize: delta is percent of the window's current size. On the Norwegian layout "Minus" is
+# the "+" key right of 0 and "Equal" the "´" key next to it (bound by position).
+
+[[bind]]
+id          = "window.resize.narrower"
+keys        = ["SUPER + Minus", "SUPER + ALT + Left"]
+action      = "window.resize"
+args        = { axis = "width", delta = -10 }
+flags       = ["repeat"]
+linux       = "SUPER + Minus | SUPER + ALT + Left"
+description = "width −10% of the current size"
+
+[[bind]]
+id          = "window.resize.wider"
+keys        = ["SUPER + Equal", "SUPER + ALT + Right"]
+action      = "window.resize"
+args        = { axis = "width", delta = 10 }
+flags       = ["repeat"]
+linux       = "SUPER + Equal | SUPER + ALT + Right"
+description = "width +10% of the current size"
+
+[[bind]]
+id          = "window.resize.shorter"
+keys        = ["SUPER + SHIFT + Minus", "SUPER + ALT + Up"]
+action      = "window.resize"
+args        = { axis = "height", delta = -10 }
+flags       = ["repeat"]
+linux       = "SUPER + SHIFT + Minus | SUPER + ALT + Up"
+description = "height −10% of the current size"
+
+[[bind]]
+id          = "window.resize.taller"
+keys        = ["SUPER + SHIFT + Equal", "SUPER + ALT + Down"]
+action      = "window.resize"
+args        = { axis = "height", delta = 10 }
+flags       = ["repeat"]
+linux       = "SUPER + SHIFT + Equal | SUPER + ALT + Down"
+description = "height +10% of the current size"
+
+[[bind]]
+id          = "window.drag"
+keys        = ["SUPER + Z", "SUPER + mouse:272"]
+action      = "window.drag"
+flags       = ["mouse"]
+linux       = "SUPER + Z | SUPER + mouse:272"
+description = "drag window (hold Z, or left-drag anywhere)"
+
+[[bind]]
+id          = "window.resizeDrag"
+keys        = ["SUPER + X", "SUPER + mouse:273"]
+action      = "window.resizeDrag"
+flags       = ["mouse"]
+linux       = "SUPER + X | SUPER + mouse:273"
+description = "resize window (hold X, or right-drag / two-finger-click drag)"
+
+[[bind]]
+id          = "window.center"
+keys        = ["SUPER + CTRL + Backslash"]
+action      = "window.center"
+flags       = []
+linux       = "SUPER + CTRL + Backslash"
+description = "center floating window (Backslash is the key next to Return: ' on the Norwegian layout)"
+
+[[bind]]
+id          = "window.normalize"
+keys        = ["SUPER + CTRL + ALT + Backslash"]
+action      = "window.normalize"
+flags       = []
+linux       = "SUPER + CTRL + ALT + Backslash"
+description = "normalize: float, resize to 55% × 70% of the screen, center"
+
+[[bind]]
+id          = "window.pip"
+keys        = ["SUPER + ALT + Backslash"]
+action      = "window.pip"
+flags       = []
+linux       = "SUPER + ALT + Backslash"
+description = "picture-in-picture: float, move to the PiP corner, pin"
+
+[[bind]]
+id          = "window.pin"
+keys        = ["SUPER + P"]
+action      = "window.pin"
+flags       = []
+linux       = "SUPER + P"
+description = "pin window (show on all workspaces)"
+
+[[bind]]
+id          = "window.fullscreen"
+keys        = ["SUPER + F"]
+action      = "window.fullscreen"
+flags       = []
+linux       = "SUPER + F"
+description = "fullscreen (covers bar and gaps)"
+
+[[bind]]
+id          = "window.maximize"
+keys        = ["SUPER + ALT + F"]
+action      = "window.maximize"
+flags       = []
+linux       = "SUPER + ALT + F"
+description = "maximize (fills the work area, keeps gaps and bar)"
+
+[[bind]]
+id          = "window.toggleFloat"
+keys        = ["SUPER + ALT + Space"]
+action      = "window.toggleFloat"
+flags       = []
+linux       = "SUPER + ALT + Space"
+description = "toggle floating"
+
+[[bind]]
+id          = "window.close"
+keys        = ["SUPER + Q"]
+action      = "window.close"
+flags       = []
+linux       = "SUPER + Q"
+description = "close window"
+
+# ─────────────────────── Special workspaces (scratchpads) ───────────────────────
+# Toggle show/hide; the app is launched if it is not running (apps are set in config.toml).
+
+[[bind]]
+id          = "special.toggle"
+keys        = ["SUPER + S"]
+action      = "special.toggle"
+args        = { name = "special" }
+flags       = []
+linux       = "SUPER + S"
+description = "toggle the special workspace (closes whichever special workspace is open)"
+
+[[bind]]
+id          = "special.sysmon"
+keys        = ["CTRL + SHIFT + Escape"]
+action      = "special.toggle"
+args        = { name = "sysmon" }
+flags       = []
+linux       = "CTRL + SHIFT + Escape"
+description = "system monitor (btop in kitty)"
+
+[[bind]]
+id          = "special.music"
+keys        = ["SUPER + M"]
+action      = "special.toggle"
+args        = { name = "music" }
+flags       = []
+linux       = "SUPER + M"
+description = "music (Spotify, else Apple Music)"
+
+[[bind]]
+id          = "special.communication"
+keys        = ["SUPER + D"]
+action      = "special.toggle"
+args        = { name = "communication" }
+flags       = []
+linux       = "SUPER + D"
+description = "communication (Discord, else Messages)"
+
+[[bind]]
+id          = "special.todo"
+keys        = ["SUPER + R"]
+action      = "special.toggle"
+args        = { name = "todo" }
+flags       = []
+linux       = "SUPER + R"
+description = "to-do (Todoist, else Reminders)"
+
+# ───────────────────────────── Apps ─────────────────────────────
+
+[[bind]]
+id          = "app.terminal"
+keys        = ["SUPER + T"]
+action      = "app.terminal"
+flags       = []
+linux       = "SUPER + T"
+description = "terminal (kitty)"
+
+[[bind]]
+id          = "app.browser"
+keys        = ["SUPER + W"]
+action      = "app.browser"
+flags       = []
+linux       = "SUPER + W"
+description = "browser (Firefox)"
+
+[[bind]]
+id          = "app.editor"
+keys        = ["SUPER + C"]
+action      = "app.editor"
+flags       = []
+linux       = "SUPER + C"
+description = "editor (VSCodium)"
+
+[[bind]]
+id          = "app.files"
+keys        = ["SUPER + E"]
+action      = "app.files"
+flags       = []
+linux       = "SUPER + E"
+description = "file manager (Finder)"
+
+[[bind]]
+id          = "app.audioSettings"
+keys        = ["CTRL + ALT + V"]
+action      = "app.audioSettings"
+flags       = []
+linux       = "CTRL + ALT + V"
+description = "audio settings (Sound settings pane)"
+
+# ───────────────────────────── Capture ─────────────────────────────
+# MacBooks have no Print key; macOS ⇧⌘3/4/5 stay untouched. F13 is Print on external keyboards.
+# The spec's ⌥L⇧3 / ⌥L⇧4 would collide with "move window to workspace 3 / 4 silently"
+# (SUPER + SHIFT + N), so the screenshots use macOS's own ⇧⌘3 / ⇧⌘4 chords with Super held.
+
+[[bind]]
+id          = "capture.region"
+keys        = ["SUPER + ALT + SHIFT + 4", "F13"]
+action      = "capture.region"
+flags       = []
+linux       = "Print"
+description = "region screenshot (macOS ⇧⌘4 with Super held; SUPER + SHIFT + 4 is taken by ws.moveSilent.4)"
+
+[[bind]]
+id          = "capture.full"
+keys        = ["SUPER + ALT + SHIFT + 3", "SHIFT + F13"]
+action      = "capture.full"
+flags       = ["locked"]
+linux       = "SHIFT + Print"
+description = "full-screen screenshot (macOS ⇧⌘3 with Super held; SUPER + SHIFT + 3 is taken by ws.moveSilent.3)"
+
+[[bind]]
+id          = "capture.freeze"
+keys        = ["SUPER + SHIFT + S"]
+action      = "capture.freeze"
+flags       = []
+linux       = "SUPER + SHIFT + S"
+description = "region screenshot on a frozen screen"
+
+[[bind]]
+id          = "record.screen"
+keys        = ["CTRL + ALT + R"]
+action      = "record.screen"
+flags       = []
+linux       = "CTRL + ALT + R"
+description = "record the screen"
+
+[[bind]]
+id          = "record.sound"
+keys        = ["SUPER + ALT + R"]
+action      = "record.sound"
+flags       = []
+linux       = "SUPER + ALT + R"
+description = "record the screen with sound"
+
+[[bind]]
+id          = "record.region"
+keys        = ["SUPER + ALT + SHIFT + R"]
+action      = "record.region"
+flags       = []
+linux       = "SUPER + ALT + SHIFT + R"
+description = "record a region"
+
+[[bind]]
+id          = "picker.color"
+keys        = ["SUPER + SHIFT + C"]
+action      = "picker.color"
+flags       = []
+linux       = "SUPER + SHIFT + C"
+description = "color picker (copies the hex value)"
+
+# ─────────────────────── Media / volume / brightness ───────────────────────
+# The F-row media keys are handled by macOS itself; the WM only shows its own OSD.
+
+[[bind]]
+id          = "brightness.up"
+keys        = ["BrightnessUp"]
+action      = "brightness.up"
+flags       = ["locked"]
+linux       = "XF86MonBrightnessUp"
+description = "brightness up, with OSD (F2)"
+
+[[bind]]
+id          = "brightness.down"
+keys        = ["BrightnessDown"]
+action      = "brightness.down"
+flags       = ["locked"]
+linux       = "XF86MonBrightnessDown"
+description = "brightness down, with OSD (F1)"
+
+[[bind]]
+id          = "media.playPause"
+keys        = ["CTRL + SUPER + Space", "Play", "Pause"]
+action      = "media.playPause"
+flags       = ["locked"]
+linux       = "SUPER + CTRL + Space | XF86AudioPlay | XF86AudioPause"
+description = "media play / pause (F8)"
+
+[[bind]]
+id          = "media.next"
+keys        = ["CTRL + SUPER + Equal", "Next"]
+action      = "media.next"
+flags       = ["locked"]
+linux       = "SUPER + CTRL + Equal | XF86AudioNext"
+description = "media next (F9)"
+
+[[bind]]
+id          = "media.prev"
+keys        = ["CTRL + SUPER + Minus", "Previous"]
+action      = "media.prev"
+flags       = ["locked"]
+linux       = "SUPER + CTRL + Minus | XF86AudioPrev"
+description = "media previous (F7)"
+
+[[bind]]
+id          = "media.stop"
+keys        = ["CTRL + SUPER + Backspace", "Stop"]
+action      = "media.stop"
+flags       = ["locked"]
+linux       = "SUPER + CTRL + Backspace | XF86AudioStop"
+description = "media stop"
+
+[[bind]]
+id          = "audio.toggleMute"
+keys        = ["SUPER + SHIFT + M", "Mute"]
+action      = "audio.toggleMute"
+flags       = ["locked"]
+linux       = "SUPER + SHIFT + M | XF86AudioMute"
+description = "toggle output mute (F10)"
+
+[[bind]]
+id          = "audio.toggleMicMute"
+keys        = ["SUPER + CTRL + SHIFT + M"]
+action      = "audio.toggleMicMute"
+flags       = ["locked"]
+linux       = "XF86AudioMicMute"
+description = "toggle microphone mute (no mic key on most Macs)"
+
+[[bind]]
+id          = "audio.volumeUp"
+keys        = ["VolumeUp"]
+action      = "audio.volumeUp"
+flags       = ["repeat", "locked"]
+linux       = "XF86AudioRaiseVolume"
+description = "volume +10% (max 100%, unmutes), with OSD (F12)"
+
+[[bind]]
+id          = "audio.volumeDown"
+keys        = ["VolumeDown"]
+action      = "audio.volumeDown"
+flags       = ["repeat", "locked"]
+linux       = "XF86AudioLowerVolume"
+description = "volume −10% (unmutes), with OSD (F11)"
+
+[[bind]]
+id          = "osd.capsLock"
+keys        = ["CapsLock"]
+action      = "osd.lockKey"
+args        = { key = "caps" }
+flags       = ["locked", "release"]
+linux       = "Caps_Lock"
+description = "Caps Lock OSD (the key itself is passed through: Hyprland non_consuming + ignore_mods)"
+
+[[bind]]
+id          = "osd.numLock"
+keys        = ["KeypadClear"]
+action      = "osd.lockKey"
+args        = { key = "num" }
+flags       = ["locked", "release"]
+linux       = "Num_Lock"
+description = "Num Lock OSD (Clear on an external keypad; passed through like Caps Lock)"
+
+# ─────────────────────── Session / utilities ───────────────────────
+
+[[bind]]
+id          = "system.sleep"
+keys        = ["SUPER + SHIFT + L"]
+action      = "system.sleep"
+flags       = ["locked"]
+linux       = "SUPER + SHIFT + L"
+description = "sleep (pmset sleepnow)"
+
+[[bind]]
+id          = "clipboard.open"
+keys        = ["SUPER + V"]
+action      = "clipboard.open"
+flags       = []
+linux       = "SUPER + V"
+description = "clipboard history picker"
+
+[[bind]]
+id          = "clipboard.delete"
+keys        = ["SUPER + ALT + V"]
+action      = "clipboard.delete"
+flags       = []
+linux       = "SUPER + ALT + V"
+description = "delete from the clipboard history"
+
+[[bind]]
+id          = "clipboard.typeLatest"
+keys        = ["CTRL + ALT + SHIFT + V"]
+action      = "clipboard.typeLatest"
+flags       = ["locked"]
+linux       = "CTRL + ALT + SHIFT + V"
+description = "type the latest clipboard item after 0.5 s (for fields that block paste)"
+
+[[bind]]
+id          = "emoji.open"
+keys        = ["SUPER + Period"]
+action      = "emoji.open"
+flags       = []
+linux       = "SUPER + Period"
+description = "emoji picker"
+
+[[bind]]
+id          = "notify.test"
+keys        = ["SUPER + ALT + F12"]
+action      = "notify.test"
+flags       = []
+linux       = "SUPER + ALT + F12"
+description = "send a test notification"
+
+# ───────────────────────────── Safety ─────────────────────────────
+# Physically ⌃⌥⌘⇧Esc: stops tiling and brings every window back on screen. Fixed: the parser
+# puts it back if it is removed, disabled or changed.
+
+[[bind]]
+id          = "wm.panic"
+keys        = ["CTRL + SUPER + ALT + SHIFT + Escape"]
+action      = "wm.panic"
+flags       = []
+description = "fixed; cannot be removed"

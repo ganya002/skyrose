@@ -1,0 +1,490 @@
+# Caelestia for Mac - default window rules (spec 4.5), ported from hypr/hyprland/rules.lua and
+# the resizer rules in hypr/hyprland/execs.lua. Identical to RuleSet.defaults in Rules.swift (a test
+# asserts it). Copy to ~/.config/caelestia-mac/rules.toml and add/override rules; a rule with the
+# same id as a default replaces it (set `enabled = false` to drop one). `replaceDefaults = true` at
+# the top ignores the built-in rules entirely.
+#
+# Matching: bundleID / appName / role / subrole / category are case-insensitive globs (`*`, `?`,
+# `|` for alternatives, leading `!` negates). titleRegex is an ICU regex with search semantics; the
+# rules below are anchored (^...$) because Hyprland matches the whole title. Rules run in order,
+# later rules override earlier ones field by field, and a rule with `[rule.match] tag = "x"` only
+# applies to windows tagged "x" by an earlier rule (so the tag definitions come last, as in rules.lua).
+# Linux classes (Hyprland "class") are kept next to their Mac bundle ids as harmless examples.
+#
+# Not rules here (handled elsewhere):
+#   - rules.lua workspace rules w[tv1]s[false] and f[1]s[false] (gaps_out 20 for a single window)
+#     are the layout engine's wm.gapsOutSingle.
+#   - rules.lua "opacity <windowOpacity> override" for every non-fullscreen window is wm.windowOpacity.
+#   - rules.lua "center every floating window" is the layout engine's floating placement.
+#   - fusion360.exe no_blur has no Mac equivalent (blur is per window only in Enhanced mode).
+#   - rules.lua layer rules (fade/popin animations for shell layers) belong to the shell.
+
+# ---------------------------------------------------------------------------------------------
+# Global rules
+# ---------------------------------------------------------------------------------------------
+# rules.lua picture-in-picture: move "(monitor_w*0.98-window_w) (monitor_h*0.97-window_h)", pin,
+# float, keep_aspect_ratio. "pip" = that bottom-right corner; SUPER+ALT+Backslash does the same.
+[[rule]]
+id = "pip"
+[rule.match]
+titleRegex = "^Picture(-| )in(-| )[Pp]icture$"
+[rule.effects]
+float = true
+move = "pip"
+pin = true
+keepAspectRatio = true
+
+# ---------------------------------------------------------------------------------------------
+# Tagging rules
+# ---------------------------------------------------------------------------------------------
+# rules.lua tagged_rule(opaque_tag, { "foot", "equibop", "org.quickshell", "feh|imv|swappy",
+# "krita|gimp|inkscape|darktable", "resolve|kdenlive|shotcut", "blender|godot" }, "class").
+[[rule]]
+id = "tag-opaque-linux-apps"
+[rule.match]
+appName = "foot|equibop|org.quickshell|feh|imv|swappy|krita|gimp*|inkscape|darktable|*resolve*|kdenlive|shotcut|blender|godot*"
+[rule.effects]
+tag = "opaque"
+
+# Mac image viewers / video players (spec 4.5): mpv, VLC, Preview, IINA, QuickTime, Photos, plus the
+# Mac bundles of the Linux editors above.
+[[rule]]
+id = "tag-opaque-mac-media"
+[rule.match]
+bundleID = "io.mpv|mpv|org.videolan.vlc|com.apple.Preview|com.colliderli.iina|com.apple.QuickTimePlayerX|com.apple.Photos|org.gimp.GIMP*|org.inkscape.Inkscape|org.kde.krita|org.blenderfoundation.blender|org.godotengine.godot|com.blackmagic-design.DaVinciResolve*|org.kde.kdenlive|org.shotcut.Shotcut"
+[rule.effects]
+tag = "opaque"
+
+# Windows the WM detects as video playback (extraTags "video") are opaque too.
+[[rule]]
+id = "tag-opaque-video"
+[rule.match]
+tag = "video"
+[rule.effects]
+tag = "opaque"
+
+# rules.lua tagged_rule(float_tag, { "guifetch", "yad|zenity", "wev", "org.gnome.FileRoller|file-roller",
+# "blueman-manager", "com.github.GradienceTeam.Gradience", "feh|imv|swappy", "org.quickshell" }, "class").
+[[rule]]
+id = "tag-float-linux-apps"
+[rule.match]
+appName = "guifetch|yad|zenity|wev|org.gnome.FileRoller|file-roller|blueman-manager|com.github.GradienceTeam.Gradience|feh|imv|swappy|org.quickshell"
+[rule.effects]
+tag = "float"
+
+# rules.lua float titles: "File (Operation|Upload)( Progress)?" (file manager progress windows).
+[[rule]]
+id = "tag-float-progress-titles"
+[rule.match]
+titleRegex = "^File (Operation|Upload)( Progress)?$"
+[rule.effects]
+tag = "float"
+
+# rules.lua float titles: ".* Properties" (file properties).
+[[rule]]
+id = "tag-float-properties-titles"
+[rule.match]
+titleRegex = "^.* Properties$"
+[rule.effects]
+tag = "float"
+
+# rules.lua float titles: 'Rename ".*"' (file renaming).
+[[rule]]
+id = "tag-float-rename-titles"
+[rule.match]
+titleRegex = "^Rename \".*\"$"
+[rule.effects]
+tag = "float"
+
+# 60% x 70% floaters. rules.lua: "(Select|Open)( a)? (File|Folder)(s)?" (file dialogs).
+[[rule]]
+id = "tag-60-70-file-dialog-titles"
+[rule.match]
+titleRegex = "^(Select|Open)( a)? (File|Folder)(s)?$"
+[rule.effects]
+tag = "float_60_70"
+
+# rules.lua: "Save As" (save dialogs).
+[[rule]]
+id = "tag-60-70-save-as"
+[rule.match]
+titleRegex = "^Save As$"
+[rule.effects]
+tag = "float_60_70"
+
+# rules.lua: "Library" ("I don't remember what this matches..."). Disabled on Mac because Finder
+# titles the ~/Library folder window "Library".
+[[rule]]
+id = "tag-60-70-library"
+enabled = false
+[rule.match]
+titleRegex = "^Library$"
+[rule.effects]
+tag = "float_60_70"
+
+# Mac open/save panels (AXDialog subrole): "Open", "Open File", "Save", "Save As", "Choose Files".
+[[rule]]
+id = "tag-60-70-mac-file-dialogs"
+[rule.match]
+titleRegex = "^(Open( File)?|Save( As)?|Choose Files?|Select (File|Folder)s?)$"
+subrole = "AXDialog"
+[rule.effects]
+tag = "float_60_70"
+
+# rules.lua: { title = "(Save|Export) Image", class = "gimp" }.
+[[rule]]
+id = "tag-60-70-gimp-dialogs"
+[rule.match]
+appName = "gimp*"
+titleRegex = "^(Save|Export) Image$"
+[rule.effects]
+tag = "float_60_70"
+
+# rules.lua: { title = "Blender File View", class = "blender" }.
+[[rule]]
+id = "tag-60-70-blender-file-view"
+[rule.match]
+appName = "blender"
+titleRegex = "^Blender File View$"
+[rule.effects]
+tag = "float_60_70"
+
+# rules.lua: "org.pulseaudio.pavucontrol|com.saivert.pwvucontrol", "yad-icon-browser" (class).
+[[rule]]
+id = "tag-60-70-audio-control"
+[rule.match]
+appName = "org.pulseaudio.pavucontrol|com.saivert.pwvucontrol|pavucontrol|pwvucontrol|yad-icon-browser"
+[rule.effects]
+tag = "float_60_70"
+
+# 70% x 80% floaters. rules.lua: "org.gnome.Settings"; spec 4.5 adds qt5ct/qt6ct/nm-connection-editor.
+[[rule]]
+id = "tag-70-80-settings-apps"
+[rule.match]
+appName = "org.gnome.Settings|qt5ct|qt6ct|nm-connection-editor"
+[rule.effects]
+tag = "float_70_80"
+
+# System Settings and the Caelestia Settings app.
+[[rule]]
+id = "tag-70-80-mac-settings"
+[rule.match]
+bundleID = "com.apple.systempreferences|com.caelestia.mac.settings"
+[rule.effects]
+tag = "float_70_80"
+
+# Spec 4.5: "Settings"-titled windows (and "Preferences").
+[[rule]]
+id = "tag-70-80-settings-titles"
+[rule.match]
+titleRegex = "^(Settings|Preferences)$"
+[rule.effects]
+tag = "float_70_80"
+
+# 50% x 60% floaters. rules.lua: "nwg-look", "system-config-printer"; spec 4.5 adds blueman and
+# gnome-calculator.
+[[rule]]
+id = "tag-50-60-utility-apps"
+[rule.match]
+appName = "nwg-look|system-config-printer|blueman*|gnome-calculator"
+[rule.effects]
+tag = "float_50_60"
+
+# Calculator and Activity Monitor.
+[[rule]]
+id = "tag-50-60-mac-utilities"
+[rule.match]
+bundleID = "com.apple.calculator|com.apple.ActivityMonitor"
+[rule.effects]
+tag = "float_50_60"
+
+# Games. Mac: LSApplicationCategoryType public.app-category.games / public.app-category.*-games.
+[[rule]]
+id = "tag-game-category"
+[rule.match]
+category = "public.app-category.games|public.app-category.*-games"
+[rule.effects]
+tag = "game"
+
+# rules.lua tagged_rule(game_tag, { "steam_app_[0-9]+", "steam_app_default", "gamescope" }, "class").
+[[rule]]
+id = "tag-game-linux-classes"
+[rule.match]
+appName = "steam_app_*|gamescope"
+[rule.effects]
+tag = "game"
+
+# Popups (rules.lua xwl_popup): XWayland popups titled "win[0-9]+".
+[[rule]]
+id = "tag-popup-xwayland-titles"
+[rule.match]
+titleRegex = "^win[0-9]+$"
+[rule.effects]
+tag = "popup"
+
+# Mac mapping (spec 4.5): any window whose AXSubrole is not AXStandardWindow (menus, tooltips,
+# AXFloatingWindow, untitled utility windows). The WM never tiles these anyway; the rule tags them.
+[[rule]]
+id = "tag-popup-nonstandard"
+[rule.match]
+subrole = "!AXStandardWindow"
+[rule.effects]
+tag = "popup"
+
+# rules.lua: tagged_rule(xwl_popup_tag, { { class = "steam", title = "" } }).
+[[rule]]
+id = "tag-popup-steam-untitled"
+[rule.match]
+appName = "steam"
+titleRegex = "^$"
+[rule.effects]
+tag = "popup"
+
+# Special workspaces. rules.lua: btop -> system_monitor; on Mac btop runs in a kitty window
+# (`kitty --class btop -e btop`, see wm.specialWorkspaces.sysmon).
+[[rule]]
+id = "tag-sysmon-btop"
+[rule.match]
+bundleID = "net.kovidgoyal.kitty*"
+titleRegex = "^btop"
+[rule.effects]
+tag = "sysmon"
+
+# A standalone btop app, if any.
+[[rule]]
+id = "tag-sysmon-btop-app"
+[rule.match]
+appName = "btop"
+[rule.effects]
+tag = "sysmon"
+
+# rules.lua music_player: "feishin|Supersonic|Plexamp", "Spotify", "Cider",
+# "com.github.th-ch.youtube-music|com-maxrave-simpmusic-MainKt" (class) + "Spotify|Spotify Free" (title).
+[[rule]]
+id = "tag-music-apps"
+[rule.match]
+bundleID = "com.spotify.client|com.apple.Music|com.github.th-ch.youtube-music|*feishin*|*supersonic*|*plexamp*|*cider*|*simpmusic*"
+[rule.effects]
+tag = "music"
+
+# Same players by app name (covers bundles whose id we do not know).
+[[rule]]
+id = "tag-music-app-names"
+[rule.match]
+appName = "Spotify|Spotify Free|feishin|Supersonic|Plexamp|Cider|YouTube Music|com.github.th-ch.youtube-music|com-maxrave-simpmusic-MainKt"
+[rule.effects]
+tag = "music"
+
+# rules.lua communication_app: "discord|equibop|vesktop", "whatsapp" (class); Mac adds Messages and Telegram.
+[[rule]]
+id = "tag-communication-apps"
+[rule.match]
+bundleID = "com.hnc.Discord|com.apple.MobileSMS|net.whatsapp.WhatsApp|ru.keepcoder.Telegram|org.telegram.desktop|*vesktop*|*equibop*"
+[rule.effects]
+tag = "communication"
+
+# Same apps by name.
+[[rule]]
+id = "tag-communication-app-names"
+[rule.match]
+appName = "discord|equibop|vesktop|whatsapp|Telegram|Messages"
+[rule.effects]
+tag = "communication"
+
+# rules.lua todo_app: "todoist" (class); Mac adds Reminders and Things.
+[[rule]]
+id = "tag-todo-apps"
+[rule.match]
+bundleID = "com.todoist.mac.Todoist|com.apple.reminders|com.culturedcode.ThingsMac"
+[rule.effects]
+tag = "todo"
+
+# Same apps by name.
+[[rule]]
+id = "tag-todo-app-names"
+[rule.match]
+appName = "todoist|Things|Reminders"
+[rule.effects]
+tag = "todo"
+
+# ---------------------------------------------------------------------------------------------
+# Per-app rules
+# ---------------------------------------------------------------------------------------------
+# rules.lua: tagged_rule(float_tag, { { class = "steam", title = "Friends List" } }).
+[[rule]]
+id = "steam-friends-list"
+[rule.match]
+appName = "steam"
+titleRegex = "^Friends List$"
+[rule.effects]
+tag = "float"
+
+# rules.lua: { match = { class = "ueberzugpp_.*" }, float = true, no_initial_focus = true }.
+[[rule]]
+id = "ueberzugpp"
+[rule.match]
+appName = "ueberzugpp_*"
+[rule.effects]
+float = true
+noInitialFocus = true
+
+# rules.lua Minecraft launcher consoles: { class = "com-atlauncher-App", title = "ATLauncher Console" }.
+[[rule]]
+id = "atlauncher-console"
+[rule.match]
+appName = "com-atlauncher-App|ATLauncher"
+titleRegex = "^ATLauncher Console$"
+[rule.effects]
+tag = "float"
+
+# rules.lua: { class = "PandoraLauncher", title = "Minecraft Game Output" }.
+[[rule]]
+id = "pandora-launcher-console"
+[rule.match]
+appName = "PandoraLauncher"
+titleRegex = "^Minecraft Game Output$"
+[rule.effects]
+tag = "float"
+
+# execs.lua resizer: fn.resizer(win, match_class("Bitwarden", true), 20, 54, float_center) -> the
+# native app (bundle com.bitwarden.desktop; Linux class "Bitwarden").
+[[rule]]
+id = "bitwarden-app"
+[rule.match]
+bundleID = "com.bitwarden.desktop"
+[rule.effects]
+float = true
+center = true
+sizeW = 0.2
+sizeH = 0.54
+
+# execs.lua: match_title("^Extension: %(Bitwarden Password Manager%) %- Bitwarden") (Firefox).
+[[rule]]
+id = "bitwarden-firefox-extension"
+[rule.match]
+titleRegex = '^Extension: \(Bitwarden Password Manager\) - Bitwarden'
+[rule.effects]
+float = true
+center = true
+sizeW = 0.2
+sizeH = 0.54
+
+# execs.lua: match_class("nngceckbapebfimnlniiiahkandclblb", true) (Chromium extension window; on
+# Mac the id is part of the PWA/extension bundle id).
+[[rule]]
+id = "bitwarden-chromium-extension"
+[rule.match]
+bundleID = "*nngceckbapebfimnlniiiahkandclblb*"
+[rule.effects]
+float = true
+center = true
+sizeW = 0.2
+sizeH = 0.54
+
+# ---------------------------------------------------------------------------------------------
+# Tag definitions (rules.lua create_tag; must come after every use of a tag)
+# ---------------------------------------------------------------------------------------------
+# create_tag(opaque_tag, { opaque = true }).
+[[rule]]
+id = "tag-opaque"
+[rule.match]
+tag = "opaque"
+[rule.effects]
+opacity = 1.0
+
+# create_tag(float_tag, { float = true }).
+[[rule]]
+id = "tag-float"
+[rule.match]
+tag = "float"
+[rule.effects]
+float = true
+
+# create_tag(float_50_60_tag, { float, size = "(monitor_w*0.5) (monitor_h*0.6)", center }).
+[[rule]]
+id = "tag-float-50-60"
+[rule.match]
+tag = "float_50_60"
+[rule.effects]
+float = true
+center = true
+sizeW = 0.5
+sizeH = 0.6
+
+# create_tag(float_60_70_tag, { float, size = "(monitor_w*0.6) (monitor_h*0.7)", center }).
+[[rule]]
+id = "tag-float-60-70"
+[rule.match]
+tag = "float_60_70"
+[rule.effects]
+float = true
+center = true
+sizeW = 0.6
+sizeH = 0.7
+
+# create_tag(float_70_80_tag, { float, size = "(monitor_w*0.7) (monitor_h*0.8)", center }).
+[[rule]]
+id = "tag-float-70-80"
+[rule.match]
+tag = "float_70_80"
+[rule.effects]
+float = true
+center = true
+sizeW = 0.7
+sizeH = 0.8
+
+# create_tag(game_tag, { opaque = true, immediate = true, idle_inhibit = "always" }): opaque, keep the
+# display awake while focused, no WM animation ("immediate" = tearing allowed on Linux).
+[[rule]]
+id = "tag-game"
+[rule.match]
+tag = "game"
+[rule.effects]
+opacity = 1.0
+noAnim = true
+idleInhibit = true
+
+# create_tag(xwl_popup_tag, { no_dim, no_shadow, no_blur, opaque, rounding = math.min(10, windowRounding) }).
+# Mac: no border overlay, never steals focus, no animation, opaque, rounding 10 (wm.popupRounding).
+[[rule]]
+id = "tag-popup"
+[rule.match]
+tag = "popup"
+[rule.effects]
+opacity = 1.0
+noBorder = true
+rounding = 10.0
+noAnim = true
+noFocus = true
+
+# create_tag(system_monitor_tag, { workspace = "special:sysmon" }).
+[[rule]]
+id = "tag-sysmon"
+[rule.match]
+tag = "sysmon"
+[rule.effects]
+workspace = "special:sysmon"
+
+# create_tag(music_player_tag, { workspace = "special:music" }).
+[[rule]]
+id = "tag-music"
+[rule.match]
+tag = "music"
+[rule.effects]
+workspace = "special:music"
+
+# create_tag(communication_app_tag, { workspace = "special:communication" }).
+[[rule]]
+id = "tag-communication"
+[rule.match]
+tag = "communication"
+[rule.effects]
+workspace = "special:communication"
+
+# create_tag(todo_app_tag, { workspace = "special:todo" }).
+[[rule]]
+id = "tag-todo"
+[rule.match]
+tag = "todo"
+[rule.effects]
+workspace = "special:todo"

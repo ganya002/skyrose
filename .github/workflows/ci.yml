@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      - name: Toolchain
+        run: |
+          echo "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin" >> "$GITHUB_PATH"
+          swift --version
+      - name: Resolve
+        run: swift package resolve
+      - name: Build (debug)
+        run: swift build
+      - name: Unit tests (Core, Layout, IPC, Platform pure parts)
+        run: swift test --parallel --filter 'CaelestiaCoreTests|CaelestiaLayoutTests|CaelestiaIPCTests|CaelestiaPlatformTests|CaelestiaServicesTests'
+      - name: Keybind docs are up to date
+        run: |
+          swift run gen-keybind-docs /tmp/KEYBINDS.md
+          diff -q /tmp/KEYBINDS.md docs/KEYBINDS.md
+      - name: Release build + bundle (ad-hoc signed on CI)
+        run: scripts/build.sh --no-sign
+      - name: Shell script syntax
+        run: for f in scripts/*.sh; do bash -n "$f"; done

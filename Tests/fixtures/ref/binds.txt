@@ -1,0 +1,1684 @@
+bind
+	flags: release
+	modmask: 64
+	submap: 
+	key: SUPER_L
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 14
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: Space
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 15
+
+bind
+	flags: 
+	modmask: 12
+	submap: 
+	key: Delete
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 18
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: N
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 21
+
+bind
+	flags: locked
+	modmask: 12
+	submap: 
+	key: C
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 24
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: K
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 27
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: L
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 30
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: L
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060e3de0
+	arg: 31
+
+bind
+	flags: release
+	modmask: 69
+	submap: 
+	key: R
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 34
+
+bind
+	flags: release
+	modmask: 76
+	submap: 
+	key: R
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 37
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 1
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060e8d00
+	arg: 38
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 1
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060e8eb0
+	arg: 39
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 1
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060e9780
+	arg: 40
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 1
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060e9d10
+	arg: 41
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 1
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ea4d0
+	arg: 42
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 2
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eaa00
+	arg: 43
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 2
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eabd0
+	arg: 44
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 2
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eb4a0
+	arg: 45
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 2
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eba30
+	arg: 46
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 2
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ebfa0
+	arg: 47
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 3
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ec4d0
+	arg: 48
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 3
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ec6a0
+	arg: 49
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 3
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ecf70
+	arg: 50
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 3
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ed500
+	arg: 51
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 3
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eda70
+	arg: 52
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 4
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060edfa0
+	arg: 53
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 4
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ee170
+	arg: 54
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 4
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eea40
+	arg: 55
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 4
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060eefd0
+	arg: 56
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 4
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060ef540
+	arg: 57
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 5
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060efa70
+	arg: 58
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 5
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060efc40
+	arg: 59
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 5
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f0510
+	arg: 60
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 5
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f0aa0
+	arg: 61
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 5
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f1010
+	arg: 62
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 6
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f1540
+	arg: 63
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 6
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f1710
+	arg: 64
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 6
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f1fe0
+	arg: 65
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 6
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f2570
+	arg: 66
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 6
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f2ae0
+	arg: 67
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 7
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f3010
+	arg: 68
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 7
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f31e0
+	arg: 69
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 7
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f3ab0
+	arg: 70
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 7
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f4040
+	arg: 71
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 7
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f45b0
+	arg: 72
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 8
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f4ae0
+	arg: 73
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 8
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f4cb0
+	arg: 74
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 8
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f5a10
+	arg: 75
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 8
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f5fa0
+	arg: 76
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 8
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f6510
+	arg: 77
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 9
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f6a40
+	arg: 78
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 9
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f6c10
+	arg: 79
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 9
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f74e0
+	arg: 80
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 9
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f7a70
+	arg: 81
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 9
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f7fe0
+	arg: 82
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: 0
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f8510
+	arg: 83
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: 0
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f86e0
+	arg: 84
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: 0
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f8fb0
+	arg: 85
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: 0
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f9540
+	arg: 86
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: 0
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b060f9ab0
+	arg: 87
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: mouse_up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 90
+
+bind
+	flags: repeat
+	modmask: 68
+	submap: 
+	key: Left
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 91
+
+bind
+	flags: repeat
+	modmask: 64
+	submap: 
+	key: Page_Up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 92
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: mouse_down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 95
+
+bind
+	flags: repeat
+	modmask: 68
+	submap: 
+	key: Right
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 96
+
+bind
+	flags: repeat
+	modmask: 64
+	submap: 
+	key: Page_Down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 97
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: mouse_up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 100
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: mouse_down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 103
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: mouse_down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 106
+
+bind
+	flags: repeat
+	modmask: 72
+	submap: 
+	key: Page_Down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 107
+
+bind
+	flags: repeat
+	modmask: 69
+	submap: 
+	key: Right
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 108
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: mouse_up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 111
+
+bind
+	flags: repeat
+	modmask: 72
+	submap: 
+	key: Page_Up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 112
+
+bind
+	flags: repeat
+	modmask: 69
+	submap: 
+	key: Left
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 113
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: S
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 116
+
+bind
+	flags: 
+	modmask: 69
+	submap: 
+	key: Up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 117
+
+bind
+	flags: 
+	modmask: 69
+	submap: 
+	key: Down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 120
+
+bind
+	flags: repeat
+	modmask: 8
+	submap: 
+	key: TAB
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(cycle_next)
+	arg: 123
+
+bind
+	flags: repeat
+	modmask: 9
+	submap: 
+	key: TAB
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(cycle_next)
+	arg: 126
+
+bind
+	flags: repeat
+	modmask: 12
+	submap: 
+	key: TAB
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(next)
+	arg: 129
+
+bind
+	flags: repeat
+	modmask: 13
+	submap: 
+	key: TAB
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(prev)
+	arg: 132
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: Comma
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(toggle)
+	arg: 135
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: U
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 138
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: Comma
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(lock)
+	arg: 141
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: left
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 144
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: left
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 147
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: right
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 150
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: right
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 153
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 156
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 159
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(focus)
+	arg: 162
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(move)
+	arg: 165
+
+bind
+	flags: repeat
+	modmask: 64
+	submap: 
+	key: Minus
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b061043d0
+	arg: 166
+
+bind
+	flags: repeat
+	modmask: 72
+	submap: 
+	key: Left
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b061043d0
+	arg: 167
+
+bind
+	flags: repeat
+	modmask: 64
+	submap: 
+	key: Equal
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06104c00
+	arg: 168
+
+bind
+	flags: repeat
+	modmask: 72
+	submap: 
+	key: Right
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06104c00
+	arg: 169
+
+bind
+	flags: repeat
+	modmask: 65
+	submap: 
+	key: Minus
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06105420
+	arg: 170
+
+bind
+	flags: repeat
+	modmask: 72
+	submap: 
+	key: Up
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06105420
+	arg: 171
+
+bind
+	flags: repeat
+	modmask: 65
+	submap: 
+	key: Equal
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06105c60
+	arg: 172
+
+bind
+	flags: repeat
+	modmask: 72
+	submap: 
+	key: Down
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06105c60
+	arg: 173
+
+bind
+	flags: mouse
+	modmask: 64
+	submap: 
+	key: Z
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(drag)
+	arg: 176
+
+bind
+	flags: mouse
+	modmask: 64
+	submap: 
+	key: mouse:272
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(drag)
+	arg: 177
+
+bind
+	flags: mouse
+	modmask: 64
+	submap: 
+	key: X
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(resize)
+	arg: 180
+
+bind
+	flags: mouse
+	modmask: 64
+	submap: 
+	key: mouse:273
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(resize)
+	arg: 181
+
+bind
+	flags: 
+	modmask: 68
+	submap: 
+	key: Backslash
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(center)
+	arg: 184
+
+bind
+	flags: 
+	modmask: 76
+	submap: 
+	key: Backslash
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b061079e0
+	arg: 185
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: Backslash
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06107ec0
+	arg: 186
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: P
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(pin)
+	arg: 189
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: F
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(fullscreen)
+	arg: 192
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: F
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(fullscreen)
+	arg: 195
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: Space
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(float)
+	arg: 198
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: Q
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(close)
+	arg: 201
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: S
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b061098a0
+	arg: 202
+
+bind
+	flags: 
+	modmask: 5
+	submap: 
+	key: Escape
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b06109d40
+	arg: 203
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: M
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b0610a580
+	arg: 204
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: D
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b0610a6c0
+	arg: 205
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: R
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: function: 0x557b0610ab70
+	arg: 206
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: T
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 209
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: W
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 212
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: C
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 215
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: E
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 218
+
+bind
+	flags: 
+	modmask: 12
+	submap: 
+	key: V
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 221
+
+bind
+	flags: locked
+	modmask: 1
+	submap: 
+	key: Print
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 224
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: S
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 227
+
+bind
+	flags: 
+	modmask: 0
+	submap: 
+	key: Print
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 230
+
+bind
+	flags: 
+	modmask: 12
+	submap: 
+	key: R
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 233
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: R
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 236
+
+bind
+	flags: 
+	modmask: 73
+	submap: 
+	key: R
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 239
+
+bind
+	flags: 
+	modmask: 65
+	submap: 
+	key: C
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 242
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86MonBrightnessUp
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 245
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86MonBrightnessDown
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 248
+
+bind
+	flags: locked
+	modmask: 68
+	submap: 
+	key: Space
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 251
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioPlay
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 252
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioPause
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 253
+
+bind
+	flags: locked
+	modmask: 68
+	submap: 
+	key: Equal
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 256
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioNext
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 257
+
+bind
+	flags: locked
+	modmask: 68
+	submap: 
+	key: Minus
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 260
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioPrev
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 261
+
+bind
+	flags: locked
+	modmask: 68
+	submap: 
+	key: Backspace
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 264
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioStop
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 265
+
+bind
+	flags: locked
+	modmask: 65
+	submap: 
+	key: M
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 268
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioMute
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 269
+
+bind
+	flags: locked
+	modmask: 0
+	submap: 
+	key: XF86AudioMicMute
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 272
+
+bind
+	flags: locked, repeat
+	modmask: 0
+	submap: 
+	key: XF86AudioRaiseVolume
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 275
+
+bind
+	flags: locked, repeat
+	modmask: 0
+	submap: 
+	key: XF86AudioLowerVolume
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 278
+
+bind
+	flags: locked
+	modmask: 65
+	submap: 
+	key: L
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 281
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: V
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 284
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: V
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 287
+
+bind
+	flags: 
+	modmask: 64
+	submap: 
+	key: Period
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 290
+
+bind
+	flags: locked
+	modmask: 13
+	submap: 
+	key: V
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 293
+
+bind
+	flags: 
+	modmask: 72
+	submap: 
+	key: F12
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(exec_cmd)
+	arg: 296
+
+bind
+	flags: locked, release, non_consuming, ignore_mods
+	modmask: 0
+	submap: 
+	key: Caps_Lock
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 276
+
+bind
+	flags: locked, release, non_consuming, ignore_mods
+	modmask: 0
+	submap: 
+	key: Num_Lock
+	keycode: 0
+	catchall: false
+	description: 
+	dispatcher: HL.Dispatcher(global)
+	arg: 280
+
+

@@ -1,0 +1,283 @@
+animations:
+
+	name: specialWorkspaceOut
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: workspacesIn
+		overridden: 1
+		bezier: snappy
+		enabled: 1
+		speed: 3.20
+		style: slide
+
+	name: layersIn
+		overridden: 1
+		bezier: emphasizedDecel
+		enabled: 1
+		speed: 4.00
+		style: slide
+
+	name: fadeDpms
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: windowsMove
+		overridden: 1
+		bezier: spring:riko
+		enabled: 1
+		speed: 3.20
+		style: 
+
+	name: fadeGlow
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: zoomFactor
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: shadowangle
+		overridden: 1
+		bezier: default
+		enabled: 0
+		speed: 1.00
+		style: 
+
+	name: specialWorkspace
+		overridden: 1
+		bezier: specialWorkSwitch
+		enabled: 1
+		speed: 3.20
+		style: slidefadevert 15%
+
+	name: glowangle
+		overridden: 1
+		bezier: default
+		enabled: 0
+		speed: 1.00
+		style: 
+
+	name: fadeSwitch
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: borderangle
+		overridden: 1
+		bezier: default
+		enabled: 0
+		speed: 1.00
+		style: 
+
+	name: fadeOut
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fade
+		overridden: 1
+		bezier: standard
+		enabled: 1
+		speed: 4.80
+		style: 
+
+	name: border
+		overridden: 1
+		bezier: standard
+		enabled: 1
+		speed: 4.80
+		style: 
+
+	name: specialWorkspaceIn
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: workspaces
+		overridden: 1
+		bezier: snappy
+		enabled: 1
+		speed: 3.20
+		style: slide
+
+	name: global
+		overridden: 1
+		bezier: default
+		enabled: 1
+		speed: 8.00
+		style: 
+
+	name: __internal_fadeCTM
+		overridden: 1
+		bezier: linear
+		enabled: 1
+		speed: 5.00
+		style: 
+
+	name: workspacesOut
+		overridden: 1
+		bezier: snappy
+		enabled: 1
+		speed: 3.20
+		style: slide
+
+	name: layersOut
+		overridden: 1
+		bezier: emphasizedAccel
+		enabled: 1
+		speed: 3.20
+		style: slide
+
+	name: windowsIn
+		overridden: 1
+		bezier: spring:riko
+		enabled: 1
+		speed: 3.20
+		style: popin 80%
+
+	name: windowsOut
+		overridden: 1
+		bezier: emphasizedAccel
+		enabled: 1
+		speed: 2.40
+		style: 
+
+	name: layers
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadeIn
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadePopups
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadeShadow
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadeLayers
+		overridden: 1
+		bezier: standard
+		enabled: 1
+		speed: 4.00
+		style: 
+
+	name: windows
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadeLayersIn
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadeLayersOut
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadeDim
+		overridden: 1
+		bezier: standard
+		enabled: 1
+		speed: 4.80
+		style: 
+
+	name: fadePopupsIn
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: monitorAdded
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+
+	name: fadePopupsOut
+		overridden: 0
+		bezier: 
+		enabled: -1
+		speed: 0.00
+		style: 
+beziers:
+
+	name: emphasizedDecel
+		X0: 0.05
+		Y0: 0.70
+		X1: 0.10
+		Y1: 1.00
+	name: snappy
+		X0: 0.05
+		Y0: 0.90
+		X1: 0.10
+		Y1: 1.05
+	name: standard
+		X0: 0.20
+		Y0: 0.00
+		X1: 0.00
+		Y1: 1.00
+	name: emphasizedAccel
+		X0: 0.30
+		Y0: 0.00
+		X1: 0.80
+		Y1: 0.15
+	name: specialWorkSwitch
+		X0: 0.05
+		Y0: 0.70
+		X1: 0.10
+		Y1: 1.00
+	name: linear
+		X0: 0.00
+		Y0: 0.00
+		X1: 1.00
+		Y1: 1.00
+	name: default
+		X0: 0.00
+		Y0: 0.75
+		X1: 0.15
+		Y1: 1.00

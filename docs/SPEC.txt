@@ -1,0 +1,1285 @@
+CAELESTIA FOR MAC: MASTER BUILD PROMPT
+A port of Gabby's Arch Linux + Hyprland + Caelestia desktop to macOS (Apple Silicon)
+=====================================================================================
+
+HOW TO USE THIS PROMPT
+----------------------
+This prompt is sent once. Treat it as the full specification. Every number, color, keybind
+and rule you need is written out below, so you can build the whole thing even if no other
+files are attached. When the files listed in section 14 are attached, use them to check
+your work, especially the screenshots and binds.txt. If this prompt and an attached file
+disagree, follow the precedence rules in 0.4.
+
+Work in phases (section 11). Each phase ends with something that builds, runs, and can be
+tested. Do not leave stubs or TODOs in shipped code paths. When something truly cannot work
+on macOS, say so in docs/LIMITATIONS.md and ship the closest honest substitute. Never fake a
+feature.
+
+
+=====================================================================================
+0. CONTEXT AND GOAL
+=====================================================================================
+
+0.1 Who this is for
+Gabby is an 18-year-old student. Her main machine is an Arch Linux desktop running Hyprland
+(Lua config) with the Caelestia shell (Quickshell/QML), on a Samsung C49RG9x 5120x1440 @
+119.97 Hz super-ultrawide (output DP-2, scale 1, NVIDIA GPU). Her laptop is a school-issued
+MacBook Air M4 with 16 GB RAM. She has an admin account, and the laptop is not MDM-enrolled.
+The person running this prompt is her friend, who wrote CatWM (a macOS tiling window
+manager).
+
+0.2 Goal
+Make any Mac behave and look as close as possible to her Arch setup, so her muscle memory
+carries over unchanged: same keybinds (with Super mapped to a Mac key), same tiling behavior,
+gaps, borders, corner radii, colors, panels, launcher, and animation feel. It must work on
+ANY Apple Silicon Mac running a recent macOS: target macOS 14 Sonoma, 15 Sequoia and 26
+Tahoe, minimum deployment target macOS 14. Never hard-code her machine, screen size,
+username or paths.
+
+0.3 Product name and components
+Working name: "Caelestia for Mac" (bundle prefix com.caelestia.mac; the friend may rename).
+  - CaelestiaWM        : window-manager daemon (agent app, no Dock icon)
+  - CaelestiaShell     : bar, panels, OSDs, wallpaper, launcher (same process as the WM or
+                         a second process; justify the choice in DESIGN.md)
+  - Caelestia Settings : the settings app
+  - caelestia (CLI)    : IPC client, like `hyprctl` + `caelestia` on Linux
+  - CaelestiaSA        : OPTIONAL scripting addition for Enhanced (SIP-partly-off) mode
+
+0.4 Precedence when sources disagree
+  1. Gabby's own overrides (caelestia-config/hypr-vars.lua and hypr-user.lua) win.
+  2. Then the live runtime dumps (binds.txt, animations.txt, clients.json, monitors.json).
+  3. Then the base Caelestia files (hypr/variables.lua, hypr/hyprland/*.lua).
+  4. 06-clean-tiling-from-gabby.png is the visual truth for tiling. Screenshots 00 and
+     02-05 were taken mid-animation on the ultrawide and look messy (overlapping, half-
+     scaled windows). Do NOT copy their overlaps.
+
+0.5 Lessons from a failed attempt ("Riko WM")
+An earlier attempt failed with:
+  - black tiles (black or empty rectangles where windows or panels should be)
+  - ghost overlays (stale border/overlay windows left behind after a window moved, closed,
+    or changed workspace)
+  - constant flashing (retile loops: the WM reacted to its own move/resize events and kept
+    re-laying out)
+  - unused screen space (tiles not filling the usable area; wrong math on ultrawide or
+    notched screens; off-by-menu-bar errors)
+  - missing bar (bar not shown, shown behind windows, or on only one screen)
+Each has a named automated test in section 12.2. They are release blockers.
+
+
+=====================================================================================
+1. VISUAL DESIGN SPEC (from the screenshots and config)
+=====================================================================================
+
+1.1 What the screenshots show
+  - 01-empty / 06-clean-tiling: one workspace on the 5120x1440 ultrawide. On the left is a
+    tall window (the Grok Bot chat app, class "grok-bot", at 21,21, size 2533x1398). On the
+    right side is a dwindle split: kitty (class "kitty") windows, one large pane on top and
+    two smaller panes underneath, running fastfetch. Every window has a thin 1 px border in
+    light periwinkle blue (primary #bac5ee at ~90% alpha). Corners are rounded at 15 px.
+    Windows are slightly see-through (0.94) with strong blur, so a dark navy/indigo
+    wallpaper with a soft diagonal light beam shows through. The whole screen also has a
+    thin rounded frame (Caelestia's "border" layer) reserving 10 px on every edge
+    (monitors.json reserved = [10,10,10,10]).
+  - The colorful vertical icon column at the far left of the screenshots is the Grok Bot
+    app's OWN sidebar, not the shell bar. The Caelestia bar is not visible in normal
+    screenshots because shell.json sets bar.persistent = false: it is a LEFT vertical bar
+    that slides in when the pointer touches the left screen edge.
+  - 1-launcher: a bottom-center drawer rising from the bottom edge, about 600x560 pt at 1x,
+    corners ~25 px, surfaceContainer background. App rows: 32 px icon, name (~15 pt,
+    onSurface), description under it (~13 pt, onSurfaceVariant), e.g. "Firefox / Fast and
+    private browser", "kitty / Fast, feature-rich, GPU based terminal". Selected row = a
+    lighter rounded pill (surfaceContainerHigh, radius ~14). At the bottom: a pill search
+    field with a magnifier icon and the placeholder 'Type ">" for commands'.
+  - 1-dashboard: a drawer dropping from the TOP center, about 860x560 pt. Tabs across the
+    top with Material Symbols icons: Dashboard, Media, Performance, Weather; the active one
+    has a primary underline. The Dashboard tab grid:
+      * weather card (icon, "2°C", "Partly cloudy")
+      * user card (round avatar, distro-logo badge, a "Hyprland..." WM chip, an "up 15
+        hours, 11 min" uptime chip)
+      * vertical clock: hours / minutes / seconds stacked with dot separators, then "AM"
+        (showClockSeconds = true)
+      * month calendar "November 2026" with prev/next arrows. Today is marked with a
+        scalloped "cookie" shape in primary.
+      * three circular gauges (CPU, memory, storage) with progress arcs
+      * media card: cookie-shaped cover-art placeholder inside a progress arc, "No media"
+        title/artist/album, prev / play / next buttons, and a small "bongo cat" mascot
+    Cards are surfaceContainer at radius ~25 on a surface panel at the shell transparency.
+  - 1-sidebar: a tall drawer on the RIGHT edge, ~360 pt wide. At the top, "1 notification"
+    and a grouped notification card (app icon, app name "caelestia-shell", time "1d", count
+    badge, summary "Profile picture changed", body). A floating "clear all" button sits at
+    the bottom-right of the list. Below that are the Utilities cards.
+  - 1-utilities: bottom-right cluster:
+      * "Keep awake" card (coffee icon, "Normal power management", toggle switch)
+      * "Screen recorder" card ("Ready", a "Fullscreen" split button with dropdown, an
+        expandable "Recordings" list showing "No recordings found")
+      * "Quick toggles": Wi-Fi, Bluetooth, Mic, Settings, Game mode, Do-Not-Disturb as
+        rounded-square icon buttons. Active ones are filled with a primary tint.
+  - 1-session: a narrow vertical pill on the RIGHT edge, vertically centered, with stacked
+    rounded-square buttons: Log out, Power off, an animated character image, Hibernate
+    (download-circle icon), Reboot. Buttons ~80x80 px, radius ~18, surfaceContainer. The
+    focused one is lighter.
+  - 05-4-windows and 02-04: mid-animation frames where the newest window pops in at 80%
+    scale on top of a stale layout. They only show that windows animate.
+
+1.2 Color scheme (Material 3 dark, generated from the wallpaper; "current" scheme)
+Default theme "Caelestia Dynamic (dark)". Hex without alpha.
+  background #0d0e12  onBackground #e4e5f0  surface #0d0e12  surfaceDim #0d0e12
+  surfaceBright #2a2c34  surfaceContainerLowest #000000  surfaceContainerLow #121318
+  surfaceContainer #181920  surfaceContainerHigh #1e1f26  surfaceContainerHighest #23252e
+  onSurface #e4e5f0  surfaceVariant #23252e  onSurfaceVariant #a9aab5  outline #73757f
+  outlineVariant #464750  inverseSurface #faf8fe  inverseOnSurface #54555a
+  shadow #000000  scrim #000000  surfaceTint #bac5ee
+  primary #bac5ee  primaryDim #acb8e0  onPrimary #333f61  primaryContainer #465174
+  onPrimaryContainer #dbe2ff  inversePrimary #525e81  primaryFixed #c8d3fd
+  primaryFixedDim #bac5ee  onPrimaryFixed #293556  onPrimaryFixedVariant #465174
+  secondary #c1c6dd  secondaryDim #b3b8cf  onSecondary #3a4052  secondaryContainer #353b4d
+  onSecondaryContainer #b9bed5  secondaryFixed #dde2f9  secondaryFixedDim #cfd3eb
+  onSecondaryFixed #393f51  onSecondaryFixedVariant #555b6f
+  tertiary #f2deff  tertiaryDim #e8cdfd  onTertiary #604b73  tertiaryContainer #e8cdfd
+  onTertiaryContainer #57426a  tertiaryFixed #e8cdfd  tertiaryFixedDim #dabfee
+  onTertiaryFixed #433056  onTertiaryFixedVariant #614c74
+  error #fa746f  errorDim #c54d4a  onError #490006  errorContainer #871f21
+  onErrorContainer #ff9993
+  success #b5ccba  onSuccess #213528  successContainer #374b3e  onSuccessContainer #d1e9d6
+  Palette key colors: primary #6a769b, secondary #71768b, tertiary #856e98,
+    neutral #76767b, neutralVariant #757680, error #c84f4c
+  term0-15: #353434 #947dff #44def5 #ffdcf2 #90acd5 #a5a3ee #9bcefe #e8d3de
+            #ac9fa9 #ac9bff #89ecff #fff0f6 #b0c3db #bdb8f8 #bae0ff #ffffff
+  Catppuccin-named aliases: rosewater #f5eff9 flamingo #e4dff4 pink #dadaff mauve #b2bcff
+    red #b1abff maroon #beb8f0 peach #e0c2f9 yellow #ffecf3 green #c7e3ff teal #cce1ff
+    sky #c8dcff sapphire #aac8ff blue #a2bcff lavender #bdcbff text #e4e5f0
+    subtext1 #a9aab5 subtext0 #73757f overlay2 #64666f overlay1 #55575f overlay0 #474950
+    surface2 #393b41 surface1 #2b2d32 surface0 #1c1d22 base #0d0e12 mantle #0d0e12
+    crust #0c0d11
+  KDE-style accents: link #6286d0 visited #6d77dd negative #8872ff neutral #c794ff
+    positive #4ab0ff
+hypr/scheme/default.lua holds Caelestia's stock fallback scheme with the same role names.
+Ship it as a second built-in theme, "Caelestia Default", reading its values from the
+attached file.
+
+Derived decoration colors (rgba = hex + alpha byte):
+  Active window border   : primary #bac5ee, alpha 0xe6 (90%)
+  Inactive window border : onSurfaceVariant #a9aab5, alpha 0x11 (~7%)
+  Window shadow          : inversePrimary #525e81, alpha 0x10 (~6%), range 15, power 4
+  Desktop background     : surfaceContainer #181920 (when there's no wallpaper)
+  Group (tab) bar        : active primary @0xd4, inactive outline @0xd4, locked-active
+                           primary @0xd4, locked-inactive secondary @0xd4, text onPrimary,
+                           font JetBrains Mono NF 15, height 25, gradient rounding 5,
+                           gaps in/out 3, no indicator. Group borders = window borders.
+
+1.3 Dynamic color
+Caelestia regenerates the whole scheme from the wallpaper (Material You "tonal spot",
+dark). Implement it: pick the source color from the wallpaper (quantize + score, as in
+material-color-utilities), generate the tonal palettes, and map them to the roles above.
+Use a Swift port of material-color-utilities or a vetted SPM package with a compatible
+license. Also offer static themes (Caelestia Dynamic, Caelestia Default, Catppuccin Mocha
+from the kitty file), light/dark variant, and a manual accent override. A theme change
+re-colors the bar, panels, borders, the kitty theme file and the Settings app live, with no
+restart.
+
+1.4 Shell transparency and timing (shell.json)
+  appearance.transparency.enabled = true, base = 0.75 (panel/bar background alpha),
+  layers = 0.35 (inner card alpha over the panel)
+  appearance.anim.durations.scale = 0.8 (all shell animations run at 80% duration)
+Panels use a blur material (NSVisualEffectView, or a CABackdrop-style layer) behind a fill
+of surface at the base alpha, so they look like frosted glass in the scheme color, not
+stock macOS vibrancy grey.
+
+1.5 Geometry (variables.lua + Gabby's overrides)
+  gaps_in (between windows)        = 5 px (10 px between two neighbors)
+  gaps_out (window to screen edge) = 10 px
+  single-window gaps_out           = 20 px (workspace rules "w[tv1]s[false]" = exactly one
+                                     tiled visible window, and "f[1]s[false]" = one
+                                     fullscreen-flagged window, both on non-special ws)
+  gap between workspaces (slide)   = 20 px
+  border size                      = 1 px
+  window rounding                  = 15 px, rounding_power 2 (plain circular arc)
+  small popup rounding             = min(10, 15) = 10
+  window opacity                   = 0.94 for every non-fullscreen window ("override")
+  blur                             = on, size 10, passes 3 (Gabby's "glass" override; base
+                                     was 8 and 2), ignore_opacity on, new_optimizations on,
+                                     popups and input methods blurred, special workspace
+                                     NOT blurred, xray off
+  shadow                           = on, range 15, render power 4, color above
+  screen frame (Caelestia border)  = thin rounded frame, reserves 10 px per edge
+  misc: background_color = surfaceContainer, no logo/default wallpaper,
+        on_focus_under_fullscreen = 2 (opening/focusing a window un-fullscreens the
+        current fullscreen one), focus_on_activate = true
+Units: Hyprland px at scale 1 = macOS points. Settings has a "UI scale" multiplier (1.0).
+
+1.6 Typography
+Installed on Arch (fonts.txt): JetBrainsMono Nerd Font (NF, NFM, NFP families, all
+weights), CaskaydiaCove Nerd Font (NF, NFM, NFP), Inter, Inter Display, Inter Variable,
+Adwaita Sans/Mono, DejaVu, URW base-35 fonts. Caelestia's default shell fonts are Rubik
+(sans), CaskaydiaCove NF (mono) and Material Symbols Rounded (icons).
+Mac defaults (all configurable):
+  UI sans  : Rubik if installed, else Inter, else SF Pro
+  Mono     : JetBrainsMono Nerd Font (terminal), CaskaydiaCove NF (shell mono text)
+  Icons    : Material Symbols Rounded (variable font; FILL axis for active states)
+
+1.7 Cursor: Bibata-Modern-Classic (black fill, white outline, rounded), size 24. See 7.2.
+
+
+=====================================================================================
+2. ANIMATION SPEC
+=====================================================================================
+
+2.1 Speed to time: Hyprland "speed" is in deciseconds, so duration_ms = speed × 100
+(global speed 8 = 800 ms). Springs run until settled.
+
+2.2 Curves (cubic-bezier x1, y1, x2, y2)
+  default            0.00, 0.75, 0.15, 1.00
+  standard           0.20, 0.00, 0.00, 1.00
+  emphasizedDecel    0.05, 0.70, 0.10, 1.00
+  emphasizedAccel    0.30, 0.00, 0.80, 0.15
+  specialWorkSwitch  0.05, 0.70, 0.10, 1.00
+  snappy             0.05, 0.90, 0.10, 1.05  (Gabby's; slight overshoot)
+  linear             0, 0, 1, 1
+  spring "riko"      mass 1, stiffness 180, damping 20 (Gabby's; damping ratio ≈ 0.745,
+                     slightly underdamped, a small overshoot)
+
+2.3 Effective animation table (animations.txt = live state; wins over animations.lua)
+  global              default, 800 ms
+  windowsIn           spring riko, style "popin 80%" (scale up from 80% + fade in)
+  windowsMove         spring riko (all tiling moves/resizes)
+  windowsOut          emphasizedAccel, 240 ms (scale down + fade)
+  workspaces/In/Out   snappy, 320 ms, style "slide" (horizontal, 20 px gap between
+                      outgoing and incoming workspace)
+  specialWorkspace    specialWorkSwitch, 320 ms, "slidefadevert 15%" (vertical slide of
+                      15% of height plus fade)
+  layersIn            emphasizedDecel, 400 ms, slide (shell panels in)
+  layersOut           emphasizedAccel, 320 ms, slide
+  fadeLayers          standard, 400 ms
+  fade, fadeDim, border  standard, 480 ms
+  borderangle, glowangle, shadowangle: disabled
+  Layer rules: launcher = popin 80% + blur; caelestia drawers/background = fade;
+  picker / selection / logout / freeze = fade; border-exclusion and area-picker = no anim.
+  animate_manual_resizes = false and animate_mouse_windowdragging = false: mouse drags and
+  resizes track the pointer 1:1, unanimated.
+(animations.lua in the base config has windowsIn emphasizedDecel 400, windowsMove standard
+480, workspaces standard 400. Gabby's hypr-user.lua overrides them as above. Keep both as
+selectable presets: "Gabby (springy)" default, "Caelestia stock".)
+Shell (QML) animations: Material 3 durations × 0.8: small 200→160 ms, normal 400→320 ms,
+large 600→480 ms, extraLarge 1000→800 ms, with the emphasized/standard curves.
+
+2.4 Rules
+  - All curves and the spring live in one Motion module and are unit-tested on samples.
+  - Respect Accessibility > Reduce Motion (switch to short fades).
+  - Settings exposes per-animation enable/curve/speed and a global multiplier.
+  - In Standard mode, real windows cannot be animated smoothly (each AX setFrame is a
+    synchronous IPC round-trip into the app). See 4.2.
+
+
+=====================================================================================
+3. KEYBINDS
+=====================================================================================
+
+3.1 Modifier mapping (decision)
+Linux SUPER -> Left Option (⌥L) by default.
+Linux ALT   -> Left Command (⌘L).
+Linux CTRL  -> Control (⌃).
+Linux SHIFT -> Shift (⇧).
+Only the LEFT Option and LEFT Command keys act as WM modifiers. Right Option keeps working
+normally, so Norwegian characters typed with Option (æ ø å ≈ « » @ £ $ { } [ ] | \ and so
+on) still work on her Norwegian ("no") layout. Right Command stays a normal ⌘. Tell the
+left and right keys apart with NSEvent/CGEvent device-dependent flag bits
+(NX_DEVICELALTKEYMASK 0x20, NX_DEVICERALTKEYMASK 0x40, NX_DEVICELCMDKEYMASK 0x08,
+NX_DEVICERCMDKEYMASK 0x10).
+Presets in Settings (one click; each preset is just a different modifier map in the
+keymap file):
+  A. "Option is Super" (default): Super=⌥L, Alt=⌘L
+  B. "Caps Lock is Hyper": Caps Lock becomes Super through a user-level `hidutil
+     property --set` UserKeyMapping (Caps -> F18, which the WM treats as Super). It is
+     reversible, needs no root, and is re-applied at login by our agent (hidutil mappings
+     reset on reboot). Alt=⌥L.
+  C. "Command is Super": Super=⌘L, Alt=⌥L (for people coming from other Mac WMs)
+  D. Custom: pick any physical key for each Linux modifier.
+A Super TAP with no other key (Linux "SUPER + SUPER_L" with the release flag) opens the
+launcher. Detect it as: Super down, then Super up within 300 ms (configurable), with no
+other key or mouse button pressed in between. Never fire it during a ⌥-click, a ⌥-drag, or
+while typing an Option character with the left key.
+
+3.2 Single source of truth: keymap file
+All binds live in ONE file: ~/.config/caelestia-mac/keymap.toml (shipped default in
+Resources/keymap.default.toml). The WM, Settings app, cheat-sheet overlay (Super+K "show
+panels" equivalent), conflict checker, and docs/KEYBINDS.md (generated at build time) all
+read it. No bind is hard-coded anywhere else; a test fails the build if one is.
+Format (example):
+  [modifiers]
+  super = "lopt"
+  alt   = "lcmd"
+  ctrl  = "ctrl"
+  shift = "shift"
+  [[bind]]
+  id      = "ws.focus.1"
+  keys    = ["SUPER + 1"]
+  action  = "workspace.focus"
+  args    = { index = 1 }
+  flags   = []            # any of: release, repeat, locked, mouse
+  linux   = "SUPER + 1"   # original Hyprland bind, for the mapping doc
+Flags mean the same as in Hyprland: release = fire on key-up; repeat = auto-repeat while
+held (use her repeat delay 250 ms and rate 35/s); locked = also works on the lock screen
+(media/volume/brightness only, where macOS allows it); mouse = drag bind.
+Hot reload: watching the file re-applies binds within 200 ms. Parse errors show an OSD and
+keep the last good map.
+
+3.3 Conflict checker (`caelestia keys check`, also run live in Settings and at startup)
+It must report:
+  1. Duplicate binds inside the keymap (same chord, two actions).
+  2. Clashes with macOS system shortcuts, read from
+     ~/Library/Preferences/com.apple.symbolichotkeys.plist (Mission Control ⌃↑, Spaces
+     ⌃←/⌃→, ⌃1-9 "Switch to Desktop N", Spotlight ⌘Space, input source ⌃Space and
+     ⌃⌥Space, screenshots ⇧⌘3/4/5, Show Desktop, Launchpad, Notification Center,
+     Accessibility shortcuts), plus fixed ones that can't be overridden (⌘Tab, ⌘⇧Q,
+     ⌃⌘Q lock, ⌥⌘Esc force quit, Power-button chords).
+  3. Clashes with common app shortcuts (⌘Q/W/T/C/V/X/Z/S/F/,/.) when Alt=⌘L, with a
+     warning that the WM will swallow that chord in every app.
+  4. Option-character clashes: for preset A, list each ⌥L+letter bind and the Norwegian
+     character it hides when typed with the LEFT Option (e.g. ⌥L+Q = "•" is lost, typing
+     it with Right Option still works).
+  5. Keys a MacBook lacks (Print, Page Up/Down, Insert, Num Lock, XF86 keys). Each must
+     have a Mac alternative chord in the keymap (shown in 3.4).
+Output: a table with severity (error / warn / info) and a suggested fix. Settings shows it
+with a "Fix" button for each item. For system-shortcut clashes, the fix offers to turn the
+macOS shortcut off through symbolichotkeys after backing up the plist (section 10.4), never
+silently.
+
+3.4 Full bind table (all 153 bind entries in binds.json, grouped into 84 numbered rows;
+    Gabby's overrides applied)
+Notation: S = Super (⌥L), A = Alt (⌘L), C = Ctrl, Sh = Shift. "Mac default" is what ships
+in keymap.default.toml under preset A.
+
+-- Shell --
+ 1  S (tap, release)            launcher toggle                       Mac: ⌥L tap
+ 2  S+Space                     launcher toggle                       Mac: ⌥L+Space
+ 3  C+A+Delete                  session menu                          Mac: ⌃⌘⌫ (forward
+                                                                       Delete = fn⌫, also bound)
+ 4  S+N                         sidebar (notifications+utilities)     Mac: ⌥L+N
+ 5  C+A+C (locked)              clear notifications                   Mac: ⌃⌘C
+ 6  S+K                         show all panels                       Mac: ⌥L+K
+ 7  S+L                         lock screen                           Mac: ⌥L+L
+ 8  S+A+L                       restore lock (restart shell + lock)   Mac: ⌥L⌘L+L
+ 9  S+C+Sh+R (release)          kill shell                            Mac: ⌥L⌃⇧R
+10  S+A+C+R (release)           restart shell                         Mac: ⌥L⌘⌃R
+-- Workspaces (N = 1..9, 0 = 10) --
+11-20  S+N                      focus workspace N                     Mac: ⌥L+N
+21-30  S+A+N                    move window to ws N (and follow)      Mac: ⌥L⌘+N
+31-40  S+C+N                    focus ws group N (ws 10·(N-1)+current) Mac: ⌥L⌃+N
+41-50  S+A+C+N                  move window to ws group N             Mac: ⌥L⌘⌃+N
+51-60  S+Sh+N                   move window to ws N silently          Mac: ⌥L⇧+N
+       (The original rows for these were grouped by digit; 50 binds total.)
+61  S+scroll down / S+C+Right / S+PageDown (repeat)  next workspace   Mac: ⌥L+scroll,
+                                                                       ⌥L⌃→, ⌥L+fn↓
+62  S+scroll up / S+C+Left / S+PageUp (repeat)       previous ws      Mac: ⌥L+scroll,
+                                                                       ⌥L⌃←, ⌥L+fn↑
+63  S+C+scroll down              next ws group (+10)                  Mac: ⌥L⌃+scroll
+64  S+C+scroll up                previous ws group (-10)              Mac: ⌥L⌃+scroll
+65  S+A+scroll down / S+A+PageDown / S+C+Sh+Right   move window to next ws
+                                                                       Mac: same chords
+66  S+A+scroll up / S+A+PageUp / S+C+Sh+Left        move window to prev ws
+67  S+A+S / S+C+Sh+Up           move window to special workspace      Mac: ⌥L⌘S, ⌥L⌃⇧↑
+68  S+C+Sh+Down                 move window out of special (to e+0)   Mac: ⌥L⌃⇧↓
+-- Window cycling and groups --
+69  A+Tab (repeat)              cycle to next window                  Mac: ⌘L+Tab is the
+     macOS app switcher, which we do NOT steal by default. Default Mac chord: ⌥L+Tab
+     (setting "Take over ⌘Tab", off by default).
+70  A+Sh+Tab                    cycle previous                        Mac: ⌥L⇧Tab
+71  C+A+Tab                     next window in group (tab)            Mac: ⌃⌥L+Tab
+72  C+Sh+A+Tab                  previous in group                     Mac: ⌃⌥L⇧Tab
+73  S+Comma                     toggle group                          Mac: ⌥L+,
+74  S+U                         move window out of group              Mac: ⌥L+U
+75  S+Sh+Comma                  lock active group                     Mac: ⌥L⇧,
+-- Focus / move / resize --
+76  S+arrows                    focus in direction                    Mac: ⌥L+arrows
+77  S+Sh+arrows                 move (swap) window in direction       Mac: ⌥L⇧+arrows
+78  S+Minus / S+A+Left (repeat)     width -10                         Mac: same
+    S+Equal / S+A+Right (repeat)    width +10
+    S+Sh+Minus / S+A+Up (repeat)    height -10
+    S+Sh+Equal / S+A+Down (repeat)  height +10
+    NOTE: on Norwegian layout the physical keys are "+" (right of 0) and "-" (right of
+    period). Bind by key CODE (kVK_ANSI_Minus/Equal positions), not by character, and show
+    the characters in the cheat sheet.
+79  S+Z or S+left-drag (mouse)  drag window                           Mac: ⌥L+Z hold, or
+                                                                       ⌥L+drag anywhere
+80  S+X or S+right-drag (mouse) resize window                         Mac: ⌥L+X hold, or
+                                                                       ⌥L+right-drag /
+                                                                       ⌥L+two-finger-click drag
+81  C+S+Backslash               center floating window                Mac: ⌥L⌃+\ (by key
+                                                                       code: on "no" layout this
+                                                                       is the ' key next to Enter)
+    C+S+A+Backslash             normalize: float, resize to 55%x70% of screen, center
+    S+A+Backslash               picture-in-picture: float, move to PiP corner, pin
+82  S+P pin (show on all workspaces); S+F fullscreen (true, covers bar and gaps);
+    S+A+F maximize (fills the work area, keeps gaps and bar); S+A+Space toggle floating;
+    S+Q close window. Mac: ⌥L+P, ⌥L+F, ⌥L⌘F, ⌥L⌘Space, ⌥L+Q
+-- Special workspaces (scratchpads; toggle show/hide; spawn the app if it's not running) --
+83  S+S special:special | C+Sh+Esc sysmon (btop in kitty) | S+M music | S+D communication
+    | S+R todo. Mac: ⌥L+S, ⌃⇧⎋, ⌥L+M, ⌥L+D, ⌥L+R
+    Default apps on Mac (editable in Settings): sysmon = `kitty --class btop -e btop`
+    (offer to install btop via Homebrew; never auto-install), music = Spotify, else Apple
+    Music; communication = Discord, else Messages; todo = Todoist, else Reminders.
+-- Apps --
+84  S+T terminal (kitty) | S+W browser (firefox) | S+C editor (codium = VSCodium) |
+    S+E file manager (nautilus -> Finder) | C+A+V audio settings (pwvucontrol -> Sound
+    settings pane: x-apple.systempreferences:com.apple.Sound-Settings.extension)
+    Mac: ⌥L+T/W/C/E, ⌃⌘V
+-- Remaining binds (also in binds.json; numbered as they appear) --
+Capture (MacBooks have no Print key; macOS ⇧⌘3/4/5 stay untouched):
+ Print                  region screenshot (Gabby override)     Mac: ⌥L⇧4  (and F13 if an
+                                                                external keyboard has it)
+ Sh+Print               full-screen screenshot (locked)         Mac: ⌥L⇧3  (and ⇧F13)
+ S+Sh+S                 region screenshot on a frozen screen    Mac: ⌥L⇧S
+ C+A+R                  record screen                           Mac: ⌃⌘R
+ S+A+R                  record with sound                       Mac: ⌥L⌘R
+ S+A+Sh+R               record region                           Mac: ⌥L⌘⇧R
+ S+Sh+C                 color picker (copies hex)               Mac: ⌥L⇧C
+ (Base Caelestia's S+Sh+A+S region bind is replaced by Gabby's Print override; do not
+ ship it.)
+Media / volume / brightness (locked = also work on the lock screen where possible):
+ BrightnessUp/Down keys             brightness ±, with OSD       Mac: F1/F2 media keys
+ C+S+Space / Play / Pause           media play-pause             Mac: ⌃⌥L+Space, F8
+ C+S+Equal / Next                   media next                   Mac: ⌃⌥L+=, F9
+ C+S+Minus / Prev                   media previous               Mac: ⌃⌥L+-, F7
+ C+S+Backspace / Stop               media stop                   Mac: ⌃⌥L+⌫
+ S+Sh+M / Mute                      toggle output mute           Mac: ⌥L⇧M, F10
+ MicMute                            toggle mic mute              Mac: ⌥L⇧⌃M (no mic key on
+                                                                 most Macs; on M4 Air F5 is
+                                                                 Dictation, leave it)
+ VolumeUp/Down (repeat, locked)     volume ±10%, max 100%, unmute on change, with OSD
+                                                                 Mac: F12/F11
+ For the F-row media keys: let macOS handle the actual change and only show OUR OSD
+ instead of the system one where that's possible. If the stock HUD can't be suppressed
+ without private API, say so in LIMITATIONS.md and keep both.
+ Caps_Lock / Num_Lock (locked, release)  lock-key OSD ("Caps Lock on")   Mac: Caps Lock
+Session / utilities:
+ S+Sh+L (locked)        sleep (Linux: suspend-then-hibernate)   Mac: ⌥L⇧L -> `pmset
+                                                                sleepnow` (no root needed)
+ S+V                    clipboard history picker                Mac: ⌥L+V
+ S+A+V                  delete from clipboard history           Mac: ⌥L⌘V
+ C+Sh+A+V (locked)      type the latest clipboard item (0.5 s delay; for fields that
+                        block paste)                            Mac: ⌃⇧⌘V, sending CGEvent
+                                                                keystrokes; it needs
+                                                                Accessibility
+ S+Period               emoji picker                            Mac: ⌥L+. (our picker;
+                                                                macOS ⌃⌘Space stays free)
+ S+A+F12                send a test notification                Mac: ⌥L⌘F12
+Total: 153 entries in binds.json (84 rows above). Every one is in keymap.default.toml, and a unit test
+parses binds.json (shipped as a test fixture) and fails if any (modmask, key) pair has no
+mapped entry.
+
+3.5 Mouse and trackpad
+  - ⌥L+drag = move, ⌥L+right-drag = resize (Hyprland's mouse:272/273). Optional
+    "focus follows mouse" (Hyprland follow_mouse = 1 is the Caelestia default, so the Mac
+    default is ON with a 100 ms hover delay, so menus aren't lost). Settings toggle.
+  - Scroll with ⌥L = workspace next/prev. Use scrollFactor 0.3 and natural scrolling (her
+    input settings) to throttle: one workspace step per notch / per 60 px of continuous
+    scroll.
+  - Gestures (variables.lua: gestureFingers 3, gestureFingersMore 4): 4-finger
+    horizontal swipe = workspace prev/next; 3-finger swipe up/down = toggle special ws;
+    4-finger down = sleep. Hyprland tuning to copy: swipe distance 700 px, cancel ratio
+    0.15, min speed to force 5, direction lock on (threshold 10), swiping past the last
+    workspace creates a new one. Note: 3-finger up opens special ws, 3-finger down runs
+    the specialws toggle (closes it). macOS already uses 3/4-finger swipes for Spaces and Mission
+    Control, so these are OPT-IN. Settings explains which macOS trackpad gestures to turn
+    off first (links to the Trackpad pane), and reads raw touches only through public
+    NSEvent gesture/touch APIs, or the private MultitouchSupport framework only in
+    Enhanced mode, clearly labeled.
+  - Startup apps (execs.lua): keyring, polkit agent, cliphist watchers, `trash-empty 30`,
+    setcursor, geoclue, gammastep, mpris-proxy, `caelestia shell -d`. Mac equivalents:
+    clipboard history = our own NSPasteboard changeCount watcher (text + images, skip
+    items marked org.nspasteboard.ConcealedType/TransientType, so password managers are
+    not recorded; history kept in memory + optional encrypted-at-rest file, default 100
+    items); trash-empty 30 = Finder's "Remove items from Trash after 30 days" (tell the
+    user; don't change it); gammastep = Night Shift (link to it); keyring/polkit/
+    geoclue/mpris-proxy are not needed. Login item starts the WM + shell.
+  - Other input settings: touchpad disable_while_typing true (macOS does this already),
+    middle_click_paste true (Linux-only, skip), focus_on_close 1 (see 12.2), cursor
+    hotspot padding 1 (n/a), scroll_event_delay 0.
+  - Input defaults she uses, shown but NOT applied without consent: key repeat delay
+    250 ms / rate 35 per second (the closest macOS values are InitialKeyRepeat 15 ×15 ms =
+    225 ms and KeyRepeat 2 ×15 ms = 30 ms); offer them as an optional "Match Arch input"
+    toggle with backups.
+
+
+=====================================================================================
+4. WINDOW MANAGER
+=====================================================================================
+
+4.1 Two modes
+  STANDARD mode (default, SIP fully ON, public APIs only, AeroSpace-style)
+    - Window control through the Accessibility API (AXUIElement: kAXPositionAttribute,
+      kAXSizeAttribute, kAXMinimizedAttribute, kAXFocusedWindow, kAXRaise), plus
+      _AXUIElementGetWindow for the CGWindowID (a private but long-stable symbol that
+      AeroSpace, yabai and Rectangle all use; it needs no SIP change).
+    - Window discovery: NSWorkspace app notifications + AXObserver per app
+      (kAXWindowCreated, kAXUIElementDestroyed, kAXFocusedWindowChanged, kAXMoved,
+      kAXResized, kAXTitleChanged, kAXApplicationHidden/Shown) + CGWindowListCopyWindowInfo
+      to reconcile.
+    - Workspaces are VIRTUAL, all inside ONE macOS Space per display: windows on hidden
+      workspaces are moved off-screen (AeroSpace technique: park them so only 1 px stays
+      in the display's far bottom-right corner, or on the screen edge farthest from other
+      displays), and their frames are restored on switch. Native Spaces are left alone.
+      Tell the user to turn on "Displays have separate Spaces" and to turn OFF
+      "Automatically rearrange Spaces based on most recent use" (check and show this in
+      Settings; never change it without asking).
+    - Borders, shadows-as-borders and dim are drawn by OUR overlay windows (borderless
+      NSPanel, ignoresMouseEvents, level just above the target window via ordering
+      relative to its window number), like JankyBorders. Rounded to match the 15 px
+      radius, 1 px, active/inactive colors from 1.2.
+    - Opacity 0.94 and blur on OTHER apps' windows are NOT possible in Standard mode.
+      Panels we own get the full look.
+    - Animations: our overlays and shell animate at 60/120 fps. Real windows "snap" to
+      their final frame, with an optional "animated tiling" that sends interpolated AX
+      frames at ≤ 60 Hz for ≤ 200 ms, off by default because many apps lag.
+  ENHANCED mode (optional, needs SIP partly off, yabai-style)
+    - Loads CaelestiaSA (our scripting addition) into Dock.app, so we can use the
+      SkyLight/CGS private calls that need the Dock's connection: instant window move
+      without AX lag, real window opacity (0.94), per-window alpha fade, scale ("popin
+      80%") via transforms, window level (pin/always-on-top), sticky windows, real native
+      Space create/destroy/move, focus without raising, and shadow control.
+    - May reuse ideas from yabai (MIT) with attribution; do not copy GPL code.
+    - Requirements (explained in docs/ENHANCED_MODE.md, never done by our tool):
+        Apple Silicon: boot into Recovery (hold the power button) -> Options -> Utilities
+        -> Terminal -> `csrutil enable --without fs --without debug --without nvram`,
+        reboot, then in a normal Terminal run `sudo nvram boot-args=-arm64e_preview_abi`,
+        reboot.
+      Loading the SA needs root once per boot. Ship a sudoers drop-in TEMPLATE that the
+      user may install by hand, limited to the exact SA load binary path with its
+      SHA-256 checked. Our installer never writes sudoers itself, and never uses NOPASSWD
+      for anything else. The default is to prompt via an authorization dialog on each
+      boot.
+      Revert: Recovery -> `csrutil enable` (full), reboot; `sudo nvram -d boot-args`.
+    - Enhanced is never required. Every feature falls back to Standard when the SA isn't
+      loaded, which is detected at runtime with a handshake and a version check (the SA
+      must match the daemon build; otherwise refuse to use it and show a notice).
+    - Warn clearly: lowering SIP reduces security. On a school laptop, check the school's
+      rules first. macOS updates can break the SA until it's rebuilt.
+
+4.2 Honest capability table (put this in README and LIMITATIONS)
+ Feature                          Standard (SIP on)           Enhanced (SIP partly off)
+ Dwindle tiling, gaps, splits     yes                         yes
+ Workspaces 1-10 + special        yes (virtual, off-screen)   yes (virtual, or native
+                                                              Spaces option)
+ Instant workspace switch         ~fast; AX moves ~5-30 ms    instant (SkyLight batch)
+                                  per window, so many
+                                  windows take longer
+ Window borders                   overlay windows             overlay or SA-drawn
+ Rounded 15 px window corners     only via overlay mask       no (macOS draws its own
+                                  (can't clip other apps)     ~10 pt corners; Tahoe
+                                                              ~16 pt); document it
+ Window opacity 0.94              no                          yes
+ Window blur behind               no                          partial (SA can set
+                                                              background blur on some
+                                                              windows); document it
+ Open/close/move animations       overlays only; windows      yes (alpha, scale and
+                                  snap                        frame interpolation)
+ Special workspace slide-in       fade/slide of a snapshot    real windows slide
+                                  overlay, then snap
+ Pin (all workspaces)             yes (WM keeps it visible)   yes (sticky + level)
+ Always on top                    no (can't set other apps'   yes
+                                  window level)
+ Hide stock menu bar / Dock       yes (System Settings auto-  yes
+                                  hide; see 5.9)
+ Focus without raise              no                          yes
+ Fullscreen (true)                our "zoom" fullscreen fills the screen; native macOS
+                                  fullscreen opt-in per app
+ Mouse drag/resize with ⌥L        yes (event tap + AX)        yes, smoother
+ Trackpad gestures                public APIs only, limited   + MultitouchSupport
+ Secure input (password fields)   our hotkeys stop while another app has Secure Event
+                                  Input on (macOS rule, both modes); OSD explains it
+
+4.3 Dwindle layout (copy Hyprland behavior exactly)
+  - Binary tree per workspace. A new window splits the FOCUSED window's node (or the one
+    under the cursor). The split direction comes from the node's aspect ratio: split
+    horizontally (side by side) if width > height × 1.0 (split_width_multiplier 1.0),
+    else vertically.
+  - preserve_split = true: once a node has a direction, it keeps it when resized/moved.
+  - smart_split = false: do not pick the split side from the cursor position; the new
+    window goes right/bottom (force_split 0 = follow the mouse side only when smart_split
+    is on, so effectively right/bottom).
+  - smart_resizing = true: keyboard/mouse resize moves the nearest edges in the drag
+    direction.
+  - default_split_ratio 1.0 (50/50), the ratio range is 0.1-1.9 like Hyprland.
+  - Gaps: outer 10 on every side of the usable area (20 if it's the only tiled window);
+    inner 5 per window side (10 px between neighbors). Usable area = display frame minus
+    the shell's reserved zones (bar width when persistent, the 10 px screen frame) minus
+    the macOS menu bar/notch if it's not hidden. See 4.6 for the exact math.
+  - Golden test from clients.json (5120x1440, reserved 10 each side, two windows):
+    left = (21, 21, 2533x1398), right = (2566, 21, 2533x1398). Check: 10 frame + 10 gap +
+    1 border = 21; 2533 + 2 border + 10 inner = 2545 = 2566 - 21; height 1440 - 2×21 =
+    1398. Hyprland puts the border OUTSIDE the stored window size. On macOS the border is
+    an overlay drawn just outside the frame, so the same numbers hold: the window frame is
+    (21,21,2533,1398), and the overlay is (20,20,2535,1400). Encode exactly this as a unit
+    test, plus 1, 3 and 4-window cases, and the same cases on 1470x956 (M4 Air 13")
+    and 1710x1112 (Air 15").
+  - Float rules for dialogs/sheets/panels: AXRole/AXSubrole checks (AXDialog,
+    AXSystemDialog, AXFloatingWindow, sheets, popovers) are never tiled. Respect
+    windows that can't resize (no AXSize settable, or min == max size): float them,
+    centered.
+  - Minimum sizes: if an app's minimum size makes it not fit, keep the tree but clip it
+    to its min, centered in its slot, and never loop (see 12.2 retile-loop test).
+
+4.4 Workspaces
+  - 1-10 per Caelestia's group logic: "workspace N" means 10·(group-1)+N, and groups
+    (Ctrl+Super+N) give 10 more per group (Caelestia wsaction: focus/move/move_silent, with
+    "group" variants). Support groups up to at least 5 (50 workspaces) and say so.
+  - Workspaces are per display (Hyprland default: each workspace lives on one monitor;
+    focusing a workspace on another monitor moves focus there).
+  - Empty workspaces vanish from the bar unless shown as "always show 1-5" (the
+    Caelestia bar default: workspaces.shown 5). occupiedBg = false (Gabby).
+  - Special workspace(s): "special" plus named scratchpads sysmon, music, communication,
+    todo. They slide in vertically ("slidefadevert 15%") ABOVE the current workspace on
+    the focused display, dimmed backdrop, NOT blurred (blur.special false). Toggling off
+    slides them out. specialWsCloseAny = true (Gabby): closing via ⌥L+S works from any
+    special workspace (i.e. the toggle key hides whichever special is open).
+  - Workspace rules from rules.lua: gaps_out 20 when exactly one tiled window (w[tv1]
+    s[false]) or one fullscreen window (f[1]s[false]); this applies on non-special
+    workspaces only.
+  - Persistence: remember which app window (bundle id + title + AX identifier) was on
+    which workspace, and restore after WM restart; never lose windows. On quit/crash
+    restore every off-screen window to a visible on-screen frame (crash-safe: a
+    watchdog/launchd KeepAlive helper plus an on-disk journal of parked frames).
+
+4.5 Window rules (from hypr/hyprland/rules.lua; map Linux classes to Mac bundle ids)
+  - Opaque (opacity 1.0, never translucent even in Enhanced): foot, equibop, org.quickshell,
+    imv, swappy; image viewers and video players: mpv, vlc, Preview, IINA, QuickTime
+    (com.apple.QuickTimePlayerX), Photos, video/game tagged.
+  - Float + center: file-picker / open-save dialogs (xdg-desktop-portal-gtk, "Open File",
+    "Save As", "Choose Files") sized 60%x70% of the screen; settings apps (nwg-look,
+    qt5ct/6ct, pavucontrol/pwvucontrol, "Settings"-titled windows, nm-connection-editor,
+    System Settings, our Caelestia Settings) sized 70%x80%; utility apps (blueman,
+    gnome-calculator / Calculator, Activity Monitor) sized 50%x60%.
+  - Bitwarden (native app com.bitwarden.desktop, and the Firefox extension window titled
+    "Extension: (Bitwarden Password Manager) - Bitwarden", and the Chromium extension
+    class nngceckbapebfimnlniiiahkandclblb): float, resized to 20% x 54%
+    of the screen, centered (execs.lua "resizer").
+  - Picture-in-picture (title regex "Picture(-| )in(-| )[Pp]icture"): float, pin, keep
+    aspect ratio, initial move to (screen_w*0.98 - win_w, screen_h*0.97 - win_h), i.e.
+    the bottom-right corner. The S+A+Backslash bind does the same for any window.
+  - All floating windows are centered when they first appear.
+  - Misc floats from rules.lua: "File Operation/Upload Progress" windows, Steam "Friends
+    List", ueberzugpp (float, no initial focus), Minecraft launcher consoles. Port the
+    ones that exist on Mac; keep the rest as harmless examples in rules.toml.
+  - Game tag (Steam games, "steam_app_*" -> any app in the Games category
+    LSApplicationCategoryType public.app-category.*-games, plus a Settings list): opaque,
+    keep the display awake while focused (idle inhibit), and no WM animation on it.
+    Caelestia's separate Game mode toggle (5.6) turns animations/blur/gaps off globally.
+  - Special workspace assignments: btop -> special:sysmon; Spotify/Music/feishin ->
+    special:music; Discord/Vesktop/equibop/Messages/WhatsApp/Telegram ->
+    special:communication; Todoist/Reminders/Things -> special:todo.
+  - xwl_popup tag (XWayland popups: title "win[0-9]+" or empty title/class): no dim, no
+    shadow, no blur, opaque, rounding min(10, 15) = 10. Mac mapping: any window whose
+    AXSubrole is not AXStandardWindow (menus, tooltips, AXFloatingWindow, untitled
+    utility windows) is never tiled, gets no border overlay, and never steals focus.
+  - Game tag classes on Linux: steam_app_[0-9]+, steam_app_default, gamescope. Tag
+    effects: opaque, immediate (tearing allowed), idle inhibit always.
+  - Editable as TOML in ~/.config/caelestia-mac/rules.toml with match by bundle id,
+    app name, title regex, AXRole/AXSubrole; same fields as Hyprland windowrule (float,
+    size %, center, move, workspace, opacity, pin, noborder, norounding, nogaps, tag).
+
+4.6 Displays, usable area, multi-monitor
+  - Use NSScreen.frame / visibleFrame converted to one global top-left coordinate space
+    (AX uses top-left origin at the primary display's top-left; AppKit uses bottom-left.
+    Write ONE converter, unit-test it with displays left/right/above/below and with
+    negative origins). Most "unused space" bugs come from this.
+  - Usable area per display = frame − macOS menu bar height (only if the menu bar is
+    shown; on notched Macs the area above the safe area is never usable:
+    NSScreen.safeAreaInsets.top) − Dock (only if not auto-hidden) − our reserved zones:
+    screen frame 10 px each side, plus the bar width when the bar is persistent (left
+    edge). Recompute on NSApplication.didChangeScreenParametersNotification, Dock/menu-bar
+    auto-hide changes, and bar show/hide.
+  - Each display has its own workspace set; new displays get the next free workspace.
+    Unplugging moves that display's workspaces to the remaining display, keeping their
+    numbers (Hyprland behavior). Clamshell mode and sleep/wake must not lose windows.
+  - Per-display overrides (like caelestia-config/monitors/DP-2/shell.json): Settings can
+    set bar/gaps/scale per display by its stable id (CGDisplayCreateUUIDFromDisplayID).
+  - Focus monitor: ⌥L+arrows past the last window crosses to the neighboring display
+    (Hyprland movefocus behavior). Moving a window past the edge moves it to the next
+    display's workspace.
+  - Tested sizes: 1470x956 and 1710x1112 (Air), 1512x982 and 1728x1117 (Pro), 2560x1440
+    external, 5120x1440 ultrawide (her desktop monitor, if she ever plugs it in), plus
+    mixed scales (Retina laptop + 1x external).
+
+4.7 Animation inside the WM
+  - Workspace switch (Standard): slide a SNAPSHOT of the outgoing and incoming
+    workspaces (ScreenCaptureKit stills, needs Screen Recording; fallback without it: a
+    fast cross-fade of a solid surface-colored cover) horizontally with a 20 px gap,
+    snappy curve, 320 ms, then reveal the real windows already in place. Never leave the
+    snapshot up: hard timeout 600 ms and remove it on any input. No snapshot ever shows a
+    black frame: if a capture isn't ready within 1 frame, skip the effect.
+  - Window open: border overlay pops in from 80% with the riko spring; the real window
+    snaps (Standard) or scales (Enhanced).
+  - Window close: overlay fades/shrinks with emphasizedAccel 240 ms.
+  - Retiling: borders follow the riko spring; real windows get one final AX setFrame
+    (Standard), or frames are interpolated (Enhanced).
+  - Coalesce layout: at most ONE layout pass per runloop turn / display refresh
+    (CADisplayLink on macOS 14+), and changes caused by our own setFrame are tagged and
+    ignored (record expected frame + timestamp; ignore AX kAXMoved/kAXResized echoes that
+    match within 2 px for 250 ms).
+
+4.8 IPC and CLI (replaces hyprctl + caelestia CLI)
+  - Unix domain socket at ~/Library/Application Support/CaelestiaMac/ipc.sock, mode 0600,
+    JSON lines. CLI `caelestia`:
+      caelestia ws focus 3 | ws move 3 [--silent] | ws toggle-special [name]
+      caelestia window focus left | move left | float | fullscreen | pin | close | center
+      caelestia shell launcher|dashboard|sidebar|session|lock|showall|clear-notifs
+      caelestia shell -d / kill / restart
+      caelestia screenshot [region|freeze|full] ; caelestia record [-s] [-r]
+      caelestia clipboard [-d] ; caelestia emoji ; caelestia picker
+      caelestia scheme set <name> | wallpaper set <file> | wallpaper random
+      caelestia keys check | keys list | rules reload | config reload
+      caelestia query windows|workspaces|monitors|binds --json  (like hyprctl -j)
+      caelestia doctor   (permissions, mode, SIP status read-only, versions, conflicts)
+  - The Linux shell's IPC targets (ipc-commands.txt) map 1:1 to `caelestia shell <target>
+    <fn>`: toaster, brightness, wallpaper, nexus (settings), lock, notifs, picker,
+    gameMode, drawers (toggle/list), idleInhibitor, mpris (playPause/next/previous/
+    stop/list/getActive/play/pause), audio (cycleOutput), hypr (listSpecialWorkspaces,
+    cycleSpecialWorkspace(direction), refreshDevices). Full signatures: toaster
+    error/warn/info/success(title,message,icon); brightness set/get/getFor/setFor;
+    wallpaper set/get/list; nexus open; lock isLocked/lock/unlock; notifs
+    toggleDnd/isDndEnabled/clear/enableDnd/disableDnd; picker open/openFreeze/openClip/
+    openFreezeClip; gameMode and idleInhibitor toggle/enable/disable/isEnabled; drawers
+    toggle(name)/isOpen(name)/list. Keep the same names and argument types.
+  - query windows --json must output the same fields as clients.json where they make
+    sense (address->window id, at, size, workspace{id,name}, floating, pinned,
+    fullscreen, class->bundle id, title, pid, focusHistoryID) so tests compare against
+    the golden layout.
+
+
+=====================================================================================
+5. NATIVE SHELL (Swift + SwiftUI/AppKit; NOT Electron, NOT a web view)
+=====================================================================================
+Every panel is a borderless non-activating NSPanel (or a window at a level above normal
+windows, e.g. .statusBar / .popUpMenu as fits), on every display (configurable), visible on
+all Spaces (collectionBehavior .canJoinAllSpaces, .stationary, .fullScreenAuxiliary),
+excluded from our tiler, drawn with the scheme colors, the 0.75/0.35 transparency, and
+Material 3 motion at 0.8 speed. Drawers open from screen edges like Caelestia (sliding out
+of the screen frame, connected to it with concave "fillet" corners, as in the
+screenshots). Panels take key focus only while they need typing (launcher, search), then
+give focus back to the previous window.
+
+5.1 Screen frame ("border" layer)
+A click-through window per display, drawing the thin rounded frame (10 px band in surface
+at base transparency, inner corner radius = window rounding 15 + a bit) that Caelestia
+draws around the screen. It reserves 10 px each side (4.6). Toggle in Settings.
+
+5.2 Bar (left, vertical)
+  - Position LEFT edge, vertical, width ~48 pt. shell.json: persistent = false, i.e. it
+    auto-hides and slides in when the pointer touches the left edge (showOnHover). Mac
+    default: persistent = TRUE (a "missing bar" was a Riko complaint and macOS users
+    expect a bar); one Settings switch sets "Auto-hide like Arch". When persistent, it
+    reserves its width in the usable area; when auto-hidden it overlays and reserves 0.
+  - Top to bottom: distro/logo button (opens launcher; use an Apple-ish or Caelestia logo,
+    configurable), workspaces (pills 1..N; active = primary pill that stretches,
+    occupied = dot; occupiedBg false; show 5 by default; scroll to switch; click to focus;
+    special workspace indicator), active window title (rotated vertical text, app icon),
+    tray (no background; macOS has no public tray API for other apps' menu extras, so show
+    our own items plus an optional "menu-bar extras" button that reveals the system menu
+    bar briefly; document the limit), clock (vertical "HH / MM", no background), status
+    icons (shown: lock status (Caps), audio, network; hidden by default: mic, keyboard
+    layout, bluetooth, battery. On a laptop, battery defaults to ON on Mac; Gabby's
+    desktop had none), power button (opens session menu).
+  - Hover popouts for each status icon (Wi-Fi network list, volume slider + output device,
+    battery %, time remaining).
+  - Data sources (public APIs only): CoreWLAN (Wi-Fi SSID needs Location permission on
+    macOS 14+; fall back to "Connected" without it), CoreAudio (volume/mute/devices via
+    AudioObject), IOKit power sources (battery), IOBluetooth (state), TIS input sources
+    (keyboard layout), NSWorkspace (frontmost app).
+
+5.3 Launcher (⌥L tap / ⌥L+Space)
+  Bottom-center drawer as in the screenshot. Fuzzy search (fzf-like scoring over name,
+  bundle name, keywords, description = Spotlight kMDItemDescription or the app's
+  CFBundleGetInfoString / category) over /Applications, ~/Applications,
+  /System/Applications, /System/Applications/Utilities, with icons. Frequency-weighted
+  ranking. Prefix ">" for commands (Caelestia actions: >wallpaper, >scheme, >variant,
+  >transparency, >random, >lock, >sleep, >shutdown, >reboot, >logout, >settings), "=" or
+  plain math for a calculator. Emoji stay in the separate emoji picker (⌥L+.), as in
+  Caelestia. Up/down/Tab/Enter/Esc; ⌃J/⌃K also move. Max ~8 visible rows. Wallpaper
+  picker mode shows a horizontal strip of wallpaper thumbnails (">wallpaper").
+
+5.4 Dashboard (top-center drawer; opens on hover at the top edge and via IPC/⌥L+K)
+  Tabs: Dashboard, Media, Performance, Weather (as described in 1.1).
+  - Weather: Open-Meteo (no API key, Celsius, location from Settings: city name geocoded
+    with Open-Meteo geocoding, or CoreLocation if the user allows it).
+  - User card: avatar (from Settings, defaults to the macOS account picture), OS chip
+    ("macOS 15.x"), WM chip ("CaelestiaWM"), uptime (sysctl kern.boottime).
+  - Clock with seconds (showClockSeconds true), calendar (cookie shape for today;
+    scroll/arrow to change month).
+  - Gauges: CPU (host_processor_info deltas), memory (host_statistics64: used =
+    active + wired + compressed), storage (URLResourceKey volumeAvailableCapacityForImportantUsage).
+  - Media card: now-playing info. macOS 15.4+ restricts MediaRemote to entitled Apple
+    processes. Use the documented workaround that runs a helper through /usr/bin/perl
+    loading MediaRemote (as the open-source "mediaremote-adapter" does), or fall back to
+    AppleScript for Spotify and Music (needs Automation permission per app). Be honest in
+    LIMITATIONS.md about what shows. Controls send media keys (public NX_KEYTYPE events)
+    when no direct control works. Bongo cat animation in the corner (ship our own art).
+  - Media tab: big cover art, progress, lyrics not required. Performance tab: CPU/GPU
+    (GPU via IOKit "PerformanceStatistics" of the AGX accelerator where available),
+    memory, disk, network up/down graphs, temperature only if available without root
+    (otherwise hide it). Weather tab: hourly + 7-day forecast.
+
+5.5 Sidebar (right drawer; ⌥L+N, or hover the right edge)
+  - Notifications: macOS gives no public way to read other apps' notifications. Show
+    notifications from OUR components and from `caelestia notify` (CLI, so scripts can
+    post), grouped by app, with actions, time ("1d"), swipe/middle-click to dismiss, a
+    "clear all" button (⌃⌘C), and Do-Not-Disturb (our own DND, plus a deep link to macOS
+    Focus settings). Document the limit clearly; do not scrape the Notification Center
+    database.
+  - Utilities: Keep awake (IOPMAssertionCreateWithName
+    kIOPMAssertionTypePreventUserIdleDisplaySleep; status text "Normal power management"
+    / "Keeping awake"), Screen recorder (ScreenCaptureKit + AVAssetWriter, fullscreen /
+    region / window; optional system audio via SCStreamConfiguration.capturesAudio and mic
+    via AVCaptureDevice; saved to ~/Movies/Recordings; list of recordings with reveal and
+    delete-to-Trash), Quick toggles (Wi-Fi via CoreWLAN power on/off, Bluetooth via
+    deep link to Settings when a direct toggle needs private API, Mic mute (input device
+    mute via CoreAudio), Settings (opens Caelestia Settings), Game mode, DND).
+
+5.6 Game mode
+  Like Caelestia's gameMode IPC: turns off animations, blur, gaps, borders and shadows,
+  and pauses the wallpaper/dynamic effects. Toggle in quick toggles, IPC and CLI.
+
+5.7 Session menu (⌃⌘⌫; right edge vertical pill)
+  Buttons (from the screenshot, in order): Log out, Shut down, [animated image], Sleep
+  (Linux hibernate; on Mac: sleep), Restart. Up/down/Enter/Esc, mouse. Actions use
+  public routes, each with a confirm step: logout/shutdown/restart via
+  `osascript -e 'tell application "System Events" to log out'` etc. (Automation permission
+  for System Events), or the loginwindow Apple Events (kAELogOut, kAEShutDown,
+  kAERestart) with the "really?" variants, and sleep via `pmset sleepnow`. Never sudo.
+
+5.8 Lock screen
+  ⌥L+L locks using the public route (SACLockScreenImmediate is private; prefer
+  `pmset displaysleepnow` with "require password immediately", or the ⌃⌘Q system
+  shortcut via CGEvent), so the real macOS lock screen with Touch ID protects the
+  session. Do NOT build a custom lock screen that pretends to secure the machine; at
+  most draw a Caelestia-styled cover that appears with the macOS lock screen and is
+  purely cosmetic. Document this choice. (session_lock_xray in the config only affects
+  how Hyprland renders behind its lock; not needed.)
+
+5.9 OSDs and toasts
+  Volume, brightness, mic, Caps Lock / keyboard layout OSDs: a small pill sliding in from
+  the right edge (Caelestia style), auto-hide after ~1.5 s. Toasts (toaster IPC:
+  error/warn/info/success) top-right. Hide the stock volume/brightness HUD only if a
+  public method exists; otherwise document that both show.
+
+5.10 Wallpaper and dynamic colors
+  - Set wallpaper per display (NSWorkspace.setDesktopImageURL, backing up the old one
+    first, restored on uninstall). Optional "shell-drawn wallpaper" window at desktop
+    level for effects (parallax on workspace switch, like Caelestia).
+  - Wallpaper folder (~/Pictures/Wallpapers default), random/slideshow, picker in the
+    launcher. On change: regenerate the scheme (1.3) and update everything live.
+  - Ship a default wallpaper in the same mood as her current one (dark navy/indigo with a
+    soft diagonal light beam), made by us or CC0, so first launch looks right.
+
+5.11 Hiding the stock menu bar and Dock (reversible, user-consented)
+  First-run wizard step "Make it look like Arch":
+  - Menu bar: set "Automatically hide and show the menu bar: Always"
+    (`defaults write NSGlobalDomain _HIHideMenuBar -bool true`, then a notification so it
+    applies). macOS 26 has a different setting (Control Center > "Automatically hide and
+    show the menu bar"); detect the OS and use the right key, and verify.
+  - Dock: autohide true, autohide-delay 1000 (so it effectively never shows) OR a normal
+    autohide, user's choice; `killall Dock` to apply.
+  - Keep "Displays have separate Spaces" ON (4.1); never turn it off. Optional extra:
+    turn off "Click wallpaper to reveal desktop" (Sonoma+), with a backup.
+  - EVERY default we change is read first and saved to the backup file (10.4); uninstall
+    and the "Restore macOS look" button write them back (or delete the key if it didn't
+    exist).
+
+
+=====================================================================================
+6. KITTY
+=====================================================================================
+Ship ~/.config/kitty/kitty.conf for macOS (back up any existing file first; if one exists,
+offer "replace" or "add an include line"; never overwrite silently). Effective config
+(the noctalia include comes last, so it wins over the Catppuccin lines above it):
+  font_family JetBrainsMono Nerd Font ; font_size 13.0
+  window_padding_width 14
+  background_opacity 0.62 ; background_blur 1  (on macOS kitty blur works; use 20-30 if
+    1 looks too weak and say so in a comment, but default to her 1)
+  hide_window_decorations yes  (on macOS use "titlebar-only" if "yes" breaks resizing on
+    some versions; test it)
+  cursor_shape beam ; cursor_trail 3 ; cursor_trail_color #c4c5d6
+  confirm_os_window_close 0 ; enable_audio_bell no
+  tab_bar_style powerline ; tab_powerline_style slanted
+  Theme (themes/noctalia.conf): background #11131a foreground #e2e1ec cursor #e2e1ec
+    cursor_text_color #11131a selection_fg #c4c5d6 selection_bg #434654
+    url_color #b6c4ff active_border #b6c4ff inactive_border #434654
+    active_tab fg #00277f bg #b6c4ff ; inactive_tab fg #c4c5d6 bg #434654
+    color0 #434654 color1 #ffb4ab color2 #b6c4ff color3 #b7c4fd color4 #fcaaff
+    color5 #b6c4ff color6 #b7c4fd color7 #e2e1ec color8 #8e90a0 color9 #ffb4ab
+    color10 #b6c4ff color11 #b7c4fd color12 #fcaaff color13 #b6c4ff color14 #b7c4fd
+    color15 #e2e1ec
+  (kitty.conf also contains a Catppuccin Mocha block, fg #CDD6F4 bg #1E1E2E ...; keep it
+  as the optional "Catppuccin Mocha" theme.)
+  macOS additions: macos_option_as_alt left (so ⌥L works as Alt inside kitty only if
+  the user picks preset C; for preset A set macos_option_as_alt no, since ⌥L is Super and
+  the WM eats WM chords first), macos_quit_when_last_window_closed yes,
+  macos_show_window_title_in none.
+  Dynamic theme: the WM writes ~/.config/kitty/caelestia-theme.conf from the current
+  scheme (term0-15 -> color0-15, background = surface, foreground = onSurface) and reloads
+  running kittys with `kill -SIGUSR1` on kitty pids (kitty reloads config on SIGUSR1).
+  Offer "Noctalia (static)" or "Follow wallpaper".
+kitty install: if missing, show the official install command and the Homebrew cask
+(`brew install --cask kitty`) as text; never run a piped installer.
+fastfetch: optional; ship a config with the same look if she wants.
+
+
+=====================================================================================
+7. FONTS AND CURSOR
+=====================================================================================
+7.1 Fonts
+Needed: JetBrainsMono Nerd Font, CaskaydiaCove Nerd Font, Inter, Rubik, Material Symbols
+Rounded. Install per user into ~/Library/Fonts from pinned release URLs with SHA-256
+checks (Nerd Fonts GitHub releases, Google Fonts / rsms Inter releases), or via
+`brew install --cask font-jetbrains-mono-nerd-font font-caskaydia-cove-nerd-font
+font-inter font-rubik font-material-symbols` when Homebrew exists. List every font we
+installed in the install manifest so uninstall removes exactly those (ask first: "keep
+fonts?"). Bundle Material Symbols inside the app (Apache 2.0) so the shell never shows
+missing glyphs. Adwaita and DejaVu are not needed on Mac (fallbacks only).
+
+7.2 Cursor: Bibata-Modern-Classic
+macOS has no public API to replace the system cursor theme. Options:
+  1. (Default) Export a Mousecape-compatible .cape file. Convert the Xcursor files in
+     cursor/Bibata-Modern-Classic/cursors (145 entries, many are symlinks/aliases) with a
+     build-time tool: parse the Xcursor format (header "Xcur", TOC, image chunks type
+     0xfffd0002 with nominal size, width, height, xhot, yhot, delay, ARGB pixels), pick
+     sizes 24/48/72/96 (1x-4x), and map names to macOS cursor identifiers:
+       left_ptr/default -> com.apple.coregraphics.Arrow (and .ArrowCtx)
+       xterm/text -> com.apple.coregraphics.IBeam ; pointer/hand2 -> com.apple.cursor.13
+       (pointing hand) ; grab/openhand -> .cursor.11 ; grabbing/closedhand -> .cursor.12
+       wait/watch -> com.apple.coregraphics.Wait (animated frames: write the frame strip
+       and frame count/duration) ; progress/left_ptr_watch -> .cursor.4 (busy) ;
+       crosshair -> .cursor.7 ; not-allowed -> .cursor.3 ; copy -> .cursor.5 ;
+       alias -> .cursor.2 ; context-menu -> its contextual-menu id. Verify EVERY identifier
+       against Mousecape's documented list and include the full table in docs/CURSOR.md.
+       Resize cursors: ew/ns/nesw/nwse/col/row-resize and the edge/corner cursors ->
+       the matching com.apple.cursor.N windows resize ids.
+     Size 24 = macOS cursor size 1.0 (the cape's PointsWide/PointsHigh 32 with hotspot
+     scaled).
+  2. Tell the user how to apply it with Mousecape (open source; download from its GitHub
+     releases, or `brew install --cask mousecape`). Mousecape's helper uses private
+     CoreGraphics APIs but needs NO SIP change. Our tool never injects into other
+     processes for this.
+  3. Uninstall/reset: Mousecape "Reset" (or `defaults delete com.alexzielenski.Mousecape`
+     after backup), and the cape file is removed.
+  Also offer macOS's built-in Accessibility cursor size + color (outline white, fill
+  black is already the default) as the zero-install fallback.
+
+
+=====================================================================================
+8. CAELESTIA SETTINGS APP
+=====================================================================================
+A polished SwiftUI app (sidebar navigation like System Settings, drawn in the Caelestia
+scheme, with a light/dark toggle). It edits ~/.config/caelestia-mac/*.toml and applies
+changes live through IPC. Every page has "Reset to Gabby defaults" and "Reset to
+Caelestia stock". Pages:
+  1. Welcome / Status: mode (Standard / Enhanced and SA loaded or not), permissions with
+     live status and "Open System Settings" buttons, SIP status (read-only, `csrutil
+     status` output), version, "Run doctor".
+  2. Keybinds: searchable table from keymap.toml, record-a-chord editor, per-bind enable,
+     modifier presets (3.1), live conflict checker (3.3), "Export cheat sheet (PDF/PNG)".
+  3. Window manager: gaps in/out/single-window, border size and colors, rounding,
+     dwindle options (preserve_split, smart_split, smart_resizing, split ratio), focus
+     follows mouse, workspace count/groups, special workspace apps, animated tiling.
+  4. Rules: table editor for rules.toml with a "pick window" button (click a window to
+     fill bundle id/title/role) and a live "matches now" preview.
+  5. Appearance: theme (dynamic / static list), variant, accent override, transparency
+     base/layers, blur, fonts, UI scale, screen frame on/off, a live preview.
+  6. Animations: presets (Gabby springy / Caelestia stock / Reduced / Off), per-
+     animation curve/speed with a curve editor and a preview button, global multiplier.
+  7. Bar: persistent vs auto-hide, position (left default; right/top optional), which
+     status icons, workspaces shown, clock format, tray.
+  8. Panels: launcher (apps folders, ">" commands), dashboard (tabs, weather location,
+     units °C, seconds on clock), sidebar (notifications, utilities), session menu
+     (actions, confirmation), OSD position.
+  9. Wallpaper: folder, per-display, random/slideshow interval, dynamic color on/off.
+ 10. Displays: per-display overrides, test pattern that draws the usable area and gaps
+     (debug overlay), "Re-detect".
+ 11. Input: trackpad gestures opt-in (with which macOS gestures to turn off), scroll
+     factor, optional "Match Arch key repeat".
+ 12. macOS look: hide menu bar / Dock (5.11), each with "Restore".
+ 13. Terminal & fonts: kitty config install/update, theme follow, font install status.
+ 14. Cursor: export Bibata cape, instructions, reset.
+ 15. Enhanced mode: explanation, the capability table (4.2), step-by-step guide for
+     lowering SIP and reverting it (shown as text, with a copy button, never run by us),
+     SA status/load button.
+ 16. Backup & uninstall: list of every changed setting with its old value, "Restore
+     everything", "Uninstall Caelestia for Mac" (10.5), export a diagnostics zip (logs +
+     config, with no secrets, after showing the user what's in it).
+Quality bar: native controls, keyboard navigable, VoiceOver labels, no lag on typing
+(debounce writes 300 ms), and validation messages inline, not alerts.
+
+
+=====================================================================================
+9. ARCHITECTURE AND REPO LAYOUT
+=====================================================================================
+Language: Swift 5.10+/6 (strict concurrency where practical), SwiftUI + AppKit, Swift
+Package Manager + an Xcode project generated by XcodeGen or Tuist (so the build is
+scriptable), no Electron/web views. Optional small C/ObjC shims only for private symbols
+(_AXUIElementGetWindow, CGS/SkyLight in Enhanced mode) behind one module with weak
+linking and runtime checks.
+
+Processes:
+  - CaelestiaWM.app (LSUIElement agent): event tap (CGEventTap for hotkeys and ⌥L
+    mouse), AX observers, layout engine, border overlays, IPC server. Also hosts the
+    shell UI (bar/panels) unless you justify a split (a split lets the shell crash without
+    touching tiling; if split, CaelestiaShell.app talks to the WM over the same IPC).
+  - Caelestia Settings.app
+  - caelestia CLI (single static binary in the app bundle, symlinked to
+    ~/.local/bin/caelestia or /usr/local/bin with consent)
+  - CaelestiaSA (Enhanced only): a scripting addition bundle + loader.
+  - Login item via SMAppService.mainApp / .agent (macOS 13+); no LaunchDaemons running as
+    root.
+
+Modules (Swift packages):
+  Core        config models, TOML parsing (use a vetted package, e.g. TOMLKit), keymap,
+              rules, scheme, Motion (curves + spring), geometry (coordinate converter)
+  Layout      pure dwindle tree + workspace model; NO AppKit, fully unit-testable
+  Platform    AX wrapper, window discovery, event tap, displays, off-screen parking,
+              permissions (TCC checks), defaults backup
+  Enhanced    SA client protocol, capability probing
+  Overlay     borders, snapshots for workspace animation, debug overlay
+  Shell       bar, launcher, dashboard, sidebar, session, OSD, frame, wallpaper
+  Services    audio, network, battery, media, weather, recorder, clipboard history,
+              emoji, color picker, notifications
+  IPC         socket server/client, JSON schema
+  SettingsApp, CLI, Tests, UITests
+
+Repo:
+  caelestia-mac/
+    README.md  LICENSE  CHANGELOG.md
+    docs/ DESIGN.md  KEYBINDS.md (generated)  ARCH_TO_MAC.md  LIMITATIONS.md
+          ENHANCED_MODE.md  PERMISSIONS.md  UNINSTALL.md  CURSOR.md  TROUBLESHOOTING.md
+    Resources/ keymap.default.toml  rules.default.toml  config.default.toml
+               schemes/ (caelestia-dynamic-dark.toml from 1.2, caelestia-default.toml,
+               catppuccin-mocha.toml, noctalia.toml)  kitty/  wallpapers/  fonts.lock
+    Sources/ (modules above)
+    Tools/ xcursor2cape/  gen-keybind-docs/  binds-coverage/
+    Tests/ fixtures/ (binds.json, clients.json, monitors.json, animations.txt from the
+           attachments)
+    scripts/ build.sh  install.sh  uninstall.sh  sign-setup.sh  doctor.sh
+             make-dmg.sh (optional)
+
+Config precedence on Mac: built-in defaults < ~/.config/caelestia-mac/config.toml <
+per-display overrides. Same names as Caelestia where possible (gapsIn, gapsOut,
+windowRounding, borderSize, ...) so her Linux knowledge carries over.
+
+License: Caelestia shell is GPL-3.0. If you port its QML logic or assets (icons, bongo
+cat art, layouts) closely, the project must be GPL-3.0. Re-creating the look from
+scratch is fine under any license. Pick one, state it in README, and credit Caelestia,
+Hyprland, AeroSpace, yabai, JankyBorders, Mousecape and Bibata.
+
+
+=====================================================================================
+10. SAFETY RULES (hard requirements)
+=====================================================================================
+10.1 Never destructive: no `rm -rf` on user paths, no deleting user files (use the Trash
+     via NSWorkspace.recycle / FileManager.trashItem), no editing system files under
+     /System, /Library (except a user-approved sudoers template the user copies by hand
+     in Enhanced mode), no changes to SIP, NVRAM, boot args, firewall or MDM.
+10.2 No `curl | sh` or any piped remote script, in our scripts or our docs. Downloads are
+     pinned URLs + SHA-256 verified, or Homebrew. Our install script runs from a cloned
+     repo/DMG.
+10.3 No passwordless sudo, no sudo at all in Standard mode. install.sh and uninstall.sh
+     run as the normal user. Enhanced mode's SA load uses a native authorization prompt.
+10.4 Backups: before changing any `defaults` key, hidutil mapping, symbolichotkeys entry,
+     wallpaper, kitty config, login item or font, record {domain, key, old value or
+     "absent", new value, timestamp} in
+     ~/Library/Application Support/CaelestiaMac/backup.json (append-only journal, plus a
+     copy of the original plist file for symbolichotkeys). Restore writes exactly the old
+     values back and verifies them.
+10.5 Uninstall (one click in Settings, or `scripts/uninstall.sh`, or `caelestia
+     uninstall`): stop WM, restore every off-screen window to a visible frame, restore
+     every backup, remove hidutil mappings, remove the login item, unload the SA
+     (Enhanced), remove our apps/CLI/fonts we installed (ask about fonts and config),
+     move config to the Trash (not delete), print a report. After uninstall the Mac looks
+     and behaves like stock macOS. It must work even if the WM app is already deleted
+     (the script reads backup.json directly).
+10.6 No stored secrets: no passwords, tokens or API keys in config or logs. Weather uses
+     Open-Meteo (no key). Logs redact window titles by default (setting to include them
+     for debugging).
+10.7 Everything is reversible from a normal user session, without Recovery, except
+     reverting Enhanced mode's SIP change, which the user did by hand and the docs explain
+     how to undo.
+10.8 TCC permissions (PERMISSIONS.md and the first-run wizard explain each one, why it's
+     needed, what breaks without it, and how to revoke):
+       Accessibility (required): read and move windows, synthesize keys.
+       Input Monitoring (required for the event tap hotkeys, the ⌥L tap and ⌥L+drag;
+         check with CGPreflightListenEventAccess / request with CGRequestListenEventAccess).
+       Screen Recording (optional): workspace slide snapshots, screenshots, screen
+         recorder, color picker, window titles of other apps on macOS 14+. Without it:
+         fades instead of slides, and the capture tools are disabled.
+       Automation (optional, per app): System Events for log out/restart, Spotify/Music
+         for media.
+       Location (optional): Wi-Fi SSID, local weather.
+       Microphone (optional): recorder with mic.
+     Never use tccutil to grant anything; the user grants in System Settings. Show live
+     status (AXIsProcessTrusted, CGPreflight*, SCShareableContent probe).
+10.9 Stable code signing so permissions survive rebuilds: TCC keys grants on the code
+     signature's designated requirement. Ad-hoc signatures change every build, so grants
+     are lost and the user has to remove and re-add the app (a classic Riko-style
+     annoyance). Solution: `scripts/sign-setup.sh` creates a local self-signed
+     code-signing certificate "Caelestia Local Signing" in the login keychain (with
+     `security` and a generated config; the user sees what it does and confirms), and
+     build.sh always signs every bundle with it (codesign --force --options runtime
+     --sign "Caelestia Local Signing"), keeping the same bundle ids. If the friend has an
+     Apple Developer ID, support that too (and notarization). Document how to delete the
+     certificate on uninstall. The key never leaves the keychain and is never committed.
+10.10 Fail safe: if the WM crashes, the launchd KeepAlive relaunch restores parked
+     windows from the journal first. A "panic" chord (⌃⌥⌘⇧Esc, not configurable away)
+     stops tiling and brings every window on-screen. The event tap has a watchdog: if it
+     gets disabled by timeout (kCGEventTapDisabledByTimeout), re-enable it, and never
+     block input for more than 50 ms.
+10.11 School laptop note: README says to check the school's IT rules; Standard mode
+     changes nothing at system level.
+
+
+=====================================================================================
+11. PHASES (each ends runnable, tested, committed)
+=====================================================================================
+ P0  Repo, build.sh, signing setup, CI (GitHub Actions macOS runner: build + unit tests),
+     config/keymap/rules parsing, binds-coverage test against binds.json.
+ P1  Platform: permissions wizard, AX window discovery, coordinate converter, displays,
+     off-screen parking + crash journal + panic chord. Debug overlay that draws usable
+     areas.
+ P2  Layout: dwindle tree, gaps, golden tests (clients.json), workspaces 1-10 + groups,
+     special workspaces, float rules, move/resize/focus binds, ⌥L mouse drag/resize.
+ P3  Event tap + full keymap + ⌥L tap launcher detection + conflict checker + CLI/IPC.
+ P4  Border overlays (active/inactive, rounded), dim, Motion module, workspace slide,
+     window pop-in, retile animation, Riko regression suite (12.2) green.
+ P5  Shell: screen frame, bar, launcher, OSDs, session menu, lock.
+ P6  Shell: dashboard (all tabs), sidebar (notifications, utilities), recorder,
+     screenshots, color picker, clipboard history, emoji picker.
+ P7  Wallpaper + dynamic color + theme propagation (kitty, borders, panels).
+ P8  Settings app (all pages), menu bar/Dock hiding, backups, uninstall.
+ P9  kitty config, fonts installer, xcursor2cape, cursor docs.
+ P10 Enhanced mode (SA, capability probing, opacity/blur/animations of real windows,
+     docs).
+ P11 Polish: performance pass (section 13), accessibility, docs (ARCH_TO_MAC.md complete),
+     release build, a fresh-Mac test (new user account) from install to uninstall.
+
+
+=====================================================================================
+12. TESTS
+=====================================================================================
+12.1 Unit tests (Layout, Core, Motion — no UI needed)
+  - Dwindle: 1-6 windows, splits by aspect, preserve_split, ratios, removing nodes,
+    swapping, resize ±10, min-size clipping; golden numbers from clients.json on
+    5120x1440 with reserved 10 (left (21,21,2533,1398), right (2566,21,2533,1398)) and on
+    Air sizes; single-window gaps 20.
+  - Workspaces: focus/move/move_silent/group math (10·(g-1)+n), special toggles,
+    specialWsCloseAny.
+  - Keymap: every binds.json entry mapped; parser round-trip; conflict checker finds
+    seeded duplicates and system clashes (fixture symbolichotkeys.plist).
+  - Motion: bezier samples within 1e-3 of reference values; spring riko settles, overshoot
+    ≈ 2-3%; durations = speed×100 ×scale.
+  - Coordinate converter: multi-display layouts incl. negative origins and the notch.
+  - Rules matching; scheme generation (fixed wallpaper fixture -> expected primary within
+    ΔE < 2); xcursor parser on the Bibata files.
+  - Backup/restore: write, restore, verify, "absent" keys deleted.
+
+12.2 Riko regression suite (integration; release blockers). Use a test-harness app
+     (TestWindows.app: spawns N plain NSWindows with known titles and colors, some with
+     min sizes, some slow to resize) and the debug IPC (`caelestia query`), plus
+     ScreenCaptureKit pixel checks:
+  R1 Black tiles: after open/close/switch cycles (×200), sample every tile and panel:
+     no region > 32x32 px of pure #000000 that isn't in the wallpaper/test pattern; panel
+     windows have non-zero alpha content within 1 frame of being shown.
+  R2 Ghost overlays: after every move/close/workspace switch/display change, the set of
+     our overlay windows (CGWindowList, owner = our pid) equals exactly the set of
+     visible managed windows (+ shell panels). Zero leftovers after 1 s. Also after a
+     killed target app (SIGKILL) and after sleep/wake.
+  R3 Flashing / retile loops: in a 10 s idle window after a layout change, the WM issues
+     0 AX setFrame calls and ≤ 1 layout pass; under a stubborn app that refuses its size
+     (min size bigger than its slot, or an app that snaps back), layout converges in ≤ 3
+     passes and then stops (no oscillation). Count passes via a debug counter.
+  R4 Unused screen space: for 1/2/3/4 tiled windows on each tested display size, the
+     union of window frames + gaps + borders covers the usable area exactly (± 1 px), with
+     menu bar shown and hidden, Dock shown and hidden, bar persistent and auto-hidden,
+     notch and no notch.
+  R5 Missing bar: on launch, after display connect/disconnect, sleep/wake, Space change,
+     fullscreen app enter/exit, and shell restart, the bar (when persistent) is visible
+     on every display within 500 ms, above normal windows, below our panels, and at the
+     correct edge.
+  R6 Window safety: kill -9 the WM with windows parked; on relaunch every window is
+     on-screen within 2 s. Uninstall leaves zero windows off-screen.
+  Also: flicker check (no frame where a window is drawn at an intermediate wrong
+  position during a workspace switch, sampled at 120 Hz on ProMotion if available) and a
+  focus check (focus is never lost to "no window" after closing the focused window; it
+  moves to the window under the cursor if there is one, else the next in focus history
+  (Hyprland input.focus_on_close = 1).
+
+12.3 Manual QA checklist in docs (each bind pressed once, each panel opened, each
+     Settings page changed and reset, install -> uninstall on a fresh user account).
+
+
+=====================================================================================
+13. PERFORMANCE TARGETS (M4 Air, 16 GB, 20 windows across 5 workspaces)
+=====================================================================================
+  - Hotkey to action start: < 10 ms (event tap callback < 1 ms; work happens off the
+    tap thread).
+  - Workspace switch, Standard: all windows in place < 120 ms for 6 windows; the visual
+    slide is 320 ms but is never longer than the real move. Enhanced: < 30 ms.
+  - Launcher open to first frame: < 50 ms; search results update < 16 ms per keystroke
+    over 300 apps.
+  - Idle CPU: WM + shell < 0.5% average (no polling loops faster than 1 Hz; gauges sample
+    at 1 Hz only while the dashboard is open).
+  - Memory: WM + shell < 150 MB RSS.
+  - 120 fps animations on ProMotion displays and 60 fps elsewhere, with no dropped
+    frames in Instruments for panel animations.
+  - Battery: no measurable extra drain when idle (no timers when nothing changes; uses
+    notifications, not polling).
+  - Startup: login to working tiling < 2 s.
+
+
+=====================================================================================
+14. FILES TO ATTACH (the friend attaches these from Gabby's export)
+=====================================================================================
+Screenshots: 06-clean-tiling-from-gabby.png (the tiling truth), 01-empty.png,
+  1-launcher.png, 1-dashboard.png, 1-sidebar.png, 1-utilities.png, 1-session.png
+  (optional, mid-animation only: 00-current.png, 02-1-windows.png ... 05-4-windows.png).
+Runtime dumps: binds.json, binds.txt, animations.txt, clients.json, monitors.json,
+  layout.txt, ipc-commands.txt, fonts.txt.
+Config: caelestia-config/hypr-vars.lua, hypr-user.lua, shell.json,
+  monitors/DP-2/shell.json; hypr/variables.lua; hypr/hyprland/*.lua (keybinds, rules,
+  animations, decoration, general, gestures, group, input, misc, execs, env);
+  hypr/scheme/current.lua and default.lua; hypr/utils/*.lua.
+kitty/kitty.conf and kitty/themes/noctalia.conf.
+cursor/Bibata-Modern-Classic/ (whole folder, for xcursor2cape; or let the build download
+  the pinned Bibata release instead).
+If a file is missing, use the values written in this prompt; they were copied from those
+files.
+
+
+=====================================================================================
+15. DELIVERABLES
+=====================================================================================
+  1. Full source (repo layout in section 9), building with one command:
+     `./scripts/build.sh` (release + signing) on a clean Mac with Xcode 16+.
+  2. scripts/install.sh: checks macOS version + Apple Silicon, builds or copies the apps
+     to ~/Applications (no sudo), sets up the login item, runs the first-run wizard
+     (permissions, look, kitty, fonts, cursor). Idempotent: running it twice is safe.
+  3. scripts/uninstall.sh + Settings "Uninstall" (10.5).
+  4. README.md: what it is, screenshots, quick start, the Standard vs Enhanced table,
+     permissions, the safety promises, how to uninstall, credits/license.
+  5. docs/ARCH_TO_MAC.md: a table of EVERY Arch feature -> its Mac version -> status
+     (Same / Close / Different / Not possible + why). At least: each of the 153 binds,
+     dwindle options, gaps/borders/rounding/opacity/blur/shadow, each animation line,
+     workspaces/groups/special workspaces, each window rule, gestures, monitors, bar
+     modules, launcher, dashboard tabs, sidebar parts, utilities, session, lock, OSDs,
+     notifications, wallpaper/dynamic colors, IPC targets and functions, kitty settings,
+     fonts, cursor, input (layout "no", repeat 250/35, natural scroll, scroll factor 0.3),
+     startup apps (execs.lua), environment (env.lua: not needed on Mac, say so).
+  6. docs/LIMITATIONS.md, PERMISSIONS.md, ENHANCED_MODE.md (incl. how to revert SIP),
+     KEYBINDS.md (generated), TROUBLESHOOTING.md (e.g. "hotkeys stopped: Secure Input is
+     on in <app>", "permissions lost after rebuild: run sign-setup.sh").
+  7. Tests (section 12) passing in CI, plus the Riko suite runnable locally with
+     `./scripts/test-integration.sh`.
+At the end, reply with: what was built, what was skipped and why, test results, and the
+known limitations list.
+
+Quality rules for you (the model building this):
+  - Ask nothing; decide, and write each decision in DESIGN.md with the reason.
+  - Prefer public APIs. Each private API use is listed in DESIGN.md with its fallback.
+  - No placeholders in shipped paths; if something is cut, it is listed as cut.
+  - Keep behavior faithful to Hyprland/Caelestia unless macOS makes it impossible or
+    unsafe; then pick the closest honest substitute and document it.

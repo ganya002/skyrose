@@ -1,0 +1,13 @@
+.build/
+.build-*/
+build/
+dist/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+.swiftpm/
+*.dSYM/
+.DS_Store
+Tests/fixtures/ref/*.jpg
+Tests/fixtures/ref/*.png
+/Tools/xcursor2cape/work/

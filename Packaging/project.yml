@@ -1,0 +1,29 @@
+# XcodeGen project for debugging in Xcode. Not needed to build: scripts/build.sh uses SwiftPM.
+#   brew install xcodegen && xcodegen generate --spec Packaging/project.yml --project .
+name: CaelestiaMac
+options:
+  bundleIdPrefix: com.caelestia.mac
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  CaelestiaMac:
+    path: ..
+targets:
+  CaelestiaWM:
+    type: application
+    platform: macOS
+    info:
+      path: CaelestiaWM-Info.plist
+    entitlements:
+      path: CaelestiaWM.entitlements
+    dependencies:
+      - package: CaelestiaMac
+        product: CaelestiaWMKit
+    sources:
+      - path: ../Sources/CaelestiaWM
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.caelestia.mac.wm
+        CODE_SIGN_IDENTITY: "Caelestia Local Signing"
+        ENABLE_HARDENED_RUNTIME: YES

@@ -1,0 +1,10 @@
+#!/bin/bash
+# Caelestia primary border. Rollback: brew services stop borders; rm ~/.config/borders/bordersrc
+options=(
+  style=round
+  width=3.0
+  hidpi=on
+  active_color=0xffbac5ee
+  inactive_color=0x33a9aab5
+)
+borders "${options[@]}"

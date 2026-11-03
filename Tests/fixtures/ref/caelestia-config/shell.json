@@ -1,0 +1,69 @@
+{
+  "appearance": {
+    "transparency": {
+      "base": 0.75,
+      "enabled": true,
+      "layers": 0.35
+    },
+    "anim": {
+      "durations": {
+        "scale": 0.8
+      }
+    }
+  },
+  "bar": {
+    "activeWindow": {
+      "compact": false
+    },
+    "clock": {
+      "background": false
+    },
+    "persistent": false,
+    "statusIcons": [
+      {
+        "enabled": true,
+        "id": "lockStatus"
+      },
+      {
+        "enabled": true,
+        "id": "audio"
+      },
+      {
+        "enabled": false,
+        "id": "microphone"
+      },
+      {
+        "enabled": false,
+        "id": "kbLayout"
+      },
+      {
+        "enabled": true,
+        "id": "network"
+      },
+      {
+        "enabled": false,
+        "id": "bluetooth"
+      },
+      {
+        "enabled": false,
+        "id": "battery"
+      }
+    ],
+    "tray": {
+      "background": false
+    },
+    "workspaces": {
+      "occupiedBg": false
+    }
+  },
+  "dashboard": {
+    "performance": {
+      "showBattery": false
+    },
+    "showClockSeconds": true,
+    "showDashboard": true
+  },
+  "services": {
+    "weatherUnits": "Celsius"
+  }
+}

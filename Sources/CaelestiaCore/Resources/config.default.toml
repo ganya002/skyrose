@@ -1,0 +1,287 @@
+# Caelestia for Mac - default configuration
+#
+# This file lists EVERY key with its built-in default (Gabby's effective Arch values:
+# hypr/variables.lua + caelestia/hypr-vars.lua + caelestia/hypr-user.lua + shell.json).
+# Copy it to ~/.config/caelestia-mac/config.toml and keep only the keys you change: anything
+# you leave out falls back to these values. Integers are fine where a float is expected
+# (`gapsIn = 5` == `gapsIn = 5.0`). Unknown keys are reported as warnings, out-of-range
+# values as errors (the previous good config stays in effect).
+#
+# Each comment cites the Caelestia variable (variables.lua / hypr-vars.lua) or the Hyprland
+# option the key replaces, so Linux knowledge carries over.
+#
+# Not yet keys (documented here as constants until they are added to Config):
+#   volumeStep = 10   (variables.lua volumeStep: % per volume key press)
+#   volumeMax  = 100  (variables.lua volumeMax: upper bound in %)
+
+# =====================================================================================
+# Window manager (Hyprland general / decoration / dwindle / misc)
+# =====================================================================================
+[wm]
+# variables.lua windowGapsIn -> general:gaps_in. 5 on each side = 10 px between neighbours.
+gapsIn = 5
+# variables.lua windowGapsOut -> general:gaps_out (tiled area to usable-area edge).
+gapsOut = 10
+# variables.lua singleWindowGapsOut: workspace rules w[tv1]s[false] and f[1]s[false]
+# (one tiled window or one fullscreen-flagged window) use this gaps_out instead.
+gapsOutSingle = 20
+# variables.lua workspaceGaps -> general:gaps_workspaces (gap between workspaces in the slide).
+gapsWorkspaces = 20
+# variables.lua windowBorderSize -> general:border_size.
+borderSize = 1
+# variables.lua windowRounding -> decoration:rounding.
+windowRounding = 15
+# variables.lua windowRoundingPower -> decoration:rounding_power.
+roundingPower = 2
+# rules.lua xwl_popup tag: rounding = math.min(10, windowRounding).
+popupRounding = 10
+# variables.lua windowOpacity (stock 0.95; hypr-vars.lua 0.94). Enhanced mode only.
+windowOpacity = 0.94
+# variables.lua blurEnabled -> decoration:blur:enabled.
+blurEnabled = true
+# variables.lua blurSize (stock 8; hypr-vars.lua 10 "glass: stronger blur").
+blurSize = 10
+# variables.lua blurPasses (stock 2; hypr-vars.lua 3).
+blurPasses = 3
+# variables.lua blurSpecialWs -> decoration:blur:special.
+blurSpecial = false
+# variables.lua shadowEnabled -> decoration:shadow:enabled.
+shadowEnabled = true
+# variables.lua shadowRange -> decoration:shadow:range.
+shadowRange = 15
+# variables.lua shadowRenderPower -> decoration:shadow:render_power (1-4).
+shadowRenderPower = 4
+# Caelestia shell "border" layer: a thin rounded frame around the usable area.
+screenFrame = true
+# Points reserved per edge by that frame (hyprctl monitors "reserved").
+screenFrameInset = 10
+# Hyprland default follow-mouse focus.
+focusFollowsMouse = true
+focusFollowsMouseDelayMs = 100
+# input.lua focus_on_close = 1: focus the window under the cursor after a close.
+focusOnCloseUnderCursor = true
+# functions.lua wsaction: workspace id = 10 * (group - 1) + slot.
+workspacesPerGroup = 10
+workspaceGroups = 5
+# Caelestia bar: always show workspaces 1..N.
+workspacesShown = 5
+# variables.lua specialWsCloseAny: the special toggle closes whichever special workspace is open.
+specialWsCloseAny = true
+# Standard mode: send interpolated AX frames (<= 60 Hz, <= 200 ms). Off because many apps lag.
+animatedTiling = false
+# misc.lua on_focus_under_fullscreen = 2: focusing a window un-fullscreens the current one.
+unfullscreenOnFocus = true
+# misc.lua focus_on_activate = true.
+focusOnActivate = true
+# Caelestia gameMode IPC toggle: no animations/blur/gaps/borders/shadows.
+gameMode = false
+
+# general.lua dwindle = { preserve_split, smart_split, smart_resizing } + Hyprland defaults.
+[wm.dwindle]
+preserveSplit = true
+smartSplit = false
+smartResizing = true
+# dwindle:force_split: 0 = follow mouse side, 1 = left/top, 2 = right/bottom.
+forceSplit = 0
+# dwindle:split_width_multiplier.
+splitWidthMultiplier = 1.0
+# dwindle:default_split_ratio (0.1 - 1.9).
+defaultSplitRatio = 1.0
+minSplitRatio = 0.1
+maxSplitRatio = 1.9
+
+# Named special workspaces (scratchpads) and the app that owns each (functions.lua toggle()
+# + cli.json toggles). `apps` are bundle ids in preference order; `launch` runs when the
+# toggle finds no window on that workspace.
+[wm.specialWorkspaces.special]
+apps = []
+launch = ""
+
+# kbSystemMonitorWs CTRL+SHIFT+Escape -> special:sysmon (btop in a kitty window).
+[wm.specialWorkspaces.sysmon]
+apps = ["net.kovidgoyal.kitty#btop"]
+launch = "kitty --class btop -e btop"
+
+# kbMusicWs SUPER+M -> special:music (Spotify / Music).
+[wm.specialWorkspaces.music]
+apps = ["com.spotify.client", "com.apple.Music"]
+launch = "open -b com.spotify.client || open -b com.apple.Music"
+
+# kbCommunicationWs SUPER+D -> special:communication (Discord / Messages).
+[wm.specialWorkspaces.communication]
+apps = ["com.hnc.Discord", "com.apple.MobileSMS"]
+launch = "open -b com.hnc.Discord || open -b com.apple.MobileSMS"
+
+# kbTodoWs SUPER+R -> special:todo (Todoist / Reminders).
+[wm.specialWorkspaces.todo]
+apps = ["com.todoist.mac.Todoist", "com.apple.reminders"]
+launch = "open -b com.todoist.mac.Todoist || open -b com.apple.reminders"
+
+# =====================================================================================
+# Appearance (shell.json appearance.* + theme selection)
+# =====================================================================================
+[appearance]
+# shell.json appearance.transparency.enabled / base / layers.
+transparencyEnabled = true
+# Panel/bar background alpha.
+transparencyBase = 0.75
+# Inner card alpha over the panel.
+transparencyLayers = 0.35
+# Built-in schemes: "caelestia-dynamic", "caelestia-default", "catppuccin-mocha", "noctalia".
+theme = "caelestia-dynamic"
+# "dark" or "light".
+variant = "dark"
+# Manual accent override as hex RRGGBB ("" = none).
+accentOverride = ""
+# Regenerate the scheme from the wallpaper (Material You tonal spot).
+dynamicColor = true
+uiScale = 1.0
+# Caelestia shell fonts (fonts.txt): sans Rubik, mono CaskaydiaCove NF, icons Material Symbols.
+fontSans = "Rubik"
+fontSansFallbacks = ["Inter", "SF Pro"]
+fontMono = "CaskaydiaCove NF"
+fontMonoFallbacks = ["JetBrainsMono Nerd Font", "Menlo"]
+fontIcons = "Material Symbols Rounded"
+wallpaperFolder = "~/Pictures/Wallpapers"
+# 0 = never rotate wallpapers automatically.
+wallpaperRandomIntervalMinutes = 0
+
+# =====================================================================================
+# Bar (shell.json bar.*)
+# =====================================================================================
+[bar]
+enabled = true
+# Matches shell.json bar.persistent = false: the bar slides in on hover and reserves no width.
+# Set true for an always-visible bar that reserves its width in the usable area.
+persistent = false
+# "left", "right", "top" or "bottom".
+edge = "left"
+width = 48
+showOnHover = true
+# shell.json bar.clock.background.
+clockBackground = false
+# shell.json bar.tray.background.
+trayBackground = false
+# shell.json bar.activeWindow.compact.
+activeWindowCompact = false
+# shell.json bar.workspaces.occupiedBg.
+workspacesOccupiedBg = false
+
+# shell.json bar.statusIcons, in display order. A laptop flips "battery" on when the user never set it.
+[[bar.statusIcons]]
+id = "lockStatus"
+enabled = true
+
+[[bar.statusIcons]]
+id = "audio"
+enabled = true
+
+[[bar.statusIcons]]
+id = "microphone"
+enabled = false
+
+[[bar.statusIcons]]
+id = "kbLayout"
+enabled = false
+
+[[bar.statusIcons]]
+id = "network"
+enabled = true
+
+[[bar.statusIcons]]
+id = "bluetooth"
+enabled = false
+
+[[bar.statusIcons]]
+id = "battery"
+enabled = false
+
+# =====================================================================================
+# Input (input.lua / gestures.lua / variables.lua touchpad*)
+# =====================================================================================
+[input]
+# kbLauncher "SUPER + SUPER_L": Super pressed and released alone within this window opens the launcher.
+superTapMs = 300
+# input.lua repeat_delay.
+repeatDelayMs = 250
+# input.lua repeat_rate.
+repeatRatePerSecond = 35
+# variables.lua touchpadScrollFactor -> input:touchpad:scroll_factor.
+scrollFactor = 0.3
+# input.lua touchpad.natural_scroll.
+naturalScroll = true
+# Continuous-scroll distance per workspace step (points), for the SUPER + mouse_down/up binds.
+scrollStepPoints = 60
+# Trackpad workspace swipes (gestures.lua). Off by default: macOS owns 3/4-finger swipes.
+gesturesEnabled = false
+# variables.lua gestureFingers (special workspace up/down swipes).
+gestureFingers = 3
+# variables.lua gestureFingersMore / workspaceSwipeFingers (horizontal workspace swipe, sleep gesture).
+gestureFingersMore = 4
+# gestures.lua workspace_swipe_distance.
+gestureDistance = 700
+# gestures.lua workspace_swipe_cancel_ratio.
+gestureCancelRatio = 0.15
+# gestures.lua workspace_swipe_min_speed_to_force.
+gestureMinSpeedToForce = 5
+# gestures.lua workspace_swipe_direction_lock / _threshold.
+gestureDirectionLock = true
+gestureDirectionLockThreshold = 10
+# gestures.lua workspace_swipe_create_new.
+gestureCreateNew = true
+# "Take over Cmd-Tab" (off: the ALT+TAB window cycle maps to Option(L)+Tab).
+takeOverCmdTab = false
+
+# =====================================================================================
+# Apps (variables.lua terminal / browser / editor / fileExplorer / audioSettings)
+# =====================================================================================
+[apps]
+# variables.lua terminal (stock "foot"; hypr-vars.lua "kitty").
+terminal = "kitty"
+# variables.lua browser "firefox".
+browser = "org.mozilla.firefox"
+# variables.lua editor "codium".
+editor = "com.vscodium"
+# variables.lua fileExplorer (stock "thunar"; hypr-vars.lua "nautilus") -> Finder.
+fileManager = "com.apple.finder"
+# variables.lua audioSettings "pwvucontrol" -> System Settings > Sound.
+audioSettings = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
+
+# =====================================================================================
+# Animations (hypr-user.lua "Riko's springy motion" + shell.json appearance.anim)
+# =====================================================================================
+[animations]
+# "gabby-springy" (hypr-user.lua: riko spring, snappy bezier, speed 3.2), "caelestia-stock",
+# "reduced" or "off".
+preset = "gabby-springy"
+# Multiplier on every WM duration (1.0 = as configured).
+globalMultiplier = 1.0
+# shell.json appearance.anim.durations.scale: all shell animations run at 80% duration.
+shellDurationScale = 0.8
+# Honour the macOS "Reduce motion" accessibility setting.
+respectReduceMotion = true
+
+# Per-animation overrides keyed by Hyprland leaf name (windowsIn, windowsOut, windowsMove,
+# workspaces, workspacesIn, workspacesOut, fade, border, ...). Every field is optional.
+#
+#   [animations.overrides.windowsIn]
+#   enabled = true
+#   curve = "riko"          # a named curve: riko, snappy, or any Caelestia bezier
+#   speed = 3.2             # Hyprland speed (x100 ms)
+#   style = "popin 80%"
+[animations.overrides]
+
+# =====================================================================================
+# Per-display overrides keyed by the stable display id (CGDisplayCreateUUIDFromDisplayID).
+# `caelestia query displays` prints the ids. Every field is optional.
+#
+#   [displays."37D8832A-2D66-02CA-B9F7-8F30A301B230"]
+#   gapsIn = 5
+#   gapsOut = 10
+#   gapsOutSingle = 20
+#   barPersistent = true
+#   barEnabled = true
+#   uiScale = 1.0
+#   screenFrame = true
+# =====================================================================================
+[displays]

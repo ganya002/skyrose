@@ -1,0 +1,15 @@
+== decoration:blur:size
+int: 10
+set: true
+== decoration:blur:passes
+int: 3
+set: true
+== general:col.active_border
+gradient data: e6bac5ee 0deg
+set: true
+== general:col.inactive_border
+gradient data: 11a9aab5 0deg
+set: true
+== decoration:active_opacity
+float: 1.000000
+set: false
