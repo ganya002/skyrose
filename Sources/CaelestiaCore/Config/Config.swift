@@ -66,6 +66,10 @@ public struct WMConfig: Codable, Equatable, Sendable {
     /// Horizontal gap between the outgoing and incoming workspace in the slide animation.
     public var gapsWorkspaces: Double = 20
     public var borderSize: Double = 1
+    /// Group (tab) bar: tab height, and the gap between tabs and between the bar and the window
+    /// (Hyprland groupbar height 25, gaps_in/gaps_out 3).
+    public var groupBarHeight: Double = 25
+    public var groupBarGaps: Double = 3
     public var windowRounding: Double = 15
     public var roundingPower: Double = 2
     /// Rounding for xwl_popup-style windows: min(10, windowRounding).

@@ -1,5 +1,63 @@
 # Changelog
 
+## Unreleased — P4 overlay: borders, animations, group bars, workspace slide (2026-11-03)
+
+`CaelestiaOverlay` is built and wired into the WM daemon. Verified live on the MacBook Air with
+real ⌥1/⌥2 keystrokes, screenshots and screen recordings (`/tmp/cwm/p4/`). Shell not started.
+
+### Added
+- **Borders**: one click-through, non-activating panel per visible managed window, ordered directly
+  above it. 1 pt, 15 pt corners (+1 for the ring), active `#bac5ee` @ 90 %, inactive `#a9aab5` @ 7 %
+  (the "current" scheme). Only changed borders are redrawn; the display link stops when idle.
+- **Animations** (Motion module, `animations` preset, Reduce Motion, game mode = off):
+  pop-in from 80 % on the riko spring (`windowsIn`), retile on the riko spring with velocity kept
+  across retargets (`windowsMove`), fade-out + shrink on close/minimize (`windowsOut`,
+  emphasizedAccel 240 ms), active/inactive color blend (`border`). Windows the user or the app
+  moves (floating drags, snap-backs) are tracked 1:1 from CGWindowList, no spring lag.
+- **Group bars**: one tab per member (active primary, inactive outline, locked variants, onPrimary
+  text, height 25, gaps 3, rounding 5); the layout reserves the strip (`wm.groupBarHeight`,
+  `wm.groupBarGaps`).
+- **Workspace slide** (spec 4.7): the layout waits (≤ 120 ms, hard cap 300 ms in the WM) for a
+  ScreenCaptureKit still of the outgoing workspace, a cover shows it, the WM lays out behind it,
+  and the outgoing and incoming stills slide (snappy 320 ms, 20 pt gap; special workspaces
+  slidefadevert 15 %). The cover goes after the animation, on any input, or after 600 ms. Without
+  Screen Recording: a surface-colored cross-fade.
+- **Debug overlay**: `caelestia debug overlay [on|off]` draws usable areas, every target frame with
+  id/kind/size, and counters (layout passes, setFrame, borders, surfaces, slides).
+- `caelestia query overlays` (`query.overlays`): one entry per border window (Riko R2).
+- Tests: `CaelestiaOverlayTests` (41: animated values, engine, controller R2 bookkeeping,
+  geometry) and `OverlayIntegrationTests` + `SlideKeyTests` (16: scenes, pop-in once, fade vs.
+  instant, retile spring, drag tracking, group bar, slide gate, R2 across every scenario and 300
+  random steps, panic, game mode, IPC).
+
+### Fixed during the live test
+- **Ghost borders for windows on another native Space** (R2). Finder/Firefox windows on another
+  Space are managed; after ⌥2/⌥1 their recreated borders appeared on the current Space. Borders
+  are now drawn only while their window is on screen (re-checked per scene, 150 ms later, and on
+  Space changes).
+- **Empty incoming slide**: a still taken right after the layout showed only the wallpaper (apps
+  redraw un-parked windows a few frames later). The incoming still is now the one taken when that
+  workspace was last left, used only if its content key (window ids, frames, focus) is unchanged;
+  otherwise the outgoing still fades out over the real windows.
+- New borders are ordered straight above their window (no one-frame flash at the front).
+- The floating-window path now schedules a layout so the border follows a user move.
+- Debug overlay drew upside down (AppKit owns the backing layer's flip).
+
+### Live results
+- R2: CGWindowList borders owned by CaelestiaWM == on-screen managed windows after launch, open,
+  ⌥2/⌥1 (×4), 24-step open/close/switch churn, and SIGKILL of TestWindows. 1 s after each.
+- R1: no black frame in any slide or pop-in frame. The pixel scan is inconclusive on this desktop:
+  T3 Code / Grok Bot draw pure #000000 areas (a 200 px black square is there before the WM starts).
+
+### Known limitations
+- Standard mode: real windows snap; on a retile the border springs to the new frame (~0.5 s), so
+  it briefly trails the window. `wm.animatedTiling` (interpolated AX frames) is still not built.
+- The first ScreenCaptureKit capture on macOS 15+ shows a system "bypass the private window
+  picker" prompt; until it is allowed the slide is skipped (never a black frame).
+- The incoming still can show slightly stale app content (it is from when the workspace was left).
+- The WM manages windows on other native Spaces (their borders now stay hidden); not changed here.
+- `scripts/sign-setup.sh` was run: builds are signed "Caelestia Local Signing" and keep TCC grants.
+
 ## Unreleased — WM live-test fixes (2026-11-03)
 
 First live run on the MacBook Air (1470×956). The first test was run while CatWM was also running

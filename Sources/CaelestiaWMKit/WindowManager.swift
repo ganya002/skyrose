@@ -79,6 +79,11 @@ public final class WindowManager {
     /// Visible placements from the last layout pass.
     public internal(set) var visiblePlacements: [WindowID: Placement] = [:]
 
+    /// Borders, group bars, workspace slide and debug overlay (nil: headless, nothing drawn).
+    public var decorations: (any WindowDecorations)?
+    /// A workspace-change layout is held at most this long for the slide's outgoing still.
+    public static let maxTransitionHold: TimeInterval = 0.3
+
     /// Called after quit/panic restored every window (the daemon exits).
     public var onQuit: (() -> Void)?
     /// Actions the WM does not own (shell, apps, capture, media); the daemon logs or forwards them.
@@ -114,6 +119,19 @@ public final class WindowManager {
     var needsLayout = false
     var layoutScheduled = false
     var isDiscovering = false
+    // Decorations bookkeeping (WindowManager+Decorations).
+    /// Windows whose border has been shown: coming back (workspace switch) is instant, not a pop-in.
+    var shownBefore: Set<WindowID> = []
+    /// Borders that must fade out (closed / minimized / hidden app) rather than vanish at once.
+    var fadeOutNext: Set<WindowID> = []
+    var lastSceneIDs: Set<WindowID> = []
+    var lastVisibleWorkspaces: [String: VisibleWorkspaces] = [:]
+    var transitionHeldSince: Date?
+    var transitionReleased = false
+    var isInTransitionGate = false
+    var debugOverlayEnabled = false
+    /// The focused window as of the last applied layout pass (what the screen shows).
+    var focusShown: WindowID?
     let scheduling: LayoutScheduling
     let now: () -> Date
     let startDate: Date
@@ -233,8 +251,9 @@ public final class WindowManager {
     public func placements(of id: WorkspaceID) -> [Placement] {
         guard let ws = state[id], let d = display(id: ws.displayID) else { return [] }
         let area = usableArea(of: d)
+        let wm = config.resolved(forDisplay: d.id).wm
         return WorkspaceLayout.compute(
-            ws, area: area, fullFrame: d.frame, config: config.resolved(forDisplay: d.id).wm, minSizes: minSizes
+            ws, area: area, fullFrame: d.frame, config: wm, minSizes: minSizes, groupBarHeight: groupBarReserved(wm)
         ).map { p in
             guard p.kind == .tiled, !area.contains(p.frame) else { return p }
             let x = p.frame.width > area.width ? area.minX : min(max(p.frame.minX, area.minX), area.maxX - p.frame.width)
@@ -264,6 +283,7 @@ public final class WindowManager {
     /// parked, newly visible floating/special windows are raised, and focus is synced.
     public func layoutIfNeeded() {
         guard needsLayout, isManaging else { return }
+        if holdForWorkspaceTransition() { return }
         needsLayout = false
         counters.layoutPasses += 1
 
@@ -308,6 +328,7 @@ public final class WindowManager {
         }
         borderFrames = borders
         visiblePlacements = visible
+        publishDecorations(borders: borders)
 
         let visibleRaised = Set(raiseOrder)
         for id in raiseOrder where !raised.contains(id) {
@@ -475,6 +496,8 @@ public final class WindowManager {
             }
             state.closeWindow(id, cursorWindow: cursorWindow)
         }
+        fadeOutNext.insert(id)
+        shownBefore.remove(id)
         forget(id)
         setNeedsLayout()
     }
@@ -501,6 +524,8 @@ public final class WindowManager {
         guard handles[id] != nil, let ws = state.workspace(of: id) else { return }
         suspended[id] = ws
         state.closeWindow(id)
+        fadeOutNext.insert(id)
+        shownBefore.remove(id)
         applied[id] = nil
         raised.remove(id)
         setNeedsLayout()
@@ -536,8 +561,11 @@ public final class WindowManager {
             // The user moved/resized a floating window: remember it, don't fight it.
             state.setFloatingFrame(id, frame)
             applied[id] = frame
+            decorations?.externalMove(id)
+            setNeedsLayout()  // the border follows (no setFrame: the target equals the frame)
             return
         }
+        decorations?.externalMove(id)
         guard let target = applied[id], !frame.approximatelyEquals(target, tolerance: 2) else { return }
         let tries = snapBacks[id, default: 0]
         guard tries < Self.maxSnapBackRetries else { return }

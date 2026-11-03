@@ -20,6 +20,7 @@ public final class WMDaemon {
     private var keymapWatcher: KeymapWatcher?
     private var signalSources: [DispatchSourceSignal] = []
     private var accessibilityTimer: Timer?
+    private var decorations: OverlayDecorations?
 
     public init() {
         let (config, configWarnings) = ConfigLoader.loadUserOrDefault()
@@ -106,6 +107,11 @@ public final class WMDaemon {
         wm.onConfigReload = { [weak self] in self?.reloadConfigAndKeymap() ?? [] }
         wm.onRulesReload = { [weak self] in self?.reloadRules() ?? [] }
 
+        // Borders, group bars, workspace slide, debug overlay (CaelestiaOverlay).
+        let deco = OverlayDecorations(config: wm.config)
+        decorations = deco
+        wm.decorations = deco
+
         wm.start()
         startEventTap()
         startIPC()
@@ -161,6 +167,7 @@ public final class WMDaemon {
                     for w in warnings { Log.config.warning("\(w, privacy: .public)") }
                     matcher.update(input: config.input)
                     wm.apply(config: config)
+                    self.decorations?.apply(config: config)
                 case .failed(let error, _):
                     Log.config.error("config.toml not applied: \(String(describing: error), privacy: .public)")
                 }
@@ -185,6 +192,7 @@ public final class WMDaemon {
         matcher.update(keymap: keymap)
         wm.apply(config: config)
         wm.apply(keymap: keymap)
+        decorations?.apply(config: config)
         return warnings + keymapWarnings
     }
 

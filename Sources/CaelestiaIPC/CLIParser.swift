@@ -188,6 +188,8 @@ public enum CLIParser {
             inv.kind = try parseAction(args)
         case "wm":
             inv.kind = try parseWM(args)
+        case "debug":
+            inv.kind = try parseDebug(args)
         case "permissions":
             try expectVerb("permissions", args, ["status"])
             inv.kind = .ipc(IPCRequest(.permissionsStatus))
@@ -408,11 +410,11 @@ public enum CLIParser {
     static func parseQuery(_ args: [String]) throws -> CLIInvocation.Kind {
         let kinds: [String: IPCCommand] = [
             "windows": .queryWindows, "clients": .queryWindows, "workspaces": .queryWorkspaces,
-            "monitors": .queryMonitors, "binds": .queryBinds, "state": .queryState,
+            "monitors": .queryMonitors, "binds": .queryBinds, "state": .queryState, "overlays": .queryOverlays,
         ]
-        guard let what = args.first else { throw CLIUsageError.missingArgument(command: "query", name: "windows|workspaces|monitors|binds|state") }
+        guard let what = args.first else { throw CLIUsageError.missingArgument(command: "query", name: "windows|workspaces|monitors|binds|state|overlays") }
         guard let command = kinds[what] else {
-            throw CLIUsageError.unknownVerb(group: "query", verb: what, expected: ["windows", "workspaces", "monitors", "binds", "state"])
+            throw CLIUsageError.unknownVerb(group: "query", verb: what, expected: ["windows", "workspaces", "monitors", "binds", "state", "overlays"])
         }
         try rejectExtra("query \(what)", Array(args.dropFirst()))
         return .ipc(IPCRequest(command))
@@ -460,6 +462,18 @@ public enum CLIParser {
         guard let command = verbs[verb] else { throw CLIUsageError.unknownVerb(group: "wm", verb: verb, expected: verbs.keys.sorted()) }
         try rejectExtra("wm \(verb)", Array(args.dropFirst()))
         return .ipc(IPCRequest(command))
+    }
+
+    /// `debug overlay [on|off]`.
+    static func parseDebug(_ args: [String]) throws -> CLIInvocation.Kind {
+        try expectVerb("debug", args, ["overlay"])
+        let rest = Array(args.dropFirst())
+        guard let value = rest.first else { return .ipc(IPCRequest(.debugOverlay)) }
+        try rejectExtra("debug overlay", Array(rest.dropFirst()))
+        guard let on = IPCArgumentType.bool.parse(value) else {
+            throw CLIUsageError.invalidArgument(command: "debug overlay", name: "on", value: value, expected: "on|off")
+        }
+        return .ipc(IPCRequest(.debugOverlay, args: ["on": on]))
     }
 
     // MARK: - Small helpers

@@ -49,6 +49,11 @@ extension WindowManager {
         case .queryMonitors: return encoded(monitorEntries())
         case .queryBinds, .keysList: return encoded(bindEntries())
         case .queryState: return encoded(stateEntry())
+        case .queryOverlays: return encoded(decorations?.overlayEntries() ?? [])
+        case .debugOverlay:
+            let on = request.bool("on") ?? !debugOverlayEnabled
+            setDebugOverlay(on)
+            return ok(.object(["on": .bool(on)]))
 
         case .configReload:
             return ok(.object(["warnings": .array((onConfigReload?() ?? []).map(JSONValue.string))]))

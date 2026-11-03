@@ -78,6 +78,9 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 | `query.monitors`   | array of `MonitorQueryEntry`   |
 | `query.binds`      | array of `BindQueryEntry`      |
 | `query.state`      | `StateQueryEntry`              |
+| `query.overlays`   | array of `OverlayQueryEntry` (`{target, overlay, at, size, alpha, active, vanishing, group}`: one per border window; Riko R2) |
+
+`debug.overlay` (`on?: bool`, toggles when omitted) shows/hides the debug overlay and returns `{on: bool}`.
 
 ### Shell conveniences and utilities
 

@@ -230,6 +230,8 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case queryMonitors = "query.monitors"
     case queryBinds = "query.binds"
     case queryState = "query.state"
+    case queryOverlays = "query.overlays"
+    case debugOverlay = "debug.overlay"
 
     // MARK: Config
     case configReload = "config.reload"
@@ -373,6 +375,11 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.query, "List displays (hyprctl monitors).", returns: "array of MonitorQueryEntry")
         case .queryBinds:
             return IPCCommandSpec(.query, "List active binds (hyprctl binds).", returns: "array of BindQueryEntry")
+        case .queryOverlays:
+            return IPCCommandSpec(.query, "Border overlay windows: target window, overlay window number, frame, alpha (Riko R2).", returns: "array of OverlayQueryEntry")
+        case .debugOverlay:
+            return IPCCommandSpec(.wm, "Show or hide the debug overlay (usable areas, target frames, counters).",
+                                  arguments: [.optional("on", .bool, help: "true/false; toggles when omitted")], returns: "{on: bool}")
         case .queryState:
             return IPCCommandSpec(.query, "WM state summary: mode, focused window/workspace, counters.", returns: "StateQueryEntry")
 

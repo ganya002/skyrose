@@ -163,7 +163,7 @@ let package = Package(
         ),
         .testTarget(
             name: "CaelestiaWMKitTests",
-            dependencies: ["CaelestiaWMKit", "CaelestiaPlatform", "CaelestiaLayout", "CaelestiaIPC", "CaelestiaCore"],
+            dependencies: ["CaelestiaWMKit", "CaelestiaPlatform", "CaelestiaLayout", "CaelestiaIPC", "CaelestiaCore", "CaelestiaOverlay"],
             path: "Tests/CaelestiaWMKitTests",
             swiftSettings: relaxed
         ),

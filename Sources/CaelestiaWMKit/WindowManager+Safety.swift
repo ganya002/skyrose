@@ -35,6 +35,8 @@ extension WindowManager {
     @discardableResult
     public func restoreEverything() -> Int {
         isManaging = false
+        decorations?.removeAll()  // R2: no border outlives management
+        lastSceneIDs = []
         var restored = restoreJournal()
         let frames = displays.map(\.frame)
         for id in handles.keys.sorted() {
