@@ -59,6 +59,7 @@ for b in "$BIN"/CaelestiaMac_*.bundle; do
   [[ -d "$b" ]] && cp -R "$b" "$APP/Contents/Resources/"
 done
 cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"
+cp "$ROOT/Packaging/CaelestiaWM.icns" "$APP/Contents/Resources/CaelestiaWM.icns"  # scripts/make-icon.swift
 sed "s/__VERSION__/$VERSION/g" "$ROOT/Packaging/CaelestiaWM-Info.plist" > "$APP/Contents/Info.plist"
 sed "s|__APP_PATH__|$HOME/Applications/CaelestiaWM.app|g" "$ROOT/Packaging/com.caelestia.mac.wm.plist" \
   > "$APP/Contents/Library/LaunchAgents/com.caelestia.mac.wm.plist"

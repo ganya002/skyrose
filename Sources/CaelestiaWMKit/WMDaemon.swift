@@ -19,6 +19,7 @@ public final class WMDaemon {
     private var configWatcher: ConfigWatcher?
     private var keymapWatcher: KeymapWatcher?
     private var signalSources: [DispatchSourceSignal] = []
+    private var accessibilityTimer: Timer?
 
     public init() {
         let (config, configWarnings) = ConfigLoader.loadUserOrDefault()
@@ -39,15 +40,65 @@ public final class WMDaemon {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
-        guard Permissions.status().accessibility else {
-            _ = Permissions.request(.accessibility)
-            FileHandle.standardError.write(Data((
-                "CaelestiaWM needs Accessibility access to move windows.\n"
-                    + "Grant it in System Settings → Privacy & Security → Accessibility, then start CaelestiaWM again.\n"
-            ).utf8))
-            exit(2)
+        // Launched with `open` there is no terminal: every reason not to start must be visible.
+        let competitors = LaunchChecks.competingWindowManagers(processNames: LaunchChecks.runningProcessNames())
+        if !competitors.isEmpty {
+            let message = LaunchChecks.competingWindowManagerMessage(competitors)
+            Log.wm.error("not starting: \(message, privacy: .public)")
+            FileHandle.standardError.write(Data((message + "\n").utf8))
+            showAlert(title: "Another window manager is running", message: message, buttons: ["Quit"])
+            exit(3)
         }
 
+        if Permissions.status().accessibility {
+            startManaging()
+        } else {
+            Log.wm.error("waiting for Accessibility access")
+            FileHandle.standardError.write(Data((LaunchChecks.accessibilityMessage + "\n").utf8))
+            _ = Permissions.request(.accessibility)
+            let choice = showAlert(
+                title: "Caelestia needs Accessibility access", message: LaunchChecks.accessibilityMessage,
+                buttons: ["Open System Settings", "Quit"]
+            )
+            if choice == 1 { exit(2) }
+            Permissions.openSettings(for: .accessibility)
+            waitForAccessibility()
+        }
+        app.run()
+        exit(0)
+    }
+
+    /// Polls once a second until Accessibility is granted, then starts.
+    private func waitForAccessibility() {
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkAccessibilityGranted() }
+        }
+        accessibilityTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func checkAccessibilityGranted() {
+        guard Permissions.status().accessibility else { return }
+        accessibilityTimer?.invalidate()
+        accessibilityTimer = nil
+        Log.wm.notice("Accessibility granted; starting")
+        startManaging()
+    }
+
+    /// Shows a modal alert in front of every app and returns the index of the button pressed.
+    @discardableResult
+    private func showAlert(title: String, message: String, buttons: [String]) -> Int {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        for b in buttons { alert.addButton(withTitle: b) }
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        return response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+    }
+
+    private func startManaging() {
         wm.onQuit = { [weak self] in self?.terminate() }
         wm.onUnhandledAction = { action in
             Log.wm.info("action \(action.description, privacy: .public) is not handled by the WM yet")
@@ -61,8 +112,6 @@ public final class WMDaemon {
         startWatchers()
         installSignalHandlers()
         Log.wm.notice("CaelestiaWM \(CaelestiaVersion.string, privacy: .public) managing \(self.wm.managedWindowIDs.count) window(s)")
-        app.run()
-        exit(0)
     }
 
     private func startEventTap() {

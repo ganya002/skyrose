@@ -120,7 +120,10 @@ extension WindowManager {
     public func windowEntries() -> [WindowQueryEntry] {
         managedWindowIDs.compactMap { id -> WindowQueryEntry? in
             guard let handle = handles[id], let wsID = state.workspace(of: id), let ws = state[wsID] else { return nil }
-            let frame = (parked[id] != nil ? nil : applied[id]) ?? handle.frame
+            // Where the window really is (read from AX), not where we asked it to go: an app or
+            // another WM may have moved it, and the CLI must not report a tile that isn't there.
+            let real = handle.frame
+            let frame = real.isNull ? (applied[id] ?? .zero) : real
             let d = descriptors[id]
             let fullscreen = ws.fullscreen == id ? 2 : (ws.maximized == id ? 1 : 0)
             return WindowQueryEntry(

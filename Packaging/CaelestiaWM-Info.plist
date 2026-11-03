@@ -12,6 +12,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>CaelestiaWM</string>
+	<key>CFBundleIconFile</key>
+	<string>CaelestiaWM</string>
 	<key>CFBundleDisplayName</key>
 	<string>Caelestia for Mac</string>
 	<key>CFBundlePackageType</key>

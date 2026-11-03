@@ -226,11 +226,24 @@ public final class WindowManager {
     }
 
     /// Placements of one workspace with the current config, areas and learned min sizes.
+    ///
+    /// A tiled window whose minimum size is bigger than its slot comes back from the layout
+    /// centred on the slot, which can push it past the usable area (live test: Finder at x = −44).
+    /// Such frames are shifted back inside the area, keeping their size.
     public func placements(of id: WorkspaceID) -> [Placement] {
         guard let ws = state[id], let d = display(id: ws.displayID) else { return [] }
+        let area = usableArea(of: d)
         return WorkspaceLayout.compute(
-            ws, area: usableArea(of: d), fullFrame: d.frame, config: config.resolved(forDisplay: d.id).wm, minSizes: minSizes
-        )
+            ws, area: area, fullFrame: d.frame, config: config.resolved(forDisplay: d.id).wm, minSizes: minSizes
+        ).map { p in
+            guard p.kind == .tiled, !area.contains(p.frame) else { return p }
+            let x = p.frame.width > area.width ? area.minX : min(max(p.frame.minX, area.minX), area.maxX - p.frame.width)
+            let y = p.frame.height > area.height ? area.minY : min(max(p.frame.minY, area.minY), area.maxY - p.frame.height)
+            var shifted = p
+            shifted.frame.origin = CGPoint(x: x, y: y)
+            shifted.borderFrame = p.borderFrame.offsetBy(dx: x - p.frame.minX, dy: y - p.frame.minY)
+            return shifted
+        }
     }
 
     // MARK: - Layout
