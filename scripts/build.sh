@@ -37,7 +37,10 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 fi
 
 echo "==> swift build -c $CONFIG"
-"$SWIFT" build -c "$CONFIG" --product CaelestiaWM --product caelestia --product TestWindows --product gen-keybind-docs 2>&1 | grep -vE '^\[[0-9]+/[0-9]+\]' || true
+# One call per product: with several --product flags SwiftPM builds only the last one.
+for PRODUCT in CaelestiaWM caelestia TestWindows gen-keybind-docs; do
+  "$SWIFT" build -c "$CONFIG" --product "$PRODUCT" 2>&1 | grep -vE '^\[[0-9]+/[0-9]+\]' || true
+done
 BIN="$("$SWIFT" build -c "$CONFIG" --show-bin-path)"
 test -x "$BIN/CaelestiaWM" || { echo "build failed: $BIN/CaelestiaWM missing" >&2; exit 1; }
 
