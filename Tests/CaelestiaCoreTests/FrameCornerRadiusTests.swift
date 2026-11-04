@@ -6,32 +6,67 @@ import XCTest
 final class FrameCornerRadiusTests: XCTestCase {
     // MARK: FrameConfig
 
-    func testAutoIsTenOnBuiltInAppleSiliconAndZeroElsewhere() {
+    func testAutoTopIsTenOnANotchedBuiltInPanelAndZeroElsewhere() {
         let f = FrameConfig()
         XCTAssertEqual(f.displayCornerRadius, -1)
-        XCTAssertEqual(f.cornerRadius(isBuiltIn: true, isAppleSilicon: true), 10)
-        XCTAssertEqual(f.cornerRadius(isBuiltIn: false, isAppleSilicon: true), 0)
-        XCTAssertEqual(f.cornerRadius(isBuiltIn: true, isAppleSilicon: false), 0)
-        XCTAssertEqual(f.cornerRadius(isBuiltIn: false, isAppleSilicon: false), 0)
+        XCTAssertEqual(f.cornerRadius(isBuiltIn: true, hasNotch: true), 10)
+        XCTAssertEqual(f.cornerRadius(isBuiltIn: false, hasNotch: true), 0)
+        XCTAssertEqual(f.cornerRadius(isBuiltIn: true, hasNotch: false), 0, "pre-notch MacBook panels are square")
+        XCTAssertEqual(f.cornerRadius(isBuiltIn: false, hasNotch: false), 0)
         XCTAssertEqual(FrameConfig.autoBuiltInRadius, 10)
+    }
+
+    func testAutoBottomIsSquareOnBuiltInPanelsAndFollowsTheTopElsewhere() {
+        var f = FrameConfig()
+        XCTAssertEqual(f.displayBottomCornerRadius, -1)
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: true, hasNotch: true), 0, "notched panels round only the top corners")
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: false, hasNotch: false), 0)
+        f.displayCornerRadius = 12
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: true, hasNotch: true), 0, "an explicit top radius does not round built-in bottoms")
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: false, hasNotch: false), 12, "externals: bottom follows the top")
+        f.displayBottomCornerRadius = 3.5
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: true, hasNotch: true), 3.5)
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: false, hasNotch: false), 3.5)
+        f.displayBottomCornerRadius = 500
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: true, hasNotch: true), FrameConfig.maxRadius)
+    }
+
+    func testBottomRadiusOverridesPerDisplayAndValidates() throws {
+        let c = try ConfigLoader.parse(toml: """
+        [frame]
+        displayBottomCornerRadius = 2
+
+        [displays."X"]
+        displayBottomCornerRadius = 4.5
+        """)
+        XCTAssertEqual(c.resolved(forDisplay: "X").frame.displayBottomCornerRadius, 4.5)
+        XCTAssertEqual(c.resolved(forDisplay: "Y").frame.displayBottomCornerRadius, 2)
+        var bad = Config()
+        bad.frame.displayBottomCornerRadius = 61
+        XCTAssertEqual(ConfigLoader.validate(bad).map(\.path), ["frame.displayBottomCornerRadius"])
+        bad.frame.displayBottomCornerRadius = -1
+        var o = DisplayOverride()
+        o.displayBottomCornerRadius = 70
+        bad.displays["X"] = o
+        XCTAssertEqual(ConfigLoader.validate(bad).map(\.path), ["displays.X.displayBottomCornerRadius"])
     }
 
     func testExplicitValueWinsOverAutoEverywhere() {
         var f = FrameConfig()
         f.displayCornerRadius = 12.5
         for builtIn in [true, false] {
-            for silicon in [true, false] {
-                XCTAssertEqual(f.cornerRadius(isBuiltIn: builtIn, isAppleSilicon: silicon), 12.5)
+            for notch in [true, false] {
+                XCTAssertEqual(f.cornerRadius(isBuiltIn: builtIn, hasNotch: notch), 12.5)
             }
         }
         f.displayCornerRadius = 0
-        XCTAssertEqual(f.cornerRadius(isBuiltIn: true, isAppleSilicon: true), 0, "an explicit 0 is square, not auto")
+        XCTAssertEqual(f.cornerRadius(isBuiltIn: true, hasNotch: true), 0, "an explicit 0 is square, not auto")
     }
 
     func testRadiusIsClampedToMax() {
         var f = FrameConfig()
         f.displayCornerRadius = 500
-        XCTAssertEqual(f.cornerRadius(isBuiltIn: false, isAppleSilicon: true), FrameConfig.maxRadius)
+        XCTAssertEqual(f.cornerRadius(isBuiltIn: false, hasNotch: true), FrameConfig.maxRadius)
         XCTAssertEqual(FrameConfig.maxRadius, 60)
     }
 
@@ -44,7 +79,7 @@ final class FrameCornerRadiusTests: XCTestCase {
         c.displays["A"]?.displayCornerRadius = 11
         XCTAssertEqual(c.resolved(forDisplay: "A").frame.displayCornerRadius, 11)
         XCTAssertEqual(c.resolved(forDisplay: "B").frame.displayCornerRadius, 8)
-        XCTAssertEqual(c.resolved(forDisplay: "A").frame.cornerRadius(isBuiltIn: false, isAppleSilicon: true), 11)
+        XCTAssertEqual(c.resolved(forDisplay: "A").frame.cornerRadius(isBuiltIn: false, hasNotch: true), 11)
         // An override without the key leaves the global value alone.
         c.displays["C"] = DisplayOverride()
         XCTAssertEqual(c.resolved(forDisplay: "C").frame.displayCornerRadius, 8)

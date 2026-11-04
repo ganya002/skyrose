@@ -130,6 +130,9 @@ public struct DisplayInfo: Equatable, Hashable, Sendable, Identifiable {
     public var isPrimary: Bool
     /// The Mac's own panel (`CGDisplayIsBuiltin`): its physical corners are rounded.
     public var isBuiltIn: Bool
+    /// The panel has a camera housing (non-zero top safe area), shown menu bar or not. Notched
+    /// MacBook panels have rounded top corners.
+    public var hasNotch: Bool
     /// Height of a menu bar that is always shown (auto-hide off). The screen frame starts below
     /// it. 0 when the menu bar auto-hides.
     public var shownMenuBarHeight: Double
@@ -142,9 +145,10 @@ public struct DisplayInfo: Equatable, Hashable, Sendable, Identifiable {
     public init(
         id: String, displayID: UInt32 = 0, name: String = "", frame: CGRect,
         menuBarHeight: Double = 0, dockInsets: Insets = .zero, scale: Double = 1, isPrimary: Bool = false,
-        shownMenuBarHeight: Double = 0, topCutouts: [CGRect] = [], isBuiltIn: Bool = false
+        shownMenuBarHeight: Double = 0, topCutouts: [CGRect] = [], isBuiltIn: Bool = false, hasNotch: Bool = false
     ) {
         self.isBuiltIn = isBuiltIn
+        self.hasNotch = hasNotch
         self.shownMenuBarHeight = shownMenuBarHeight
         self.topCutouts = topCutouts
         self.id = id

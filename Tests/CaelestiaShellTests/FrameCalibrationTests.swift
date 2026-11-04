@@ -20,7 +20,7 @@ final class FrameCalibrationTests: XCTestCase {
     }
 
     private let builtIn = DisplayInfo(id: "BUILTIN", name: "Built-in Retina Display", frame: CGRect(x: 0, y: 0, width: 1470, height: 956),
-                                      isPrimary: true, isBuiltIn: true)
+                                      isPrimary: true, isBuiltIn: true, hasNotch: true)
     private let external = DisplayInfo(id: "EXT", name: "DELL U2720Q", frame: CGRect(x: 1470, y: 0, width: 2560, height: 1440))
 
     private func controller(radius: Double? = 10, displays: [DisplayInfo]? = nil, running: Bool = true) -> ShellController {
@@ -90,8 +90,66 @@ final class FrameCalibrationTests: XCTestCase {
     func testStartReportsTheAutoRadiusPerDisplay() throws {
         let c = controller(radius: nil)
         defer { c.stop() }
-        XCTAssertEqual(try c.startFrameCalibration(display: "BUILTIN").get().1, FrameConfig.isAppleSilicon ? 10 : 0)
+        XCTAssertEqual(try c.startFrameCalibration(display: "BUILTIN").get().1, 10)
+        XCTAssertEqual(c.displayCornerRadius(for: builtIn, corners: .bottom), 0, "built-in bottom corners are square")
         XCTAssertEqual(try c.startFrameCalibration(display: "EXT").get().1, 0)
+    }
+
+    // MARK: Top / bottom
+
+    func testTabSwitchesToTheBottomCornersWhichSaveUnderTheirOwnKey() throws {
+        let c = controller()
+        defer { c.stop() }
+        _ = try c.startFrameCalibration(display: "BUILTIN").get()
+        XCTAssertEqual(c.calibration?.corners, .top)
+        XCTAssertTrue(c.calibrationKey(key(48)))
+        XCTAssertEqual(c.calibration?.corners, .bottom)
+        XCTAssertTrue(c.calibrationKey(key(126)))
+        XCTAssertEqual(c.bottomCornerRadiusTrials["BUILTIN"], 0.5)
+        XCTAssertNil(c.cornerRadiusTrials["BUILTIN"], "the top corners are untouched")
+        XCTAssertEqual(c.layouts["BUILTIN"]?.bottomCornerRadius, 0.5)
+        XCTAssertEqual(c.layouts["BUILTIN"]?.displayCornerRadius, 10)
+        XCTAssertEqual(c.calibration?.view.bottomRadius, 0.5)
+        XCTAssertTrue(c.calibrationKey(key(48)))
+        XCTAssertEqual(c.calibration?.corners, .top)
+        XCTAssertTrue(c.calibrationKey(key(125)))
+        c.finishCalibration(save: true)
+        let saved = try savedConfig()
+        XCTAssertEqual(saved.displays["BUILTIN"]?.displayCornerRadius, 9.5)
+        XCTAssertEqual(saved.displays["BUILTIN"]?.displayBottomCornerRadius, 0.5)
+    }
+
+    func testOnlyTheChangedPairIsSaved() throws {
+        let c = controller()
+        defer { c.stop() }
+        _ = try c.startFrameCalibration(display: "BUILTIN").get()
+        _ = c.calibrationKey(key(48))
+        _ = c.calibrationKey(key(126))
+        c.finishCalibration(save: true)
+        let text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(text.contains("displayBottomCornerRadius = 0.5"))
+        XCTAssertFalse(text.contains("displayCornerRadius ="))
+    }
+
+    func testCancelDropsBottomTrialsToo() throws {
+        let c = controller()
+        defer { c.stop() }
+        _ = try c.startFrameCalibration(display: "BUILTIN").get()
+        _ = c.calibrationKey(key(48))
+        c.stepCalibration(by: 3)
+        c.finishCalibration(save: false)
+        XCTAssertTrue(c.bottomCornerRadiusTrials.isEmpty)
+        XCTAssertEqual(c.layouts["BUILTIN"]?.bottomCornerRadius, 0)
+    }
+
+    func testOutlineHasSeparateTopAndBottomRadii() {
+        let b = CGRect(x: 0, y: 0, width: 400, height: 300)
+        let p = FrameCalibrationView.outline(in: b, top: 20, bottom: 0)
+        let w = FrameCalibrationView.lineWidth
+        // A point just inside the square bottom-left corner of the line's path is inside; the same
+        // spot at the rounded top-left is outside.
+        XCTAssertTrue(p.contains(CGPoint(x: w / 2 + 1, y: 300 - w / 2 - 1)))
+        XCTAssertFalse(p.contains(CGPoint(x: w / 2 + 1, y: w / 2 + 1)))
     }
 
     // MARK: Step

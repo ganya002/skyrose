@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased — Corner fit, round 2 (2026-11-04)
+
+From the user's photos of the MacBook Air after 8a7fea2: the bottom-right corner showed a small
+wedge of wallpaper outside the frame's rounded outer corner. A frame corner rounded *more* than the
+hardware leaves pixels uncovered that the hardware still shows, so the panel's bottom corners are
+square or much tighter than 10 pt (notched MacBook panels round their top corners).
+
+### Changed
+- Top and bottom corners have separate radii: `frame.displayCornerRadius` (top) and the new
+  `frame.displayBottomCornerRadius` (also per display). Auto top: 10 pt on a built-in panel with a
+  notch (`DisplayInfo.hasNotch`, top safe area > 0), 0 elsewhere (pre-notch MacBook panels are
+  square; this replaces the "built-in Apple Silicon" rule). Auto bottom: 0 on built-in panels,
+  else the top value.
+- Inner corners where the outer corner is rounded are now concentric: outer − band (was outer +
+  band, which made the band ~1.8× wider on the corner diagonal). With the 10 pt default and the
+  10 pt band the top inner corners are square. A test measures the band along the diagonal.
+- `caelestia frame calibrate`: Tab switches between the top and bottom corners (the pair being
+  tuned is drawn bright, the other dim); Return saves only the values that changed, each under its
+  own key.
+- Tests: 661 passing.
+
+### Not verified
+- Not checked live on the hardware this round (unit tests only); the shell was not started. The
+  10 pt top radius is still an eyeballed default, to be tuned with `caelestia frame calibrate`.
+
 ## Unreleased — Fixes from real-hardware testing: corners, stretched stills, edge jumps (2026-11-04)
 
 Verified live on the MacBook Air (notch) + DELL U3417W with TestWindows only, on workspace 4.

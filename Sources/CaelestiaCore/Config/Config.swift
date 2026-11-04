@@ -57,6 +57,7 @@ public struct Config: Codable, Equatable, Sendable {
         if let v = o.uiScale { c.appearance.uiScale = v }
         if let v = o.screenFrame { c.wm.screenFrame = v }
         if let v = o.displayCornerRadius { c.frame.displayCornerRadius = v }
+        if let v = o.displayBottomCornerRadius { c.frame.displayBottomCornerRadius = v }
         return c
     }
 }
@@ -305,36 +306,42 @@ public struct DisplayOverride: Codable, Equatable, Sendable {
     public var screenFrame: Bool?
     /// Physical corner radius of this display (pt); see ``FrameConfig/displayCornerRadius``.
     public var displayCornerRadius: Double?
+    /// Physical radius of this display's bottom corners; see ``FrameConfig/displayBottomCornerRadius``.
+    public var displayBottomCornerRadius: Double?
     public init() {}
 }
 
 /// The screen frame's fit to the display hardware.
 public struct FrameConfig: Codable, Equatable, Sendable {
-    /// Radius (pt) of the display's physical rounded corners; the frame's outer edge follows it
-    /// and its inner corners use this + the band thickness. Apple does not publish the value, so
-    /// it is tuned by eye (`caelestia frame calibrate`, saved per display under
-    /// `[displays."<uuid>"]`). Negative = auto: ``autoBuiltInRadius`` on a built-in Apple Silicon
-    /// panel, 0 (square) everywhere else.
+    /// Radius (pt) of the display's physical rounded *top* corners (and of the bottom corners
+    /// unless ``displayBottomCornerRadius`` is set). The frame's outer edge follows it and its
+    /// inner corners use this − the band thickness, so the band keeps one width around the
+    /// corner. Apple does not publish the value, so it is tuned by eye (`caelestia frame
+    /// calibrate`, saved per display under `[displays."<uuid>"]`). Negative = auto:
+    /// ``autoBuiltInRadius`` on a built-in panel with a notch, 0 (square) everywhere else.
     public var displayCornerRadius: Double = -1
+    /// Radius (pt) of the physical bottom corners. Negative = auto: 0 on a built-in panel (the
+    /// notched MacBook panels round only their top corners; a frame corner rounded more than the
+    /// hardware shows the wallpaper through), else the same as ``displayCornerRadius``.
+    public var displayBottomCornerRadius: Double = -1
 
-    /// The auto radius of built-in Apple Silicon MacBook panels (an eyeballed starting point).
+    /// The auto top radius of notched MacBook panels (an eyeballed starting point).
     public static let autoBuiltInRadius: Double = 10
     public static let maxRadius: Double = 60
 
     public init() {}
 
-    /// The effective radius for a display: the configured value, or the auto default.
-    public func cornerRadius(isBuiltIn: Bool, isAppleSilicon: Bool = FrameConfig.isAppleSilicon) -> Double {
+    /// The effective top radius for a display: the configured value, or the auto default.
+    public func cornerRadius(isBuiltIn: Bool, hasNotch: Bool) -> Double {
         if displayCornerRadius >= 0 { return min(displayCornerRadius, Self.maxRadius) }
-        return isBuiltIn && isAppleSilicon ? Self.autoBuiltInRadius : 0
+        return isBuiltIn && hasNotch ? Self.autoBuiltInRadius : 0
     }
 
-    public static var isAppleSilicon: Bool {
-        #if arch(arm64)
-        return true
-        #else
-        return false
-        #endif
+    /// The effective bottom radius for a display: the configured value, else 0 on a built-in
+    /// panel, else the top radius.
+    public func bottomCornerRadius(isBuiltIn: Bool, hasNotch: Bool) -> Double {
+        if displayBottomCornerRadius >= 0 { return min(displayBottomCornerRadius, Self.maxRadius) }
+        return isBuiltIn ? 0 : cornerRadius(isBuiltIn: isBuiltIn, hasNotch: hasNotch)
     }
 }
 

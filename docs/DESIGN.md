@@ -227,10 +227,15 @@ exists. `DisplayInfo.topCutouts` / `shownMenuBarHeight` carry the result; the fr
 dipping around each cutout. Windows still keep clear of the full safe-area strip (`menuBarHeight`):
 the strip beside the notch is where the auto-hidden menu bar appears.
 
-The outer edge follows the display's physical corners (`frame.displayCornerRadius`, see SHELL.md):
+The outer edge follows the display's physical corners (`frame.displayCornerRadius` for the top
+pair, `frame.displayBottomCornerRadius` for the bottom pair, see SHELL.md):
 `DisplayLayout.physicalCorners` marks the corners of the frame area that coincide with the
-display's own, `outerRadii` rounds those, `innerRadii` = outer + band there and the theme's frame
-rounding elsewhere. `FramePath` builds both edges as rounded polygons (even-odd fill). The value
+display's own, `outerRadii` rounds those, `innerRadii` = max(0, outer − band) there (concentric,
+so the band's width is the same on the corner diagonal as on the edges; the first version used
+outer + band, which made the band ~1.8× wider on the diagonal) and the theme's frame rounding
+elsewhere. Auto radii key off `DisplayInfo.hasNotch` (top safe area > 0): notched MacBook panels
+round only their top corners, and an outer radius larger than the hardware's exposes wallpaper,
+so the bottom pair defaults to square on built-in panels. `FramePath` builds both edges as rounded polygons (even-odd fill). The value
 is calibrated by eye (`caelestia frame calibrate`), never derived from screenshots: a screenshot
 contains the pixels the hardware corner hides. `ConfigFileEditor` writes the one key into the
 user's config.toml without rewriting it.

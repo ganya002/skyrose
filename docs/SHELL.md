@@ -15,18 +15,25 @@ with an inner corner radius of 25 (window rounding 15 + outer gap 10). The surfa
 colour at transparency base 0.75 over a behind-window blur. The band is even on all four sides.
 The Dock area is left alone. Turn it off with `wm.screenFrame = false`.
 
-**Rounded display corners.** MacBook panels have rounded physical corners; a square frame left a
-dark wedge in each. The frame's *outer* edge now uses `frame.displayCornerRadius` at every corner
-that is a real display corner (not where the band meets a shown Dock or menu bar), and the inner
-corners there use outer radius + band (10 + 10 = 20 by default; square-outer corners keep 25).
-Apple does not publish the radius, so it is set by eye: auto (`-1`) = 10 pt on a built-in Apple
-Silicon panel (`CGDisplayIsBuiltin`), 0 on externals; per display under `[displays."<uuid>"]
-displayCornerRadius`. `caelestia frame calibrate [display]` draws a thin bright outline along the
-display edge at the radius being tried and redraws the frame live: ↑/↓ ±0.5 pt, ⇧↑/⇧↓ ±0.1 pt,
-←/→ other display, Return saves every changed display into config.toml (only that key is
-written; comments and other settings stay), Esc cancels. When the radius matches, the line runs
-around the corner at an even width; too small and it disappears into the corner, too large and a
-dark gap opens outside it.
+**Rounded display corners.** Notched MacBook panels round their *top* corners; their bottom
+corners are square or close to it (real-hardware photo: a 10 pt frame corner at the bottom
+showed a wedge of wallpaper, because a frame corner rounded more than the hardware leaves
+uncovered pixels the hardware still shows). The frame's *outer* edge uses
+`frame.displayCornerRadius` at the top corners and `frame.displayBottomCornerRadius` at the
+bottom ones, only at corners that are real display corners (not where the band meets a shown
+Dock or menu bar). Where the outer corner is rounded, the inner corner is concentric with it:
+outer radius − band, so the band keeps one width around the corner (a square inner corner once
+the radius is no larger than the band, as with the 10 pt default and the 10 pt band). Square
+outer corners keep the theme's 25. Apple does not publish the radii, so they are set by eye:
+auto (`-1`) top = 10 pt on a built-in panel with a notch, 0 elsewhere; auto bottom = 0 on
+built-in panels, else the top value; per display under `[displays."<uuid>"]`.
+`caelestia frame calibrate [display]` draws a thin outline along the display edge at the radii
+being tried (the pair being tuned bright) and redraws the frame live: ↑/↓ ±0.5 pt, ⇧↑/⇧↓
+±0.1 pt, Tab top/bottom corners, ←/→ other display, Return saves every changed value into
+config.toml (only those keys are written; comments and other settings stay), Esc cancels. When
+the radius matches, the line runs around the corner at an even width; too large and the
+wallpaper shows outside it, too small and the hardware corner cuts the line off. Err small: a
+radius smaller than the hardware's is hidden by the corner.
 
 **Notch / cutouts.** Each display's cutouts are read from macOS, never from a model list: the
 top safe-area strip (`NSScreen.safeAreaInsets.top`) minus `auxiliaryTopLeftArea` and
@@ -154,7 +161,8 @@ static. Config reload applies it live.
 | Key | Effect |
 |---|---|
 | `bar.persistent` | always shown and reserved, or hover-reveal (overlays windows) |
-| `frame.displayCornerRadius`, `[displays."<uuid>"] displayCornerRadius` | physical corner radius for the frame's outer edge (-1 = auto) |
+| `frame.displayCornerRadius`, `[displays."<uuid>"] displayCornerRadius` | physical top corner radius for the frame's outer edge (-1 = auto) |
+| `frame.displayBottomCornerRadius`, `[displays."<uuid>"] displayBottomCornerRadius` | physical bottom corner radius (-1 = auto: 0 on built-in panels, else the top value) |
 | `bar.showOnHover` | reveal on pointer contact with the left band |
 | `bar.width` | bar width (48 pt) |
 | `bar.statusIcons` | which status icons appear, in order |

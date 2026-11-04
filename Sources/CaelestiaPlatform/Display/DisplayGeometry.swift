@@ -88,7 +88,7 @@ public enum DisplayGeometry {
         return DisplayInfo(
             id: s.uuid, displayID: s.displayID, name: s.name, frame: converter.toTopLeft(s.frame),
             menuBarHeight: menuBar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero,
-            shownMenuBarHeight: shown, topCutouts: cutouts, isBuiltIn: s.isBuiltIn
+            shownMenuBarHeight: shown, topCutouts: cutouts, isBuiltIn: s.isBuiltIn, hasNotch: s.safeAreaTop > 0
         )
     }
 

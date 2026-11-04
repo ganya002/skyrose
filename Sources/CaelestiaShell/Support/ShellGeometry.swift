@@ -223,9 +223,11 @@ public struct DisplayLayout: Equatable, Sendable {
     public var topExtra: Double
     /// Hardware cutouts (notch) in AppKit global space. The band wraps around each one.
     public var cutouts: [CGRect]
-    /// The display's physical corner radius (`frame.displayCornerRadius`), applied to the outer
-    /// corners of `area` that are real display corners (`physicalCorners`).
+    /// The display's physical top corner radius (`frame.displayCornerRadius`), applied to the
+    /// outer corners of `area` that are real display corners (`physicalCorners`).
     public var displayCornerRadius: Double
+    /// The same for the bottom corners (`frame.displayBottomCornerRadius`).
+    public var bottomCornerRadius: Double
     /// Which corners of `area` coincide with the display's own corners (not with a shown Dock or
     /// menu bar edge, where the band meets ordinary pixels).
     public var physicalCorners: PhysicalCorners
@@ -240,7 +242,8 @@ public struct DisplayLayout: Equatable, Sendable {
         public static let all: PhysicalCorners = [.topLeft, .topRight, .bottomRight, .bottomLeft]
     }
 
-    public init(display: DisplayInfo, converter: CoordinateConverter, thickness: Double, barWidth: Double, displayCornerRadius: Double = 0) {
+    public init(display: DisplayInfo, converter: CoordinateConverter, thickness: Double, barWidth: Double, displayCornerRadius: Double = 0,
+                bottomCornerRadius: Double? = nil) {
         var top = display.frame.insetBy(display.dockInsets)
         top.origin.y += display.shownMenuBarHeight
         top.size.height = max(0, top.height - display.shownMenuBarHeight)
@@ -250,6 +253,7 @@ public struct DisplayLayout: Equatable, Sendable {
         self.thickness = thickness
         self.barWidth = barWidth
         self.displayCornerRadius = max(0, displayCornerRadius)
+        self.bottomCornerRadius = max(0, bottomCornerRadius ?? displayCornerRadius)
         let f = display.frame
         let atTop = abs(top.minY - f.minY) < 0.5, atBottom = abs(top.maxY - f.maxY) < 0.5
         let atLeft = abs(top.minX - f.minX) < 0.5, atRight = abs(top.maxX - f.maxX) < 0.5
@@ -262,30 +266,33 @@ public struct DisplayLayout: Equatable, Sendable {
     }
 
     public init(area: CGRect, thickness: Double, barWidth: Double, topExtra: Double = 0, cutouts: [CGRect] = [],
-                displayCornerRadius: Double = 0, physicalCorners: PhysicalCorners = .all) {
+                displayCornerRadius: Double = 0, bottomCornerRadius: Double? = nil, physicalCorners: PhysicalCorners = .all) {
         self.area = area
         self.thickness = thickness
         self.barWidth = barWidth
         self.topExtra = topExtra
         self.cutouts = cutouts
         self.displayCornerRadius = max(0, displayCornerRadius)
+        self.bottomCornerRadius = max(0, bottomCornerRadius ?? displayCornerRadius)
         self.physicalCorners = physicalCorners
     }
 
-    /// Outer radii of the frame band: the display radius at physical corners, square elsewhere.
+    /// Outer radii of the frame band: the display radii at physical corners, square elsewhere.
     public var outerRadii: CornerRadii {
-        let r = displayCornerRadius
+        let t = displayCornerRadius, b = bottomCornerRadius
         return CornerRadii(
-            topLeft: physicalCorners.contains(.topLeft) ? r : 0, topRight: physicalCorners.contains(.topRight) ? r : 0,
-            bottomRight: physicalCorners.contains(.bottomRight) ? r : 0, bottomLeft: physicalCorners.contains(.bottomLeft) ? r : 0
+            topLeft: physicalCorners.contains(.topLeft) ? t : 0, topRight: physicalCorners.contains(.topRight) ? t : 0,
+            bottomRight: physicalCorners.contains(.bottomRight) ? b : 0, bottomLeft: physicalCorners.contains(.bottomLeft) ? b : 0
         )
     }
 
-    /// Window-side radii of the band: outer radius + band thickness where the outer corner is
-    /// rounded, `base` (the theme's frame rounding) where it is square.
+    /// Window-side radii of the band. Where the outer corner is rounded the inner arc is
+    /// concentric with it: outer radius − band thickness (0, a square inner corner, once the
+    /// radius is no larger than the band), so the band keeps one width around the corner.
+    /// `base` (the theme's frame rounding) where the outer corner is square.
     public func innerRadii(base: Double) -> CornerRadii {
         let o = outerRadii
-        func r(_ outer: Double) -> Double { outer > 0 ? outer + thickness : base }
+        func r(_ outer: Double) -> Double { outer > 0 ? max(0, outer - thickness) : base }
         return CornerRadii(topLeft: r(o.topLeft), topRight: r(o.topRight), bottomRight: r(o.bottomRight), bottomLeft: r(o.bottomLeft))
     }
 

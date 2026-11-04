@@ -558,7 +558,7 @@ public enum CLIParser {
             ("shell kill | shell restart", "Hide / restart the shell UI"),
             ("shell <target> <fn> [args...]", "Linux shell IPC, 1:1 (e.g. shell toaster info \"Title\" \"Msg\" icon)"),
             ("shell help [target]", "List the IPC targets and their signatures"),
-            ("frame calibrate [display]", "Tune the frame's corner radius by eye (↑↓ ±0.5, ⇧ ±0.1, ←→ display, Return saves, Esc cancels)"),
+            ("frame calibrate [display]", "Tune the frame's corner radii by eye (↑↓ ±0.5, ⇧ ±0.1, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
         ]),
         HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify"], rows: [
             ("screenshot [region|freeze|full]", "Take a screenshot (default: region)"),

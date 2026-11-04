@@ -230,6 +230,7 @@ public enum ConfigLoader {
         display.uiScale = 1
         display.screenFrame = true
         display.displayCornerRadius = 0
+        display.displayBottomCornerRadius = 0
         proto.displays = [mapPrototypeKey: display]
         proto.animations.overrides = [mapPrototypeKey: AnimationOverride(enabled: true, curve: "", speed: 1, style: "")]
         proto.wm.specialWorkspaces = [mapPrototypeKey: SpecialWorkspaceConfig(apps: [""], launch: "")]
@@ -360,6 +361,7 @@ public enum ConfigLoader {
         check(wm.shadowRenderPower >= 1 && wm.shadowRenderPower <= 4, "wm.shadowRenderPower", "must be between 1 and 4 (got \(wm.shadowRenderPower))")
         nonNegative(wm.screenFrameInset, "wm.screenFrameInset")
         check(c.frame.displayCornerRadius <= FrameConfig.maxRadius, "frame.displayCornerRadius", "must be at most \(Int(FrameConfig.maxRadius)) (got \(c.frame.displayCornerRadius); negative = auto)")
+        check(c.frame.displayBottomCornerRadius <= FrameConfig.maxRadius, "frame.displayBottomCornerRadius", "must be at most \(Int(FrameConfig.maxRadius)) (got \(c.frame.displayBottomCornerRadius); negative = auto)")
         check(wm.focusFollowsMouseDelayMs >= 0, "wm.focusFollowsMouseDelayMs", "must be >= 0 (got \(wm.focusFollowsMouseDelayMs))")
         check(wm.workspacesPerGroup >= 1, "wm.workspacesPerGroup", "must be >= 1 (got \(wm.workspacesPerGroup))")
         check(wm.workspaceGroups >= 1, "wm.workspaceGroups", "must be >= 1 (got \(wm.workspaceGroups))")
@@ -436,6 +438,7 @@ public enum ConfigLoader {
             if let v = o.gapsOutSingle { nonNegative(v, "\(path).gapsOutSingle") }
             if let v = o.uiScale { check(v > 0 && v <= 4, "\(path).uiScale", "must be in (0, 4] (got \(v))") }
             if let v = o.displayCornerRadius { check(v <= FrameConfig.maxRadius, "\(path).displayCornerRadius", "must be at most \(Int(FrameConfig.maxRadius)) (got \(v); negative = auto)") }
+            if let v = o.displayBottomCornerRadius { check(v <= FrameConfig.maxRadius, "\(path).displayBottomCornerRadius", "must be at most \(Int(FrameConfig.maxRadius)) (got \(v); negative = auto)") }
         }
         return issues
     }

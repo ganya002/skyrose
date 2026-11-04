@@ -65,12 +65,41 @@ final class CornerRadiusGeometryTests: XCTestCase {
         XCTAssertEqual(menuBar.outerRadii, CornerRadii(topLeft: 0, topRight: 0, bottomRight: 12, bottomLeft: 12))
     }
 
-    func testInnerRadiiAreOuterPlusThicknessWhereRoundedAndBaseElsewhere() {
-        let l = layout(dock: Insets(bottom: 70), radius: 10, thickness: 8)
-        XCTAssertEqual(l.innerRadii(base: 25), CornerRadii(topLeft: 18, topRight: 18, bottomRight: 25, bottomLeft: 25))
+    func testInnerRadiiAreOuterMinusThicknessWhereRoundedAndBaseElsewhere() {
+        let l = layout(dock: Insets(bottom: 70), radius: 30, thickness: 8)
+        XCTAssertEqual(l.innerRadii(base: 25), CornerRadii(topLeft: 22, topRight: 22, bottomRight: 25, bottomLeft: 25))
         let square = layout(radius: 0, thickness: 8)
         XCTAssertEqual(square.innerRadii(base: 25), .uniform(25), "radius 0: every corner keeps the theme rounding")
-        XCTAssertEqual(layout(radius: 10, thickness: 10).innerRadii(base: 25), .uniform(20))
+        XCTAssertEqual(layout(radius: 10, thickness: 10).innerRadii(base: 25), .uniform(0), "radius ≤ band: square inner corner")
+        XCTAssertEqual(layout(radius: 6, thickness: 10).innerRadii(base: 25), .uniform(0))
+    }
+
+    func testTopAndBottomRadiiAreSeparate() {
+        let d = DisplayInfo(id: "d", frame: screen)
+        let l = DisplayLayout(display: d, converter: converter, thickness: 10, barWidth: 48, displayCornerRadius: 14, bottomCornerRadius: 0)
+        XCTAssertEqual(l.outerRadii, CornerRadii(topLeft: 14, topRight: 14, bottomRight: 0, bottomLeft: 0))
+        XCTAssertEqual(l.innerRadii(base: 25), CornerRadii(topLeft: 4, topRight: 4, bottomRight: 25, bottomLeft: 25))
+        XCTAssertEqual(layout(radius: 9).bottomCornerRadius, 9, "bottom defaults to the top radius")
+    }
+
+    /// The band's width measured along the corner diagonal equals its width on the edges when
+    /// the inner arc is concentric (inner = outer − band).
+    func testBandKeepsItsWidthAroundARoundedCorner() {
+        let outer = CGRect(x: 0, y: 0, width: 1000, height: 600)
+        for (r, b) in [(30.0, 10.0), (18, 6)] {
+            let p = FramePath.path(outer: outer, insets: .uniform(b), outerRadii: .uniform(r), innerRadii: .uniform(r - b),
+                                   cutouts: [], thickness: b)
+            // Along the diagonal from the corner: the outer arc is at r − r/√2 · … ; walk and measure.
+            var filledSteps = 0
+            let step = 0.01
+            var t = 0.0
+            while t < r {
+                if p.contains(CGPoint(x: t, y: t), using: .evenOdd) { filledSteps += 1 }
+                t += step
+            }
+            let diagonalWidth = Double(filledSteps) * step * 2.0.squareRoot()
+            XCTAssertEqual(diagonalWidth, b, accuracy: 0.05, "r \(r) band \(b)")
+        }
     }
 
     // MARK: FramePath
