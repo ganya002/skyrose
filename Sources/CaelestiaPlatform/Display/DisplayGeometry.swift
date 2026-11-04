@@ -72,7 +72,8 @@ public enum DisplayGeometry {
     /// on the left when the bar is persistent (spec 4.6).
     public static func reservedInsets(screenFrame: Double, persistentBarWidth: Double?) -> Insets {
         var r = Insets.uniform(screenFrame)
-        if let bar = persistentBarWidth { r.left += bar }
+        // The bar replaces the frame band on its edge.
+        if let bar = persistentBarWidth { r.left = max(screenFrame, bar) }
         return r
     }
 

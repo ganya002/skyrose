@@ -1,4 +1,5 @@
 import CaelestiaCore
+import CaelestiaIPC
 import CaelestiaLayout
 import CaelestiaPlatform
 import CoreGraphics
@@ -91,6 +92,12 @@ public final class WindowManager {
     /// `config.reload` / `rules.reload` from IPC; return warnings.
     public var onConfigReload: (() -> [String])?
     public var onRulesReload: (() -> [String])?
+    /// After every applied layout pass (the shell refreshes workspaces / the active window).
+    public var onLayoutApplied: (() -> Void)?
+    /// Shell IPC (`shell.*`, drawers, toasts). Returns nil for commands the shell does not own.
+    public var shellResponder: ((IPCRequest, IPCCommand) -> IPCResponse?)?
+    /// Displays whose auto-hidden bar is currently revealed (it reserves its width).
+    public internal(set) var barRevealed: Set<String> = []
 
     var handles: [WindowID: any WindowHandle] = [:]
     var descriptors: [WindowID: WindowDescriptor] = [:]
@@ -223,19 +230,31 @@ public final class WindowManager {
         LayoutEnvironment(config: config.wm, areas: Dictionary(uniqueKeysWithValues: displays.map { ($0.id, usableArea(of: $0)) }))
     }
 
-    /// Frame − menu bar − Dock − screen frame − persistent bar (spec 4.6), with per-display overrides.
+    /// Frame − menu bar − Dock − screen frame − bar (spec 4.6), with per-display overrides. The
+    /// bar reserves its width while it is persistent or revealed (Caelestia: the exclusive zone
+    /// follows the bar's visibility). It replaces the frame band on its edge, so that edge
+    /// reserves max(frame, bar), not their sum.
     public func usableArea(of display: DisplayInfo) -> CGRect {
         let c = config.resolved(forDisplay: display.id)
-        var reserved = Insets.uniform(c.wm.screenFrame ? c.wm.screenFrameInset : 0)
-        if c.bar.enabled, c.bar.persistent {
+        let frame = c.wm.screenFrame ? c.wm.screenFrameInset : 0
+        var reserved = Insets.uniform(frame)
+        if c.bar.enabled, c.bar.persistent || barRevealed.contains(display.id) {
+            let bar = max(frame, c.bar.width)
             switch c.bar.edge {
-            case .left: reserved.left += c.bar.width
-            case .right: reserved.right += c.bar.width
-            case .top: reserved.top += c.bar.width
-            case .bottom: reserved.bottom += c.bar.width
+            case .left: reserved.left = bar
+            case .right: reserved.right = bar
+            case .top: reserved.top = bar
+            case .bottom: reserved.bottom = bar
             }
         }
         return display.usableArea(reserved: reserved)
+    }
+
+    /// The shell revealed / hid an auto-hidden bar on `display`: retile around it.
+    public func setBarRevealed(_ revealed: Bool, display: String) {
+        let changed = revealed ? barRevealed.insert(display).inserted : barRevealed.remove(display) != nil
+        guard changed else { return }
+        if !config.resolved(forDisplay: display).bar.persistent { setNeedsLayout() }
     }
 
     public func display(id: String?) -> DisplayInfo? {
@@ -338,6 +357,7 @@ public final class WindowManager {
         raised = visibleRaised
         syncFocus()
         if learnedMinSize { setNeedsLayout() }
+        onLayoutApplied?()
     }
 
     private func decorated(_ id: WindowID) -> Bool {

@@ -78,9 +78,14 @@ public struct BorderSample: Equatable, Sendable {
     }
 }
 
-/// The animation state of one border: frame channels (x, y, width, height) on `windowsMove`,
-/// pop-in (scale + alpha) on `windowsIn`, fade-out on `windowsOut`, and the active/inactive
-/// color blend on `border`.
+/// The animation state of one border: pop-in (scale + alpha) on `windowsIn`, fade-out on
+/// `windowsOut`, the active/inactive color blend on `border`, and the move fade.
+///
+/// Move fade (no trailing borders): in Standard mode real windows snap to their new frame, so a
+/// border that springs after them trails for ~0.5 s. Instead, when the frame changes (a retile, a
+/// drag, an app resizing itself) the border fades out where it is, stays hidden while the window
+/// keeps moving, and once the frame has been still for `moveSettle` it jumps to the final frame
+/// while invisible and fades back in. The frame channels are never interpolated.
 public struct BorderAnimator: Equatable, Sendable {
     public enum Phase: Equatable, Sendable { case shown, vanishing }
 
@@ -93,6 +98,19 @@ public struct BorderAnimator: Equatable, Sendable {
     var alpha: AnimatedValue
     var scale: AnimatedValue
     var mix: AnimatedValue
+    /// 1 = visible, 0 = hidden for a move (multiplies `alpha`).
+    var moveFade = AnimatedValue(1)
+    /// While hidden for a move: when to jump to `target.frame` and fade back in.
+    public private(set) var revealAt: TimeInterval?
+
+    /// Fade-out when a move starts, fade-in at the final frame, and how long the frame must stay
+    /// unchanged before the border comes back (covers AX echo + the app's redraw).
+    public static let moveFadeOut = AnimationSpec.bezier(.standard, milliseconds: 70)
+    public static let moveFadeIn = AnimationSpec.bezier(.standard, milliseconds: 140)
+    public static let moveSettle: TimeInterval = 0.15
+
+    /// True while the border is hidden (or hiding) for a move.
+    public var isHiddenForMove: Bool { revealAt != nil }
 
     public init(_ target: BorderTarget, table: AnimationTable, at now: TimeInterval) {
         self.target = target
@@ -131,25 +149,58 @@ public struct BorderAnimator: Equatable, Sendable {
             alpha.animate(to: 1, spec: Self.fadeSpec(for: table[.windowsIn]), at: now)
             scale.animate(to: 1, spec: table[.windowsIn], at: now)
         }
-        if new.frame != target.frame {
-            if new.motion == .snap || wasVanishing {
-                snap(to: new.frame)
-            } else {
-                let move = table[.windowsMove]
-                x.animate(to: new.frame.minX, spec: move, at: now)
-                y.animate(to: new.frame.minY, spec: move, at: now)
-                w.animate(to: new.frame.width, spec: move, at: now)
-                h.animate(to: new.frame.height, spec: move, at: now)
-            }
-        }
+        let frameChanged = new.frame != target.frame
         if new.isActive != target.isActive {
             mix.animate(to: new.isActive ? 1 : 0, spec: table[.border], at: now)
         }
+        let newFrame = new.frame
         target = new
+        target.frame = shownFrameTarget
+        if frameChanged {
+            if wasVanishing || !Self.fades(table) {
+                snap(to: newFrame)
+            } else {
+                hideForMove(to: newFrame, at: now)
+            }
+        }
     }
 
-    /// Follows the real window 1:1 (drag tracking), cancelling any move animation.
+    /// Where `target.frame` points right now (the frame drawn, or the pending one while hidden).
+    private var shownFrameTarget: CGRect { pendingFrame ?? CGRect(x: x.to, y: y.to, width: w.to, height: h.to) }
+    private var pendingFrame: CGRect?
+
+    /// The move fade runs whenever window motion is animated at all (off in game mode, with
+    /// Reduce Motion and with the `off` preset: then the border simply snaps with the window).
+    static func fades(_ table: AnimationTable) -> Bool {
+        let move = table[.windowsMove]
+        return move.enabled && move.durationMs > 0
+    }
+
+    /// The window is moving to `frame`: fade out in place (once), and push the reveal back.
+    mutating func hideForMove(to frame: CGRect, at now: TimeInterval) {
+        if revealAt == nil {
+            moveFade.animate(to: 0, spec: Self.moveFadeOut, at: now)
+        }
+        pendingFrame = frame
+        target.frame = frame
+        revealAt = now + max(Self.moveSettle, Self.moveFadeOut.duration)
+    }
+
+    /// Reveals borders whose window has been still long enough: jump to the final frame (while
+    /// invisible) and fade in. Returns true when something was revealed.
+    @discardableResult
+    public mutating func advance(at now: TimeInterval) -> Bool {
+        guard let at = revealAt, now >= at else { return false }
+        revealAt = nil
+        if let f = pendingFrame { snap(to: f) }
+        pendingFrame = nil
+        moveFade.animate(to: 1, spec: Self.moveFadeIn, at: now)
+        return true
+    }
+
+    /// Jumps to `frame` at once (no fade): used when motion is off and after a reveal.
     public mutating func snap(to frame: CGRect) {
+        pendingFrame = nil
         x.set(frame.minX)
         y.set(frame.minY)
         w.set(frame.width)
@@ -175,7 +226,7 @@ public struct BorderAnimator: Equatable, Sendable {
     public func sample(at now: TimeInterval) -> BorderSample {
         BorderSample(
             frame: CGRect(x: x.value(at: now), y: y.value(at: now), width: max(0, w.value(at: now)), height: max(0, h.value(at: now))),
-            alpha: min(1, max(0, alpha.value(at: now))),
+            alpha: min(1, max(0, alpha.value(at: now))) * min(1, max(0, moveFade.value(at: now))),
             scale: scale.value(at: now),
             activeMix: min(1, max(0, mix.value(at: now)))
         )
@@ -183,7 +234,7 @@ public struct BorderAnimator: Equatable, Sendable {
 
     /// Nothing moves any more.
     public func isIdle(at now: TimeInterval) -> Bool {
-        [x, y, w, h, alpha, scale, mix].allSatisfy { $0.isDone(at: now) }
+        revealAt == nil && [x, y, w, h, alpha, scale, mix, moveFade].allSatisfy { $0.isDone(at: now) }
     }
 
     /// A vanishing border whose fade-out has finished.
@@ -226,11 +277,19 @@ public struct OverlayEngine: Sendable {
         return removed
     }
 
-    /// Snaps one border to the real window frame (drag tracking). Ignored for unknown ids.
-    public mutating func track(_ id: CGWindowID, frame: CGRect) {
+    /// The real window frame changed under us (drag, app resize): hide the border until the
+    /// window is still, then show it at the final frame. Ignored for unknown ids.
+    public mutating func track(_ id: CGWindowID, frame: CGRect, at now: TimeInterval) {
         guard var b = borders[id], b.phase == .shown, b.target.frame != frame else { return }
-        b.snap(to: frame)
+        if BorderAnimator.fades(table) { b.hideForMove(to: frame, at: now) } else { b.snap(to: frame) }
         borders[id] = b
+    }
+
+    /// Runs pending reveals (call once per frame before sampling).
+    public mutating func advance(at now: TimeInterval) {
+        for (id, var b) in borders where b.revealAt != nil {
+            if b.advance(at: now) { borders[id] = b }
+        }
     }
 
     /// Removes finished fade-outs and returns their ids.

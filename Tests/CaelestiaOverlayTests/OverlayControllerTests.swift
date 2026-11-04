@@ -135,6 +135,9 @@ final class OverlayControllerTests: XCTestCase {
         c.tick(at: clock.now + 0.1)
         let w = c.style.borderWidth
         XCTAssertEqual(c.engine.borders[1]?.target.frame, real[1]!.insetBy(dx: -w, dy: -w))
+        // Hidden in place while the window moves, then drawn at the final frame.
+        XCTAssertEqual(fake(c, 1).renders.last!.sample.frame, a)
+        c.tick(at: clock.now + 0.1 + BorderAnimator.moveSettle)
         let last = fake(c, 1).renders.last!
         XCTAssertEqual(last.sample.frame, real[1]!.insetBy(dx: -w, dy: -w))
     }
@@ -158,6 +161,7 @@ final class OverlayControllerTests: XCTestCase {
         real[1] = CGRect(x: 100, y: 200, width: 300, height: 150)
         c.noteExternalMove(1)
         XCTAssertTrue(c.needsTicks(at: clock.now + 0.1))
+        c.tick(at: clock.now + 0.3)  // reveal + fade-in done by `late`
         let late = clock.now + OverlayController.trackingWindow + 0.1
         c.tick(at: late)
         XCTAssertFalse(c.needsTicks(at: late))

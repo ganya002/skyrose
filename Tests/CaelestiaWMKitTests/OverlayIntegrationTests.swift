@@ -218,13 +218,16 @@ final class OverlayIntegrationTests: XCTestCase {
         let after = h.wm.borderFrames[a.windowID]!
         XCTAssertNotEqual(before, after)
         XCTAssertEqual(d.lastScene?.borders.first { $0.id == a.windowID }?.motion, .animate)
-        // Mid-spring the border is between the old and the new frame; the window itself was
-        // written once (Standard mode: real windows snap).
+        // The border fades out in place (never between the old and the new frame); the window
+        // itself was written once (Standard mode: real windows snap).
         d.now += 0.05
         d.controller.tick(at: d.now)
-        let mid = try XCTUnwrap((d.surfaces[a.windowID] as? FakeSurface)?.lastSample?.frame)
-        XCTAssertLessThan(mid.width, before.width)
-        XCTAssertGreaterThan(mid.width, after.width)
+        let mid = try XCTUnwrap((d.surfaces[a.windowID] as? FakeSurface)?.lastSample)
+        XCTAssertEqual(mid.frame, before, "not interpolated")
+        XCTAssertLessThan(mid.alpha, 1)
+        d.now += BorderAnimator.moveSettle
+        d.controller.tick(at: d.now)
+        XCTAssertEqual((d.surfaces[a.windowID] as? FakeSurface)?.lastSample?.frame, after, "revealed at the final frame")
         assertNoGhosts(h, d, "settled")
     }
 
@@ -242,10 +245,14 @@ final class OverlayIntegrationTests: XCTestCase {
         h.settle()
         XCTAssertEqual(d.externalMoves.last, a.windowID)
         XCTAssertEqual(h.wm.borderFrames[a.windowID], moved.insetBy(dx: -1, dy: -1), "the scene follows the floating window")
+        // While the user drags the border stays hidden, then shows at the final frame.
         d.now += 0.016
         d.controller.tick(at: d.now)
+        XCTAssertEqual((d.surfaces[a.windowID] as? FakeSurface)?.lastSample?.alpha ?? 1, 0.9, accuracy: 0.9, "fading out")
+        d.now += BorderAnimator.moveSettle + 0.01
+        d.controller.tick(at: d.now)
         XCTAssertEqual((d.surfaces[a.windowID] as? FakeSurface)?.lastSample?.frame, moved.insetBy(dx: -1, dy: -1),
-                       "no spring lag while the user drags")
+                       "shown at the dragged window's frame once it is still")
     }
 
     func testGroupBarIsReservedAndDescribed() throws {

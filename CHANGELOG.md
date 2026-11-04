@@ -1,5 +1,83 @@
 # Changelog
 
+## Unreleased — Shell part 1 + borders fade on move (2026-11-04)
+
+Native SwiftUI/AppKit shell (`CaelestiaShell`) wired into the WM daemon via `ShellBridge`.
+Verified live on the MacBook Air (1470×956) plus an external Dell U3417W (3440×1440), stopped
+with `caelestia wm panic`. Screenshots and reference comparisons are in `/tmp/cwm/shell-p1/`.
+No system setting was changed: this Mac already auto-hides the menu bar and the Dock.
+
+### Changed
+- **Borders no longer trail a retile.** When a window starts moving (retile, bar reveal, drag,
+  app resize) its border fades out in place (70 ms), stays hidden until the frame has been still
+  for 150 ms, jumps to the final frame while invisible and fades in (140 ms). Frames are never
+  interpolated. Live trace over a bar-reveal retile: the border x was only ever 20 or 58, hidden
+  between 0.03 s and 0.14 s, fully back at 0.25 s. With animations off, borders snap with the
+  window.
+- **The bar replaces the frame band on its edge**: the left reservation is max(frame, bar) = 48,
+  not 10 + 48. An auto-hidden bar reserves its width while it is revealed (Caelestia's
+  exclusive zone), so windows retile around it. Added `WindowManager.setBarRevealed`.
+
+### Added
+- **Screen frame**, one click-through panel per display: 10 pt band, inner radius 25, surface at
+  0.75 over a behind-window blur. On notched Macs it also covers the menu-bar/notch strip, and a
+  revealed menu bar draws above it.
+- **Left bar** (`bar.persistent = false` by default): slides in when the pointer touches the left
+  band and widens it to 48 pt, then hides 0.25 s after the pointer leaves. Top to bottom:
+  - logo (opens the launcher);
+  - workspace pills (click to focus, scroll to switch);
+  - active window icon and vertical title;
+  - tray button (reveals the auto-hidden menu bar);
+  - HH/MM clock;
+  - status icons (Caps Lock, audio, network, …);
+  - power button (opens the session menu).
+- **Launcher** (left ⌥ tap, ⌥Space, `caelestia shell launcher`): a bottom-centre drawer with
+  concave fillets into the frame, sized from `1-launcher.jpg` (600×57 rows, pitch 65, 32 pt icons,
+  48 pt search pill, at most 7 rows).
+  - fzf-style fuzzy search, ranked by how often each app is launched;
+  - `>` commands and an `=` calculator (Enter copies the result);
+  - ↑/↓, Tab, ⌃J/⌃K, Enter, Esc; a click outside closes it;
+  - the panel is non-activating, so focus stays with the previous app.
+- **Session menu** (⌃⌥⌫, the power button, `caelestia shell session`): a right-edge pill with
+  Log out, Shut down, an image slot, Sleep and Restart. Every action needs a second press
+  within 3 s. It uses public routes only (System Events, `pmset sleepnow`); lock posts ⌃⌘Q.
+- **OSD**: a right-edge drawer with volume and brightness sliders, shown on change and hidden
+  1.5 s after the last one.
+- **Toasts**: top-right, up to 4, shown for 5 s.
+- IPC: `shell launcher|session|kill|restart`, `shell drawers toggle|isOpen|list`,
+  `shell toaster *`, `shell brightness get|set`. The shell answers `shell.*` IPC before the WM.
+- R5: surfaces are re-asserted on display change, wake, Space change and screen-parameter
+  change, immediately and again after 0.3 s. Live: after `shell restart`, the frame and bar were
+  back on both displays within 400 ms.
+- Tests: the suite is now 432 tests, all passing. New: 102 in `CaelestiaShellTests`, plus
+  `ShellIntegrationTests` and new border move-fade tests. Older tests that expected the spring
+  or the 58 pt reservation were updated. Docs: `docs/SHELL.md`, and `docs/LIMITATIONS.md` updated.
+
+### Fixed during the live test
+- The screen frame blurred the whole display: the window server ignored the cap insets of the
+  9-slice blur mask. The blur is now masked by a `CAShapeLayer`.
+- The panel fill sat under the blur subview and never showed, so panels looked light grey. The
+  fill now has its own view above the blur, and the darkest material (`underWindowBackground`) is
+  used. The launcher measures #14151a against the reference's #141821.
+- The panels were at level 3: `isFloatingPanel` resets the level, so it is now set before the
+  level (mainMenu − 1 for the frame and bar, popUpMenu for drawers).
+- The vertical window title showed its end instead of truncating its tail.
+- A new launcher query now selects the first result.
+
+### Known limitations
+- Rubik, Inter, CaskaydiaCove and Material Symbols are not installed, and nothing was installed:
+  the shell falls back to SF Pro and SF Symbols. Bundling Material Symbols is still TODO.
+- The session image slot is a drawn moon glyph (no character art).
+- macOS's own volume/brightness HUD also shows, and there is no public way to hide it.
+- The brightness slider is hidden when `BrightnessService` reports it unavailable (as on this
+  setup).
+- Other apps' menu extras can't be shown in the tray.
+- Bar hover popouts are not built yet.
+- The bar ignores `CGWarpMouseCursorPosition`, because it posts no mouse-moved events. Real
+  pointer movement works.
+- The dashboard, sidebar, Settings app, wallpaper/dynamic colour and the "Make it look like Arch"
+  wizard are not built.
+
 ## Unreleased — P4 overlay: borders, animations, group bars, workspace slide (2026-11-03)
 
 `CaelestiaOverlay` is built and wired into the WM daemon. Verified live on the MacBook Air with

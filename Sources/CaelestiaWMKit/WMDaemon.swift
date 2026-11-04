@@ -21,6 +21,7 @@ public final class WMDaemon {
     private var signalSources: [DispatchSourceSignal] = []
     private var accessibilityTimer: Timer?
     private var decorations: OverlayDecorations?
+    private var shell: ShellBridge?
 
     public init() {
         let (config, configWarnings) = ConfigLoader.loadUserOrDefault()
@@ -101,8 +102,15 @@ public final class WMDaemon {
 
     private func startManaging() {
         wm.onQuit = { [weak self] in self?.terminate() }
-        wm.onUnhandledAction = { action in
-            Log.wm.info("action \(action.description, privacy: .public) is not handled by the WM yet")
+        // Native shell part 1: frame, bar, launcher, session menu, OSDs, toasts (CaelestiaShell).
+        let shell = ShellBridge(wm: wm)
+        self.shell = shell
+        wm.onLayoutApplied = { [weak shell] in shell?.sync() }
+        wm.shellResponder = { [weak shell] request, command in shell?.respond(to: request, command: command) }
+        wm.onUnhandledAction = { [weak shell] action in
+            if shell?.handle(action) != true {
+                Log.wm.info("action \(action.description, privacy: .public) is not handled yet")
+            }
         }
         wm.onConfigReload = { [weak self] in self?.reloadConfigAndKeymap() ?? [] }
         wm.onRulesReload = { [weak self] in self?.reloadRules() ?? [] }
@@ -113,6 +121,7 @@ public final class WMDaemon {
         wm.decorations = deco
 
         wm.start()
+        shell.start()
         startEventTap()
         startIPC()
         startWatchers()
@@ -168,6 +177,7 @@ public final class WMDaemon {
                     matcher.update(input: config.input)
                     wm.apply(config: config)
                     self.decorations?.apply(config: config)
+                    self.shell?.apply(config: config)
                 case .failed(let error, _):
                     Log.config.error("config.toml not applied: \(String(describing: error), privacy: .public)")
                 }
@@ -193,6 +203,7 @@ public final class WMDaemon {
         wm.apply(config: config)
         wm.apply(keymap: keymap)
         decorations?.apply(config: config)
+        shell?.apply(config: config)
         return warnings + keymapWarnings
     }
 

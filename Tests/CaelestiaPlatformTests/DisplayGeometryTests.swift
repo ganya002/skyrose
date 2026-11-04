@@ -86,7 +86,7 @@ final class DisplayGeometryTests: XCTestCase {
 
     func testReservedInsetsAddPersistentBar() {
         XCTAssertEqual(DisplayGeometry.reservedInsets(screenFrame: 10, persistentBarWidth: nil), .uniform(10))
-        XCTAssertEqual(DisplayGeometry.reservedInsets(screenFrame: 10, persistentBarWidth: 48), Insets(top: 10, left: 58, bottom: 10, right: 10))
+        XCTAssertEqual(DisplayGeometry.reservedInsets(screenFrame: 10, persistentBarWidth: 48), Insets(top: 10, left: 48, bottom: 10, right: 10))
     }
 
     func testDisplayLookupAndNeighbours() {

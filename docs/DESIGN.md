@@ -36,6 +36,9 @@ window-level error containment; a panel failure disables that panel, not the pro
 shell ever needs to be split, it already talks to the WM only through `WMFacade`, the same
 surface the IPC server uses.
 
+Status: shell part 1 (frame, bar, launcher, session menu, OSD, toasts) is built this way; see
+SHELL.md. `ShellBridge` mirrors WM state into the shell's `ShellState` after each layout pass.
+
 ## D4. SwiftPM first, XcodeGen second (9)
 
 The build is `swift build` + `scripts/build.sh`, which assembles the `.app` bundles (Info.plist,

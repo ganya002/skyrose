@@ -1,0 +1,149 @@
+# Native shell (part 1)
+
+Caelestia's shell is drawn natively (SwiftUI + AppKit) inside the WM process, in the
+`CaelestiaShell` module. Part 1 is: screen frame, left bar, launcher, session menu,
+volume/brightness OSD and toasts. Verified live on a MacBook Air (1470x956) plus an external
+3440x1440 display.
+
+Not built yet: dashboard, sidebar / notifications / utilities drawers, Settings app, lock-screen
+cover, wallpaper-driven colours, bar hover popouts. See LIMITATIONS.md.
+
+## Screen frame
+
+A click-through panel per display draws a 10 pt band (`wm.screenFrameInset`) around the screen
+with an inner corner radius of 25 (window rounding 15 + outer gap 10). The surface is the scheme
+colour at transparency base 0.75 over a behind-window blur. On Macs with a notch the band also
+covers the menu-bar/notch strip so no wallpaper shows there; a revealed menu bar draws above it.
+The Dock area is left alone. Turn it off with `wm.screenFrame = false`.
+
+## Bar (left, 48 pt)
+
+With `bar.persistent = false` (current default in the author's config) the bar is hidden and
+slides in when the pointer touches the left band; it hides 0.25 s after the pointer leaves. While
+shown it widens the frame's left band and reserves max(frame, bar width) = 48 pt, so windows
+retile around it. With `bar.persistent = true` it is always shown and always reserved.
+
+Top to bottom:
+
+- Apple logo: opens the launcher.
+- Workspace pills: 5 (`workspacesShown`) of the current group. Active = filled pill, occupied =
+  dot, empty = faint dot. Click to focus, scroll to switch.
+- Active window: app icon and a vertical title.
+- Tray button: macOS has no public API for other apps' menu extras. The button moves the pointer
+  to the top edge so the auto-hidden menu bar appears.
+- Clock (HH over MM).
+- Status icons from `bar.statusIcons`: Caps Lock (only while on), audio, network, Bluetooth,
+  keyboard layout, battery.
+- Power button: opens the session menu.
+
+## Launcher
+
+Open: tap left Option (`launcher.tap`), or Option+Space, or `caelestia shell launcher`.
+A bottom-centre drawer whose corners flare into the frame. Sizes were measured from
+`Tests/fixtures/ref/1-launcher.jpg` at 1 px = 1 pt: rows 600x57, pitch 65, 32 pt icons, 20 pt
+title, 16 pt subtitle, 15 pt padding, 48 pt search pill, at most 7 visible rows.
+
+- Search: fzf-like fuzzy match over name, file name, keywords and description, ranked by launch
+  frequency (counts in `launcher-counts.json` in Application Support).
+- Apps scanned: `/Applications`, `~/Applications`, `/System/Applications` (+ Utilities), one
+  sub-folder level.
+- `>` commands: `lock`, `sleep`, `shutdown`, `reboot`, `logout` go through the session menu's
+  confirm step. `scheme`, `wallpaper`, `variant`, `transparency`, `random`, `settings` only show
+  an info toast ("later phase").
+- `=` or plain math is a calculator; Enter copies the result.
+- Keys: Up/Down, Tab, Ctrl+J / Ctrl+K, Enter, Esc. Clicking outside closes it.
+
+The panel is non-activating: typing never activates Caelestia, and closing leaves focus with the
+app you were in.
+
+## Session menu
+
+Open: Ctrl+Option+Backspace (`session.toggle`), the bar's power button, or
+`caelestia shell session`. A pill on the right edge: Log out, Shut down, an image slot, Sleep,
+Restart (80 pt buttons, radius 22, spacing 15).
+
+Every action needs a second press within 3 s (the button turns red with a check). Esc disarms,
+then closes. The image slot shows a drawn moon glyph; no character art is shipped.
+
+Routes: `osascript` via System Events for log out / shut down / restart (macOS asks for
+Automation permission for System Events on first use), `pmset sleepnow` for sleep, and lock posts
+Ctrl+Cmd+Q (the real macOS lock screen). Nothing uses sudo.
+
+## OSD
+
+A right-edge drawer with vertical volume and brightness sliders (draggable). It appears on any
+volume, mute or brightness change and hides 1.5 s after the last one unless the pointer is on it.
+The brightness slider is hidden when the brightness service reports it unavailable (it was on the
+test setup). The system volume/brightness keys still reach macOS, so Apple's own HUD shows too.
+
+## Toasts
+
+Top-right, up to 4 at once, 5 s each. A duplicate refreshes the existing toast instead of
+stacking.
+
+    caelestia shell toaster error|warn|info|success <title> <message> <icon>
+
+## IPC
+
+    caelestia shell launcher | session | kill | restart
+    caelestia shell drawers toggle <name> | isOpen <name> | list     (toggle: launcher, session, osd)
+    caelestia shell toaster.<level> ...
+    caelestia shell brightness get | set <0..1 | N% | N%+ | N%->
+
+## Config keys
+
+| Key | Effect |
+|---|---|
+| `bar.persistent` | always shown and reserved, or hover-reveal |
+| `bar.showOnHover` | reveal on pointer contact with the left band |
+| `bar.width` | bar width (48 pt) |
+| `bar.statusIcons` | which status icons appear, in order |
+| `wm.screenFrame`, `wm.screenFrameInset` | frame on/off, band thickness (10 pt) |
+| `appearance.transparency*` | surface opacity (base 0.75) |
+| `appearance.font*` | font chains (`fontSans` etc.) |
+| `animations.shellDurationScale` | speed of shell animations |
+| `launcher.tap`, `session.toggle` | keybinds |
+
+## Fonts and icons
+
+Rubik, Inter, CaskaydiaCove and Material Symbols are not installed by this phase. The shell falls
+back to SF Pro and SF Symbols (Material names are mapped in `ShellIcon`). If Rubik or Inter is
+installed later, the `fontSans` chain picks it up. Bundling Material Symbols is still TODO
+(spec 7.1).
+
+## Colours
+
+Calibrated against the reference screenshots: launcher background about #14151a over dark windows
+(reference #141821); selected row = secondaryContainer at 60 % (ours rgb 43,47,58, reference
+41,43,56); search pill = secondaryContainer at 70 % (46,50,62 vs 42,47,67). AppKit blur materials
+add a grey base that Hyprland's blur does not, so the darkest material is used.
+
+## Window borders (changed in the same phase)
+
+Borders no longer spring after a retile. They fade out (70 ms) when their window starts moving,
+retiling or being dragged, stay hidden until the frame has been still for 150 ms, jump to the
+final frame while invisible, then fade in (140 ms). A live trace showed the border x only ever
+held the old or the new value. Off with game mode, Reduce Motion or the animations preset off
+(then borders snap with the window).
+
+## System settings
+
+None are changed. The test Mac already had the menu bar auto-hidden and the Dock on autohide. The
+"Make it look like Arch" wizard (spec 5.11) is not built; any future change must be backed up and
+asked first.
+
+## How it is built
+
+- `ShellState` (observable) holds everything the shell draws. `ShellBridge`
+  (`Sources/CaelestiaWMKit/ShellBridge.swift`) mirrors WM state into it after every layout pass
+  and forwards shell keybinds and `shell.*` IPC to `ShellController`. The shell calls back into
+  the WM only through `ShellHost` / actions, so it can be driven by fake state in tests.
+- `ShellController` owns the panels: `Frame/`, `Bar/`, `Launcher/`, `Session/`, `OSD/`,
+  `Toasts/`; `Support/ShellPanel` is the non-activating panel base, `Support/ShellGeometry` the
+  drawer shape with concave fillets, `Theme/` the scheme-to-colour mapping.
+- Window levels: frame and bar at main menu - 1, drawers at pop-up menu, OSD above that.
+- Surfaces are re-asserted (immediately and again after 0.3 s) on display change, wake, Space
+  change, screen-parameter change and shell restart. Live: after `caelestia shell restart` the
+  frame and bar windows were back on both displays within 400 ms at the right level.
+- Tests: `Tests/CaelestiaShellTests/` (app index, launcher, bar and geometry, models) and
+  `Tests/CaelestiaWMKitTests/ShellIntegrationTests.swift`.

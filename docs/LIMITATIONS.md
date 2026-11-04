@@ -25,13 +25,19 @@ feature cannot work, the UI says so and the closest substitute is used.
 | Wi-Fi network name | Needs the Location permission on macOS 14+; otherwise the bar shows "Connected". | Apple policy. |
 | Display brightness value | Built-in Apple Silicon panels expose no public read API; the OSD tracks the F1/F2 steps. External displays with DDC are not controlled. | — |
 | Temperature in the Performance tab | Hidden. | SMC reads need root/private API. |
+| Shell tray, part 1 | Other apps' menu extras are not shown; the bar's tray button only reveals the menu bar. | Same as the Tray row above. |
+| Stock HUD with the native OSD | Apple's volume/brightness HUD also shows next to ours. | No public way to hide it. |
+| Bar hover with synthetic pointer moves | `CGWarpMouseCursorPosition` does not trigger the bar's hover reveal; real mouse movement does. | Warps post no mouse-moved event. |
+| Fonts and icons | Rubik / Inter / CaskaydiaCove / Material Symbols are not installed or bundled yet; the shell uses SF Pro and SF Symbols. The `fontSans` chain uses Rubik/Inter once installed. | Material Symbols bundling is TODO (spec 7.1). |
+| Session menu mascot | A drawn moon glyph placeholder; no character art is shipped. | — |
+| Brightness slider | Hidden when the display reports no brightness (it was unavailable on the test setup). | See the brightness row above. |
 | `middle_click_paste`, `hotspot_padding`, XWayland rules, env.lua | Not applicable on macOS. | — |
 
 ## Not built in this version (planned phases)
 
 | Phase | Item | Status |
 |---|---|---|
-| P6 | Dashboard, sidebar, utilities drawers; recorder/screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`); the drawer UIs are not wired yet |
+| P6 | (shell part 1 is built: see SHELL.md; the rest below is not) Dashboard, sidebar, utilities drawers; recorder/screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`); the drawer UIs are not wired yet |
 | P7 | Wallpaper-driven dynamic colour (Material "tonal spot") | static themes only (Caelestia Dynamic dark snapshot, Caelestia Default, Catppuccin Mocha, Noctalia); accent override is an approximation |
 | P8 | Caelestia Settings app | not built; everything is editable in `~/.config/caelestia-mac/*.toml` with hot reload, and `caelestia keys check` / `caelestia doctor` cover the checks |
 | P9 | kitty config installer, fonts installer, xcursor2cape | kitty theme file is written from the scheme; the installer/cursor tool are not built |

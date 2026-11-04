@@ -96,6 +96,7 @@ public final class OverlayController {
         guard isEnabled else { return }
         let now = clock()
         let removed = engine.apply(scene, at: now)
+        engine.advance(at: now)
         for id in removed { closeSurface(id) }
         for id in trackUntil.keys where !scene.ids.contains(id) { trackUntil[id] = nil }
         visibleTargets = onScreen(Set(engine.borders.keys))
@@ -135,6 +136,7 @@ public final class OverlayController {
     public func tick(at now: TimeInterval) {
         ticks += 1
         trackRealFrames(at: now)
+        engine.advance(at: now)
         render(at: now)
         for id in engine.collectGone(at: now) { closeSurface(id) }
         // R2 sweep: a surface without an engine entry must not survive a frame.
@@ -156,7 +158,7 @@ public final class OverlayController {
                 frame.origin.y -= style.groupBarReserved
                 frame.size.height += style.groupBarReserved
             }
-            engine.track(id, frame: frame)
+            engine.track(id, frame: frame, at: now)
         }
     }
 

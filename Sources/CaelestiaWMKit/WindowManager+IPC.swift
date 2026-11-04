@@ -18,6 +18,7 @@ extension WindowManager {
         func ok(_ value: JSONValue? = nil) -> (IPCResponse, Bool) { (.success(for: request, result: value), false) }
         func encoded<T: Encodable>(_ value: T) -> (IPCResponse, Bool) { (.success(for: request, encoding: value), false) }
         func refused(_ what: String) -> (IPCResponse, Bool) { (.failure(for: request, error: what), false) }
+        if let shell = shellResponder?(request, command) { return (shell, false) }
 
         switch command {
         case .hello:

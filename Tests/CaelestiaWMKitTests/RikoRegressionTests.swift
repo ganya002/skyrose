@@ -214,7 +214,7 @@ final class RikoRegressionTests: XCTestCase {
                         let ctx = "\(Int(size.width))x\(Int(size.height)) menu \(menuBar) dock \(dock) bar \(persistentBar)"
                         let h = Harness(displays: [display], config: config)
                         let area = h.wm.usableArea(of: display)
-                        XCTAssertEqual(area.minX, 10 + (persistentBar ? 48 : 0), ctx)
+                        XCTAssertEqual(area.minX, persistentBar ? 48 : 10, ctx)
                         XCTAssertEqual(area.minY, menuBar + 10, ctx)
                         XCTAssertEqual(area.maxX, size.width - 10, ctx)
                         XCTAssertEqual(area.maxY, size.height - dock - 10, ctx)
@@ -269,7 +269,7 @@ final class RikoRegressionTests: XCTestCase {
         func check(_ ctx: String) {
             for d in h.screens.displays {
                 let area = h.wm.usableArea(of: d)
-                XCTAssertEqual(area.minX - d.frame.minX, 10 + (h.wm.config.bar.persistent ? 48 : 0), "\(ctx) \(d.id)")
+                XCTAssertEqual(area.minX - d.frame.minX, h.wm.config.bar.persistent ? 48 : 10, "\(ctx) \(d.id)")
                 for (_, p) in h.wm.visiblePlacements where h.wm.state.display(of: p.window) == d.id && p.kind == .tiled {
                     XCTAssertGreaterThanOrEqual(p.borderFrame.minX, area.minX, "\(ctx): a tile covers the bar on \(d.id)")
                 }
@@ -292,7 +292,7 @@ final class RikoRegressionTests: XCTestCase {
         h.settle()
         let area = h.wm.usableArea(of: TestDisplays.air)
         XCTAssertEqual(area.minX, 10)
-        XCTAssertEqual(TestDisplays.air.frame.maxX - area.maxX, 10 + 48)
+        XCTAssertEqual(TestDisplays.air.frame.maxX - area.maxX, 48, "the bar replaces the frame band: max, not the sum")
 
         h.wm.apply(config: Config())  // Arch default: auto-hide
         h.settle()
