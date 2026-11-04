@@ -269,6 +269,12 @@ audioSettings = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
 # "gabby-springy" (hypr-user.lua: riko spring, snappy bezier, speed 3.2), "caelestia-stock",
 # "reduced" or "off".
 preset = "gabby-springy"
+# Window animations (open = pop in, close = shrink + fade, retile/swap/drag = spring) in
+# Standard mode: "snapshot" animates ScreenCaptureKit stills of the windows on an overlay while
+# the real windows move once underneath (needs Screen Recording; without it moves are instant),
+# "off" snaps windows to their final frame. Curve and speed: the windowsIn / windowsMove /
+# windowsOut overrides below and globalMultiplier.
+windows = "snapshot"
 # Multiplier on every WM duration (1.0 = as configured).
 globalMultiplier = 1.0
 # shell.json appearance.anim.durations.scale: all shell animations run at 80% duration.

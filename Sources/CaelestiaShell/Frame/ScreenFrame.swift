@@ -3,7 +3,8 @@ import CaelestiaCore
 
 /// One display's screen frame (spec 5.1): a click-through window drawing the 10 pt band in
 /// surface at the base transparency, inner radius 25. When the bar is revealed the left band
-/// widens to the bar width (Caelestia: the bar *is* the left edge of the frame).
+/// widens to the bar width (Caelestia: the bar *is* the left edge of the frame). On a display
+/// with a notch the top band stays 10 pt and dips around the notch (`FramePath`).
 @MainActor
 public final class ScreenFrameWindow {
     public let displayID: String
@@ -43,7 +44,9 @@ public final class ScreenFrameWindow {
     private func configureShape() {
         let insets = layout.frameInsets(barReveal: barReveal)
         let r = theme.frameRounding
-        view.shape = { rect in FramePath.path(outer: rect, insets: insets, radius: r) }
+        let cutouts = layout.localCutouts
+        let thickness = layout.thickness
+        view.shape = { rect in FramePath.path(outer: rect, insets: insets, radius: r, cutouts: cutouts, thickness: thickness) }
         view.caps = NSEdgeInsets(top: insets.top + r, left: insets.left + r, bottom: insets.bottom + r, right: insets.right + r)
         view.refreshShape()
     }

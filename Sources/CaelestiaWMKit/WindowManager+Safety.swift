@@ -35,6 +35,7 @@ extension WindowManager {
     @discardableResult
     public func restoreEverything() -> Int {
         isManaging = false
+        windowAnimator?.cancel()  // pending frame writes run first, then the restore wins
         decorations?.removeAll()  // R2: no border outlives management
         lastSceneIDs = []
         var restored = restoreJournal()

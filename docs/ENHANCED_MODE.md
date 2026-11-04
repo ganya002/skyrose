@@ -59,6 +59,27 @@ build hash. Only when that hash matches the daemon's own build is the SA used; o
 notice says "SA version mismatch — rebuild" and Standard mode is used. Every feature has a
 Standard-mode fallback (see the table in README.md and LIMITATIONS.md).
 
+## Window animation hook
+
+Window animations go through one protocol, `WindowAnimator`
+(`Sources/CaelestiaOverlay/WindowAnimation/WindowAnimator.swift`), set as
+`WindowManager.windowAnimator`. Per layout pass the WM calls `animate(request, commit:)` *before*
+writing any frame. The request lists each change (`.move` from/to, `.open`, `.close`, `.leave`
+to a hidden workspace), every visible window after the pass (back to front, active flag, border
+on/off) and the display frames. The animator must call `commit` exactly once; `commit` performs
+every AX write of the pass. Other hooks: `isCovering(id)` (borders snap while true),
+`prepareClose` (the WM's own close action), `beginDrag` / `updateDrag(pointer:dropTarget:)` /
+`endDrag` for live drags, `windowsChanged(visible:)`, and `cancel()` (panic, quit, game mode:
+must finish at once and leave real windows untouched).
+
+Standard mode uses `SnapshotWindowAnimator` (overlay cover with ScreenCaptureKit stills);
+`InstantWindowAnimator` commits at once. An Enhanced-mode animator would: commit at once (real
+windows get their final frames), then ask the SA in the Dock to animate each window's transform
+and alpha from the old to the new frame with the same `AnimationTable` channels (`windowsMove`,
+`windowsIn`, `windowsOut`), return true from `isCovering` while a transform is applied, and drag
+the real window's transform in `updateDrag`. No cover, no stills, live content. It is **not
+implemented** in this build.
+
 ## Status
 
 The SA itself is Phase 10 and is **not part of this build**; Settings shows the capability

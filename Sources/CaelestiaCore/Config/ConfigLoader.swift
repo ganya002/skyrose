@@ -543,6 +543,7 @@ public final class ConfigWatcher: @unchecked Sendable {
     private var lastContents: Data?
     private var fileSource: DispatchSourceFileSystemObject?
     private var directorySource: DispatchSourceFileSystemObject?
+    private var watchedDirectory: URL?
     private var pendingReload: DispatchWorkItem?
     private var running = false
 
@@ -569,8 +570,9 @@ public final class ConfigWatcher: @unchecked Sendable {
         lock.withLock { lastGoodConfig }
     }
 
-    /// Starts watching. Returns `false` when neither the file nor its directory could be opened (the
-    /// directory does not exist yet); call again after creating it.
+    /// Starts watching. A missing config directory is fine: the nearest existing ancestor is
+    /// watched and the watch moves down as directories appear. Returns `false` only when not even
+    /// an ancestor directory could be opened.
     ///
     /// The current file contents are snapshotted so only *subsequent* changes fire the handler, unless
     /// `emitInitial` is set, in which case one load is performed right away.
@@ -615,20 +617,38 @@ public final class ConfigWatcher: @unchecked Sendable {
         return source
     }
 
+    /// Watches the config's directory, or, while it does not exist yet, the nearest existing
+    /// ancestor: creating `~/.config/caelestia-mac/` and then `config.toml` in it is seen (live
+    /// finding: on a fresh Mac the directory is missing and the old watcher never armed).
     private func armDirectorySource() {
-        guard directorySource == nil else { return }
-        let dir = url.deletingLastPathComponent().path
-        guard let source = makeSource(path: dir, mask: [.write, .rename, .delete, .attrib]) else { return }
+        let dir = Self.nearestExistingDirectory(for: url)
+        if directorySource != nil, watchedDirectory == dir { return }
+        directorySource?.cancel()
+        directorySource = nil
+        watchedDirectory = nil
+        guard let source = makeSource(path: dir.path, mask: [.write, .rename, .delete, .attrib, .link]) else { return }
         source.setEventHandler { [weak self] in
             guard let self else { return }
             if source.data.contains(.delete) || source.data.contains(.rename) {
                 source.cancel()
                 self.directorySource = nil
+                self.watchedDirectory = nil
             }
             self.scheduleReload()
         }
         directorySource = source
+        watchedDirectory = dir
         source.resume()
+    }
+
+    static func nearestExistingDirectory(for file: URL) -> URL {
+        var dir = file.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        while dir.path.count > 1 {
+            if FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDirectory), isDirectory.boolValue { return dir }
+            dir = dir.deletingLastPathComponent()
+        }
+        return URL(fileURLWithPath: "/")
     }
 
     private func armFileSource() {

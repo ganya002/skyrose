@@ -70,6 +70,9 @@ public final class WorkspaceSlide {
     private var sampler: FrameSampler?
     private var inputMonitor: Any?
     private var content: SCShareableContent?
+    /// The window animator's snapshot cache: when set, its shareable content is reused (one
+    /// SCShareableContent fetch serves both).
+    public var cache: SnapshotCache?
     /// Stills of workspaces as they were left, by content key (most recent last).
     private var stills: [(key: String, image: CGImage)] = []
     public static let maxStills = 4
@@ -272,7 +275,9 @@ public final class WorkspaceSlide {
     /// or comes back black (never shown then: R1).
     private func capture(_ t: WorkspaceTransition) async -> CGImage? {
         do {
-            if content == nil {
+            if let cache {
+                content = try await cache.shareable(maxAge: 2)
+            } else if content == nil {
                 content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             }
             guard let content, let display = content.displays.first(where: { $0.displayID == t.displayID }) else { return nil }

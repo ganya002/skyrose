@@ -158,18 +158,28 @@ final class ShellGeometryTests: XCTestCase {
         XCTAssertEqual(l.drawerFrame(size: size, edge: .left, barReveal: 0).minX, 110, "follows the bar reveal")
     }
 
-    func testDisplayInitSubtractsDockKeepsMenuBarAsTopExtraAndConvertsToBottomLeft() {
+    func testDisplayInitSubtractsDockAndConvertsToBottomLeftWithAutoHidingMenuBar() {
+        // menuBarHeight 30 but auto-hidden (shownMenuBarHeight 0): the frame runs to the top edge,
+        // the band is even (no menu-bar top extra any more).
         let display = DisplayInfo(id: "d", frame: CGRect(x: 0, y: 0, width: 1000, height: 800), menuBarHeight: 30,
                                   dockInsets: Insets(top: 0, left: 0, bottom: 50, right: 0), isPrimary: true)
         let l = DisplayLayout(display: display, converter: CoordinateConverter(primaryHeight: 800), thickness: 10, barWidth: 48)
         XCTAssertEqual(l.area.minX, 0)
         XCTAssertEqual(l.area.width, 1000)
         XCTAssertEqual(l.area.minY, 50, "bottom-left space: the Dock sits at the bottom")
-        // The menu bar is not subtracted from the area any more: it is the frame's top extra.
         XCTAssertEqual(l.area.maxY, 800)
-        XCTAssertEqual(l.topExtra, 30)
+        XCTAssertEqual(l.topExtra, 0)
         XCTAssertEqual(l.thickness, 10)
         XCTAssertEqual(l.barWidth, 48)
+    }
+
+    func testDisplayInitStartsBelowAShownMenuBar() {
+        let display = DisplayInfo(id: "d", frame: CGRect(x: 0, y: 0, width: 1000, height: 800), menuBarHeight: 30,
+                                  isPrimary: true, shownMenuBarHeight: 30)
+        let l = DisplayLayout(display: display, converter: CoordinateConverter(primaryHeight: 800), thickness: 10, barWidth: 48)
+        XCTAssertEqual(l.area.maxY, 770)
+        XCTAssertEqual(l.topExtra, 0)
+        XCTAssertTrue(l.cutouts.isEmpty)
     }
 
     func testDisplayInitWithoutSystemChromeIsTheWholeDisplay() {

@@ -102,12 +102,18 @@ extension ShellController {
         let panel = dashboardPanel ?? makeDrawerPanel(DashboardView(model: dashboard, state: state, fillet: fillet), name: "dashboard", key: false)
         dashboardPanel = panel
         let inner = layout.inner(barReveal: reveal)
-        let fit = ShellSizing.dashboard(inner: inner, fillet: fillet)
+        // A notch under the drawer: the drawer still grows out of the top band and covers the
+        // band's dip, but its content starts below it.
+        let clearance = layout.topClearance(minX: inner.minX, maxX: inner.maxX)
+        var room = inner
+        room.size.height -= clearance
+        let fit = ShellSizing.dashboard(inner: room, fillet: fillet)
         dashboard.scale = fit.scale
+        dashboard.topInset = clearance
         dashboard.now = Date()
         dashboard.monthOffset = 0
         dashboard.tab = DashboardTab(config: state.config.dashboard.defaultTab)
-        let size = CGSize(width: fit.body.width + 2 * fillet, height: fit.body.height)
+        let size = CGSize(width: fit.body.width + 2 * fillet, height: fit.body.height + clearance)
         panel.setFrame(layout.drawerFrame(size: size, edge: .top, barReveal: reveal), display: false)
         hideOSD(animated: false)
         present(panel)
@@ -132,7 +138,11 @@ extension ShellController {
         let width = ShellSizing.sidebarWidth(inner: inner)
         sidebar.width = width
         sidebar.brightnessAvailable = brightness.state.unavailableReason == nil
-        panel.setFrame(layout.drawerFrame(size: CGSize(width: width, height: inner.height), edge: .right, barReveal: reveal), display: false)
+        // Keep clear of a cutout above the sidebar's column (none on current Macs).
+        let clear = layout.topClearance(minX: inner.maxX - width, maxX: inner.maxX)
+        var frame = layout.drawerFrame(size: CGSize(width: width, height: inner.height - clear), edge: .right, barReveal: reveal)
+        frame.origin.y = inner.minY
+        panel.setFrame(frame, display: false)
         hideOSD(animated: false)
         present(panel)
         sidebar.shown = true
@@ -290,12 +300,24 @@ extension ShellController {
 
     // MARK: Notifications
 
+    /// Loads the history from `file` and saves every later change to it.
+    public func useNotificationHistory(_ file: NotificationHistoryFile) {
+        notificationHistory = file
+        notificationStore = NotificationStore(items: file.load(limit: notificationStore.limit))
+        state.notifications = notificationStore.items
+    }
+
+    func notificationsChanged() {
+        state.notifications = notificationStore.items
+        notificationHistory?.save(notificationStore.items)
+    }
+
     func recordNotification(kind: ToastKind, title: String, message: String, icon: String) {
         let n = ShellNotification(
             appName: "caelestia-shell", summary: title, body: message, icon: icon.isEmpty ? kind.defaultIcon : icon,
             urgency: kind == .error ? "critical" : "normal")
         notificationStore.add(n)
-        state.notifications = notificationStore.items
+        notificationsChanged()
     }
 
     /// `caelestia notify` and test notifications: history entry plus a toast (unless DND).
@@ -303,19 +325,19 @@ extension ShellController {
     public func notify(title: String, body: String = "", app: String = "caelestia-shell", icon: String = "") -> UUID {
         let n = ShellNotification(appName: app.isEmpty ? "caelestia-shell" : app, summary: title, body: body, icon: icon)
         notificationStore.add(n)
-        state.notifications = notificationStore.items
+        notificationsChanged()
         toast(.info, title: title, message: body, icon: icon, record: false)
         return n.id
     }
 
     public func dismissNotification(_ id: UUID) {
         notificationStore.dismiss(id)
-        state.notifications = notificationStore.items
+        notificationsChanged()
     }
 
     public func clearNotifications() {
         notificationStore.clear()
-        state.notifications = []
+        notificationsChanged()
         sidebar.expanded.removeAll()
     }
 

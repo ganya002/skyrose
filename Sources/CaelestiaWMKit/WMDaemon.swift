@@ -3,6 +3,7 @@ import CaelestiaCore
 import CaelestiaIPC
 import CaelestiaLayout
 import CaelestiaPlatform
+import CaelestiaShell
 import Foundation
 
 /// The CaelestiaWM process: loads config/keymap/rules, wires the AX window system, the display
@@ -105,6 +106,7 @@ public final class WMDaemon {
         // Native shell part 1: frame, bar, launcher, session menu, OSDs, toasts (CaelestiaShell).
         let shell = ShellBridge(wm: wm)
         self.shell = shell
+        shell.controller.useNotificationHistory(NotificationHistoryFile(url: Paths.appSupport.appendingPathComponent("notifications.json")))
         wm.onLayoutApplied = { [weak shell] in shell?.sync() }
         wm.shellResponder = { [weak shell] request, command in shell?.respond(to: request, command: command) }
         wm.onUnhandledAction = { [weak shell] action in
@@ -119,6 +121,7 @@ public final class WMDaemon {
         let deco = OverlayDecorations(config: wm.config)
         decorations = deco
         wm.decorations = deco
+        wm.windowAnimator = deco.animator
         shell.controller.onSchemeChange = { [weak deco] scheme in deco?.apply(scheme: scheme) }
 
         wm.start()

@@ -256,7 +256,18 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
         case reduced
         case off
     }
+    /// How real windows animate in Standard mode (SIP on).
+    public enum WindowMode: String, Codable, Sendable, CaseIterable {
+        /// ScreenCaptureKit stills animate on an overlay cover while the real windows are moved
+        /// once underneath (needs Screen Recording; instant without it).
+        case snapshot
+        /// Windows snap to their final frame; only the borders fade.
+        case off
+    }
     public var preset: Preset = .gabbySpringy
+    /// Window open/close/move/drag animations. Curves and speeds come from the preset and the
+    /// `windowsIn` / `windowsMove` / `windowsOut` overrides.
+    public var windows: WindowMode = .snapshot
     /// Global multiplier on all durations (Hyprland global speed / shell durations.scale are
     /// applied separately inside the Motion tables).
     public var globalMultiplier: Double = 1.0

@@ -1,5 +1,6 @@
 import CaelestiaCore
 import CaelestiaLayout
+import CaelestiaOverlay
 import CaelestiaPlatform
 import CoreGraphics
 import Foundation
@@ -127,7 +128,12 @@ extension WindowManager {
         case .windowClose:
             guard let f = focused, let handle = handles[f] else { return false }
             // The window goes away through the window system's `destroyed` event (the app may
-            // also refuse, e.g. "save changes?").
+            // also refuse, e.g. "save changes?"). The animator puts the stills up first so the
+            // close can shrink and fade a window that never vanished.
+            if let animator = windowAnimator, visiblePlacements[f] != nil {
+                let scene = animationScene(visiblePlacements, raiseOrder: Array(raised))
+                _ = animator.prepareClose(f, scene: WindowAnimationRequest(changes: [], windows: scene, displays: displayFrames))
+            }
             return handle.close()
 
         // MARK: Groups
@@ -231,7 +237,20 @@ extension WindowManager {
             edges: ResizeEdges.nearestCorner(to: location, in: p.frame), location: location
         )
         state.recordFocus(p.window, unfullscreenOthers: config.wm.unfullscreenOnFocus)
+        // A tiled window dragged with the mouse: its still follows the pointer on the animator's
+        // cover and a preview shows the slot it would swap into; the real window stays put.
+        if kind != .windowResizeDrag, p.kind == .tiled, let animator = windowAnimator {
+            var scene = animationScene(visiblePlacements, raiseOrder: Array(raised))
+            for i in scene.indices { scene[i].isActive = scene[i].id == p.window }
+            dragIsLive = animator.beginDrag(p.window, pointer: location, scene: WindowAnimationRequest(changes: [], windows: scene, displays: displayFrames))
+        }
         setNeedsLayout()
+    }
+
+    /// The tiled window a dragged window would swap with at `point` (same workspace).
+    func dropTarget(for window: WindowID, at point: CGPoint) -> Placement? {
+        visiblePlacements.values.first { $0.window != window && $0.kind == .tiled && $0.frame.contains(point) }
+            .flatMap { state.workspace(of: $0.window) == state.workspace(of: window) ? $0 : nil }
     }
 
     func moveDrag(by delta: CGPoint) {
@@ -255,6 +274,9 @@ extension WindowManager {
             let dwindle = config.wm.dwindle
             _ = state.updateTree(of: d.window) { $0.resizeDrag(d.window, edges: d.edges, delta: delta, in: area, config: dwindle) }
         } else {
+            if dragIsLive, let location = drag?.location {
+                windowAnimator?.updateDrag(pointer: location, dropTarget: dropTarget(for: d.window, at: location)?.frame)
+            }
             return
         }
         setNeedsLayout()
@@ -264,10 +286,13 @@ extension WindowManager {
     func endDrag(at location: CGPoint?) {
         guard let d = drag else { return }
         drag = nil
+        if dragIsLive {
+            dragIsLive = false
+            windowAnimator?.endDrag()
+        }
         guard d.kind == .move, !isFloating(d.window) else { return }
         let point = location ?? d.location
-        guard let target = visiblePlacements.values.first(where: { $0.window != d.window && $0.kind == .tiled && $0.frame.contains(point) }),
-              state.workspace(of: target.window) == state.workspace(of: d.window) else { return }
+        guard let target = dropTarget(for: d.window, at: point) else { return }
         _ = state.updateTree(of: d.window) { $0.swap(d.window, target.window) }
         setNeedsLayout()
     }

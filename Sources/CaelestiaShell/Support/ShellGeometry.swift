@@ -66,8 +66,14 @@ public struct DrawerShape: Shape {
     }
 }
 
-/// The screen frame band: the outer rect minus a rounded inner rect (even-odd fill).
+/// The screen frame band: the outer rect minus a rounded inner rect (even-odd fill). With
+/// cutouts (a notch) the top band wraps each one: the band dips down around it by `thickness`,
+/// with rounded corners where it leaves the band and below the cutout.
 public enum FramePath {
+    /// Rounding of the dip's two lower corners and of the two corners where it leaves the band.
+    public static let cutoutCornerRadius: Double = 12
+    public static let cutoutJoinRadius: Double = 8
+
     /// Inner (window-side) rect of the frame for the given band thicknesses (y-down).
     public static func inner(of outer: CGRect, insets: Insets) -> CGRect {
         CGRect(
@@ -78,39 +84,137 @@ public enum FramePath {
     }
 
     public static func path(outer: CGRect, insets: Insets, radius: Double) -> CGPath {
+        path(outer: outer, insets: insets, radius: radius, cutouts: [], thickness: 0)
+    }
+
+    /// - Parameter cutouts: hardware cutouts in the same y-down space as `outer`.
+    public static func path(outer: CGRect, insets: Insets, radius: Double, cutouts: [CGRect], thickness: Double) -> CGPath {
         let path = CGMutablePath()
         path.addRect(outer)
         let i = inner(of: outer, insets: insets)
+        guard i.width > 0, i.height > 0 else { return path }
         let r = max(0, min(radius, i.width / 2, i.height / 2))
-        path.addRoundedRect(in: i, cornerWidth: r, cornerHeight: r)
+        let dips = self.dips(cutouts: cutouts, inner: i, thickness: thickness)
+        guard !dips.isEmpty else {
+            path.addRoundedRect(in: i, cornerWidth: r, cornerHeight: r)
+            return path
+        }
+        // The hole as a polygon (clockwise in y-down space), every vertex with its own rounding.
+        var v: [(CGPoint, Double)] = []
+        var leftStart = CGPoint(x: i.minX, y: i.minY)
+        var leftRadius = r
+        if let first = dips.first, first.minX <= i.minX + 0.5 {
+            leftStart = CGPoint(x: i.minX, y: first.maxY)
+            leftRadius = min(r, cutoutCornerRadius)
+        }
+        v.append((leftStart, leftRadius))
+        for d in dips {
+            if d.minX > i.minX + 0.5 {
+                v.append((CGPoint(x: d.minX, y: i.minY), cutoutJoinRadius))
+                v.append((CGPoint(x: d.minX, y: d.maxY), cutoutCornerRadius))
+            }
+            if d.maxX < i.maxX - 0.5 {
+                v.append((CGPoint(x: d.maxX, y: d.maxY), cutoutCornerRadius))
+                v.append((CGPoint(x: d.maxX, y: i.minY), cutoutJoinRadius))
+            }
+        }
+        if let last = dips.last, last.maxX >= i.maxX - 0.5 {
+            v.append((CGPoint(x: i.maxX, y: last.maxY), min(r, cutoutCornerRadius)))
+        } else {
+            v.append((CGPoint(x: i.maxX, y: i.minY), r))
+        }
+        v.append((CGPoint(x: i.maxX, y: i.maxY), r))
+        v.append((CGPoint(x: i.minX, y: i.maxY), r))
+        addRoundedPolygon(v, to: path)
         return path
+    }
+
+    /// Where the band dips around the cutouts (y-down, inside `inner`): each cutout grown by
+    /// `thickness` on its sides and bottom, clipped to `inner`, overlapping dips merged.
+    public static func dips(cutouts: [CGRect], inner i: CGRect, thickness: Double) -> [CGRect] {
+        var dips = cutouts.compactMap { c -> CGRect? in
+            let bottom = c.maxY + thickness
+            guard bottom > i.minY + 0.5, c.maxX > i.minX, c.minX < i.maxX else { return nil }
+            let minX = max(i.minX, c.minX - thickness), maxX = min(i.maxX, c.maxX + thickness)
+            return CGRect(x: minX, y: i.minY, width: maxX - minX, height: min(i.height, bottom - i.minY))
+        }.sorted { $0.minX < $1.minX }
+        var merged: [CGRect] = []
+        for d in dips {
+            if let last = merged.last, d.minX <= last.maxX + 2 * cutoutJoinRadius {
+                merged[merged.count - 1] = CGRect(x: last.minX, y: i.minY, width: max(last.maxX, d.maxX) - last.minX,
+                                                  height: max(last.height, d.height))
+            } else {
+                merged.append(d)
+            }
+        }
+        dips = merged
+        return dips
+    }
+
+    /// A closed polygon whose corners are rounded with `addArc(tangent1End:tangent2End:)`; each
+    /// radius is clamped to half of both adjacent edges so neighbouring arcs never overlap.
+    static func addRoundedPolygon(_ v: [(CGPoint, Double)], to path: CGMutablePath) {
+        var pts: [(CGPoint, Double)] = []
+        for p in v where pts.last.map({ hypot($0.0.x - p.0.x, $0.0.y - p.0.y) > 0.01 }) ?? true { pts.append(p) }
+        if pts.count > 1, hypot(pts[0].0.x - pts[pts.count - 1].0.x, pts[0].0.y - pts[pts.count - 1].0.y) < 0.01 { pts.removeLast() }
+        guard pts.count >= 3 else { return }
+        let n = pts.count
+        func len(_ a: CGPoint, _ b: CGPoint) -> Double { hypot(b.x - a.x, b.y - a.y) }
+        let start = CGPoint(x: (pts[n - 1].0.x + pts[0].0.x) / 2, y: (pts[n - 1].0.y + pts[0].0.y) / 2)
+        path.move(to: start)
+        for k in 0..<n {
+            let prev = pts[(k + n - 1) % n].0, cur = pts[k].0, next = pts[(k + 1) % n].0
+            let r = max(0, min(pts[k].1, len(prev, cur) / 2, len(cur, next) / 2))
+            if r > 0 { path.addArc(tangent1End: cur, tangent2End: next, radius: r) } else { path.addLine(to: cur) }
+        }
+        path.closeSubpath()
     }
 }
 
 /// Where the shell lays out on one display (AppKit bottom-left space, like NSWindow frames).
 public struct DisplayLayout: Equatable, Sendable {
-    /// The display frame minus the Dock when it is shown: what the screen frame goes around.
+    /// The display frame minus the Dock and a shown menu bar: what the screen frame goes around.
     public var area: CGRect
     public var thickness: Double
     public var barWidth: Double
 
-    /// Height of the menu-bar / notch strip at the top that windows can never use. The frame
-    /// covers it (the top band is `thickness + topExtra`), so no wallpaper strip shows above the
-    /// frame on a notched Mac with an auto-hidden menu bar; a revealed menu bar draws above it.
+    /// An extra plain band at the top (0 for displays built from `DisplayInfo`: a shown menu bar
+    /// is outside `area` and a notch is wrapped through `cutouts`). Kept for explicit layouts.
     public var topExtra: Double
+    /// Hardware cutouts (notch) in AppKit global space. The band wraps around each one.
+    public var cutouts: [CGRect]
 
     public init(display: DisplayInfo, converter: CoordinateConverter, thickness: Double, barWidth: Double) {
-        area = converter.toBottomLeft(display.frame.insetBy(display.dockInsets))
-        topExtra = display.menuBarHeight
+        var top = display.frame.insetBy(display.dockInsets)
+        top.origin.y += display.shownMenuBarHeight
+        top.size.height = max(0, top.height - display.shownMenuBarHeight)
+        area = converter.toBottomLeft(top)
+        topExtra = 0
+        cutouts = display.topCutouts.map { converter.toBottomLeft($0) }
         self.thickness = thickness
         self.barWidth = barWidth
     }
 
-    public init(area: CGRect, thickness: Double, barWidth: Double, topExtra: Double = 0) {
+    public init(area: CGRect, thickness: Double, barWidth: Double, topExtra: Double = 0, cutouts: [CGRect] = []) {
         self.area = area
         self.thickness = thickness
         self.barWidth = barWidth
         self.topExtra = topExtra
+        self.cutouts = cutouts
+    }
+
+    /// Cutouts in the frame panel's own y-down space (origin at the area's top-left).
+    public var localCutouts: [CGRect] {
+        cutouts.map { CGRect(x: $0.minX - area.minX, y: area.maxY - $0.maxY, width: $0.width, height: $0.height) }
+    }
+
+    /// How far below the top band's inner edge something spanning `minX...maxX` must keep its
+    /// content to clear the band's dip around a cutout (0 when no cutout is in that range).
+    public func topClearance(minX: Double, maxX: Double) -> Double {
+        let bandBottom = area.maxY - thickness - topExtra
+        return cutouts.filter { $0.maxX > minX && $0.minX < maxX }
+            .map { max(0, bandBottom - ($0.minY - thickness)) }
+            .max() ?? 0
     }
 
     /// Band thicknesses with the bar `reveal`ed by 0...1 (the bar widens the left band).
@@ -126,9 +230,13 @@ public struct DisplayLayout: Equatable, Sendable {
                       width: area.width - i.left - i.right, height: area.height - i.top - i.bottom)
     }
 
-    /// The bar window: the left strip below the menu-bar / notch strip.
+    /// The bar window: the left strip of the frame, below the top band's dip if a cutout
+    /// reaches into the bar's column (never on current Macs: the notch is centred).
     public var barFrame: CGRect {
-        CGRect(x: area.minX, y: area.minY, width: max(barWidth, thickness), height: area.height - topExtra)
+        let w = max(barWidth, thickness)
+        let dip = topClearance(minX: area.minX, maxX: area.minX + w)
+        let blocked = dip > 0 ? dip + thickness : 0
+        return CGRect(x: area.minX, y: area.minY, width: w, height: max(0, area.height - topExtra - blocked))
     }
 
     /// The hover strip that reveals an auto-hidden bar: the left band.

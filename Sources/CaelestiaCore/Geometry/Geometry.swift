@@ -128,11 +128,22 @@ public struct DisplayInfo: Equatable, Hashable, Sendable, Identifiable {
     public var dockInsets: Insets
     public var scale: Double
     public var isPrimary: Bool
+    /// Height of a menu bar that is always shown (auto-hide off). The screen frame starts below
+    /// it. 0 when the menu bar auto-hides.
+    public var shownMenuBarHeight: Double
+    /// Hardware cutouts (the notch, or any future shape macOS reports) in global top-left space,
+    /// as the parts of the top safe-area strip not covered by `NSScreen.auxiliaryTopLeftArea` /
+    /// `auxiliaryTopRightArea`. Empty on displays without one and when a shown menu bar covers
+    /// the strip anyway. The screen frame wraps around each cutout.
+    public var topCutouts: [CGRect]
 
     public init(
         id: String, displayID: UInt32 = 0, name: String = "", frame: CGRect,
-        menuBarHeight: Double = 0, dockInsets: Insets = .zero, scale: Double = 1, isPrimary: Bool = false
+        menuBarHeight: Double = 0, dockInsets: Insets = .zero, scale: Double = 1, isPrimary: Bool = false,
+        shownMenuBarHeight: Double = 0, topCutouts: [CGRect] = []
     ) {
+        self.shownMenuBarHeight = shownMenuBarHeight
+        self.topCutouts = topCutouts
         self.id = id
         self.displayID = displayID
         self.name = name

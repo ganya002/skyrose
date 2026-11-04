@@ -52,10 +52,15 @@ public final class ShellPanel: NSPanel {
     }
 }
 
-/// Transparent hosting view (no SwiftUI window background) that lets clicks through where the
-/// SwiftUI content is empty when `passThroughEmpty` is set.
+/// Transparent hosting view (no SwiftUI window background). Clicks outside `hitRegion` (view-local
+/// points) fall through to whatever is below.
+///
+/// SwiftUI draws its controls without backing NSViews, so `NSHostingView.hitTest` returns the
+/// hosting view itself for *every* point, buttons included; "pass through where the hit is the
+/// hosting view" therefore dropped every click (live finding: no bar icon could be clicked with a
+/// real pointer). Pass-through must be described as geometry instead.
 public final class ShellHostingView<Content: View>: NSHostingView<Content> {
-    public var passThroughEmpty = false
+    public var hitRegion: ((CGPoint) -> Bool)?
     public required init(rootView: Content) {
         super.init(rootView: rootView)
         wantsLayer = true
@@ -72,7 +77,7 @@ public final class ShellHostingView<Content: View>: NSHostingView<Content> {
 
     public override func hitTest(_ point: NSPoint) -> NSView? {
         let hit = super.hitTest(point)
-        if passThroughEmpty, hit === self { return nil }
+        if let hitRegion, hit != nil, !hitRegion(convert(point, from: superview)) { return nil }
         return hit
     }
 }

@@ -22,11 +22,22 @@ public enum DisplayGeometry {
         /// `NSScreen.safeAreaInsets.top`: the notch strip, never usable even with the menu bar hidden.
         public var safeAreaTop: Double
         public var scale: Double
+        /// `NSScreen.auxiliaryTopLeftArea` / `auxiliaryTopRightArea` (AppKit space): the usable
+        /// parts of the top strip beside a cutout. Nil on displays without one.
+        public var auxiliaryTopLeft: CGRect?
+        public var auxiliaryTopRight: CGRect?
+        /// The menu bar auto-hides (`_HIHideMenuBar`). On a notched display `visibleFrame`
+        /// always excludes the safe-area strip, so it cannot tell a shown menu bar apart.
+        public var menuBarAutoHides: Bool
 
         public init(
             uuid: String, displayID: UInt32 = 0, name: String = "", frame: CGRect, visibleFrame: CGRect,
-            safeAreaTop: Double = 0, scale: Double = 1
+            safeAreaTop: Double = 0, scale: Double = 1, auxiliaryTopLeft: CGRect? = nil, auxiliaryTopRight: CGRect? = nil,
+            menuBarAutoHides: Bool = true
         ) {
+            self.auxiliaryTopLeft = auxiliaryTopLeft
+            self.auxiliaryTopRight = auxiliaryTopRight
+            self.menuBarAutoHides = menuBarAutoHides
             self.uuid = uuid
             self.displayID = displayID
             self.name = name
@@ -62,10 +73,48 @@ public enum DisplayGeometry {
             bottom: dock(s.visibleFrame.minY - s.frame.minY),
             right: dock(s.frame.maxX - s.visibleFrame.maxX)
         )
+        let topDiff = max(0, s.frame.maxY - s.visibleFrame.maxY)
+        let shown: Double
+        if s.safeAreaTop > 0 {
+            // Notched: visibleFrame always excludes the safe area; only the setting tells.
+            shown = !s.menuBarAutoHides ? max(topDiff, s.safeAreaTop) : (topDiff > s.safeAreaTop + 0.5 ? topDiff : 0)
+        } else {
+            shown = topDiff
+        }
+        let cutouts = shown > 0 ? [] : cutoutRects(s).map { converter.toTopLeft($0) }
         return DisplayInfo(
             id: s.uuid, displayID: s.displayID, name: s.name, frame: converter.toTopLeft(s.frame),
-            menuBarHeight: menuBar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero
+            menuBarHeight: menuBar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero,
+            shownMenuBarHeight: shown, topCutouts: cutouts
         )
+    }
+
+    /// Slivers narrower than this between the auxiliary areas are rounding noise, not a cutout.
+    public static let minimumCutoutWidth: Double = 2
+
+    /// The hardware cutouts of a screen (AppKit space): the top safe-area strip minus the
+    /// auxiliary areas macOS reports as usable. Generic: one notch, several cutouts, or a strip
+    /// with no auxiliary areas at all (then the whole strip is blocked). Never guessed from the
+    /// model: a screen with `safeAreaTop == 0` has none.
+    public static func cutoutRects(_ s: ScreenFacts) -> [CGRect] {
+        guard s.safeAreaTop > 0 else { return [] }
+        let strip = CGRect(x: s.frame.minX, y: s.frame.maxY - s.safeAreaTop, width: s.frame.width, height: s.safeAreaTop)
+        let free = [s.auxiliaryTopLeft, s.auxiliaryTopRight].compactMap { $0 }
+            .filter { $0.maxY > strip.minY + 0.5 && $0.minY < strip.maxY - 0.5 }
+            .map { ($0.minX, $0.maxX) }
+            .sorted { $0.0 < $1.0 }
+        var result: [CGRect] = []
+        var x = strip.minX
+        for (a, b) in free {
+            if a - x >= minimumCutoutWidth {
+                result.append(CGRect(x: x, y: strip.minY, width: a - x, height: strip.height))
+            }
+            x = max(x, b)
+        }
+        if strip.maxX - x >= minimumCutoutWidth {
+            result.append(CGRect(x: x, y: strip.minY, width: strip.maxX - x, height: strip.height))
+        }
+        return result
     }
 
     /// The shell's reserved zones on a display: the screen frame on every edge plus the bar width

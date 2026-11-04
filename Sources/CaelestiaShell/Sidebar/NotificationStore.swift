@@ -1,7 +1,7 @@
 import Foundation
 
 /// Notification history (our own toasts and `caelestia notify`; macOS offers no public way to read
-/// other apps' notifications). Newest first, in memory only.
+/// other apps' notifications). Newest first. Persisted by ``NotificationHistoryFile``.
 public struct NotificationStore: Equatable, Sendable {
     public private(set) var items: [ShellNotification] = []
     public var limit = 100
@@ -15,6 +15,40 @@ public struct NotificationStore: Equatable, Sendable {
     public mutating func dismiss(_ id: UUID) { items.removeAll { $0.id == id } }
     public mutating func clear() { items.removeAll() }
     public var count: Int { items.count }
+}
+
+/// `notifications.json` in Application Support: the history survives a WM / shell restart.
+/// Writes are atomic; a missing or unreadable file is an empty history (never a crash).
+public struct NotificationHistoryFile: Sendable {
+    public let url: URL
+    public init(url: URL) { self.url = url }
+
+    struct Payload: Codable {
+        var version = 1
+        var notifications: [ShellNotification]
+    }
+
+    public func load(limit: Int = 100) -> [ShellNotification] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let payload = try? decoder.decode(Payload.self, from: data) else { return [] }
+        return Array(payload.notifications.sorted { $0.date > $1.date }.prefix(limit))
+    }
+
+    @discardableResult
+    public func save(_ items: [ShellNotification]) -> Bool {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        do {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try encoder.encode(Payload(notifications: items)).write(to: url, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
 }
 
 public struct NotificationGroup: Equatable, Sendable, Identifiable {

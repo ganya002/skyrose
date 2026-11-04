@@ -10,6 +10,8 @@ public final class DashboardModel: ObservableObject {
     @Published public var now = Date()
     /// Scale and body size chosen by the controller for the display the drawer is on.
     @Published public var scale: Double = 1
+    /// Extra height at the top that the drawer covers but keeps empty: the notch dip.
+    @Published public var topInset: Double = 0
     public var onPlayPause: () -> Void = {}
     public var onNext: () -> Void = {}
     public var onPrevious: () -> Void = {}
@@ -27,16 +29,17 @@ struct DashboardView: View {
     var body: some View {
         let s = model.scale
         let body = CGSize(width: design.width * s, height: design.height * s)
+        let top = model.topInset
         VStack(spacing: 0) {
-            ZStack {
+            ZStack(alignment: .bottom) {
                 FrostedShape(shape: DrawerShape(edge: .top, radius: theme.frameRounding, fillet: fillet), theme: theme)
                 content
                     .frame(width: design.width, height: design.height)
                     .scaleEffect(s, anchor: .center)
                     .frame(width: body.width, height: body.height)
             }
-            .frame(width: body.width + 2 * fillet, height: body.height)
-            .offset(y: model.shown ? 0 : -(body.height + 4))
+            .frame(width: body.width + 2 * fillet, height: body.height + top)
+            .offset(y: model.shown ? 0 : -(body.height + top + 4))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             Spacer(minLength: 0)
         }

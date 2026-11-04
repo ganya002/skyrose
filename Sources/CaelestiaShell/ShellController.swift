@@ -51,6 +51,8 @@ public final class ShellController {
     public internal(set) var popoutKind: PopoutKind?
     var popoutDisplay: String?
     public var notificationStore = NotificationStore()
+    /// Where the history is persisted (set by the daemon; nil in tests: memory only).
+    public internal(set) var notificationHistory: NotificationHistoryFile?
     public let wallpaper = WallpaperService()
     let wallpaperColors = WallpaperColors()
     public let media = MediaService()
@@ -353,7 +355,6 @@ public final class ShellController {
         let panel = ShellPanel(frame: .zero, level: ShellLevel.drawer, clickThrough: clickThrough, name: name)
         panel.acceptsKey = key
         let host = ShellHostingView(rootView: AnyView(view.environment(\.shellTheme, theme)))
-        host.passThroughEmpty = true
         panel.contentView = host
         return panel
     }
@@ -698,7 +699,6 @@ public final class BarSurface {
         model = BarModel(displayID: displayID)
         panel = ShellPanel(frame: layout.barFrame, level: ShellLevel.bar, name: "bar")
         host = ShellHostingView(rootView: AnyView(BarView(state: state, model: model).environment(\.shellTheme, theme)))
-        host.passThroughEmpty = true
         panel.contentView = host
     }
 

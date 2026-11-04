@@ -148,3 +148,62 @@ needs private API, so both show (listed in LIMITATIONS).
 Reading other apps' window titles via AX works with Accessibility alone; CGWindowList titles
 additionally need Screen Recording on macOS 14+. We use AX titles and never require Screen
 Recording for tiling.
+
+## D17. Window animations in Standard mode (snapshot cover)
+
+Real windows of other apps cannot be animated without the window server: every AX frame write is
+a synchronous round trip into the app, so "animating" by writing 60 frames a second makes most
+apps lag and tear. Instead each layout pass goes through `WindowAnimator`
+(`CaelestiaOverlay/WindowAnimation`, see ENHANCED_MODE.md "Window animation hook"):
+
+1. The WM computes the pass (moves, opens, closes, windows leaving for a hidden workspace) and
+   hands it to the animator *before* any AX write, with a `commit` closure that does all writes.
+2. `SnapshotWindowAnimator` puts up one click-through cover panel per affected display (level
+   `.floating`: above normal windows, below the shell frame/bar and the Dock). The cover shows the
+   display's desktop still (wallpaper + icons only: windows with a layer below 0) and one tile
+   per visible managed window, i.e. its still plus its border ring, at the *old* frames, so the
+   screen looks unchanged.
+3. After `CATransaction.flush` it waits out the rest of one display refresh (so the cover is on
+   screen) and runs `commit`: every real window gets its final frame once, under the cover.
+4. The tiles spring to the new frames (`windowsMove`), new windows pop in from 80 %
+   (`windowsIn`), closing/leaving windows shrink and fade (`windowsOut`). The pure model is
+   `WindowMotionModel`; retargeting keeps the spring's velocity.
+5. When every channel has settled (within 0.5 pt and under 40 pt/s) the cover fades out in 80 ms,
+   showing the real windows exactly where the tiles were. Covers are pooled.
+
+Stills come from `SnapshotCache` (ScreenCaptureKit `SCScreenshotManager`, one
+`desktopIndependentWindow` filter per window at its own display's backing scale, 4 Mpx cap,
+opaque-bounds crop for windows captured mid-resize). Captures never sit on the animation path:
+they run in the background 0.35 s after the layout goes quiet, and every 4 s for visible windows
+whose still is older than that (about one ~18 ms capture per second with four windows). A pass
+whose stills are missing is an instant move. The workspace slide shares the cache's
+`SCShareableContent`.
+
+Measured on the MacBook Air (60 Hz) + DELL U3417W, release build:
+- Extra latency before the real windows move (commit latency): 16.8–19 ms (one refresh), 0 ms
+  when a cover is already up. Showing the cover: 2.4–8.5 ms.
+- Total animation: open ~690–750 ms, retile/swap ~595 ms, close ~600–660 ms, leave ~605 ms
+  (default `gabbySpringy` table, including the 80 ms fade of the cover).
+- Captures: window p50 17.6 ms / p90 73.5 ms (215 captures), desktop p50 123 ms / p90 261 ms.
+
+Drags of tiled windows: `beginDrag` puts the cover up; the still follows the pointer 1:1 (lifted
+to 102.5 % with a shadow) while the real window stays in its slot underneath, a tinted preview
+marks the slot the drop would swap into, and on release the following pass animates the swap.
+
+Closes: macOS removes a window before the AX "destroyed" notification arrives, so a close the app
+does itself can't be animated without flashing the window back. The WM's own close action calls
+`prepareClose` first (the cover goes up with the window still on it), so those closes shrink and
+fade.
+
+`animations.windows = "off"`, game mode, Reduce Motion or a disabled animation preset make every
+pass instant (`InstantWindowAnimator` behaviour). Debug aid: `CAELESTIA_DUMP_STILLS=<dir>` in the
+daemon's environment writes every still as PNG plus its size and capture time.
+
+## D18. Notch-aware frame
+
+Cutouts are computed per display from `NSScreen` (safe-area top strip minus the two auxiliary top
+areas) in `DisplayGeometry.cutoutRects`, so any future shape or count works and no model list
+exists. `DisplayInfo.topCutouts` / `shownMenuBarHeight` carry the result; the frame path
+(`FramePath.path(…cutouts:thickness:)`) is an even-odd band whose inner edge is a rounded polygon
+dipping around each cutout. Windows still keep clear of the full safe-area strip (`menuBarHeight`):
+the strip beside the notch is where the auto-hidden menu bar appears.

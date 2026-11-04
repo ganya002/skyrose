@@ -11,6 +11,9 @@ import Foundation
 public final class OverlayDecorations: WindowDecorations {
     public let borders: OverlayController
     public let slide: WorkspaceSlide
+    /// Window open/close/move/drag animations with stills (Standard mode).
+    public let animator: SnapshotWindowAnimator
+    private var spaceObserver: NSObjectProtocol?
     public let debugOverlay = DebugOverlay()
     private var scheme: Scheme
     private var reduceMotionObserver: NSObjectProtocol?
@@ -24,6 +27,9 @@ public final class OverlayDecorations: WindowDecorations {
         let table = Self.table(for: config)
         borders = OverlayController(style: style, table: table)
         slide = WorkspaceSlide(style: style, table: table, gap: config.wm.gapsWorkspaces)
+        animator = SnapshotWindowAnimator(style: style, table: table)
+        animator.isEnabled = Self.windowAnimationsEnabled(config)
+        slide.cache = animator.cache
         borders.isEnabled = Self.bordersEnabled(config)
         reduceMotionObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main
@@ -33,7 +39,18 @@ public final class OverlayDecorations: WindowDecorations {
         screensObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.slide.displaysChanged() }
+            MainActor.assumeIsolated {
+                self?.slide.displaysChanged()
+                self?.animator.invalidate()
+            }
+        }
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.animator.cancel()
+                self?.animator.cache.invalidateDesktops()
+            }
         }
         slide.prewarm()
     }
@@ -48,6 +65,13 @@ public final class OverlayDecorations: WindowDecorations {
         slide.table = table
         slide.style = style
         slide.gap = config.wm.gapsWorkspaces
+        animator.table = table
+        animator.style = style
+        animator.isEnabled = Self.windowAnimationsEnabled(config)
+    }
+
+    static func windowAnimationsEnabled(_ config: Config) -> Bool {
+        !config.wm.gameMode && config.animations.windows == .snapshot
     }
 
     /// A new colour scheme (dynamic colours): borders, group bars and the workspace slide follow.
@@ -77,6 +101,7 @@ public final class OverlayDecorations: WindowDecorations {
     public func workspaceDidChange() { slide.laidOut() }
 
     public func removeAll() {
+        animator.cancel()
         slide.finish()
         borders.removeAll()
         debugOverlay.hide()
@@ -87,6 +112,9 @@ public final class OverlayDecorations: WindowDecorations {
         var s = snapshot
         s.lines.append("surfaces \(borders.surfaces.count)  ticks \(borders.ticks)")
         s.lines.append("slides \(slide.played)  skipped \(slide.skipped)  fade \(slide.fallbacks)  aborted \(slide.aborted)")
+        let a = animator
+        s.lines.append(String(format: "win anims %d  instant %d  drags %d  commit %.1f/%.1f ms  last %.0f ms", a.played, a.fallbacks, a.drags, a.lastCommitLatencyMs, a.maxCommitLatencyMs, a.lastAnimationMs))
+        s.lines.append(String(format: "stills %d  capture %.0f ms (avg %.0f)  desktop %.0f ms", a.cache.windows.count, a.cache.lastWindowCaptureMs, a.cache.averageWindowCaptureMs, a.cache.lastDesktopCaptureMs))
         debugOverlay.show(s)
     }
 

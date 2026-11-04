@@ -1,5 +1,78 @@
 # Changelog
 
+## Unreleased — Notch-aware frame, window animations, shell part 2 leftovers (2026-11-04)
+
+Verified live on the MacBook Air (1470x956, notch) + DELL U3417W (3440x1440) with TestWindows on
+a separate workspace. Frame sequences, video frames and screenshots are in `/tmp/cwm/anim/`. The
+build was signed with "Caelestia Local Signing"; no permission was re-granted. No system setting
+was changed; the temporary `~/.config/caelestia-mac/config.toml` used for the watcher/colour checks
+was removed again.
+
+### Added
+- **Notch-aware screen frame**: an even 10 pt band on every side; on a display with a cutout the
+  top band dips around it with rounded inner corners instead of a dark full menu-bar strip.
+  Cutouts come from `NSScreen` (safe-area top strip minus `auxiliaryTopLeftArea` /
+  `auxiliaryTopRightArea`), never from a model list, so any number/shape works; externals get the
+  plain band. Windows still keep clear of the safe-area strip (reserved top 42 on the Air, 10 on
+  the DELL); dashboard/sidebar/popouts start below a cutout only where they overlap it; a menu bar
+  set to always show moves the frame below it. Hot-plug re-evaluates (display equality includes
+  the cutouts). `DisplayInfo.topCutouts`, `shownMenuBarHeight`.
+- **Window animations** (`animations.windows = "snapshot"` default, `"off"`): Hyprland-style
+  springs/beziers from the animation table (`windowsMove`, `windowsIn`, `windowsOut`, speed and
+  curve from `[animations]`). A per-display overlay cover shows ScreenCaptureKit stills of the
+  windows (and the desktop behind them) moving from the old to the new frames; the real windows
+  get their final frame once underneath, then the cover fades out (80 ms). Covers retile, swap,
+  open (pop-in from 80 %), WM close (shrink + fade), moving to another workspace (fade), and drag:
+  a dragged tiled window's still follows the pointer live with a lift and shadow, a tinted drop
+  preview shows the slot, and the drop animates the swap. Borders are drawn on the tiles, the real
+  border windows snap underneath. Instant fallback when a still is missing, Screen Recording is
+  not granted, or animations are off (game mode, Reduce Motion, preset off).
+- `WindowAnimator` protocol (`CaelestiaOverlay/WindowAnimation`): the hook an Enhanced-mode (SIP
+  off) animator would implement; documented in ENHANCED_MODE.md, not implemented.
+- Notification history is kept across restarts in
+  `~/Library/Application Support/CaelestiaMac/notifications.json` (the app's existing support
+  folder rather than a new `Caelestia` one; latest 100, atomic writes).
+- `CAELESTIA_DUMP_STILLS=<dir>` debug aid (stills as PNG + capture timing).
+- Tests: 545 passing (67 new: cutout detection, notch frame path and drawer clearance,
+  motion model, WM ↔ animator integration with a fake animator, config watcher on a missing
+  directory, notification history file).
+
+### Measured (release build, 60 Hz)
+- Extra latency before the real windows move: 16.8–19 ms (one display refresh); 0 ms when a cover
+  is already up. Putting the cover on screen: 2.4–8.5 ms.
+- Animation length with the default table: open ~690–750 ms, retile/swap ~595 ms, WM close
+  ~600–660 ms, leave ~605 ms; a 1.2 s drag plus drop took ~2.3 s from press to cover gone.
+- Captures (background only): window p50 17.6 ms, p90 73.5 ms (n = 215); desktop p50 123 ms,
+  p90 261 ms (n = 14).
+- Recorded sequences (`/tmp/cwm/anim/loop-*`, `*-video/` at 60 fps) of open, retile, close, drag
+  and leave: no frame shows both a still and its real window, a gap where a window should be, or a
+  half-drawn window.
+
+### Fixed
+- **Bar and drawer clicks with a real pointer** did nothing: `NSHostingView.hitTest` returns the
+  hosting view itself for every point, so "pass through where SwiftUI is empty" passed every click
+  through. Panels now take clicks inside their frame. Verified with CGEvent clicks at the real
+  cursor: audio and Wi-Fi icons open their popouts, the clock opens the dashboard.
+- **`config.toml` created while the daemon runs** is now picked up: the watcher watches the
+  nearest existing parent directory and re-arms as directories appear (live: creating, deleting
+  and re-creating `~/.config/caelestia-mac/config.toml` applied/reverted within 3 s).
+- Window stills sized from live CG bounds and the window's own display scale (stale shareable
+  frames and the highest-display `pointPixelScale` gave squeezed or partial stills).
+
+### Verified live
+- Borders follow dynamic colours: active ring #bbc4e7 static → #bac4f3 dynamic on the same pixel
+  (blue wallpaper, so the shift is small), applied on config change without restart.
+
+### Known limitations
+- Closes done by the app itself (⌘W, red button) animate only the neighbours: macOS removes the
+  window before the WM hears of it.
+- Stills are pictures: content is stretched while a window changes size and can be a few seconds
+  old; the first pass after start (no stills yet) is instant.
+- Group bars are not drawn on the cover; other apps' floating-level windows are hidden under the
+  cover while it is up (~0.6 s).
+- Background refresh captures each visible window every 4 s while idle (≈ one 18 ms capture per
+  second with four windows).
+
 ## Unreleased — Shell part 2: dashboard, sidebar, popouts, wallpaper, dynamic colours (2026-11-04)
 
 Verified live on the MacBook Air (1470x956, one display this run) with TestWindows; screenshots and

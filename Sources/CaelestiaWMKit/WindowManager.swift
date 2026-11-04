@@ -1,6 +1,7 @@
 import CaelestiaCore
 import CaelestiaIPC
 import CaelestiaLayout
+import CaelestiaOverlay
 import CaelestiaPlatform
 import CoreGraphics
 import Foundation
@@ -82,6 +83,9 @@ public final class WindowManager {
 
     /// Borders, group bars, workspace slide and debug overlay (nil: headless, nothing drawn).
     public var decorations: (any WindowDecorations)?
+    /// Animates real windows between layout passes (snapshot covers in Standard mode). Nil:
+    /// every frame is written at once (tests, animations off).
+    public var windowAnimator: (any WindowAnimator)?
     /// A workspace-change layout is held at most this long for the slide's outgoing still.
     public static let maxTransitionHold: TimeInterval = 0.3
 
@@ -123,6 +127,8 @@ public final class WindowManager {
     var focusOrder: [WindowID] = []
     var lastWorkspaceChange = Date.distantPast
     var drag: DragState?
+    /// The animator shows the current tiled-window drag live.
+    var dragIsLive = false
     var needsLayout = false
     var layoutScheduled = false
     var isDiscovering = false
@@ -320,7 +326,12 @@ public final class WindowManager {
             }
         }
 
-        var learnedMinSize = false
+        let previous = visiblePlacements
+        // Workspace switches are the slide's job; mouse resizes track 1:1 (spec 2.3).
+        let animated = windowAnimator != nil && drag?.kind != .resize
+            && (lastVisibleWorkspaces.isEmpty || workspaceTransitions(from: lastVisibleWorkspaces, to: visibleWorkspacesByDisplay()).isEmpty)
+        var writes: [() -> Bool] = []
+        var changes: [WindowFrameChange] = []
         var borders: [WindowID: CGRect] = [:]
         for id in handles.keys.sorted() {
             guard let handle = handles[id], let wsID = state.workspace(of: id) else { continue }
@@ -330,24 +341,53 @@ public final class WindowManager {
                 if applied[id] != p.frame { snapBacks[id] = 0 }
                 guard wasParked || forceApply.contains(id) || applied[id] != p.frame else { continue }
                 forceApply.remove(id)
+                let old = previous[id]?.frame ?? (wasParked ? nil : applied[id])
                 applied[id] = p.frame
-                let got = setFrame(handle, p.frame)
                 if wasParked {
                     parked[id] = nil
                     try? journal.remove(id)
                 }
-                if p.kind == .tiled, !got.isNull, got.width > p.frame.width + 1 || got.height > p.frame.height + 1 {
-                    let known = minSizes[id] ?? .zero
-                    minSizes[id] = CGSize(width: max(known.width, got.width.rounded()), height: max(known.height, got.height.rounded()))
-                    if minSizes[id] != known { learnedMinSize = true }
+                changes.append(WindowFrameChange(id: id, kind: previous[id] == nil ? .open : .move, from: old, to: p.frame))
+                writes.append { [weak self] in
+                    guard let self else { return false }
+                    let got = self.setFrame(handle, p.frame)
+                    guard p.kind == .tiled, !got.isNull, got.width > p.frame.width + 1 || got.height > p.frame.height + 1 else { return false }
+                    let known = self.minSizes[id] ?? .zero
+                    self.minSizes[id] = CGSize(width: max(known.width, got.width.rounded()), height: max(known.height, got.height.rounded()))
+                    return self.minSizes[id] != known
                 }
             } else if let ws = state[wsID] {
-                park(id, handle, on: ws.displayID)
+                if animated, let was = previous[id] {
+                    changes.append(WindowFrameChange(id: id, kind: .leave, from: was.frame, to: nil))
+                    let display = ws.displayID
+                    writes.append { [weak self] in
+                        self?.park(id, handle, on: display)
+                        return false
+                    }
+                } else {
+                    park(id, handle, on: ws.displayID)
+                }
             }
+        }
+        // Closed or minimized since the last pass: their stills shrink and fade.
+        for (id, p) in previous where visible[id] == nil && (handles[id] == nil || state.workspace(of: id) == nil) {
+            changes.append(WindowFrameChange(id: id, kind: .close, from: p.frame, to: nil))
+        }
+        let commit = { [weak self] in
+            var learned = false
+            for w in writes where w() { learned = true }
+            if learned { self?.setNeedsLayout() }
+        }
+        let scene = animationScene(visible, raiseOrder: raiseOrder)
+        if animated, let animator = windowAnimator, !changes.isEmpty {
+            animator.animate(WindowAnimationRequest(changes: changes, windows: scene, displays: displayFrames), commit: commit)
+        } else {
+            commit()
         }
         borderFrames = borders
         visiblePlacements = visible
         publishDecorations(borders: borders)
+        windowAnimator?.windowsChanged(visible: scene)
 
         let visibleRaised = Set(raiseOrder)
         for id in raiseOrder where !raised.contains(id) {
@@ -356,8 +396,30 @@ public final class WindowManager {
         }
         raised = visibleRaised
         syncFocus()
-        if learnedMinSize { setNeedsLayout() }
         onLayoutApplied?()
+    }
+
+    /// Display frames by CGDirectDisplayID (for the window animator).
+    var displayFrames: [CGDirectDisplayID: CGRect] {
+        Dictionary(displays.map { ($0.displayID, $0.frame) }, uniquingKeysWith: { a, _ in a })
+    }
+
+    /// Visible windows back to front (tiled, then floating/special in raise order) as the
+    /// window animator draws them.
+    func animationScene(_ visible: [WindowID: Placement], raiseOrder: [WindowID]) -> [AnimatedWindow] {
+        let raisedIndex = Dictionary(raiseOrder.enumerated().map { ($1, $0) }, uniquingKeysWith: { a, _ in a })
+        let focused = state.focusedWindow
+        let ids = visible.keys.sorted { a, b in
+            let ra = raisedIndex[a] ?? -1, rb = raisedIndex[b] ?? -1
+            if ra != rb { return ra < rb }
+            if (a == focused) != (b == focused) { return b == focused }
+            return a < b
+        }
+        return ids.compactMap { id in
+            guard let p = visible[id], let d = DisplayGeometry.display(for: p.frame, in: displays) else { return nil }
+            return AnimatedWindow(id: id, frame: p.frame, displayID: d.displayID, isActive: id == focused,
+                                  decorated: p.kind != .fullscreen && decorated(id))
+        }
     }
 
     private func decorated(_ id: WindowID) -> Bool {

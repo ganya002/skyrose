@@ -12,9 +12,20 @@ Not built yet: Settings app, lock-screen cover, weather, screen recorder. See LI
 
 A click-through panel per display draws a 10 pt band (`wm.screenFrameInset`) around the screen
 with an inner corner radius of 25 (window rounding 15 + outer gap 10). The surface is the scheme
-colour at transparency base 0.75 over a behind-window blur. On Macs with a notch the band also
-covers the menu-bar/notch strip so no wallpaper shows there; a revealed menu bar draws above it.
+colour at transparency base 0.75 over a behind-window blur. The band is even on all four sides.
 The Dock area is left alone. Turn it off with `wm.screenFrame = false`.
+
+**Notch / cutouts.** Each display's cutouts are read from macOS, never from a model list: the
+top safe-area strip (`NSScreen.safeAreaInsets.top`) minus `auxiliaryTopLeftArea` and
+`auxiliaryTopRightArea`. Whatever is left (one notch today, any number or shape tomorrow; slivers
+under 2 pt are ignored) is a cutout. The frame's top band then dips around each cutout with
+rounded inner corners (12 pt at the bottom of the dip, 8 pt where it joins the band), instead of a
+dark full-width menu-bar strip. Displays without a cutout (externals) get the plain even band.
+Windows keep clear of the whole safe-area strip (`query monitors` reserved top = 42 on the
+MacBook Air: 32 strip + 10 band; 10 on the external). Drawers that reach the top (dashboard,
+sidebar, popouts) start below a cutout only where they overlap it. With the menu bar set to
+always show (`_HIHideMenuBar` off), the frame starts below it and there is no dip. Display
+changes and hot-plug re-read all of this. Screenshot: `/tmp/cwm/anim/notch-frame.png`.
 
 ## Bar (left, 48 pt)
 
@@ -99,7 +110,9 @@ desktop Mac. Weather is a placeholder.
 Right drawer: notification history, Keep awake, volume/brightness sliders, quick toggles. Real
 toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (Caelestia toasts only), Keep awake (IOPM
 assertion). Bluetooth and dark mode are read-only tiles that open System Settings. Notifications
-are in memory only. Bar status icons (audio, network, Bluetooth, battery) open popouts on click;
+are kept across restarts in `~/Library/Application Support/CaelestiaMac/notifications.json` (the
+app's existing support folder; latest 100, rewritten atomically on every change, "Clear all"
+empties it). Bar status icons (audio, network, Bluetooth, battery) open popouts on click;
 `shell drawers toggle popout.audio|network|bluetooth|battery` does the same.
 
 ## Wallpaper and dynamic colours (part 2)
@@ -136,6 +149,7 @@ static. Config reload applies it live.
 | `appearance.schemeMode` | `static` (default) or `dynamic` (wallpaper palette) |
 | `appearance.wallpaperFolder` | wallpaper picker folder |
 | `dashboard.*` | clock seconds, battery card, default tab |
+| `animations.windows` | `snapshot` (default) or `off`: window animations, see DESIGN.md |
 
 ## Fonts and icons
 
@@ -157,7 +171,16 @@ Borders no longer spring after a retile. They fade out (70 ms) when their window
 retiling or being dragged, stay hidden until the frame has been still for 150 ms, jump to the
 final frame while invisible, then fade in (140 ms). A live trace showed the border x only ever
 held the old or the new value. Off with game mode, Reduce Motion or the animations preset off
-(then borders snap with the window).
+(then borders snap with the window). While a window animation draws a window (see DESIGN.md,
+"Window animations") its border is part of the animation's tile and the border window snaps
+underneath, so nothing trails.
+
+**Clicks.** `NSHostingView.hitTest` returns the hosting view itself for every point (SwiftUI draws
+controls without NSViews), so the earlier "pass clicks through where the hit is the hosting view"
+rule dropped every click on the bar and drawers. Panels now take every click inside their own
+frame (an optional geometric `hitRegion` can exclude parts). Verified with real CGEvent clicks at
+the real cursor: audio and Wi-Fi icons open their popouts, the clock opens the dashboard
+(`/tmp/cwm/anim/bar-click-*-fixed.png`).
 
 ## System settings
 

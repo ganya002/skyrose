@@ -126,7 +126,7 @@ public struct StatusInfo: Hashable, Sendable {
     public init() {}
 }
 
-public struct ShellNotification: Hashable, Sendable, Identifiable {
+public struct ShellNotification: Hashable, Sendable, Identifiable, Codable {
     public var id: UUID
     public var appName: String
     public var appBundleID: String

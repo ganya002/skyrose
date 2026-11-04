@@ -46,7 +46,7 @@ Panic chord (always on): **⌃⌥⌘⇧Esc** stops tiling and brings every windo
 | Rounded 15 px window corners | overlay stroke + optional corner caps (can't clip other apps) | no (macOS draws its own ≈10 pt corners; Tahoe ≈16 pt) |
 | Window opacity 0.94 | no | yes |
 | Window blur behind | no | partial |
-| Open/close/move animations | overlays only; windows snap | yes (alpha, scale, frame interpolation) |
+| Open/close/move/drag animations | snapshot stills animate on an overlay, real windows move once underneath (app-initiated closes: neighbours only) | planned: real windows via the SA (`WindowAnimator` hook) |
 | Special workspace slide-in | snapshot slide/fade, then snap | real windows slide |
 | Pin (all workspaces) | yes (WM keeps it visible) | yes (sticky + level) |
 | Always on top | no | yes |

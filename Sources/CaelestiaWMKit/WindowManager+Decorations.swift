@@ -158,16 +158,19 @@ extension WindowManager {
         for id in borders.keys.sorted() {
             guard let frame = borders[id] else { continue }
             let group = groupBar(for: id)
+            // Drawn by the window animator's cover (with its own ring): the real border just
+            // waits at the final frame, hidden under the cover.
+            let covered = windowAnimator?.isCovering(id) == true
             targets.append(BorderTarget(
                 id: id, frame: frame, isActive: id == focused,
-                appear: shownBefore.contains(id) || group != nil ? .instant : .popIn,
-                motion: drag?.window == id ? .snap : .animate,
+                appear: shownBefore.contains(id) || group != nil || covered ? .instant : .popIn,
+                motion: drag?.window == id || covered ? .snap : .animate,
                 group: group
             ))
         }
         var vanish: [CGWindowID: Vanish] = [:]
         for id in lastSceneIDs where borders[id] == nil {
-            vanish[id] = fadeOutNext.contains(id) ? .fadeOut : .instant
+            vanish[id] = fadeOutNext.contains(id) && windowAnimator?.isCovering(id) != true ? .fadeOut : .instant
         }
         shownBefore.formUnion(borders.keys)
         fadeOutNext.removeAll()
