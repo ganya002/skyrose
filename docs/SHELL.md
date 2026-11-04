@@ -15,6 +15,19 @@ with an inner corner radius of 25 (window rounding 15 + outer gap 10). The surfa
 colour at transparency base 0.75 over a behind-window blur. The band is even on all four sides.
 The Dock area is left alone. Turn it off with `wm.screenFrame = false`.
 
+**Rounded display corners.** MacBook panels have rounded physical corners; a square frame left a
+dark wedge in each. The frame's *outer* edge now uses `frame.displayCornerRadius` at every corner
+that is a real display corner (not where the band meets a shown Dock or menu bar), and the inner
+corners there use outer radius + band (10 + 10 = 20 by default; square-outer corners keep 25).
+Apple does not publish the radius, so it is set by eye: auto (`-1`) = 10 pt on a built-in Apple
+Silicon panel (`CGDisplayIsBuiltin`), 0 on externals; per display under `[displays."<uuid>"]
+displayCornerRadius`. `caelestia frame calibrate [display]` draws a thin bright outline along the
+display edge at the radius being tried and redraws the frame live: ↑/↓ ±0.5 pt, ⇧↑/⇧↓ ±0.1 pt,
+←/→ other display, Return saves every changed display into config.toml (only that key is
+written; comments and other settings stay), Esc cancels. When the radius matches, the line runs
+around the corner at an even width; too small and it disappears into the corner, too large and a
+dark gap opens outside it.
+
 **Notch / cutouts.** Each display's cutouts are read from macOS, never from a model list: the
 top safe-area strip (`NSScreen.safeAreaInsets.top`) minus `auxiliaryTopLeftArea` and
 `auxiliaryTopRightArea`. Whatever is left (one notch today, any number or shape tomorrow; slivers
@@ -31,8 +44,11 @@ changes and hot-plug re-read all of this. Screenshot: `/tmp/cwm/anim/notch-frame
 
 With `bar.persistent = false` (current default in the author's config) the bar is hidden and
 slides in when the pointer touches the left band; it hides 0.25 s after the pointer leaves. While
-shown it widens the frame's left band and reserves max(frame, bar width) = 48 pt, so windows
-retile around it. With `bar.persistent = true` it is always shown and always reserved.
+shown it widens the frame's left band and **overlays** the windows: an auto-hidden bar (and every
+drawer: sidebar, dashboard, popouts, launcher) never reserves space or retiles, so windows never
+move when the pointer reaches an edge (live finding: the reveal used to retile and dwindle flipped
+the split, so windows jumped up and down). With `bar.persistent = true` it is always shown and
+reserves max(frame, bar width) = 48 pt. Nothing on the top edge moves windows either.
 
 Top to bottom:
 
@@ -137,7 +153,8 @@ static. Config reload applies it live.
 
 | Key | Effect |
 |---|---|
-| `bar.persistent` | always shown and reserved, or hover-reveal |
+| `bar.persistent` | always shown and reserved, or hover-reveal (overlays windows) |
+| `frame.displayCornerRadius`, `[displays."<uuid>"] displayCornerRadius` | physical corner radius for the frame's outer edge (-1 = auto) |
 | `bar.showOnHover` | reveal on pointer contact with the left band |
 | `bar.width` | bar width (48 pt) |
 | `bar.statusIcons` | which status icons appear, in order |

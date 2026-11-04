@@ -11,14 +11,17 @@ public struct Config: Codable, Equatable, Sendable {
     public var apps: AppsConfig
     public var animations: AnimationsConfig
     public var dashboard: DashboardConfig
+    public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
 
     public init(
         wm: WMConfig = WMConfig(), appearance: AppearanceConfig = AppearanceConfig(),
         bar: BarConfig = BarConfig(), input: InputConfig = InputConfig(), apps: AppsConfig = AppsConfig(),
-        animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(), displays: [String: DisplayOverride] = [:]
+        animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
+        frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:]
     ) {
+        self.frame = frame
         self.wm = wm
         self.appearance = appearance
         self.bar = bar
@@ -53,6 +56,7 @@ public struct Config: Codable, Equatable, Sendable {
         if let v = o.barEnabled { c.bar.enabled = v }
         if let v = o.uiScale { c.appearance.uiScale = v }
         if let v = o.screenFrame { c.wm.screenFrame = v }
+        if let v = o.displayCornerRadius { c.frame.displayCornerRadius = v }
         return c
     }
 }
@@ -299,7 +303,39 @@ public struct DisplayOverride: Codable, Equatable, Sendable {
     public var barEnabled: Bool?
     public var uiScale: Double?
     public var screenFrame: Bool?
+    /// Physical corner radius of this display (pt); see ``FrameConfig/displayCornerRadius``.
+    public var displayCornerRadius: Double?
     public init() {}
+}
+
+/// The screen frame's fit to the display hardware.
+public struct FrameConfig: Codable, Equatable, Sendable {
+    /// Radius (pt) of the display's physical rounded corners; the frame's outer edge follows it
+    /// and its inner corners use this + the band thickness. Apple does not publish the value, so
+    /// it is tuned by eye (`caelestia frame calibrate`, saved per display under
+    /// `[displays."<uuid>"]`). Negative = auto: ``autoBuiltInRadius`` on a built-in Apple Silicon
+    /// panel, 0 (square) everywhere else.
+    public var displayCornerRadius: Double = -1
+
+    /// The auto radius of built-in Apple Silicon MacBook panels (an eyeballed starting point).
+    public static let autoBuiltInRadius: Double = 10
+    public static let maxRadius: Double = 60
+
+    public init() {}
+
+    /// The effective radius for a display: the configured value, or the auto default.
+    public func cornerRadius(isBuiltIn: Bool, isAppleSilicon: Bool = FrameConfig.isAppleSilicon) -> Double {
+        if displayCornerRadius >= 0 { return min(displayCornerRadius, Self.maxRadius) }
+        return isBuiltIn && isAppleSilicon ? Self.autoBuiltInRadius : 0
+    }
+
+    public static var isAppleSilicon: Bool {
+        #if arch(arm64)
+        return true
+        #else
+        return false
+        #endif
+    }
 }
 
 /// Well-known paths. Never hard-code a username: everything derives from the home directory.

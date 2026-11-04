@@ -64,9 +64,21 @@ public final class SnapshotWindowAnimator: WindowAnimator {
     private var lastVisible: [AnimatedWindow] = []
     private var refreshWork: DispatchWorkItem?
     private var timer: Timer?
-    private var awaitingStill: [CGWindowID: TimeInterval] = [:]
     private var closing: [SnapshotCover] = []
-    private var capturingOpened: Set<CGWindowID> = []
+    /// Windows shown live through a hole in the cover (opened without a correct-size still).
+    private var uncovered: [CGWindowID: CGRect] = [:]
+    /// Captures at a window's new size after a resize, and when each arrived (cross-fade start).
+    private var fresh: [CGWindowID: (still: SnapshotCache.Still, at: TimeInterval)] = [:]
+    /// Resized windows still waiting for a capture at their new size.
+    private var wantFresh: [CGWindowID: CGSize] = [:]
+    private var freshTask: Task<Void, Never>?
+    /// Opens: popped in from a correct-size still / shown live because none existed in time.
+    public private(set) var opensAnimated = 0
+    public private(set) var opensLive = 0
+    public static let freshCrossFade: TimeInterval = 0.12
+    /// After a resize the app needs a moment to redraw at the new size: capture attempts (s
+    /// after the commit) until one shows the whole window at its new size.
+    public static let freshAttempts: [TimeInterval] = [0.04, 0.09, 0.16, 0.26, 0.4]
     private var idle: [CGDirectDisplayID: SnapshotCover] = [:]
     /// Closes the WM asked for, until their deadline: the cover waits for them.
     private var closingSoon: [CGWindowID: TimeInterval] = [:]
@@ -116,9 +128,39 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         for c in request.changes {
             Log.wm.debug("window animation: \(c.id) \(String(describing: c.kind), privacy: .public) \(String(describing: c.from), privacy: .public) -> \(String(describing: c.to), privacy: .public)")
         }
-        model.apply(request, at: started)
+        // Opens pop in only from a still that shows the window at its final size; one capture
+        // is tried with a deadline of one frame, else the real window is shown live through a
+        // hole in the cover (a still of another size would be stretched: live finding).
+        let frameTime = 1 / Double(max(30, frameRate(for: affected)))
+        var modelRequest = request
+        for c in request.changes where c.kind == .open {
+            guard let to = c.to else { continue }
+            let still = cache.still(for: c.id).flatMap { $0.fits(to.size) ? $0 : nil }
+                ?? cache.captureNow(c.id, timeout: frameTime).flatMap { $0.fits(to.size) ? $0 : nil }
+            if still != nil {
+                opensAnimated += 1
+            } else {
+                opensLive += 1
+                uncovered[c.id] = to
+                Log.wm.debug("window animation: \(c.id) opens live (no still at \(Int(to.width))x\(Int(to.height)) within a frame)")
+            }
+        }
+        if !uncovered.isEmpty {
+            for w in request.windows where uncovered[w.id] != nil { uncovered[w.id] = w.frame }
+            modelRequest.windows.removeAll { uncovered[$0.id] != nil }
+            modelRequest.changes.removeAll { uncovered[$0.id] != nil }
+        }
+        model.apply(modelRequest, at: started)
         activeSince = started
-        for c in request.changes where c.kind == .open && cache.still(for: c.id) == nil { awaitingStill[c.id] = started }
+        for c in request.changes where c.kind == .move {
+            guard let from = c.from, let to = c.to, model.contains(c.id) else { continue }
+            if abs(from.width - to.width) > 1 || abs(from.height - to.height) > 1 {
+                wantFresh[c.id] = to.size
+                fresh[c.id] = nil
+            } else {
+                wantFresh[c.id] = nil
+            }
+        }
         var newCovers = false
         for d in affected where covers[d] == nil {
             guard let region = request.displays[d] else { continue }
@@ -148,7 +190,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         } else {
             lastCommitLatencyMs = 0
             commit()
-            captureOpened()
+            captureFresh()
         }
         startTicking()
     }
@@ -255,8 +297,16 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         for c in Array(covers.values) + closing { park(c) }
         covers.removeAll()
         closing.removeAll()
-        awaitingStill.removeAll()
         closingSoon.removeAll()
+        resetPassState()
+    }
+
+    private func resetPassState() {
+        uncovered.removeAll()
+        fresh.removeAll()
+        wantFresh.removeAll()
+        freshTask?.cancel()
+        freshTask = nil
     }
 
     /// Space / display change: stills and covers are stale.
@@ -304,7 +354,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         lastCommitLatencyMs = (CACurrentMediaTime() - requestedAt) * 1000
         maxCommitLatencyMs = max(maxCommitLatencyMs, lastCommitLatencyMs)
         commit()
-        captureOpened()
+        captureFresh()
     }
 
     private func startTicking() {
@@ -336,7 +386,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
             if closing.isEmpty { stopTicking() }
             return
         }
-        if (dragging == nil && awaitingStill.isEmpty && closingSoon.isEmpty && model.isSettled(at: now)) || stuck {
+        if (dragging == nil && closingSoon.isEmpty && model.isSettled(at: now)) || stuck {
             if stuck { Log.wm.notice("window animation: hard timeout") }
             finish(at: now)
         }
@@ -344,8 +394,13 @@ public final class SnapshotWindowAnimator: WindowAnimator {
 
     private func render(at now: TimeInterval) {
         let samples = model.samples(at: now)
+        let holes = Array(uncovered.values)
+        let fresh = self.fresh
+        let fade = Self.freshCrossFade
         for c in covers.values {
-            c.render(samples, image: { [cache] id in cache.still(for: id) }, style: style)
+            c.render(samples, image: { [cache] id in cache.still(for: id) },
+                     fresh: { id in fresh[id].map { ($0.still, (now - $0.at) / fade) } },
+                     holes: holes, style: style)
         }
     }
 
@@ -355,6 +410,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         let leaving = Array(covers.values)
         covers.removeAll()
         model.removeAll()
+        resetPassState()
         closing.append(contentsOf: leaving)
         CATransaction.begin()
         CATransaction.setAnimationDuration(Self.coverFadeOut)
@@ -388,16 +444,25 @@ public final class SnapshotWindowAnimator: WindowAnimator {
 
     // MARK: Stills
 
-    /// New windows have no still yet: take one right after their frame was written. The pop-in
-    /// restarts when it arrives, so it never shows a half-run effect.
-    private func captureOpened() {
-        for (id, _) in awaitingStill where !capturingOpened.contains(id) {
-            capturingOpened.insert(id)
-            Task { @MainActor in
-                defer { self.capturingOpened.remove(id) }
-                let image = await self.cache.captureWindow(id)
-                guard self.awaitingStill.removeValue(forKey: id) != nil else { return }
-                if image != nil, !self.covers.isEmpty { self.model.restartPopIn(id, at: CACurrentMediaTime()) }
+    /// Windows whose size changed: capture them again once the app has redrawn at the new size
+    /// and cross-fade to that capture (the old still is never stretched to the new aspect).
+    private func captureFresh() {
+        guard !wantFresh.isEmpty, freshTask == nil else { return }
+        let start = CACurrentMediaTime()
+        freshTask = Task { @MainActor in
+            defer { self.freshTask = nil }
+            for at in Self.freshAttempts {
+                let delay = start + at - CACurrentMediaTime()
+                if delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
+                if Task.isCancelled || self.covers.isEmpty || self.wantFresh.isEmpty { return }
+                for (id, size) in self.wantFresh {
+                    guard await self.cache.captureWindow(id) != nil, let still = self.cache.still(for: id),
+                          !Task.isCancelled, self.wantFresh[id] == size else { continue }
+                    if still.fits(size) {
+                        self.wantFresh[id] = nil
+                        self.fresh[id] = (still, CACurrentMediaTime())
+                    }
+                }
             }
         }
     }
@@ -425,19 +490,5 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         let now = CACurrentMediaTime()
         let stale = lastVisible.filter { w in (cache.still(for: w.id).map { now - $0.capturedAt } ?? .infinity) > Self.periodicRefresh }
         cache.refresh(stale.map(\.id))
-    }
-}
-
-extension WindowMotionModel {
-    /// A still for a just-opened window arrived: run its pop-in from the start.
-    mutating func restartPopIn(_ id: CGWindowID, at now: TimeInterval) {
-        guard var item = items[id], item.phase == .shown else { return }
-        let popIn = table[.windowsIn]
-        guard popIn.enabled, popIn.durationMs > 0 else { return }
-        item.alpha = AnimatedValue(0)
-        item.scale = AnimatedValue(Self.popScale(popIn.style))
-        item.alpha.animate(to: 1, spec: BorderAnimator.fadeSpec(for: popIn), at: now)
-        item.scale.animate(to: 1, spec: popIn, at: now)
-        replace(item)
     }
 }

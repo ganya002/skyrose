@@ -165,9 +165,18 @@ apps lag and tear. Instead each layout pass goes through `WindowAnimator`
    screen looks unchanged.
 3. After `CATransaction.flush` it waits out the rest of one display refresh (so the cover is on
    screen) and runs `commit`: every real window gets its final frame once, under the cover.
-4. The tiles spring to the new frames (`windowsMove`), new windows pop in from 80 %
-   (`windowsIn`), closing/leaving windows shrink and fade (`windowsOut`). The pure model is
-   `WindowMotionModel`; retargeting keeps the spring's velocity.
+4. The tiles spring to the new frames (`windowsMove`), closing/leaving windows shrink and fade
+   (`windowsOut`). The pure model is `WindowMotionModel`; retargeting keeps the spring's velocity.
+   A still is **never scaled to another aspect**: it is drawn 1:1 in points, anchored top-left
+   and clipped to the tile, over the still's average colour (so a growing tile shows that fill,
+   a shrinking one cuts the still off, like a live resize). When the size changes, the window is
+   captured again after the commit (attempts at 40–400 ms, until a capture shows the whole window
+   at its new size) and that capture cross-fades in over 120 ms.
+   New windows pop in from 80 % (`windowsIn`) **only** from a still that shows them at their
+   final size: the cache is checked and one capture is tried with a deadline of one frame. In
+   practice there never is one (the window is new, so it is not even in the cached shareable
+   content; live: 0 of 2 opens), so the new window is shown live through a hole cut in the
+   cover's desktop backdrop at its final frame while its neighbours animate.
 5. When every channel has settled (within 0.5 pt and under 40 pt/s) the cover fades out in 80 ms,
    showing the real windows exactly where the tiles were. Covers are pooled.
 
@@ -195,6 +204,16 @@ does itself can't be animated without flashing the window back. The WM's own clo
 `prepareClose` first (the cover goes up with the window still on it), so those closes shrink and
 fade.
 
+Never animated (live finding: focusing or switching apps showed stretched stills for about a
+second): a frame written again unchanged (snap-back after an app moved its own window, a forced
+re-apply on focus), a pass in which a window reappears (its app was unhidden or activated, it was
+unminimized, a window id managed again), a hide/minimize pass, and windows discovered at start.
+Those passes are instant and cancel any cover still up. Focus changes alone never produce a change.
+
+The cover draws into its own geometry-flipped root layer: AppKit owns the flip of a view's
+backing layer, and setting it there did not stick, so stacked windows swapped places while a
+cover was up (live finding in this phase; side-by-side layouts hid it before).
+
 `animations.windows = "off"`, game mode, Reduce Motion or a disabled animation preset make every
 pass instant (`InstantWindowAnimator` behaviour). Debug aid: `CAELESTIA_DUMP_STILLS=<dir>` in the
 daemon's environment writes every still as PNG plus its size and capture time.
@@ -207,3 +226,11 @@ exists. `DisplayInfo.topCutouts` / `shownMenuBarHeight` carry the result; the fr
 (`FramePath.path(…cutouts:thickness:)`) is an even-odd band whose inner edge is a rounded polygon
 dipping around each cutout. Windows still keep clear of the full safe-area strip (`menuBarHeight`):
 the strip beside the notch is where the auto-hidden menu bar appears.
+
+The outer edge follows the display's physical corners (`frame.displayCornerRadius`, see SHELL.md):
+`DisplayLayout.physicalCorners` marks the corners of the frame area that coincide with the
+display's own, `outerRadii` rounds those, `innerRadii` = outer + band there and the theme's frame
+rounding elsewhere. `FramePath` builds both edges as rounded polygons (even-odd fill). The value
+is calibrated by eye (`caelestia frame calibrate`), never derived from screenshots: a screenshot
+contains the pixels the hardware corner hides. `ConfigFileEditor` writes the one key into the
+user's config.toml without rewriting it.

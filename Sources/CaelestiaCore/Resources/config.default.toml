@@ -292,6 +292,14 @@ respectReduceMotion = true
 #   style = "popin 80%"
 [animations.overrides]
 
+[frame]
+# Radius (pt) of the display's physical rounded corners. The frame's outer edge follows it and
+# its inner corners use it + the band thickness, so no dark wedge shows in the corners. Apple
+# does not publish it: tune it by eye with `caelestia frame calibrate` (arrow keys, Return saves
+# per display under [displays."<uuid>"]). Negative = auto: 10 on built-in Apple Silicon
+# MacBook panels, 0 (square) on external displays.
+displayCornerRadius = -1
+
 # =====================================================================================
 # Per-display overrides keyed by the stable display id (CGDisplayCreateUUIDFromDisplayID).
 # `caelestia query displays` prints the ids. Every field is optional.
@@ -304,5 +312,6 @@ respectReduceMotion = true
 #   barEnabled = true
 #   uiScale = 1.0
 #   screenFrame = true
+#   displayCornerRadius = 10.5   # written by `caelestia frame calibrate`
 # =====================================================================================
 [displays]

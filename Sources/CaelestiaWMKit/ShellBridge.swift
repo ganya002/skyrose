@@ -158,6 +158,13 @@ public final class ShellBridge: ShellHost {
             controller.brightness.set(min(1, max(0, v)))
             controller.showOSD()
             return ok(.string(String(format: "%.2f", controller.brightness.state.value)))
+        case .frameCalibrate:
+            switch controller.startFrameCalibration(display: request.string("display")) {
+            case .success(let (id, radius)):
+                return ok(.object(["display": .string(id), "radius": .number(radius)]))
+            case .failure(let e):
+                return fail(e.message)
+            }
         default:
             return nil
         }

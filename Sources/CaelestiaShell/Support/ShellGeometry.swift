@@ -66,6 +66,21 @@ public struct DrawerShape: Shape {
     }
 }
 
+/// Radii of a rectangle's four corners, named in y-down terms (top = the screen's top edge).
+public struct CornerRadii: Equatable, Sendable {
+    public var topLeft, topRight, bottomRight, bottomLeft: Double
+
+    public init(topLeft: Double, topRight: Double, bottomRight: Double, bottomLeft: Double) {
+        self.topLeft = topLeft
+        self.topRight = topRight
+        self.bottomRight = bottomRight
+        self.bottomLeft = bottomLeft
+    }
+
+    public static func uniform(_ r: Double) -> CornerRadii { CornerRadii(topLeft: r, topRight: r, bottomRight: r, bottomLeft: r) }
+    public static let zero = CornerRadii.uniform(0)
+}
+
 /// The screen frame band: the outer rect minus a rounded inner rect (even-odd fill). With
 /// cutouts (a notch) the top band wraps each one: the band dips down around it by `thickness`,
 /// with rounded corners where it leaves the band and below the cutout.
@@ -89,23 +104,48 @@ public enum FramePath {
 
     /// - Parameter cutouts: hardware cutouts in the same y-down space as `outer`.
     public static func path(outer: CGRect, insets: Insets, radius: Double, cutouts: [CGRect], thickness: Double) -> CGPath {
+        path(outer: outer, insets: insets, outerRadii: .zero, innerRadii: .uniform(radius), cutouts: cutouts, thickness: thickness)
+    }
+
+    /// The band with its outer edge rounded by `outerRadii` (the display's physical corners; 0 =
+    /// square) and its window-side corners by `innerRadii`.
+    public static func path(outer: CGRect, insets: Insets, outerRadii: CornerRadii, innerRadii: CornerRadii,
+                            cutouts: [CGRect], thickness: Double) -> CGPath {
         let path = CGMutablePath()
-        path.addRect(outer)
+        if outerRadii == .zero {
+            path.addRect(outer)
+        } else {
+            addRoundedPolygon([
+                (CGPoint(x: outer.minX, y: outer.minY), outerRadii.topLeft),
+                (CGPoint(x: outer.maxX, y: outer.minY), outerRadii.topRight),
+                (CGPoint(x: outer.maxX, y: outer.maxY), outerRadii.bottomRight),
+                (CGPoint(x: outer.minX, y: outer.maxY), outerRadii.bottomLeft),
+            ], to: path)
+        }
         let i = inner(of: outer, insets: insets)
         guard i.width > 0, i.height > 0 else { return path }
-        let r = max(0, min(radius, i.width / 2, i.height / 2))
+        func clamp(_ r: Double) -> Double { max(0, min(r, i.width / 2, i.height / 2)) }
+        let rTL = clamp(innerRadii.topLeft), rTR = clamp(innerRadii.topRight)
+        let rBR = clamp(innerRadii.bottomRight), rBL = clamp(innerRadii.bottomLeft)
         let dips = self.dips(cutouts: cutouts, inner: i, thickness: thickness)
         guard !dips.isEmpty else {
-            path.addRoundedRect(in: i, cornerWidth: r, cornerHeight: r)
+            if rTL == rTR, rTR == rBR, rBR == rBL {
+                path.addRoundedRect(in: i, cornerWidth: rTL, cornerHeight: rTL)
+            } else {
+                addRoundedPolygon([
+                    (CGPoint(x: i.minX, y: i.minY), rTL), (CGPoint(x: i.maxX, y: i.minY), rTR),
+                    (CGPoint(x: i.maxX, y: i.maxY), rBR), (CGPoint(x: i.minX, y: i.maxY), rBL),
+                ], to: path)
+            }
             return path
         }
         // The hole as a polygon (clockwise in y-down space), every vertex with its own rounding.
         var v: [(CGPoint, Double)] = []
         var leftStart = CGPoint(x: i.minX, y: i.minY)
-        var leftRadius = r
+        var leftRadius = rTL
         if let first = dips.first, first.minX <= i.minX + 0.5 {
             leftStart = CGPoint(x: i.minX, y: first.maxY)
-            leftRadius = min(r, cutoutCornerRadius)
+            leftRadius = min(rTL, cutoutCornerRadius)
         }
         v.append((leftStart, leftRadius))
         for d in dips {
@@ -119,12 +159,12 @@ public enum FramePath {
             }
         }
         if let last = dips.last, last.maxX >= i.maxX - 0.5 {
-            v.append((CGPoint(x: i.maxX, y: last.maxY), min(r, cutoutCornerRadius)))
+            v.append((CGPoint(x: i.maxX, y: last.maxY), min(rTR, cutoutCornerRadius)))
         } else {
-            v.append((CGPoint(x: i.maxX, y: i.minY), r))
+            v.append((CGPoint(x: i.maxX, y: i.minY), rTR))
         }
-        v.append((CGPoint(x: i.maxX, y: i.maxY), r))
-        v.append((CGPoint(x: i.minX, y: i.maxY), r))
+        v.append((CGPoint(x: i.maxX, y: i.maxY), rBR))
+        v.append((CGPoint(x: i.minX, y: i.maxY), rBL))
         addRoundedPolygon(v, to: path)
         return path
     }
@@ -183,8 +223,24 @@ public struct DisplayLayout: Equatable, Sendable {
     public var topExtra: Double
     /// Hardware cutouts (notch) in AppKit global space. The band wraps around each one.
     public var cutouts: [CGRect]
+    /// The display's physical corner radius (`frame.displayCornerRadius`), applied to the outer
+    /// corners of `area` that are real display corners (`physicalCorners`).
+    public var displayCornerRadius: Double
+    /// Which corners of `area` coincide with the display's own corners (not with a shown Dock or
+    /// menu bar edge, where the band meets ordinary pixels).
+    public var physicalCorners: PhysicalCorners
 
-    public init(display: DisplayInfo, converter: CoordinateConverter, thickness: Double, barWidth: Double) {
+    public struct PhysicalCorners: OptionSet, Equatable, Sendable {
+        public let rawValue: Int
+        public init(rawValue: Int) { self.rawValue = rawValue }
+        public static let topLeft = PhysicalCorners(rawValue: 1)
+        public static let topRight = PhysicalCorners(rawValue: 2)
+        public static let bottomRight = PhysicalCorners(rawValue: 4)
+        public static let bottomLeft = PhysicalCorners(rawValue: 8)
+        public static let all: PhysicalCorners = [.topLeft, .topRight, .bottomRight, .bottomLeft]
+    }
+
+    public init(display: DisplayInfo, converter: CoordinateConverter, thickness: Double, barWidth: Double, displayCornerRadius: Double = 0) {
         var top = display.frame.insetBy(display.dockInsets)
         top.origin.y += display.shownMenuBarHeight
         top.size.height = max(0, top.height - display.shownMenuBarHeight)
@@ -193,14 +249,44 @@ public struct DisplayLayout: Equatable, Sendable {
         cutouts = display.topCutouts.map { converter.toBottomLeft($0) }
         self.thickness = thickness
         self.barWidth = barWidth
+        self.displayCornerRadius = max(0, displayCornerRadius)
+        let f = display.frame
+        let atTop = abs(top.minY - f.minY) < 0.5, atBottom = abs(top.maxY - f.maxY) < 0.5
+        let atLeft = abs(top.minX - f.minX) < 0.5, atRight = abs(top.maxX - f.maxX) < 0.5
+        var corners: PhysicalCorners = []
+        if atTop, atLeft { corners.insert(.topLeft) }
+        if atTop, atRight { corners.insert(.topRight) }
+        if atBottom, atRight { corners.insert(.bottomRight) }
+        if atBottom, atLeft { corners.insert(.bottomLeft) }
+        physicalCorners = corners
     }
 
-    public init(area: CGRect, thickness: Double, barWidth: Double, topExtra: Double = 0, cutouts: [CGRect] = []) {
+    public init(area: CGRect, thickness: Double, barWidth: Double, topExtra: Double = 0, cutouts: [CGRect] = [],
+                displayCornerRadius: Double = 0, physicalCorners: PhysicalCorners = .all) {
         self.area = area
         self.thickness = thickness
         self.barWidth = barWidth
         self.topExtra = topExtra
         self.cutouts = cutouts
+        self.displayCornerRadius = max(0, displayCornerRadius)
+        self.physicalCorners = physicalCorners
+    }
+
+    /// Outer radii of the frame band: the display radius at physical corners, square elsewhere.
+    public var outerRadii: CornerRadii {
+        let r = displayCornerRadius
+        return CornerRadii(
+            topLeft: physicalCorners.contains(.topLeft) ? r : 0, topRight: physicalCorners.contains(.topRight) ? r : 0,
+            bottomRight: physicalCorners.contains(.bottomRight) ? r : 0, bottomLeft: physicalCorners.contains(.bottomLeft) ? r : 0
+        )
+    }
+
+    /// Window-side radii of the band: outer radius + band thickness where the outer corner is
+    /// rounded, `base` (the theme's frame rounding) where it is square.
+    public func innerRadii(base: Double) -> CornerRadii {
+        let o = outerRadii
+        func r(_ outer: Double) -> Double { outer > 0 ? outer + thickness : base }
+        return CornerRadii(topLeft: r(o.topLeft), topRight: r(o.topRight), bottomRight: r(o.bottomRight), bottomLeft: r(o.bottomLeft))
     }
 
     /// Cutouts in the frame panel's own y-down space (origin at the area's top-left).

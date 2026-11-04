@@ -29,12 +29,15 @@ public enum DisplayGeometry {
         /// The menu bar auto-hides (`_HIHideMenuBar`). On a notched display `visibleFrame`
         /// always excludes the safe-area strip, so it cannot tell a shown menu bar apart.
         public var menuBarAutoHides: Bool
+        /// `CGDisplayIsBuiltin`.
+        public var isBuiltIn: Bool
 
         public init(
             uuid: String, displayID: UInt32 = 0, name: String = "", frame: CGRect, visibleFrame: CGRect,
             safeAreaTop: Double = 0, scale: Double = 1, auxiliaryTopLeft: CGRect? = nil, auxiliaryTopRight: CGRect? = nil,
-            menuBarAutoHides: Bool = true
+            menuBarAutoHides: Bool = true, isBuiltIn: Bool = false
         ) {
+            self.isBuiltIn = isBuiltIn
             self.auxiliaryTopLeft = auxiliaryTopLeft
             self.auxiliaryTopRight = auxiliaryTopRight
             self.menuBarAutoHides = menuBarAutoHides
@@ -85,7 +88,7 @@ public enum DisplayGeometry {
         return DisplayInfo(
             id: s.uuid, displayID: s.displayID, name: s.name, frame: converter.toTopLeft(s.frame),
             menuBarHeight: menuBar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero,
-            shownMenuBarHeight: shown, topCutouts: cutouts
+            shownMenuBarHeight: shown, topCutouts: cutouts, isBuiltIn: s.isBuiltIn
         )
     }
 

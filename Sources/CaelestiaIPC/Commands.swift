@@ -263,6 +263,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case schemeSet = "scheme.set"
     case wallpaperRandom = "wallpaper.random"
     case notify
+    case frameCalibrate = "frame.calibrate"
 
     // MARK: Shell targets (ipc-commands.txt, 1:1)
     case shellToasterError = "shell.toaster.error"
@@ -422,6 +423,10 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.misc, "Switch the colour scheme.", arguments: [IPCArgument("name", .string, help: "scheme name, e.g. caelestia-dynamic")])
         case .wallpaperRandom:
             return IPCCommandSpec(.misc, "Pick a random wallpaper from the configured folder.", returns: "{path}")
+        case .frameCalibrate:
+            return IPCCommandSpec(.shell, "Tune the screen frame's outer corner radius by eye (arrow keys, Return saves per display, Esc cancels).",
+                                  arguments: [.optional("display", .string, help: "display id or name (default: the one under the pointer)")],
+                                  returns: "{display, radius}")
         case .notify:
             return IPCCommandSpec(.misc, "Post a notification to the sidebar.", arguments: [IPCArgument("title", .string), .optional("body", .string), .optional("app", .string, help: "app name shown as the sender"), .optional("icon", .string, help: "SF Symbol or Material icon name")], returns: "{id}")
 

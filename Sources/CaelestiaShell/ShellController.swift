@@ -29,6 +29,12 @@ public final class ShellController {
     public private(set) var bars: [String: BarSurface] = [:]
     public private(set) var visibility: [String: BarVisibility] = [:]
     var layouts: [String: DisplayLayout] = [:]
+    /// Corner radii being tried in `caelestia frame calibrate` (display id → pt), drawn instead of
+    /// the configured value until saved or cancelled.
+    var cornerRadiusTrials: [String: Double] = [:]
+    var calibration: FrameCalibration?
+    /// Where `frame calibrate` saves (the user's config.toml).
+    public var configFileURL: URL = Paths.configFile
 
     // Drawers.
     public let launcher = LauncherModel()
@@ -117,6 +123,9 @@ public final class ShellController {
 
     /// `shell.kill`: every surface goes; services keep running.
     public func stop() {
+        calibration?.close()
+        calibration = nil
+        cornerRadiusTrials.removeAll()
         for (_, f) in frames { f.close() }
         for (_, b) in bars { b.close() }
         frames.removeAll()
@@ -160,7 +169,8 @@ public final class ShellController {
         for id in Array(bars.keys) where !ids.contains(id) { bars.removeValue(forKey: id)?.close() }
         for id in Array(visibility.keys) where !ids.contains(id) { visibility[id] = nil }
         for d in state.displays {
-            let layout = DisplayLayout(display: d, converter: state.converter, thickness: theme.frameThickness, barWidth: theme.barWidth)
+            let layout = DisplayLayout(display: d, converter: state.converter, thickness: theme.frameThickness, barWidth: theme.barWidth,
+                                       displayCornerRadius: displayCornerRadius(for: d))
             layouts[d.id] = layout
             var vis = visibility[d.id] ?? BarVisibility(persistent: state.config.bar.persistent, showOnHover: state.config.bar.showOnHover)
             if vis.persistent != state.config.bar.persistent { vis.setPersistent(state.config.bar.persistent) }

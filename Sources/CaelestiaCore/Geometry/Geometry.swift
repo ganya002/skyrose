@@ -128,6 +128,8 @@ public struct DisplayInfo: Equatable, Hashable, Sendable, Identifiable {
     public var dockInsets: Insets
     public var scale: Double
     public var isPrimary: Bool
+    /// The Mac's own panel (`CGDisplayIsBuiltin`): its physical corners are rounded.
+    public var isBuiltIn: Bool
     /// Height of a menu bar that is always shown (auto-hide off). The screen frame starts below
     /// it. 0 when the menu bar auto-hides.
     public var shownMenuBarHeight: Double
@@ -140,8 +142,9 @@ public struct DisplayInfo: Equatable, Hashable, Sendable, Identifiable {
     public init(
         id: String, displayID: UInt32 = 0, name: String = "", frame: CGRect,
         menuBarHeight: Double = 0, dockInsets: Insets = .zero, scale: Double = 1, isPrimary: Bool = false,
-        shownMenuBarHeight: Double = 0, topCutouts: [CGRect] = []
+        shownMenuBarHeight: Double = 0, topCutouts: [CGRect] = [], isBuiltIn: Bool = false
     ) {
+        self.isBuiltIn = isBuiltIn
         self.shownMenuBarHeight = shownMenuBarHeight
         self.topCutouts = topCutouts
         self.id = id

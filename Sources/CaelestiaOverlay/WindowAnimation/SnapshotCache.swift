@@ -24,6 +24,21 @@ public final class SnapshotCache {
         /// captured right after a resize can still hold its old, smaller buffer: only this part
         /// is stretched over the tile, never a small picture in a transparent corner.
         public var contentRect: CGRect = CGRect(x: 0, y: 0, width: 1, height: 1)
+        /// Average colour of the still's opaque pixels: fills the part of a tile the still does
+        /// not cover while the tile is bigger than it (stills are never stretched).
+        public var fill: CGColor?
+
+        /// The opaque content's size in points (what is drawn 1:1).
+        public var contentSize: CGSize {
+            CGSize(width: size.width * contentRect.width, height: size.height * contentRect.height)
+        }
+
+        /// True when the still shows the whole window at `target` size: same size (±1.5 pt) and
+        /// no transparent margin (a buffer from before a resize has one).
+        public func fits(_ target: CGSize) -> Bool {
+            abs(size.width - target.width) <= 1.5 && abs(size.height - target.height) <= 1.5
+                && contentRect.width >= 0.97 && contentRect.height >= 0.97
+        }
     }
 
     public var canCapture: () -> Bool = { CGPreflightScreenCaptureAccess() }
@@ -126,7 +141,7 @@ public final class SnapshotCache {
                 failures += 1
                 return nil
             }
-            let still = Still(image: image, size: size, capturedAt: CACurrentMediaTime(), contentRect: Self.opaqueBounds(image))
+            let still = Self.makeStill(image, size: size)
             windows[id] = still
             if let dir = ProcessInfo.processInfo.environment["CAELESTIA_DUMP_STILLS"] { Self.dump(still, name: "\(id)", to: dir, ms: ms) }
             return image
@@ -180,6 +195,66 @@ public final class SnapshotCache {
         }
     }
 
+    nonisolated static func makeStill(_ image: CGImage, size: CGSize) -> Still {
+        Still(image: image, size: size, capturedAt: CACurrentMediaTime(), contentRect: opaqueBounds(image), fill: averageColor(image))
+    }
+
+    /// Captures `id` synchronously, waiting at most `timeout` (about one frame). Only uses the
+    /// cached shareable content: fetching it never fits in a frame, so a window it does not list
+    /// yet (one that just opened) returns nil at once. The result is cached like any capture.
+    public func captureNow(_ id: CGWindowID, timeout: TimeInterval) -> Still? {
+        guard canCapture(), let window = content?.windows.first(where: { $0.windowID == id }),
+              let bounds = OverlayController.cgBounds(id) else { return nil }
+        let started = CACurrentMediaTime()
+        let filter = SCContentFilter(desktopIndependentWindow: window)
+        let config = SCStreamConfiguration()
+        var scale = Double(ScreenSpace.scale(for: bounds))
+        let pixels = bounds.width * scale * bounds.height * scale
+        if pixels > Self.maxPixels { scale *= (Self.maxPixels / pixels).squareRoot() }
+        config.width = max(1, Int((bounds.width * scale).rounded()))
+        config.height = max(1, Int((bounds.height * scale).rounded()))
+        config.showsCursor = false
+        config.ignoreShadowsSingleWindow = true
+        config.captureResolution = .best
+        let box = CaptureBox()
+        SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) { image, _ in box.finish(image) }
+        guard let image = box.wait(timeout: timeout) else {
+            lastSyncCaptureMs = (CACurrentMediaTime() - started) * 1000
+            syncCaptureMisses += 1
+            return nil
+        }
+        lastSyncCaptureMs = (CACurrentMediaTime() - started) * 1000
+        guard !WorkspaceSlide.isBlack(image) else { return nil }
+        let still = Self.makeStill(image, size: bounds.size)
+        windows[id] = still
+        syncCaptureHits += 1
+        return still
+    }
+
+    /// Synchronous (one-frame) capture stats.
+    public private(set) var lastSyncCaptureMs: Double = 0
+    public private(set) var syncCaptureHits = 0
+    public private(set) var syncCaptureMisses = 0
+
+    /// Average colour of the opaque pixels (nil when the image is clear).
+    nonisolated static func averageColor(_ image: CGImage) -> CGColor? {
+        let n = 32
+        var pixels = [UInt8](repeating: 0, count: n * n * 4)
+        guard let ctx = CGContext(data: &pixels, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        ctx.interpolationQuality = .medium
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: n, height: n))
+        var r = 0.0, g = 0.0, b = 0.0, count = 0.0
+        for i in stride(from: 0, to: pixels.count, by: 4) where pixels[i + 3] > 200 {
+            let a = Double(pixels[i + 3])
+            r += Double(pixels[i]) / a; g += Double(pixels[i + 1]) / a; b += Double(pixels[i + 2]) / a
+            count += 1
+        }
+        guard count > 0 else { return nil }
+        return CGColor(srgbRed: r / count, green: g / count, blue: b / count, alpha: 1)
+    }
+
     /// Unit rect of the pixels with alpha in a 64×64 downsample (full rect when all are clear).
     nonisolated static func opaqueBounds(_ image: CGImage) -> CGRect {
         let n = 64
@@ -218,6 +293,12 @@ public final class SnapshotCache {
 
     // MARK: Shareable content
 
+    /// Refreshes the cached shareable content in the background (so a one-frame capture of a
+    /// window that appeared meanwhile can find it).
+    public func prefetchContent() {
+        Task { @MainActor in _ = try? await self.shareable(maxAge: 0) }
+    }
+
     func shareable(maxAge: TimeInterval) async throws -> SCShareableContent {
         if let content, CACurrentMediaTime() - contentAt <= maxAge { return content }
         let fresh = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -229,5 +310,26 @@ public final class SnapshotCache {
     private func scWindow(_ id: CGWindowID) async -> SCWindow? {
         if let w = try? await shareable(maxAge: 2).windows.first(where: { $0.windowID == id }) { return w }
         return try? await shareable(maxAge: 0).windows.first(where: { $0.windowID == id })
+    }
+}
+
+/// Hands one ScreenCaptureKit completion (any queue) to a thread waiting with a deadline.
+private final class CaptureBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private let done = DispatchSemaphore(value: 0)
+    private var image: CGImage?
+
+    func finish(_ image: CGImage?) {
+        lock.lock()
+        self.image = image
+        lock.unlock()
+        done.signal()
+    }
+
+    func wait(timeout: TimeInterval) -> CGImage? {
+        guard done.wait(timeout: .now() + timeout) == .success else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return image
     }
 }

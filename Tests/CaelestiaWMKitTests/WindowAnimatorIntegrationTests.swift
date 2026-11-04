@@ -67,7 +67,7 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         let a = h.system.existing("a")
         let b = h.system.existing("b")
         h.start()
-        XCTAssertEqual(anim.requests.first?.changes.map(\.kind), [.open, .open])
+        XCTAssertTrue(anim.requests.isEmpty, "windows discovered at start never animate")
         let beforeA = a.frame, beforeB = b.frame
         let writesBefore = writes(a, b)
 
@@ -183,17 +183,18 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         let (h, anim) = harness()
         h.system.existing("a")
         h.start()
-        XCTAssertEqual(anim.cancelCount, 0)
+        let before = anim.cancelCount
         h.wm.restoreEverything()
-        XCTAssertEqual(anim.cancelCount, 1)
+        XCTAssertEqual(anim.cancelCount, before + 1)
     }
 
     func testPanicCancelsTheAnimator() {
         let (h, anim) = harness()
         h.system.existing("a")
         h.start()
+        let before = anim.cancelCount
         h.wm.panic()
-        XCTAssertGreaterThanOrEqual(anim.cancelCount, 1)
+        XCTAssertGreaterThan(anim.cancelCount, before)
         XCTAssertEqual(h.quitCount, 1)
     }
 

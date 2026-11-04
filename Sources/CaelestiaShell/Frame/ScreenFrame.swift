@@ -46,7 +46,11 @@ public final class ScreenFrameWindow {
         let r = theme.frameRounding
         let cutouts = layout.localCutouts
         let thickness = layout.thickness
-        view.shape = { rect in FramePath.path(outer: rect, insets: insets, radius: r, cutouts: cutouts, thickness: thickness) }
+        let outerRadii = layout.outerRadii
+        let innerRadii = layout.innerRadii(base: r)
+        view.shape = { rect in
+            FramePath.path(outer: rect, insets: insets, outerRadii: outerRadii, innerRadii: innerRadii, cutouts: cutouts, thickness: thickness)
+        }
         view.caps = NSEdgeInsets(top: insets.top + r, left: insets.left + r, bottom: insets.bottom + r, right: insets.right + r)
         view.refreshShape()
     }

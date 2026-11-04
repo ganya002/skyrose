@@ -20,12 +20,11 @@ final class ShellIntegrationTests: XCTestCase {
         XCTAssertEqual(h.wm.usableArea(of: air).minX, air.usableArea(reserved: .uniform(10)).minX)
     }
 
-    func testRevealedBarReservesItsWidthNotFramePlusBar() {
+    func testRevealedAutoHideBarReservesNothing() {
         let h = Harness()
         h.wm.setBarRevealed(true, display: "air")
-        let a = h.wm.usableArea(of: air)
-        XCTAssertEqual(a.minX, 48, "max(frame, bar), not the sum")
-        XCTAssertEqual(a.maxX, 1470 - 10)
+        XCTAssertEqual(h.wm.usableArea(of: air).minX, 10, "the bar overlays windows")
+        XCTAssertEqual(h.wm.usableArea(of: air).maxX, 1470 - 10)
         h.wm.setBarRevealed(false, display: "air")
         XCTAssertEqual(h.wm.usableArea(of: air).minX, 10)
     }
@@ -34,7 +33,7 @@ final class ShellIntegrationTests: XCTestCase {
         let h = Harness(displays: [TestDisplays.air, TestDisplays.external])
         h.wm.setBarRevealed(true, display: "ext")
         XCTAssertEqual(h.wm.usableArea(of: TestDisplays.air).minX, 10)
-        XCTAssertEqual(h.wm.usableArea(of: TestDisplays.external).minX, TestDisplays.external.frame.minX + 48)
+        XCTAssertEqual(h.wm.usableArea(of: TestDisplays.external).minX, TestDisplays.external.frame.minX + 10)
     }
 
     func testPersistentBarReservesRegardlessOfReveal() {
@@ -56,34 +55,18 @@ final class ShellIntegrationTests: XCTestCase {
         XCTAssertEqual(h.wm.usableArea(of: air).minX, 10)
     }
 
-    func testRevealRetilesWindowsRightAndHideRestores() {
+    func testRevealAndHideNeverRetileOrMoveWindows() {
         let h = Harness()
-        let w = h.system.existing("a")
+        let a = h.system.existing("a")
+        let b = h.system.existing("b")
         h.start()
-        let base = h.frame(w).minX
-        h.wm.setBarRevealed(true, display: "air")
-        XCTAssertTrue(h.wm.needsLayout)
-        h.settle()
-        XCTAssertEqual(h.frame(w).minX, base + 38, accuracy: 1, "window moved right by 48 - 10")
-        h.wm.setBarRevealed(false, display: "air")
-        h.settle()
-        XCTAssertEqual(h.frame(w).minX, base, accuracy: 0.5)
-    }
-
-    func testRepeatedRevealSchedulesNoExtraLayout() {
-        let h = Harness()
-        h.system.existing("a")
-        h.start()
-        h.wm.setBarRevealed(true, display: "air")
-        XCTAssertEqual(h.settle(), 1)
-        h.wm.setBarRevealed(true, display: "air")
-        h.wm.setBarRevealed(true, display: "air")
-        XCTAssertFalse(h.wm.needsLayout)
-        XCTAssertEqual(h.settle(), 0)
-        h.wm.setBarRevealed(false, display: "air")
-        h.settle()
-        h.wm.setBarRevealed(false, display: "air")
-        XCTAssertFalse(h.wm.needsLayout)
+        let before = [h.frame(a), h.frame(b)]
+        for revealed in [true, false, true, true, false] {
+            h.wm.setBarRevealed(revealed, display: "air")
+            XCTAssertFalse(h.wm.needsLayout)
+            XCTAssertEqual(h.settle(), 0)
+            XCTAssertEqual([h.frame(a), h.frame(b)], before)
+        }
     }
 
     func testPersistentRevealSchedulesNoLayout() {

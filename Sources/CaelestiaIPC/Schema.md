@@ -95,6 +95,7 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 | `scheme.set`         | `name: string`                                     | null   |
 | `wallpaper.random`   |                                                    | `{path}` |
 | `notify`             | `title: string`, `body?`, `app?`, `icon?`          | `{id}` |
+| `frame.calibrate`    | `display?: string` (id or name)                    | `{display, radius}` |
 
 ### Shell targets (Linux `ipc-commands.txt`, 1:1)
 

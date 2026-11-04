@@ -66,7 +66,8 @@ public final class DisplayMonitor: NSObject {
                 uuid: stableID(for: displayID), displayID: displayID, name: screen.localizedName,
                 frame: screen.frame, visibleFrame: screen.visibleFrame, safeAreaTop: screen.safeAreaInsets.top,
                 scale: screen.backingScaleFactor, auxiliaryTopLeft: screen.auxiliaryTopLeftArea,
-                auxiliaryTopRight: screen.auxiliaryTopRightArea, menuBarAutoHides: autoHides
+                auxiliaryTopRight: screen.auxiliaryTopRightArea, menuBarAutoHides: autoHides,
+                isBuiltIn: CGDisplayIsBuiltin(displayID) != 0
             )
         }
     }

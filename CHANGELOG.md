@@ -1,5 +1,63 @@
 # Changelog
 
+## Unreleased — Fixes from real-hardware testing: corners, stretched stills, edge jumps (2026-11-04)
+
+Verified live on the MacBook Air (notch) + DELL U3417W with TestWindows only, on workspace 4.
+Frame sequences, videos and screenshots are in `/tmp/cwm/fix3/`. The build was signed with
+"Caelestia Local Signing"; no permission was re-granted, nothing installed, no system setting
+changed. The calibration's test `~/.config/caelestia-mac/config.toml` was removed afterwards.
+
+### Added
+- `frame.displayCornerRadius` (global) and `[displays."<uuid>"] displayCornerRadius`: the screen
+  frame's outer edge follows the display's rounded physical corners (only at corners that are real
+  display corners), and its inner corners there use outer radius + band. Auto (`-1`): 10 pt on a
+  built-in Apple Silicon panel, 0 on externals (`DisplayInfo.isBuiltIn` from `CGDisplayIsBuiltin`).
+- `caelestia frame calibrate [display]` (IPC `frame.calibrate`): a bright 1.5 pt outline along the
+  display edge plus a live-updating frame; ↑/↓ ±0.5 pt, ⇧ ±0.1 pt, ←/→ other display, Return
+  saves each changed display's value into config.toml (one key, comments and other settings kept;
+  `ConfigFileEditor`), Esc cancels. Live: ↑×4 then ⇧↓×5 read 12.00 → 11.50; Esc wrote nothing;
+  Return saved 11.5 (built-in) and 1.0 (DELL) into their tables, replacing earlier values, and the
+  toast confirmed both.
+- Tests: 653 passing (109 new, including the cover-flip regression test; the bar-reservation tests that expected a retile were rewritten to expect none).
+
+### Fixed
+- **Windows jumped when the pointer reached an edge**: revealing the auto-hidden bar reserved its
+  width and retiled (dwindle could flip the split, moving windows up and down). An auto-hidden
+  bar and every drawer now overlay the windows; only a persistent bar reserves. Live: a frame log
+  at 50 Hz during left/right/top edge hovers showed exactly one frame per window; the bar slid in
+  over the windows (`/tmp/cwm/fix3/edges-sheet.png`). Tests drive the real shell pointer path and
+  every drawer and assert no frame changes and no layout pass.
+- **Stretched / low-res windows on open, focus and app switch**:
+  - Stills are never scaled to another aspect: drawn 1:1, anchored top-left and clipped to the
+    tile over the still's average colour, then cross-faded (120 ms) to a fresh capture at the
+    new size once the app has redrawn (attempts 40–400 ms after the commit).
+  - Opens pop in only from a still at the final size within one frame; otherwise (in practice
+    always: 0 of 2 live opens) the new window is shown live in its slot through a hole in the
+    cover while the neighbours animate. The old path waited for a capture and popped in from a
+    buffer of the wrong size.
+  - Focus changes, snap-backs (frame re-applied unchanged), app activation, hide/unhide,
+    minimize/unminimize and windows found at start never animate. Live: activating either of two
+    TestWindows apps, hiding and unhiding one and moving focus with the pointer produced no
+    animation at all; hide/unhide retiled instantly.
+- **Snapshot cover drew stacked windows swapped top-to-bottom** (found live in this phase; the
+  last phase only tested side-by-side layouts): AppKit owns the flip of a view's backing layer,
+  so the cover now draws in its own flipped root layer. Recorded open/close on the DELL with a
+  vertical split now shows every tile in place (`/tmp/cwm/fix3/open2-sheet.png`,
+  `close2-sheet.png`). This may be part of what looked "stretched" on real hardware.
+
+### Measured
+- Commit latency unchanged: 16.7–17.7 ms; animations ~585–603 ms.
+- One-frame open capture: never hit, because new windows are not in the cached shareable content.
+
+### Known limitations
+- Opens no longer pop in in practice (see above); the brief allowed skipping when no correct-size
+  capture exists within a frame.
+- App switch / hide / minimize passes are instant, including the neighbours' retile.
+- The corner radius is a by-eye value; the auto 10 pt is a starting point, not a measurement.
+- With outer radius R and band b the user-specified inner radius R + b makes the band about 1.8 b
+  wide on the corner diagonal (a strictly even band would need R − b); it can be revisited after
+  calibrating.
+
 ## Unreleased — Notch-aware frame, window animations, shell part 2 leftovers (2026-11-04)
 
 Verified live on the MacBook Air (1470x956, notch) + DELL U3417W (3440x1440) with TestWindows on

@@ -100,8 +100,17 @@ public final class WindowManager {
     public var onLayoutApplied: (() -> Void)?
     /// Shell IPC (`shell.*`, drawers, toasts). Returns nil for commands the shell does not own.
     public var shellResponder: ((IPCRequest, IPCCommand) -> IPCResponse?)?
-    /// Displays whose auto-hidden bar is currently revealed (it reserves its width).
+    /// Displays whose auto-hidden bar is currently revealed (it overlays windows, reserves nothing).
     public internal(set) var barRevealed: Set<String> = []
+    /// Every window id managed in this session (CGWindowIDs are never reused while a window
+    /// lives). A window managed again (its app was unhidden or activated, it was unminimized) is
+    /// not a new window: its pass never animates.
+    var everManaged: Set<WindowID> = []
+    /// Windows managed again (or discovered at start) since the last layout pass.
+    var reappeared: Set<WindowID> = []
+    /// An app was hidden / unhidden or a window minimized / restored since the last pass (app
+    /// switching): the next pass moves windows instantly.
+    var suspendChangedSinceLayout = false
 
     var handles: [WindowID: any WindowHandle] = [:]
     var descriptors: [WindowID: WindowDescriptor] = [:]
@@ -236,15 +245,16 @@ public final class WindowManager {
         LayoutEnvironment(config: config.wm, areas: Dictionary(uniqueKeysWithValues: displays.map { ($0.id, usableArea(of: $0)) }))
     }
 
-    /// Frame − menu bar − Dock − screen frame − bar (spec 4.6), with per-display overrides. The
-    /// bar reserves its width while it is persistent or revealed (Caelestia: the exclusive zone
-    /// follows the bar's visibility). It replaces the frame band on its edge, so that edge
-    /// reserves max(frame, bar), not their sum.
+    /// Frame − menu bar − Dock − screen frame − bar (spec 4.6), with per-display overrides. Only a
+    /// *persistent* bar reserves its width (it replaces the frame band on its edge, so that edge
+    /// reserves max(frame, bar), not their sum). An auto-hidden bar and every drawer overlay the
+    /// windows: a pointer reveal must never retile (live finding: revealing the bar resized the
+    /// tiles, and dwindle flipped the split so windows jumped up and down).
     public func usableArea(of display: DisplayInfo) -> CGRect {
         let c = config.resolved(forDisplay: display.id)
         let frame = c.wm.screenFrame ? c.wm.screenFrameInset : 0
         var reserved = Insets.uniform(frame)
-        if c.bar.enabled, c.bar.persistent || barRevealed.contains(display.id) {
+        if c.bar.enabled, c.bar.persistent {
             let bar = max(frame, c.bar.width)
             switch c.bar.edge {
             case .left: reserved.left = bar
@@ -256,11 +266,10 @@ public final class WindowManager {
         return display.usableArea(reserved: reserved)
     }
 
-    /// The shell revealed / hid an auto-hidden bar on `display`: retile around it.
+    /// The shell revealed / hid an auto-hidden bar on `display`. Recorded only (`query`, tests):
+    /// the bar overlays windows, so this never schedules a layout.
     public func setBarRevealed(_ revealed: Bool, display: String) {
-        let changed = revealed ? barRevealed.insert(display).inserted : barRevealed.remove(display) != nil
-        guard changed else { return }
-        if !config.resolved(forDisplay: display).bar.persistent { setNeedsLayout() }
+        if revealed { barRevealed.insert(display) } else { barRevealed.remove(display) }
     }
 
     public func display(id: String?) -> DisplayInfo? {
@@ -327,9 +336,15 @@ public final class WindowManager {
         }
 
         let previous = visiblePlacements
-        // Workspace switches are the slide's job; mouse resizes track 1:1 (spec 2.3).
-        let animated = windowAnimator != nil && drag?.kind != .resize
+        // Workspace switches are the slide's job; mouse resizes track 1:1 (spec 2.3). A pass that
+        // shows a window again (app switch / unhide / unminimize) is never animated: focusing or
+        // switching apps must not put stills up (live finding: stretched windows for ~1 s).
+        let showsReappeared = visible.keys.contains { reappeared.contains($0) && previous[$0] == nil } || suspendChangedSinceLayout
+        reappeared.removeAll()
+        suspendChangedSinceLayout = false
+        let animated = windowAnimator != nil && drag?.kind != .resize && !showsReappeared
             && (lastVisibleWorkspaces.isEmpty || workspaceTransitions(from: lastVisibleWorkspaces, to: visibleWorkspacesByDisplay()).isEmpty)
+        if showsReappeared { windowAnimator?.cancel() }
         var writes: [() -> Bool] = []
         var changes: [WindowFrameChange] = []
         var borders: [WindowID: CGRect] = [:]
@@ -347,7 +362,11 @@ public final class WindowManager {
                     parked[id] = nil
                     try? journal.remove(id)
                 }
-                changes.append(WindowFrameChange(id: id, kind: previous[id] == nil ? .open : .move, from: old, to: p.frame))
+                // A frame written again unchanged (snap-back after an app moved it, a forced
+                // re-apply on focus) is not a change to animate.
+                if previous[id] == nil || old != p.frame {
+                    changes.append(WindowFrameChange(id: id, kind: previous[id] == nil ? .open : .move, from: old, to: p.frame))
+                }
                 writes.append { [weak self] in
                     guard let self else { return false }
                     let got = self.setFrame(handle, p.frame)
@@ -558,6 +577,8 @@ public final class WindowManager {
         handles[id] = handle
         descriptors[id] = d
         self.effects[id] = effects
+        if everManaged.contains(id) || isDiscovering { reappeared.insert(id) }
+        everManaged.insert(id)
         if let m = d.minSize { minSizes[id] = m }
         let focus = !isDiscovering && effects.noInitialFocus != true && effects.noFocus != true && d.isStandardWindow
         guard state.addWindow(id, to: target, floating: floating, cursor: windowSystem.cursorLocation, focus: focus, env: environment) else {
@@ -605,6 +626,7 @@ public final class WindowManager {
     private func suspend(_ id: WindowID) {
         guard handles[id] != nil, let ws = state.workspace(of: id) else { return }
         suspended[id] = ws
+        suspendChangedSinceLayout = true
         state.closeWindow(id)
         fadeOutNext.insert(id)
         shownBefore.remove(id)
@@ -620,6 +642,7 @@ public final class WindowManager {
             return
         }
         guard let ws = suspended.removeValue(forKey: id) else { return }
+        suspendChangedSinceLayout = true
         let frame = handles[id]!.frame
         let floating = effects[id]?.float == true || descriptors[id].map { $0.isDialogLike || $0.isFixedSize || !$0.isStandardWindow } == true
         // A special that closed while the window was away is reopened only by focusing it.
