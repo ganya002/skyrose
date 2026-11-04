@@ -14,13 +14,16 @@ public struct Config: Codable, Equatable, Sendable {
     public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
+    /// Per-app window rules by bundle id: "tile", "float" or "auto" (`AppRuleBook`).
+    public var appRules: [String: String]
 
     public init(
         wm: WMConfig = WMConfig(), appearance: AppearanceConfig = AppearanceConfig(),
         bar: BarConfig = BarConfig(), input: InputConfig = InputConfig(), apps: AppsConfig = AppsConfig(),
         animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
-        frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:]
+        frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:]
     ) {
+        self.appRules = appRules
         self.frame = frame
         self.wm = wm
         self.appearance = appearance
@@ -44,6 +47,9 @@ public struct Config: Codable, Equatable, Sendable {
         c.animations.preset = .caelestiaStock
         return c
     }
+
+    /// The per-app rule book (user rules over the built-in floating list).
+    public var appRuleBook: AppRuleBook { AppRuleBook(config: appRules) }
 
     /// Resolves the effective config for one display by applying its override, if any.
     public func resolved(forDisplay id: String) -> Config {
@@ -242,6 +248,11 @@ public struct InputConfig: Codable, Equatable, Sendable {
     public var gestureCreateNew: Bool = true
     /// "Take over ⌘Tab" (off: ALT+Tab cycle maps to ⌥L+Tab).
     public var takeOverCmdTab: Bool = false
+    /// The F-row volume / mute / brightness keys are handled by Caelestia: volume through
+    /// CoreAudio, brightness through DisplayServices, only Caelestia's OSD shows and the key never
+    /// reaches macOS (so Apple's HUD stays away). A key Caelestia cannot handle (no settable
+    /// volume on the output, no brightness control for the display) passes through to macOS.
+    public var interceptMediaKeys: Bool = true
     public init() {}
 }
 
@@ -276,11 +287,20 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     /// Global multiplier on all durations (Hyprland global speed / shell durations.scale are
     /// applied separately inside the Motion tables).
     public var globalMultiplier: Double = 1.0
+    /// Speed multiplier for every animation (window, workspace and shell): 2 = twice as fast,
+    /// 0.5 = half speed. Durations are divided by it (after `globalMultiplier`).
+    public var speed: Double = 1.0
     public var shellDurationScale: Double = 0.8
     public var respectReduceMotion: Bool = true
     /// Per-animation overrides keyed by animation name (windowsIn, windowsMove, ...).
     public var overrides: [String: AnimationOverride] = [:]
     public init() {}
+
+    /// What every duration is multiplied by: `globalMultiplier / speed`.
+    public var durationFactor: Double {
+        guard speed > 0, speed.isFinite else { return globalMultiplier }
+        return globalMultiplier / speed
+    }
 }
 
 public struct AnimationOverride: Codable, Equatable, Sendable {

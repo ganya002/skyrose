@@ -30,7 +30,7 @@ struct WallpaperPickerView: View {
                 content.padding(.horizontal, fillet + 4).padding(.top, 14).padding(.bottom, 12)
             }
             .frame(width: bodySize.width + 2 * fillet, height: bodySize.height)
-            .offset(y: model.shown ? 0 : bodySize.height + 4)
+            .offset(y: model.shown ? 0 : theme.slide(bodySize.height + 4))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

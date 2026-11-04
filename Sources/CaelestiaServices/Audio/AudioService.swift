@@ -10,6 +10,9 @@ public struct AudioState: Hashable, Sendable {
     public var muted: Bool = false
     public var outputDeviceName: String = ""
     public var outputDeviceID: AudioDeviceID = 0
+    /// The output's volume can be set (false for e.g. HDMI/DisplayPort audio without a volume
+    /// control: the media keys then go to macOS).
+    public var volumeSettable: Bool = false
     public var micVolume: Double = 0
     public var micMuted: Bool = false
     public var inputDeviceName: String = ""
@@ -151,6 +154,7 @@ public final class AudioService {
             s.outputDeviceName = CoreAudioProperties.name(of: output)
             s.volume = clamp(Double(CoreAudioProperties.volume(device: output, input: false) ?? 0), 0...Self.volumeMax)
             s.muted = CoreAudioProperties.muted(device: output, input: false) ?? false
+            s.volumeSettable = CoreAudioProperties.canSetVolume(device: output, input: false)
         } else {
             s.unavailableReason = "No audio output device"
         }
@@ -292,6 +296,23 @@ enum CoreAudioProperties {
             any = setFloat(value, device, selector: kAudioDevicePropertyVolumeScalar, scope: scope, element: channel) || any
         }
         return any
+    }
+
+    /// Whether `setVolume` can work on this device (some selector is settable).
+    static func canSetVolume(device: AudioDeviceID, input: Bool) -> Bool {
+        let scope = input ? kAudioDevicePropertyScopeInput : kAudioDevicePropertyScopeOutput
+        let candidates: [(AudioObjectPropertySelector, AudioObjectPropertyElement)] = [
+            (virtualMainVolume, kAudioObjectPropertyElementMain), (kAudioDevicePropertyVolumeScalar, kAudioObjectPropertyElementMain),
+            (kAudioDevicePropertyVolumeScalar, 1),
+        ]
+        for (selector, element) in candidates {
+            var address = AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
+            var settable: DarwinBoolean = false
+            if AudioObjectHasProperty(device, &address), AudioObjectIsPropertySettable(device, &address, &settable) == noErr, settable.boolValue {
+                return true
+            }
+        }
+        return false
     }
 
     static func muted(device: AudioDeviceID, input: Bool) -> Bool? {

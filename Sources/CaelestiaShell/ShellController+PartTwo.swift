@@ -115,7 +115,7 @@ extension ShellController {
         dashboard.tab = DashboardTab(config: state.config.dashboard.defaultTab)
         let size = CGSize(width: fit.body.width + 2 * fillet, height: fit.body.height + clearance)
         panel.setFrame(layout.drawerFrame(size: size, edge: .top, barReveal: reveal), display: false)
-        hideOSD(animated: false)
+        hideOSD(animated: true)
         present(panel)
         dashboard.shown = true
         media.isObserved = true
@@ -143,7 +143,7 @@ extension ShellController {
         var frame = layout.drawerFrame(size: CGSize(width: width, height: inner.height - clear), edge: .right, barReveal: reveal)
         frame.origin.y = inner.minY
         panel.setFrame(frame, display: false)
-        hideOSD(animated: false)
+        hideOSD(animated: true)
         present(panel)
         sidebar.shown = true
         bluetooth.refresh()
@@ -186,8 +186,9 @@ extension ShellController {
 
     private func dismissAfter(_ panel: ShellPanel?, stillClosed: @escaping () -> Bool) {
         guard let panel else { return }
-        let delay = theme.seconds(250) + 0.05
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { if stillClosed() { panel.orderOut(nil) } }
+        if panel.isKeyWindow { panel.resignKey() }
+        let duration = theme.drawerCloseSeconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { if stillClosed() { panel.fadeOut(duration: duration) } }
     }
 
     // MARK: Popouts

@@ -246,6 +246,12 @@ gestureDirectionLockThreshold = 10
 gestureCreateNew = true
 # "Take over Cmd-Tab" (off: the ALT+TAB window cycle maps to Option(L)+Tab).
 takeOverCmdTab = false
+# F-row volume / mute / brightness keys are handled by Caelestia: volume via CoreAudio,
+# brightness via DisplayServices, only Caelestia's OSD shows and the key never reaches macOS, so
+# Apple's HUD stays away. A key Caelestia cannot handle (an output without settable volume, a
+# display without brightness control) passes through to macOS (Apple's HUD only). Off: macOS
+# handles the keys and Caelestia's OSD shows next to Apple's.
+interceptMediaKeys = true
 
 # =====================================================================================
 # Apps (variables.lua terminal / browser / editor / fileExplorer / audioSettings)
@@ -277,6 +283,8 @@ preset = "gabby-springy"
 windows = "snapshot"
 # Multiplier on every WM duration (1.0 = as configured).
 globalMultiplier = 1.0
+# Speed of every animation (windows, workspaces, shell): 2.0 = twice as fast, 0.5 = half speed.
+speed = 1.0
 # shell.json appearance.anim.durations.scale: all shell animations run at 80% duration.
 shellDurationScale = 0.8
 # Honour the macOS "Reduce motion" accessibility setting.
@@ -321,3 +329,19 @@ displayBottomCornerRadius = -1
 #   displayBottomCornerRadius = 0.0    # written by `caelestia frame calibrate`
 # =====================================================================================
 [displays]
+
+# =====================================================================================
+# Per-app window rules, keyed by bundle id: "tile", "float" or "auto".
+#   tile  = standard windows tile even if a default/rules.toml would float them (dialogs,
+#           sheets, panels and windows too big for the screen still float)
+#   float = every window floats, centred at its own size
+#   auto  = the built-in defaults, then rules.toml, then the window heuristics
+# Built-in floating apps: System Settings, Calculator, Archive Utility, System Information,
+# Digital Color Meter, Screen Sharing, Installer, Font Book, ... (`caelestia rules apps`).
+# `caelestia rules set <bundle id> <tile|float|auto>` writes this table for you.
+#
+#   [appRules]
+#   "com.apple.finder" = "float"
+#   "com.apple.systempreferences" = "tile"
+# =====================================================================================
+[appRules]

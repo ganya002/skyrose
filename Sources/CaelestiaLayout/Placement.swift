@@ -21,13 +21,18 @@ public struct Placement: Sendable, Hashable, Codable {
     /// True for inactive members of a tab group: the WM parks them (they keep the group's frame
     /// so switching tabs is instant).
     public var hidden: Bool
+    /// A tiled window whose learned minimum size does not fit in its slot even after the splits
+    /// gave it every point they could (`frame` is its min size, so it overlaps a neighbour). The
+    /// WM floats such a window instead of fighting the app.
+    public var overflows: Bool
 
-    public init(window: WindowID, frame: CGRect, borderFrame: CGRect, kind: Kind, hidden: Bool = false) {
+    public init(window: WindowID, frame: CGRect, borderFrame: CGRect, kind: Kind, hidden: Bool = false, overflows: Bool = false) {
         self.window = window
         self.frame = frame
         self.borderFrame = borderFrame
         self.kind = kind
         self.hidden = hidden
+        self.overflows = overflows
     }
 }
 

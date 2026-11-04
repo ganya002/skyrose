@@ -16,7 +16,7 @@ final class OverlayEngineTests: XCTestCase {
         e.apply(OverlayScene(borders: [border(1, a, appear: .popIn)]), at: 0)
         let s0 = e.samples(at: 0)[1]!
         XCTAssertEqual(s0.alpha, 0, accuracy: 1e-9)
-        XCTAssertEqual(s0.scale, 0.8, accuracy: 1e-9)
+        XCTAssertEqual(s0.scale, 0.85, accuracy: 1e-9)
         XCTAssertTrue(e.isAnimating(at: 0))
 
         let end = table[.windowsIn].duration + 0.001

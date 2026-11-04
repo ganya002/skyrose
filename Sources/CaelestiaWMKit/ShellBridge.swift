@@ -141,6 +141,11 @@ public final class ShellBridge: ShellHost {
             guard let d = drawer() else { return fail("unknown drawer \(request.string("drawer") ?? ""); see `shell drawers list`") }
             controller.toggle(d)
             return ok()
+        // Keep awake (Caelestia's idle inhibitor): the sidebar toggle's power assertion.
+        case .shellIdleInhibitorToggle: controller.keepAwake.toggle(); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))
+        case .shellIdleInhibitorEnable: controller.keepAwake.set(on: true); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))
+        case .shellIdleInhibitorDisable: controller.keepAwake.set(on: false); return ok(.string("false"))
+        case .shellIdleInhibitorIsEnabled: return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))
         case .shellBrightnessGet:
             return ok(JSONValue(controller.brightness.state.value))
         case .shellBrightnessSet:

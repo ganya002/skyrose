@@ -87,7 +87,7 @@ struct LauncherView: View {
                 .frame(width: size.width)
             }
             .frame(width: size.width + 2 * fillet, height: size.height)
-            .offset(y: model.shown ? 0 : size.height + 4)
+            .offset(y: model.shown ? 0 : theme.slide(size.height + 4))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             .animation(theme.small, value: model.visibleRows)
         }

@@ -16,7 +16,8 @@ public enum CurveKind: Sendable, Hashable, Codable {
         if let bezier = CubicBezier.named(string) { return .bezier(bezier) }
         let key = CubicBezier.normalize(string)
         guard !key.isEmpty else { return nil }
-        if key == "riko" || key == "spring" || key == "springriko" { return .spring(.riko) }
+        if key == "riko" || key == "springriko" { return .spring(.riko) }
+        if key == "spring" || key == "snappyspring" || key == "springsnappy" { return .spring(.snappy) }
         let compact = string.lowercased().filter { !$0.isWhitespace }
         if let numbers = Self.arguments(of: compact, prefixes: ["spring(", "spring:"]), numbers.count == 3 {
             return .spring(Spring(mass: numbers[0], stiffness: numbers[1], damping: numbers[2]))
@@ -33,7 +34,9 @@ public enum CurveKind: Sendable, Hashable, Codable {
         case .bezier(let b):
             return b.name ?? "bezier(\(b.x1), \(b.y1), \(b.x2), \(b.y2))"
         case .spring(let s):
-            return s == .riko ? "riko" : "spring(\(s.mass), \(s.stiffness), \(s.damping))"
+            if s == .riko { return "riko" }
+            if s == .snappy { return "snappy-spring" }
+            return "spring(\(s.mass), \(s.stiffness), \(s.damping))"
         }
     }
 
@@ -358,15 +361,25 @@ public struct AnimationTable: Sendable, Equatable, Codable {
         return t
     }
 
-    /// Gabby's effective table (animations.txt): the stock table with windowsIn / windowsMove on
-    /// the riko spring (popin 80 % for windowsIn) and the workspace slides on snappy 320 ms.
+    /// Gabby's springy table, tuned shorter for macOS (round 4 of real-hardware testing: the
+    /// riko spring's ~600 ms felt slow): windowsIn / windowsMove on the snappy spring (≈ 300 ms to
+    /// settle, popin 85 % for windowsIn), windowsOut a 180 ms accelerating shrink + fade, the
+    /// workspace slides on the snappy spring too. Nothing in the window set exceeds 350 ms.
+    /// The riko spring is still available as `curve = "riko"` in an override.
     public static func gabbySpringy(shellScale: Double = 0.8) -> AnimationTable {
         var t = caelestiaStock(shellScale: shellScale)
-        t[.windowsIn] = .spring(.riko, style: .popin(scale: 0.8))
-        t[.windowsMove] = .spring(.riko)
-        t[.workspaces] = .bezier(.snappy, speed: 3.2, style: .slide)
-        t[.workspacesIn] = .bezier(.snappy, speed: 3.2, style: .slide)
-        t[.workspacesOut] = .bezier(.snappy, speed: 3.2, style: .slide)
+        t[.windowsIn] = .spring(.snappy, style: .popin(scale: 0.85))
+        t[.windowsMove] = .spring(.snappy)
+        t[.windowsOut] = .bezier(.emphasizedAccel, milliseconds: 180, style: .popin(scale: 0.85))
+        // Springs, not the front-loaded "snappy" Bézier: that one covers 62 % of a slide in its
+        // first 7 % of time, so a full-screen slide moved ~900 pt in one frame (live, round 4).
+        t[.workspaces] = .spring(.snappy, style: .slide)
+        t[.workspacesIn] = .spring(.snappy, style: .slide)
+        t[.workspacesOut] = .spring(.snappy, style: .slide)
+        t[.specialWorkspace] = .spring(.snappy, style: .slideFadeVert(percent: 0.15))
+        t[.fade] = .bezier(.standard, speed: 2)
+        t[.fadeDim] = .bezier(.standard, speed: 2)
+        t[.border] = .bezier(.standard, speed: 2.4)
         return t
     }
 
@@ -398,7 +411,8 @@ public struct AnimationTable: Sendable, Equatable, Codable {
 
     /// Resolves the effective table: the preset (shell durations at `config.shellDurationScale`),
     /// then `config.overrides` (enabled / curve name / speed in deciseconds / Hyprland style
-    /// string; unparseable values are ignored), then every duration × `config.globalMultiplier`.
+    /// string; unparseable values are ignored), then every duration × `config.durationFactor`
+    /// (`globalMultiplier / speed`).
     /// When `reduceMotion` is on and `config.respectReduceMotion` is set the result is `.reduced`
     /// untouched; the `.off` preset always stays off.
     public static func from(config: AnimationsConfig, reduceMotion: Bool) -> AnimationTable {
@@ -416,6 +430,6 @@ public struct AnimationTable: Sendable, Equatable, Codable {
             if let styleString = override.style, let style = AnimationStyle(hyprland: styleString) { spec.style = style }
             table[name] = spec
         }
-        return table.scaled(by: config.globalMultiplier)
+        return table.scaled(by: config.durationFactor)
     }
 }

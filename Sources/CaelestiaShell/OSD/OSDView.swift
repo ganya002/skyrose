@@ -69,7 +69,7 @@ struct OSDView: View {
                 }
             }
             .frame(width: size.width, height: size.height + 2 * fillet)
-            .offset(x: model.shown ? 0 : size.width + 4)
+            .offset(x: model.shown ? 0 : theme.slide(size.width + 4))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             .onHover { model.hovered = $0 }
         }

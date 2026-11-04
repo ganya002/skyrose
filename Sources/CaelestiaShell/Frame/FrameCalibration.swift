@@ -59,8 +59,8 @@ final class FrameCalibration {
     func close() {
         panel.onKeyDown = nil
         if panel.isKeyWindow { panel.resignKey() }
-        panel.orderOut(nil)
-        panel.close()
+        let panel = panel
+        panel.fadeOut(duration: 0.15) { panel.close() }
     }
 }
 

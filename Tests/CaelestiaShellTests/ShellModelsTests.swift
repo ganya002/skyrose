@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import CaelestiaCore
 import XCTest
 
@@ -275,7 +276,14 @@ final class ShellThemeTests: XCTestCase {
     func testReduceMotion() {
         let t = theme(reduceMotion: true)
         XCTAssertTrue(t.reduceMotion)
-        XCTAssertEqual(t.seconds(500), 0)
+        // Reduce Motion caps every duration at the 120 ms short fade (x0.8 shell scale), never 0.
+        XCTAssertEqual(t.seconds(500), 0.096, accuracy: 1e-12)
+        XCTAssertEqual(t.seconds(50), 0.04, accuracy: 1e-12, "shorter durations are kept")
+        XCTAssertEqual(t.seconds(0), 0)
+        // ...with a plain ease-in-out curve and no slide distance.
+        XCTAssertEqual(t.curve(.emphasizedDecel, ms: 500), Animation.easeInOut(duration: 0.096))
+        XCTAssertEqual(t.slide(300), 0)
+        XCTAssertEqual(theme().slide(300), 300)
         let ignored = theme({ $0.animations.respectReduceMotion = false }, reduceMotion: true)
         XCTAssertFalse(ignored.reduceMotion)
         XCTAssertEqual(ignored.seconds(500), 0.4, accuracy: 1e-12)

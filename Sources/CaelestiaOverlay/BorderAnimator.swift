@@ -53,6 +53,13 @@ public struct AnimatedValue: Equatable, Sendable {
         self.spec = spec
     }
 
+    /// Moves a segment that starts at or after `since` later by `dt` (it holds its start value
+    /// until then).
+    public mutating func delay(by dt: TimeInterval, since: TimeInterval) {
+        guard spec.enabled, start >= since else { return }
+        start += dt
+    }
+
     /// Jumps to `target` with no animation.
     public mutating func set(_ target: Double) {
         from = target

@@ -9,7 +9,7 @@ public enum ConfigFileEditor {
     public static func setting(_ key: String, to value: String, inTable table: String, in text: String) -> String {
         var lines = text.isEmpty ? [] : text.components(separatedBy: "\n")
         if lines.last == "" { lines.removeLast() }
-        let entry = "\(key) = \(value)"
+        let entry = "\(tomlKey(key)) = \(value)"
         guard let header = lines.firstIndex(where: { tableName(of: $0) == normalized(table) }) else {
             if let last = lines.last, !last.trimmingCharacters(in: .whitespaces).isEmpty { lines.append("") }
             lines.append("[\(table)]")
@@ -33,6 +33,55 @@ public enum ConfigFileEditor {
         }
         lines.insert(entry, at: lastKeyLine + 1)
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Returns `text` without the `key` line of `[table]` (unchanged when there is none). A table
+    /// left with nothing but blank lines goes too (header and the blank line `setting` put before
+    /// it), so setting and then clearing a rule leaves the file as it was.
+    public static func removing(_ key: String, inTable table: String, in text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        guard let header = lines.firstIndex(where: { tableName(of: $0) == normalized(table) }) else { return text }
+        var i = header + 1
+        var removed = false
+        while i < lines.count, !isHeader(lines[i]) {
+            let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
+            if !trimmed.hasPrefix("#"), keyName(of: trimmed) == key {
+                lines.remove(at: i)
+                removed = true
+                continue
+            }
+            i += 1
+        }
+        guard removed else { return text }
+        let body = lines[(header + 1)..<i]
+        if body.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) {
+            lines.removeSubrange(header..<i)
+            if header > 0, lines[header - 1].trimmingCharacters(in: .whitespaces).isEmpty { lines.remove(at: header - 1) }
+        }
+        var out = lines.joined(separator: "\n")
+        if text.hasSuffix("\n"), !out.isEmpty, !out.hasSuffix("\n") { out += "\n" }
+        return out
+    }
+
+    /// Removes `key` from `[table]` of the file at `url` (no file: nothing to do).
+    public static func remove(_ key: String, inTable table: String, file url: URL) throws {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        let updated = removing(key, inTable: table, in: text)
+        guard updated != text else { return }
+        try Data(updated.utf8).write(to: url, options: .atomic)
+    }
+
+    /// A key as TOML: bare when it only has letters, digits, `_` and `-`, quoted otherwise (a
+    /// bundle id such as `com.apple.finder` would be a dotted key unquoted).
+    public static func tomlKey(_ key: String) -> String {
+        let bare = !key.isEmpty && key.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "_" || $0 == "-") }
+        if bare { return key }
+        return "\"" + key.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
+    /// A TOML basic string.
+    public static func string(_ v: String) -> String {
+        "\"" + v.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
     /// Writes `key = value` into `[table]` of the file at `url` (created with its folder if missing).

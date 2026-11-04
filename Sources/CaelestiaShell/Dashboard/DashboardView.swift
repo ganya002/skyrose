@@ -39,7 +39,7 @@ struct DashboardView: View {
                     .frame(width: body.width, height: body.height)
             }
             .frame(width: body.width + 2 * fillet, height: body.height + top)
-            .offset(y: model.shown ? 0 : -(body.height + top + 4))
+            .offset(y: model.shown ? 0 : theme.slide(-(body.height + top + 4)))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             Spacer(minLength: 0)
         }

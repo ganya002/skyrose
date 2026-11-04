@@ -34,6 +34,32 @@ public struct EventTapPermissions: Equatable, Sendable {
     public var canRunTap: Bool { inputMonitoring || accessibility }
 }
 
+/// The capabilities media-key interception depends on, shared between the main thread (which
+/// knows them) and the tap thread (which decides per event). Thread-safe.
+public final class MediaKeyInterceptor: @unchecked Sendable {
+    private let lock = OSAllocatedUnfairLock()
+    private var _enabled = true
+    private var _volume = false
+    private var _brightness = false
+
+    public init() {}
+
+    /// Updates what Caelestia can do (config switch, output volume settable, brightness control).
+    public func update(enabled: Bool? = nil, volumeControllable: Bool? = nil, brightnessControllable: Bool? = nil) {
+        lock.lock()
+        if let enabled { _enabled = enabled }
+        if let volumeControllable { _volume = volumeControllable }
+        if let brightnessControllable { _brightness = brightnessControllable }
+        lock.unlock()
+    }
+
+    public func route(_ command: MediaKeyCommand?) -> MediaKeyRoute {
+        lock.lock()
+        defer { lock.unlock() }
+        return MediaKeyRouting.route(command, intercept: _enabled, volumeControllable: _volume, brightnessControllable: _brightness)
+    }
+}
+
 /// The `CGEventTap` that feeds a `ChordMatcher`, on its own thread with its own run loop.
 ///
 /// The C callback converts each `CGEvent` into a `SyntheticEvent`, runs the matcher synchronously
@@ -55,6 +81,11 @@ public final class EventTap: @unchecked Sendable {
 
     private let lock = OSAllocatedUnfairLock()
     private var _onFired: (@Sendable ([Fired]) -> Void)?
+    private var _onMediaKey: (@Sendable (MediaKeyEvent) -> Void)?
+    private var _onLeftMouse: (@Sendable (_ down: Bool, _ location: CGPoint) -> Void)?
+    /// Media keys Caelestia handles itself are swallowed here (before the matcher) and handed to
+    /// `onMediaKey`; nil: every media key goes to the matcher and on to macOS.
+    public let mediaKeys = MediaKeyInterceptor()
     private var _onSecureInputChanged: (@Sendable (_ active: Bool, _ appName: String?) -> Void)?
     private var thread: Thread?
     private var runLoop: CFRunLoop?
@@ -94,6 +125,20 @@ public final class EventTap: @unchecked Sendable {
     public var onFired: (@Sendable ([Fired]) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return _onFired }
         set { lock.lock(); defer { lock.unlock() }; _onFired = newValue }
+    }
+
+    /// A swallowed media key (volume / mute / brightness), on `queue`. Down, repeat and up events
+    /// all arrive; act on downs.
+    public var onMediaKey: (@Sendable (MediaKeyEvent) -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onMediaKey }
+        set { lock.lock(); defer { lock.unlock() }; _onMediaKey = newValue }
+    }
+
+    /// Every left button press / release (the WM tells the user's title-bar drags of tiled
+    /// windows from apps moving their own windows), on `queue`. Never swallowed.
+    public var onLeftMouse: (@Sendable (_ down: Bool, _ location: CGPoint) -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onLeftMouse }
+        set { lock.lock(); defer { lock.unlock() }; _onLeftMouse = newValue }
     }
 
     /// Secure Event Input went on or off, on `queue`, with the owning app's name when known.
@@ -367,6 +412,25 @@ public final class EventTap: @unchecked Sendable {
             return pass
         }
         if event.getIntegerValueField(.eventSourceUserData) == Self.ownEventTag { return pass }
+        if type == .leftMouseDown || type == .leftMouseUp {
+            lock.lock()
+            let cb = _onLeftMouse
+            lock.unlock()
+            if let cb {
+                let down = type == .leftMouseDown, location = event.location
+                queue.async { cb(down, location) }
+            }
+        }
+        if type.rawValue == Self.systemDefinedEventType, let media = Self.mediaKeyEvent(event),
+           mediaKeys.route(media.command).swallow {
+            lock.lock()
+            let cb = _onMediaKey
+            lock.unlock()
+            if let cb {
+                queue.async { cb(media) }
+                return nil
+            }
+        }
         guard let synthetic = Self.convert(type: type, event: event) else { return pass }
         switch matcher.handle(synthetic, now: ProcessInfo.processInfo.systemUptime) {
         case .passThrough:
@@ -446,6 +510,12 @@ public final class EventTap: @unchecked Sendable {
             let keyState = (data1 & 0xFF00) >> 8
             return .systemDefined(nxKeyType: keyType, isDown: keyState == 0x0A, flags: flags)
         }
+    }
+
+    /// The aux-control media key in an `NX_SYSDEFINED` event, nil for anything else.
+    static func mediaKeyEvent(_ event: CGEvent) -> MediaKeyEvent? {
+        guard let ns = NSEvent(cgEvent: event), ns.subtype.rawValue == auxControlSubtype else { return nil }
+        return MediaKeyEvent(data1: ns.data1, flags: event.flags.rawValue)
     }
 
     /// Maps `kCGScrollPhase*` / `kCGMomentumScrollPhase*` values.

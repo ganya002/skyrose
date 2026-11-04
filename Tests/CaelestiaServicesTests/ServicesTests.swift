@@ -123,4 +123,50 @@ final class SysInfoTests: XCTestCase {
         XCTAssertLessThanOrEqual(r.cpu, 1)
         XCTAssertGreaterThan(r.uptime, 0)
     }
+
+    // MARK: Brightness stepping
+
+    func testBrightnessSteppingSnapsToTheStepGrid() {
+        let step = BrightnessService.keyStep
+        XCTAssertEqual(step, 0.0625)
+        func up(_ v: Double, _ s: Double = step) -> Double { BrightnessService.stepped(v, up: true, step: s) }
+        func down(_ v: Double, _ s: Double = step) -> Double { BrightnessService.stepped(v, up: false, step: s) }
+        XCTAssertEqual(up(0.53), 0.5625, accuracy: 1e-9)
+        XCTAssertEqual(down(0.53), 0.5, accuracy: 1e-9)
+        XCTAssertEqual(up(0.5), 0.5625, accuracy: 1e-9, "on the grid: a full step")
+        XCTAssertEqual(down(0.5), 0.4375, accuracy: 1e-9)
+        XCTAssertEqual(up(0), step, accuracy: 1e-9)
+        XCTAssertEqual(down(step), 0, accuracy: 1e-9)
+    }
+
+    func testBrightnessSteppingClamps() {
+        let step = BrightnessService.keyStep
+        XCTAssertEqual(BrightnessService.stepped(1, up: true, step: step), 1)
+        XCTAssertEqual(BrightnessService.stepped(0.99, up: true, step: step), 1)
+        XCTAssertEqual(BrightnessService.stepped(0, up: false, step: step), 0)
+        XCTAssertEqual(BrightnessService.stepped(0.01, up: false, step: step), 0)
+        XCTAssertEqual(BrightnessService.stepped(2, up: false, step: step), 1, "out-of-range input is clamped")
+        XCTAssertEqual(BrightnessService.stepped(-1, up: true, step: step), 0)
+    }
+
+    func testFineBrightnessStepsAreAQuarter() {
+        let fine = BrightnessService.keyStep / 4
+        XCTAssertEqual(BrightnessService.stepped(0.5, up: true, step: fine), 0.5 + fine, accuracy: 1e-9)
+        XCTAssertEqual(BrightnessService.stepped(0.5, up: false, step: fine), 0.5 - fine, accuracy: 1e-9)
+        var v = 0.0
+        for _ in 0..<64 { v = BrightnessService.stepped(v, up: true, step: fine) }
+        XCTAssertEqual(v, 1, accuracy: 1e-9)
+        for _ in 0..<64 { v = BrightnessService.stepped(v, up: false, step: fine) }
+        XCTAssertEqual(v, 0, accuracy: 1e-9)
+    }
+
+    func testRepeatedStepsWalkTheWholeGridExactly() {
+        var v = 0.0
+        var seen = [v]
+        for _ in 0..<16 {
+            v = BrightnessService.stepped(v, up: true, step: BrightnessService.keyStep)
+            seen.append(v)
+        }
+        XCTAssertEqual(seen, (0...16).map { Double($0) / 16 })
+    }
 }

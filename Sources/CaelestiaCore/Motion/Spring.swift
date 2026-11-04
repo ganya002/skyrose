@@ -21,6 +21,10 @@ public struct Spring: Sendable, Hashable, Codable {
     /// settles within 0.001 after ≈ 0.59 s).
     public static let riko = Spring(mass: 1, stiffness: 180, damping: 20)
 
+    /// The default window spring: mass 1, stiffness 800, damping 46 (ζ ≈ 0.81, ~1.2 % overshoot,
+    /// within 2 % after ≈ 0.14 s, settles within 0.001 after ≈ 0.30 s). Riko's feel, twice as fast.
+    public static let snappy = Spring(mass: 1, stiffness: 800, damping: 46)
+
     /// Upper bound on the settling-time search: a spring that has not settled by then (for
     /// example an undamped one) reports this value so no animation can run forever.
     public static let maxSettlingTime: Double = 10

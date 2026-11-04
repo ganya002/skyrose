@@ -50,6 +50,9 @@ public protocol WindowSystem: AnyObject {
     var focusedWindowID: WindowID? { get }
     /// Pointer location in top-left space.
     var cursorLocation: CGPoint? { get }
+    /// The left mouse button is held right now (the user may be dragging or resizing a window by
+    /// its title bar or edge: frame changes then come from the user, not the app).
+    var isLeftMouseDown: Bool { get }
     /// The tracked window top-most under the pointer.
     func windowUnderCursor() -> WindowID?
     /// Finds a journaled window after a WM crash: by window id in its pid, else by bundle id and

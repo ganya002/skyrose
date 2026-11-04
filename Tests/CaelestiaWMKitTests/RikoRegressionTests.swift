@@ -139,19 +139,24 @@ final class RikoRegressionTests: XCTestCase {
         XCTAssertLessThanOrEqual(h.wm.counters.layoutPasses - before.layoutPasses, 1)
     }
 
-    /// R3: an app whose minimum size is bigger than its slot converges in ≤ 3 passes (the min size
-    /// is learned from the read-back, then centred in the slot) and then stops.
-    func testR3MinSizeBiggerThanSlotConvergesInThreePasses() {
+    /// R3: an app whose minimum size is bigger than its slot converges (the min size is learned
+    /// from the read-back, confirmed by a second read-back, and the split then gives it the room)
+    /// and then stops. The two-read confirmation costs one pass, hence "<= 4" (was 3).
+    func testR3MinSizeBiggerThanSlotConvergesAndStops() {
         let h = Harness()
         let a = h.system.existing("a")
         h.start()
         let b = h.system.open("stubborn") { $0.minSize = CGSize(width: 900, height: 0) }
         let passes = h.settle()
-        XCTAssertLessThanOrEqual(passes, 3)
+        XCTAssertLessThanOrEqual(passes, 4)
         XCTAssertEqual(h.wm.learnedMinSize(b.windowID)?.width, 900)
-        XCTAssertEqual(b.frame.width, 900)
+        XCTAssertGreaterThanOrEqual(b.frame.width, 900)
         let slot = h.wm.visiblePlacements[b.windowID]!.frame
-        XCTAssertEqual(slot.width, 900, "the placement itself carries the min size, centred")
+        XCTAssertGreaterThanOrEqual(slot.width, 900, "the split gives the window its room")
+        XCTAssertLessThanOrEqual(slot.width, 940)
+        XCTAssertFalse(slot.intersects(h.wm.visiblePlacements[a.windowID]!.frame), "no overlap with the neighbour")
+        XCTAssertFalse(h.wm.visiblePlacements[b.windowID]!.overflows)
+        XCTAssertEqual(h.wm.counters.autoFloats, 0)
 
         let writes = a.setFrameCount + b.setFrameCount
         for _ in 0..<10 {
@@ -162,7 +167,7 @@ final class RikoRegressionTests: XCTestCase {
     }
 
     /// R3: an app that snaps its window back after every write is re-applied at most
-    /// `maxSnapBackRetries` times, then left alone (no flashing loop).
+    /// `maxSnapBackRetries` times, then floated (centred, on-screen) instead of fought forever.
     func testR3SnapBackAppIsNotFoughtForever() {
         let h = Harness()
         h.system.existing("a")
@@ -170,11 +175,27 @@ final class RikoRegressionTests: XCTestCase {
         h.start()
         let original = CGRect(x: 300, y: 300, width: 500, height: 300)
         let writesBefore = b.setFrameCount
-        for _ in 0..<20 {
+        for _ in 0..<20 where !h.wm.isFloating(b.windowID) {
             b.appMoves(to: original)
             h.settle()
         }
-        XCTAssertLessThanOrEqual(b.setFrameCount - writesBefore, WindowManager.maxSnapBackRetries)
+        XCTAssertLessThanOrEqual(b.setFrameCount - writesBefore, WindowManager.maxSnapBackRetries + 1)
+        XCTAssertEqual(h.wm.counters.snapBacks, WindowManager.maxSnapBackRetries)
+        XCTAssertEqual(h.wm.counters.autoFloats, 1)
+        XCTAssertTrue(h.wm.isFloating(b.windowID), "the window ends floating")
+        XCTAssertNotNil(h.wm.autoFloated[b.windowID])
+        XCTAssertTrue(h.isOnScreen(b))
+        let area = h.wm.usableArea(of: TestDisplays.air)
+        XCTAssertTrue(area.contains(b.frame))
+        XCTAssertEqual(b.frame.midX, area.midX, accuracy: 1, "centred")
+        XCTAssertEqual(b.frame.midY, area.midY, accuracy: 1)
+
+        // Further app moves are the user's now (floating): no more writes.
+        let writes = b.setFrameCount
+        b.appMoves(to: CGRect(x: 120, y: 140, width: 500, height: 300))
+        h.settle()
+        XCTAssertEqual(b.setFrameCount, writes)
+        XCTAssertEqual(b.frame.origin, CGPoint(x: 120, y: 140))
     }
 
     /// R3: a window that ignores every write (read-back = old frame) does not loop either.

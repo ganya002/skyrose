@@ -72,6 +72,10 @@ public final class ShellController {
     var partTwoWired = false
     /// Called with every scheme the shell applies (the WM pushes it to the border overlay).
     public var onSchemeChange: ((Scheme) -> Void)?
+    /// What the media-key interceptor may take over: (output volume settable, brightness
+    /// controllable). Called whenever either changes.
+    public var onMediaCapabilities: ((_ volume: Bool, _ brightness: Bool) -> Void)?
+    private var lastMediaCapabilities: (Bool, Bool)?
     public var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     var launcherDisplay: String?
     private var osdTimer = OSDTimer()
@@ -322,7 +326,7 @@ public final class ShellController {
             let size = CGSize(width: body.width, height: body.height + 2 * theme.frameRounding)
             panel.setFrame(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), display: false)
             session.reset()
-            hideOSD(animated: false)
+            hideOSD(animated: true)
             present(panel)
             session.shown = true
         case .osd:
@@ -380,20 +384,27 @@ public final class ShellController {
         dropPartTwoPanels()
     }
 
+    /// Shows a drawer panel: SwiftUI evaluates the view in its hidden state first (a freshly
+    /// created panel otherwise rendered straight at "shown" and appeared without its slide), then
+    /// the panel is ordered in and fades in while the caller's `shown = true` slides the content.
     func present(_ panel: ShellPanel) {
-        if panel.acceptsKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.fadeIn(duration: theme.drawerOpenSeconds * 0.6)
     }
 
+    /// Hides a drawer panel: it slides (SwiftUI, `shown = false` set by the caller) and fades out
+    /// together, then is ordered out, unless it was re-opened meanwhile.
     func dismiss(_ panel: ShellPanel?) {
         guard let panel else { return }
         if panel.isKeyWindow { panel.resignKey() }
-        let delay = theme.seconds(250) + 0.05
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard let self else { return }
-            // Re-opened meanwhile: keep it.
-            if panel === self.launcherPanel, self.launcher.shown { return }
-            if panel === self.sessionPanel, self.session.shown { return }
-            panel.orderOut(nil)
+        let reopened: () -> Bool = { [weak self] in
+            guard let self else { return false }
+            if panel === self.launcherPanel, self.launcher.shown { return true }
+            if panel === self.sessionPanel, self.session.shown { return true }
+            return false
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            if !reopened() { panel.fadeOut(duration: self.theme.drawerCloseSeconds) }
         }
     }
 
@@ -465,7 +476,7 @@ public final class ShellController {
         let size = CGSize(width: body.width, height: body.height + 2 * theme.frameRounding)
         let reveal = bars[id]?.reveal.target ?? 0
         panel.setFrame(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), display: false)
-        if !panel.isVisible { panel.orderFrontRegardless() }
+        if !panel.isVisible || !osd.shown { present(panel) }
         osd.shown = true
         openDrawers.insert(.osd)
         pokeOSD()
@@ -488,9 +499,11 @@ public final class ShellController {
         osd.shown = false
         osdTimer.reset()
         openDrawers.remove(.osd)
-        let panel = osdPanel
-        DispatchQueue.main.asyncAfter(deadline: .now() + (animated ? theme.seconds(250) + 0.05 : 0)) { [weak self] in
-            if self?.osd.shown == false { panel?.orderOut(nil) }
+        guard let panel = osdPanel else { return }
+        // Always animated out (slide + fade); `animated: false` only shortens it.
+        let duration = animated ? theme.drawerCloseSeconds : theme.seconds(ShellTheme.reducedFadeMs)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+            if self?.osd.shown == false { panel.fadeOut(duration: duration) }
         }
     }
 
@@ -513,14 +526,17 @@ public final class ShellController {
             let w = ToastModel.width + 16
             let h = min(520, inner.height)
             panel.setFrame(CGRect(x: inner.maxX - w, y: inner.maxY - h, width: w, height: h), display: false)
-            panel.orderFrontRegardless()
+            if !panel.isVisible { panel.contentView?.layoutSubtreeIfNeeded() }
+            panel.fadeIn(duration: theme.drawerOpenSeconds * 0.5)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + toasts.queue.timeout + 0.05) { [weak self] in
             guard let self else { return }
             self.toasts.queue.expire(at: ProcessInfo.processInfo.systemUptime)
             if self.toasts.queue.isEmpty {
                 let p = self.toastPanel
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { if self.toasts.queue.isEmpty { p?.orderOut(nil) } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.theme.drawerOpenSeconds + 0.05) {
+                    if self.toasts.queue.isEmpty { p?.fadeOut(duration: self.theme.drawerCloseSeconds) }
+                }
             }
         }
         return id
@@ -559,12 +575,66 @@ public final class ShellController {
                 self.audio.toggleMuted()
             }
         case .brightnessUp, .brightnessDown:
-            brightness.noteBrightnessKey(up: action.kind == .brightnessUp)
-            showOSD()
+            // Reached here when macOS handles the key (no brightness control, or interception
+            // off): show Caelestia's OSD only when it has a brightness to show. Without one the
+            // OSD used to open with just its volume slider (live finding: "brightness keys show
+            // the volume OSD").
+            let up = action.kind == .brightnessUp
+            let route = MediaKeyRouting.route(up ? .brightnessUp : .brightnessDown, intercept: state.config.input.interceptMediaKeys,
+                                              volumeControllable: audio.state.volumeSettable, brightnessControllable: brightness.isControllable)
+            if route.swallow {
+                // A keybind (not the F-key, which the tap swallowed already): do it ourselves.
+                brightness.step(up: up)
+                showOSD()
+            } else if route.osd == .brightness {
+                // macOS steps it; read the new value once it has.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                    self?.brightness.refresh()
+                    self?.showOSD()
+                }
+            } else {
+                brightness.noteBrightnessKey(up: up)
+            }
         default:
             return false
         }
         return true
+    }
+
+    /// A volume / mute / brightness key the event tap swallowed (so Apple's HUD never shows):
+    /// Caelestia changes the value itself and shows only its own OSD. Holding the key repeats;
+    /// ⌥⇧ gives quarter steps, as on macOS.
+    public func handleMediaKey(_ e: MediaKeyEvent) {
+        guard e.isDown, let command = e.command else { return }
+        let fine = e.isFine
+        switch command {
+        case .volumeUp, .volumeDown:
+            let step = fine ? BrightnessService.keyStep / 4 : BrightnessService.keyStep
+            if audio.state.muted, command == .volumeUp { audio.setMuted(false) }
+            audio.setVolume(BrightnessService.stepped(audio.state.volume, up: command == .volumeUp, step: step))
+            showOSD()
+        case .mute:
+            guard !e.isRepeat else { return }
+            audio.toggleMuted()
+            showOSD()
+        case .brightnessUp, .brightnessDown:
+            brightness.step(up: command == .brightnessUp, fine: fine)
+            showOSD()
+        }
+    }
+
+    private func publishMediaCapabilities() {
+        let now = (audio.state.volumeSettable, brightness.isControllable)
+        guard lastMediaCapabilities.map({ $0 != now }) ?? true else { return }
+        lastMediaCapabilities = now
+        onMediaCapabilities?(now.0, now.1)
+    }
+
+    /// CGDirectDisplayID of the screen under the pointer.
+    private static func pointerDisplay() -> CGDirectDisplayID? {
+        let p = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(p, $0.frame, false) }
+        return (screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
     }
 
     // MARK: Services, monitors, R5 triggers
@@ -572,6 +642,7 @@ public final class ShellController {
     private func startServicesAndMonitors() {
         audio.onChange = { [weak self] s in self?.audioChanged(s) }
         brightness.onChange = { [weak self] s in self?.brightnessChanged(s) }
+        brightness.preferredDisplay = { Self.pointerDisplay() }
         network.onChange = { [weak self] s in self?.applyNetwork(s) }
         battery.onChange = { [weak self] s in self?.applyBattery(s) }
         keyboard.onChange = { [weak self] s in self?.state.status.keyboardLayout = s.name }
@@ -640,6 +711,7 @@ public final class ShellController {
         state.status.micVolume = s.micVolume
         osd.volume = s.volume
         osd.muted = s.muted
+        publishMediaCapabilities()
         if changed, !quiet { showOSD() }
     }
 
@@ -648,6 +720,7 @@ public final class ShellController {
         state.status.brightness = s.value
         osd.brightness = s.value
         osd.brightnessAvailable = s.unavailableReason == nil
+        publishMediaCapabilities()
         if changed, !quiet { showOSD() }
     }
 

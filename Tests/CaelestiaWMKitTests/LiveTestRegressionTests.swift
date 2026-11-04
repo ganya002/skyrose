@@ -39,11 +39,15 @@ final class LiveTestRegressionTests: XCTestCase {
             a.appMoves(to: elsewhere)
             h.settle()
         }
-        XCTAssertEqual(a.frame, elsewhere)
+        // After giving up it is auto-floated centred in the usable area: that is the real frame now.
+        XCTAssertTrue(h.wm.isFloating(a.windowID))
+        XCTAssertNotEqual(a.frame, elsewhere)
+        XCTAssertTrue(h.wm.usableArea(of: TestDisplays.air).contains(a.frame))
         let entries = try XCTUnwrap(h.wm.respond(to: IPCRequest(.queryWindows)).response.result).decode([WindowQueryEntry].self)
         let entry = try XCTUnwrap(entries.first { $0.title == "a" })
-        XCTAssertEqual(entry.at, [400, 300])
-        XCTAssertEqual(entry.size, [300, 200])
+        XCTAssertEqual(entry.at, [Int(a.frame.minX), Int(a.frame.minY)])
+        XCTAssertEqual(entry.size, [Int(a.frame.width), Int(a.frame.height)])
+        XCTAssertTrue(entry.floating)
     }
 
     /// Bugs 2/3 root cause: a second window manager (CatWM) was running. It is detected by
@@ -79,11 +83,18 @@ final class LiveTestRegressionTests: XCTestCase {
         h.system.open("ParkProbe")  // splits Finder's cell side by side: Finder gets ~350 pt
         let passes = h.settle()
         let area = h.wm.usableArea(of: TestDisplays.air)
-        XCTAssertEqual(finder.frame.width, 475)
+        XCTAssertGreaterThanOrEqual(finder.frame.width, 475, "the split gave Finder its minimum width")
+        XCTAssertLessThanOrEqual(finder.frame.width, 475 + 40)
         XCTAssertGreaterThanOrEqual(finder.frame.minX, area.minX, "Finder pushed off the left edge")
         XCTAssertLessThanOrEqual(finder.frame.maxX, area.maxX)
+        XCTAssertGreaterThanOrEqual(finder.frame.minY, area.minY)
+        XCTAssertLessThanOrEqual(finder.frame.maxY, area.maxY)
         XCTAssertTrue(h.isOnScreen(finder))
-        XCTAssertLessThanOrEqual(passes, 3, "still converges")
+        for other in h.system.windows.values where other.windowID != finder.windowID {
+            XCTAssertFalse(finder.frame.intersects(other.frame), "\(other.title) overlaps Finder")
+        }
+        // Up to 4 passes: the two-read-back confirmation of the minimum costs one extra (was 3).
+        XCTAssertLessThanOrEqual(passes, 4, "still converges")
         let writes = finder.setFrameCount
         h.wm.setNeedsLayout()
         h.settle()

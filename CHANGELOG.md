@@ -1,5 +1,129 @@
 # Changelog
 
+## Unreleased — Core fix round 4 (2026-11-04)
+
+From real-hardware testing on the MacBook Air + DELL U3417W. Recordings (60 fps, `.mp4` with
+per-frame PNGs in `frames/` and a `track.json`) are in `/tmp/cwm/fix4/`.
+
+### Fixed
+- **Tiling snap-back (critical).** A native title-bar drag or edge resize of a tiled window looked
+  like the app moving its own window; the WM re-applied twice (`maxSnapBackRetries = 2`), gave up
+  and left it overlapping. Now the event tap reports left-button press/release (`onLeftMouse` →
+  `WindowManager.pointerPressed` / `pointerReleased`, plus a 30 Hz pointer poll fallback). While
+  the button is down on a tiled window nothing is written. On release a move returns to the slot,
+  swaps with the window under the drop point, or moves to the active workspace of another display;
+  an edge resize changes the split ratio (live, neighbours follow at 30 Hz, re-derived from the
+  tree at drag start) instead of leaving the window free; late AX notifications within a 0.6 s
+  grace are re-applied. Floating windows stay where dropped. An app that keeps moving or resizing
+  its own tiled window is re-applied up to 2 times, then auto-floated (centred, clamped
+  on-screen) instead of fought. New counters: `snapBacks`, `nativeDrops`, `nativeResizes`,
+  `autoFloats`, `minSizesLearned`.
+- **Animations "play half, then snap".** Root cause: the snapshot cover's tiles were positioned
+  from the main thread every display-link tick, so any main-thread stall (synchronous AX writes in
+  the commit, focus/raise, captures) froze the animation and it jumped to where it should be.
+  Also fixed: a reappearing window cancelled the whole cover (every moving window snapped to its
+  end); a `didChangeScreenParameters` notification (Dock/menu bar) invalidated running animations;
+  motion started before a new cover reached the screen (first 20-40 % skipped); the workspace
+  slide's "snappy" Bézier (0.05, 0.9, 0.1, 1.05) covered 62 % of a full-screen slide in its first
+  7 % of time (~900 pt in one frame); key presses aborted slides mid-way.
+  - `SnapshotCover.sync` mirrors every motion-model channel segment as a Core Animation animation
+    (`CASpringAnimation` with the same mass/stiffness/damping and normalised initial velocity, or
+    `CABasicAnimation` with the Bézier as timing function; additive `position.x/y`, `beginTime` =
+    segment start, `fillMode` backwards), so the render server plays it at display rate. Retargets
+    replace a channel's animation from the current value and velocity (interruptible, never
+    queued). `CATransaction.flush` before AX writes.
+  - New `.reveal` change kind: shown windows are revealed live, the others keep animating.
+  - Screen-params invalidation only when display frames really change.
+  - Motion starts one refresh after a new cover is composited; a settled cover waits up to 150 ms
+    for a resized window's fresh capture.
+  - Workspace slides are Core Animation too; keys no longer abort them (clicks/scroll still do);
+    the timeout scales with the duration.
+- **Refused-size windows**: when a write reads back a frame the app chose itself, the animation
+  retargets to the real frame (`WindowAnimator.frameApplied`), so the cover never fades onto a
+  different size (before, a refused-size window's tile faded onto a smaller real window).
+- **Brightness keys showed the volume OSD.** On the built-in panel brightness was "unavailable"
+  through public APIs, so the OSD opened with only its volume slider. See OSD / media keys below.
+- **Keep awake IPC.** Verified with `pmset -g assertions`: `PreventUserIdleDisplaySleep named:
+  "Caelestia keep awake"` is held by CaelestiaWM while on and gone when off. The assertion code
+  was correct; the IPC commands `shell.idleInhibitor.toggle` / `enable` / `disable` / `isEnabled`
+  were declared but unhandled (only the sidebar toggle worked). Now handled.
+
+- **Bug sweep before commit.** A live edge resize restored the tree from drag start even if a
+  window had opened or closed meanwhile (it would have been dropped or resurrected): now only
+  while the window set is unchanged. Delaying motion until a new cover is composited also froze
+  windows on another display whose cover was already up: now limited to the new covers. Setting
+  then clearing an app rule left an empty `[appRules]` header in config.toml: the editor now
+  removes a table left empty, so the round trip leaves the file unchanged.
+
+### Added
+- **Minimum window sizes.** AX exposes no minimum-size attribute (probe of Finder, Firefox, T3
+  Code, kitty, Cursor, Teams: only `AXSize`), so minimums are learned from frame read-backs,
+  confirmed by a second identical read-back. `DwindleTree.layout(area:params:minSizes:)` gives a
+  split side the room its minimum needs (`minimumAwareFirstSize`; stored ratios unchanged;
+  gaps/borders counted conservatively, so a window may get a few points more than its minimum,
+  e.g. 825 for an 800 minimum). `Placement.overflows` when impossible: the WM floats the newest
+  overflowing window, centred and on-screen. A per-app hint (`appMinSizes`) seeds new windows of
+  the same app but never floats a window (live finding: one TestWindows window's 800 pt minimum
+  floated every new window of the app; fixed, the hint is dropped when it would overflow). Never
+  a resize loop. Firefox's minimum width (~512 pt) was learned live and its split widened.
+- **Window rules per app**: config.toml `[appRules]`, bundle id = `"tile"` | `"float"` | `"auto"`
+  (quoted keys). Built-in floating apps (`AppRuleBook.builtInFloating`): System Settings,
+  Calculator, Archive Utility, System Information, Digital Color Meter, Screen Sharing, Installer,
+  Print Center, Font Book, Bluetooth File Exchange, location/password/system prompts, login
+  window, iPhone Mirroring. Dialogs, sheets, pickers, popovers, utility panels and fixed-size
+  windows always float (subrole heuristics), even with "tile". Calculator removed from the tag
+  50-60 rule (floats at its own size). API for the future Settings app:
+  `WindowManager.appRuleEntries()`, `appRuleEntry(for:)`, `focusedAppRule()`,
+  `setAppRule(_:for:)` (persists through `ConfigFileEditor`: quoted keys, comment-preserving;
+  clearing the last rule removes the empty table, so set+clear leaves the file unchanged; applies
+  at once to open windows). IPC `rules.apps` / `rules.set` / `rules.focused`; CLI
+  `caelestia rules apps|set <bundle> <tile|float|auto>|focused`.
+- **OSD / media keys.** DisplayServices (private framework, `dlopen`: `DisplayServicesGet` /
+  `Set` / `CanChangeBrightness`; `BrightnessChanged` when present) controls built-in/Apple
+  displays (target: display under the pointer if controllable, else built-in). The event tap
+  intercepts `NX_SYSDEFINED` aux keys (volume up/down/mute, brightness up/down) and swallows them
+  when Caelestia can do them (CoreAudio volume settable / DisplayServices brightness): it applies
+  volume (1/16 steps, ⌥⇧ quarter steps, unmute on volume up) and brightness itself and shows only
+  Caelestia's OSD, so Apple's HUD no longer appears. Brightness uncontrollable: the key passes
+  through to macOS (Apple HUD only, never Caelestia's volume OSD). Config
+  `input.interceptMediaKeys` (default true; false = old pass-through, both HUDs). Pure routing
+  table `MediaKeyRouting.route`.
+- `animations.speed` (default 1.0, range (0, 10]): durations ÷ speed, combined with
+  `globalMultiplier`.
+- Every shell panel (launcher, dashboard, sidebar, session, popouts, wallpaper picker, OSD, toasts,
+  frame calibration) fades in and out (`ShellPanel.fadeIn` / `fadeOut`, window-server alpha)
+  together with its slide; a fresh panel renders its hidden state first.
+
+### Changed
+- Timings (`gabby-springy` preset): new `Spring.snappy` (mass 1, stiffness 800, damping 46;
+  ζ ≈ 0.81, ≈ 1.2 % overshoot, settles in 303 ms) for `windowsIn` (popin 85 %), `windowsMove` and
+  all workspace slides; `windowsOut` 180 ms accelerating shrink+fade; fade/fadeDim 200 ms; border
+  240 ms; nothing in the window set over 350 ms (was the riko spring, ≈ 593 ms). The curve name
+  `spring` now means snappy; `riko` is still available.
+- Reduce Motion: window table → 120 ms fades; shell: ≤ 120 ms fades, no slide.
+
+### Tests
+- 764 XCTest tests, 0 failures (was 661). New: `NativeDragTests`, `MinSizeWMTests`,
+  `AppRulesWMTests`, `MinSizeLayoutTests`, `AppRuleTests`, `MediaKeyRoutingTests`,
+  `MediaKeyInterceptorTests`, `AnimationGuardTests`, `RulesCLITests`, `SnapshotCoverSyncTests`,
+  plus `BrightnessService.stepped`, `frameApplied` / retarget and config round-trip tests.
+
+### Verified live (60 fps recordings, `/tmp/cwm/fix4/`)
+- Title-bar drag back to its slot: 292 ms (cover), no snap. Drag-to-swap: 331 ms cover, ~283 ms
+  motion, ~8 pt spring overshoot. Edge resize tracked at ~30 Hz, no jump at release.
+- Window open/close covers 326/336 ms, no end-of-cover jump after the retarget fix.
+- Workspace slide ≈ 300-370 ms with a spring ramp (36, 53, 50, 47 … mean-diff steps).
+- OSD in 250-283 ms, out 167-183 ms; launcher/dashboard/session/sidebar in 117-283 ms, out
+  150-167 ms.
+- Keep awake assertion present/absent via `pmset -g assertions`.
+
+### Known limits
+See LIMITATIONS.md: minimums only learned after a refusal, apps that refuse to grow, app-closed
+windows vanishing at once, dropped first frames of a slide under WindowServer load, one dropped
+frame at drawer opening, no retarget across workspace switches, external displays not
+brightness-controllable.
+
+
 ## Unreleased — Corner fit, round 2 (2026-11-04)
 
 From the user's photos of the MacBook Air after 8a7fea2: the bottom-right corner showed a small

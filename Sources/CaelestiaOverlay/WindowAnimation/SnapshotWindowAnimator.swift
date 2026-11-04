@@ -60,6 +60,10 @@ public final class SnapshotWindowAnimator: WindowAnimator {
     /// a long drag never cuts the drop animation short (live finding).
     private var activeSince: TimeInterval = 0
     private var link: CADisplayLink?
+    /// When the model last became settled (the fresh-capture grace counts from here).
+    private var settledAt: TimeInterval?
+    /// Longest a settled cover waits for a resized window's capture at its new size.
+    public static let freshGrace: TimeInterval = 0.15
     private var dragging: (id: CGWindowID, offset: CGPoint, size: CGSize, display: CGDirectDisplayID)?
     private var lastVisible: [AnimatedWindow] = []
     private var refreshWork: DispatchWorkItem?
@@ -117,7 +121,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
                 cache.refreshDesktop(d)
                 return instant(commit, "no desktop still for display \(d)")
             }
-            for w in request.windows where w.displayID == d && changes[w.id]?.kind != .open {
+            for w in request.windows where w.displayID == d && changes[w.id]?.kind != .open && changes[w.id]?.kind != .reveal {
                 guard cache.still(for: w.id) != nil else {
                     scheduleRefresh(after: 0.05)
                     return instant(commit, "no still for window \(w.id)")
@@ -133,6 +137,12 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         // hole in the cover (a still of another size would be stretched: live finding).
         let frameTime = 1 / Double(max(30, frameRate(for: affected)))
         var modelRequest = request
+        for c in request.changes where c.kind == .reveal {
+            // Shown again (app switch / unhide) while a cover is up: live through a hole, never
+            // from a still (an old still would be stale, and cancelling the cover would snap
+            // every other window's animation to its end).
+            if let to = c.to { uncovered[c.id] = to }
+        }
         for c in request.changes where c.kind == .open {
             guard let to = c.to else { continue }
             let still = cache.still(for: c.id).flatMap { $0.fits(to.size) ? $0 : nil }
@@ -161,17 +171,24 @@ public final class SnapshotWindowAnimator: WindowAnimator {
                 wantFresh[c.id] = nil
             }
         }
-        var newCovers = false
+        var newDisplays: Set<CGDirectDisplayID> = []
         for d in affected where covers[d] == nil {
             guard let region = request.displays[d] else { continue }
             covers[d] = makeCover(d, region: region)
-            newCovers = true
+            newDisplays.insert(d)
         }
+        let newCovers = !newDisplays.isEmpty
         render(at: started)
         if newCovers {
             for c in covers.values where !c.window.isVisible { c.show() }
             CATransaction.flush()
             lastShowMs = (CACurrentMediaTime() - started) * 1000
+            // The motion starts once the cover is on screen (ordered in, then composited on the
+            // next refresh), so its first frames are seen instead of skipped.
+            // Only on the new covers: a display whose cover was already up keeps moving.
+            model.delayStarts(since: started, by: CACurrentMediaTime() - started + frameTime, on: newDisplays)
+            render(at: CACurrentMediaTime())
+            CATransaction.flush()
             for c in covers.values {
                 Log.wm.debug("window animation: cover \(c.displayID) region \(String(describing: c.region), privacy: .public) window \(String(describing: c.window.frame), privacy: .public)")
             }
@@ -188,6 +205,9 @@ public final class SnapshotWindowAnimator: WindowAnimator {
             if wait > 0 { Thread.sleep(forTimeInterval: wait) }
             runPendingCommit()
         } else {
+            // The retargeted animations reach the render server before the AX writes block
+            // the main thread (else they would start late and jump to where they should be).
+            CATransaction.flush()
             lastCommitLatencyMs = 0
             commit()
             captureFresh()
@@ -196,6 +216,15 @@ public final class SnapshotWindowAnimator: WindowAnimator {
     }
 
     public func isCovering(_ id: CGWindowID) -> Bool { !covers.isEmpty && model.contains(id) }
+
+    public func frameApplied(_ id: CGWindowID, actual: CGRect) {
+        guard !covers.isEmpty, model.contains(id) else { return }
+        let now = CACurrentMediaTime()
+        model.retarget(id, to: actual, at: now)
+        if wantFresh[id] != nil { wantFresh[id] = actual.size }
+        render(at: now)
+        CATransaction.flush()
+    }
 
     public func beginDrag(_ id: CGWindowID, pointer: CGPoint, scene: WindowAnimationRequest) -> Bool {
         guard motionEnabled, cache.canCapture(), let w = scene.windows.first(where: { $0.id == id }) else { return false }
@@ -263,6 +292,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         model.drag(d.id, to: frame)
         covers[d.display]?.showPreview(dropTarget, style: style)
         render(at: CACurrentMediaTime())
+        CATransaction.flush()
     }
 
     public func endDrag() {
@@ -271,6 +301,8 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         activeSince = CACurrentMediaTime()
         model.endDrag(d.id, at: activeSince)
         covers[d.display]?.showPreview(nil, style: style)
+        render(at: activeSince)
+        CATransaction.flush()
         startTicking()
     }
 
@@ -302,6 +334,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
     }
 
     private func resetPassState() {
+        settledAt = nil
         uncovered.removeAll()
         fresh.removeAll()
         wantFresh.removeAll()
@@ -386,21 +419,26 @@ public final class SnapshotWindowAnimator: WindowAnimator {
             if closing.isEmpty { stopTicking() }
             return
         }
-        if (dragging == nil && closingSoon.isEmpty && model.isSettled(at: now)) || stuck {
+        let settled = dragging == nil && closingSoon.isEmpty && model.isSettled(at: now)
+        if settled, settledAt == nil { settledAt = now }
+        if !settled { settledAt = nil }
+        // A resized window that has not redrawn at its new size yet would be revealed stale:
+        // the settled cover waits a little for its fresh capture (and its cross-fade).
+        let waitingForFresh = settled && (!wantFresh.isEmpty || fresh.values.contains { now - $0.at < Self.freshCrossFade })
+            && now - (settledAt ?? now) < Self.freshGrace
+        if (settled && !waitingForFresh) || stuck {
             if stuck { Log.wm.notice("window animation: hard timeout") }
             finish(at: now)
         }
     }
 
+    /// Mirrors the model on every cover (only changed channels are touched, so calling this
+    /// every frame is cheap; the motion itself is played by the render server).
     private func render(at now: TimeInterval) {
-        let samples = model.samples(at: now)
+        let items = model.order.compactMap { model.items[$0] }
         let holes = Array(uncovered.values)
-        let fresh = self.fresh
-        let fade = Self.freshCrossFade
         for c in covers.values {
-            c.render(samples, image: { [cache] id in cache.still(for: id) },
-                     fresh: { id in fresh[id].map { ($0.still, (now - $0.at) / fade) } },
-                     holes: holes, style: style)
+            c.sync(items, now: now, image: { [cache] id in cache.still(for: id) }, holes: holes, style: style)
         }
     }
 
@@ -461,6 +499,8 @@ public final class SnapshotWindowAnimator: WindowAnimator {
                     if still.fits(size) {
                         self.wantFresh[id] = nil
                         self.fresh[id] = (still, CACurrentMediaTime())
+                        for c in self.covers.values { c.crossFadeFresh(id, still, duration: Self.freshCrossFade) }
+                        CATransaction.flush()
                     }
                 }
             }

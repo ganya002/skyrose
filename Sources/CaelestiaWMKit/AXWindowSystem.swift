@@ -29,6 +29,7 @@ public final class AXWindowSystem: WindowSystem {
     public var allWindows: [any WindowHandle] { Array(discovery.windows.values) }
     public var focusedWindowID: WindowID? { discovery.focusedWindowID }
     public var cursorLocation: CGPoint? { CGEvent(source: nil)?.location }
+    public var isLeftMouseDown: Bool { CGEventSource.buttonState(.combinedSessionState, button: .left) }
 
     public func windowUnderCursor() -> WindowID? {
         cursorLocation.flatMap { discovery.windowUnder(point: $0) }?.windowID

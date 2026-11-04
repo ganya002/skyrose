@@ -89,7 +89,7 @@ final class SnapshotAnimationRulesTests: XCTestCase {
         XCTAssertTrue([ws[0].windowID, b.windowID].contains { id in moves.contains { $0.id == id } })
     }
 
-    func testUnmanagedAndManagedAgainWithTheSameIDIsInstantAndCancels() {
+    func testUnmanagedAndManagedAgainWithTheSameIDIsInstant() {
         let (h, anim, ws) = harness("a", "b")
         h.start()
         let b = ws[1]
@@ -102,8 +102,11 @@ final class SnapshotAnimationRulesTests: XCTestCase {
         h.system.queue(.created(b))  // …and is back with the same id (app unhidden)
         h.settle()
         XCTAssertNotNil(h.wm.visiblePlacements[id])
+        // (Since the round-4 fix a
+        // reveal while an animation is in flight retargets it instead of cancelling it, and this
+        // pass has none in flight, so nothing is cancelled either; suspend/resume still cancels.)
         XCTAssertTrue(anim.requests.isEmpty, "a returning window does not animate")
-        XCTAssertGreaterThan(anim.cancelCount, cancels, "any running animation is cancelled")
+        XCTAssertEqual(anim.cancelCount, cancels)
         XCTAssertEqual(b.frame, h.wm.visiblePlacements[id]?.frame)
     }
 

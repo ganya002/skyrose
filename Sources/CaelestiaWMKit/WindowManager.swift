@@ -30,12 +30,22 @@ public final class WindowManager {
         public var raiseCalls = 0
         public var restoredOnLaunch = 0
         public var journalWriteFailures = 0
+        /// Re-applies after an app moved/resized a tiled window by itself.
+        public var snapBacks = 0
+        /// Tiled windows floated because they could not fit or kept fighting their slot.
+        public var autoFloats = 0
+        /// Title-bar drags / edge resizes of tiled windows finished by the user.
+        public var nativeDrops = 0
+        public var nativeResizes = 0
+        /// Minimum sizes confirmed by a second read-back.
+        public var minSizesLearned = 0
 
         public var dictionary: [String: Int] {
             [
                 "layoutPasses": layoutPasses, "setFrameCalls": setFrameCalls, "parkCalls": parkCalls,
                 "focusCalls": focusCalls, "raiseCalls": raiseCalls, "restoredOnLaunch": restoredOnLaunch,
-                "journalWriteFailures": journalWriteFailures,
+                "journalWriteFailures": journalWriteFailures, "snapBacks": snapBacks, "autoFloats": autoFloats,
+                "nativeDrops": nativeDrops, "nativeResizes": nativeResizes, "minSizesLearned": minSizesLearned,
             ]
         }
     }
@@ -56,8 +66,33 @@ public final class WindowManager {
         var location: CGPoint
     }
 
-    /// Re-applies allowed per window and target when an app moves a tiled window back by itself.
+    /// A tiled window the user is dragging by its title bar or resizing by an edge (the left
+    /// button is down while its frame changes). Nothing is written to it until the button is
+    /// released; then it goes back to its slot, swaps with the window it was dropped on, moves to
+    /// the display it was dropped on, or (resized) its splits take the new size.
+    struct NativeDrag {
+        /// The window's slot when the drag started.
+        var slot: CGRect
+        var latest: CGRect
+        /// The workspace's tree when the drag started: a live resize is always re-derived from
+        /// it, so the ratios never drift.
+        var startTree: DwindleTree?
+        var lastLiveUpdate: Date = .distantPast
+
+        var isResize: Bool { abs(latest.width - slot.width) > 2 || abs(latest.height - slot.height) > 2 }
+    }
+
+    /// Re-applies allowed per window and target when an app moves a tiled window back by itself;
+    /// after that the window is floated (centred, on-screen) instead of fighting the app.
     public static let maxSnapBackRetries = 2
+    /// After a native drag ends, late AX notifications from the drag are re-applied without
+    /// counting as the app fighting its slot.
+    public static let nativeDragGrace: TimeInterval = 0.6
+    /// Neighbours follow a native edge resize at most this often.
+    public static let liveResizeInterval: TimeInterval = 1.0 / 30
+    /// How often the button state is polled while a native drag is open (the event tap's
+    /// mouse-up normally ends it first).
+    public static let pointerPollInterval: TimeInterval = 1.0 / 30
     /// Focus events for a parked window this soon after we switched workspaces are ignored (macOS
     /// hands focus to another window of the app being parked; following it would switch back).
     public static let focusGuardInterval: TimeInterval = 0.5
@@ -91,6 +126,10 @@ public final class WindowManager {
 
     /// Called after quit/panic restored every window (the daemon exits).
     public var onQuit: (() -> Void)?
+    /// Saves a per-app rule (the daemon writes config.toml `[appRules]`; nil: memory only).
+    public var appRulePersister: ((String, AppLayoutMode) throws -> Void)?
+    /// Running regular apps (bundle id, name) for the rules API; the daemon reads NSWorkspace.
+    public var runningApps: () -> [(bundleID: String, name: String)] = { [] }
     /// Actions the WM does not own (shell, apps, capture, media); the daemon logs or forwards them.
     public var onUnhandledAction: ((Action) -> Void)?
     /// `config.reload` / `rules.reload` from IPC; return warnings.
@@ -119,8 +158,36 @@ public final class WindowManager {
     var applied: [WindowID: CGRect] = [:]
     /// Parked windows and the display they are parked on.
     var parked: [WindowID: String] = [:]
-    /// Minimum sizes learned from read-backs (AX does not expose them).
+    /// Minimum sizes learned from read-backs (AX does not expose them: no app checked here
+    /// publishes an AXMinimumSize attribute). An axis that is 0 is unknown.
     var minSizes: [WindowID: CGSize] = [:]
+    /// A read-back bigger than the slot, waiting for a second write to confirm it (an app that
+    /// applies sizes asynchronously, e.g. Electron, reads back its old size once).
+    var pendingMinSizes: [WindowID: CGSize] = [:]
+    /// Confirmed minimum sizes by bundle id: a new window of the same app is laid out with it
+    /// from its first pass (no visible clamp-and-retile).
+    var appMinSizes: [String: CGSize] = [:]
+    /// Windows whose `minSizes` entry is only their app's hint (another window of the app was
+    /// seen to need it). A hint gives the split room up front but never floats a window: windows
+    /// of one app can differ (live finding: an 800 pt minimum of one window floated every new
+    /// window of the app).
+    var minSizeHinted: Set<WindowID> = []
+    /// Tiled windows being dragged / resized by the user right now.
+    var nativeDrags: [WindowID: NativeDrag] = [:]
+    /// Until when late notifications of a finished native drag are re-applied silently.
+    var nativeGrace: [WindowID: Date] = [:]
+    /// Where a window really is before the next pass (dropped after a native drag): the pass
+    /// animates it from there.
+    var displaced: [WindowID: CGRect] = [:]
+    /// Last left-button press (from the event tap): a frame change only counts as the user's drag
+    /// when the press was on that window.
+    var lastPointerPress: CGPoint?
+    var pointerPoll: Timer?
+    /// Floated by the WM itself (no room for the min size, or the app kept fighting its slot).
+    public internal(set) var autoFloated: [WindowID: String] = [:]
+    /// Order in which windows were managed (the newest overflowing window floats first).
+    var manageSerial: [WindowID: Int] = [:]
+    var nextManageSerial = 0
     /// Minimized windows / windows of hidden apps, with the workspace to return to.
     var suspended: [WindowID: WorkspaceID] = [:]
     var snapBacks: [WindowID: Int] = [:]
@@ -218,7 +285,9 @@ public final class WindowManager {
     }
 
     public func apply(config: Config) {
+        let oldRules = self.config.appRuleBook
         self.config = config
+        reapplyAppRules(from: oldRules)
         setNeedsLayout()
     }
 
@@ -328,7 +397,7 @@ public final class WindowManager {
             if let n = state.activeNumberedWorkspace(forDisplay: d.id) { ids.append(.numbered(n)) }
             if let s = state.openSpecial(onDisplay: d.id) { ids.append(.special(s)) }
             for wsID in ids {
-                for p in placements(of: wsID) where !p.hidden {
+                for p in placementsFloatingOverflow(of: wsID) where !p.hidden {
                     visible[p.window] = p
                     if wsID.isSpecial || p.kind != .tiled { raiseOrder.append(p.window) }
                 }
@@ -339,12 +408,19 @@ public final class WindowManager {
         // Workspace switches are the slide's job; mouse resizes track 1:1 (spec 2.3). A pass that
         // shows a window again (app switch / unhide / unminimize) is never animated: focusing or
         // switching apps must not put stills up (live finding: stretched windows for ~1 s).
-        let showsReappeared = visible.keys.contains { reappeared.contains($0) && previous[$0] == nil } || suspendChangedSinceLayout
+        let revealed = Set(visible.keys.filter { reappeared.contains($0) && previous[$0] == nil })
+        let suspendChanged = suspendChangedSinceLayout
         reappeared.removeAll()
         suspendChangedSinceLayout = false
-        let animated = windowAnimator != nil && drag?.kind != .resize && !showsReappeared
+        let liveResize = nativeDrags.values.contains(where: \.isResize)
+        // While an animation is in flight, a pass that shows windows again retargets it (those
+        // windows are revealed live, the rest keep moving): cancelling it snapped every moving
+        // window to its end (live finding, round 4).
+        let busy = windowAnimator?.isAnimating == true
+        let showsReappeared = suspendChanged || (!revealed.isEmpty && !busy)
+        let animated = windowAnimator != nil && drag?.kind != .resize && !liveResize && !showsReappeared
             && (lastVisibleWorkspaces.isEmpty || workspaceTransitions(from: lastVisibleWorkspaces, to: visibleWorkspacesByDisplay()).isEmpty)
-        if showsReappeared { windowAnimator?.cancel() }
+        if suspendChanged { windowAnimator?.cancel() }
         var writes: [() -> Bool] = []
         var changes: [WindowFrameChange] = []
         var borders: [WindowID: CGRect] = [:]
@@ -354,9 +430,11 @@ public final class WindowManager {
                 if p.kind != .fullscreen, p.borderFrame != p.frame, decorated(id) { borders[id] = p.borderFrame }
                 let wasParked = parked[id] != nil
                 if applied[id] != p.frame { snapBacks[id] = 0 }
+                // Never write to a window the user is dragging: it gets its frame on release.
+                if nativeDrags[id] != nil { continue }
                 guard wasParked || forceApply.contains(id) || applied[id] != p.frame else { continue }
                 forceApply.remove(id)
-                let old = previous[id]?.frame ?? (wasParked ? nil : applied[id])
+                let old = displaced.removeValue(forKey: id) ?? previous[id]?.frame ?? (wasParked ? nil : applied[id])
                 applied[id] = p.frame
                 if wasParked {
                     parked[id] = nil
@@ -364,16 +442,22 @@ public final class WindowManager {
                 }
                 // A frame written again unchanged (snap-back after an app moved it, a forced
                 // re-apply on focus) is not a change to animate.
-                if previous[id] == nil || old != p.frame {
+                if revealed.contains(id) {
+                    changes.append(WindowFrameChange(id: id, kind: .reveal, from: old, to: p.frame))
+                } else if previous[id] == nil || old != p.frame {
                     changes.append(WindowFrameChange(id: id, kind: previous[id] == nil ? .open : .move, from: old, to: p.frame))
                 }
                 writes.append { [weak self] in
                     guard let self else { return false }
                     let got = self.setFrame(handle, p.frame)
-                    guard p.kind == .tiled, !got.isNull, got.width > p.frame.width + 1 || got.height > p.frame.height + 1 else { return false }
-                    let known = self.minSizes[id] ?? .zero
-                    self.minSizes[id] = CGSize(width: max(known.width, got.width.rounded()), height: max(known.height, got.height.rounded()))
-                    return self.minSizes[id] != known
+                    // The app chose its own frame (a minimum, a refused resize): the animation
+                    // ends where the window really is, not on the slot (else the cover would
+                    // fade onto a different frame). An unchanged read-back may be an app that
+                    // applies the size later, so it does not count.
+                    if !got.isNull, !got.approximatelyEquals(p.frame, tolerance: 2), old.map({ !got.approximatelyEquals($0, tolerance: 2) }) ?? false {
+                        self.windowAnimator?.frameApplied(id, actual: got)
+                    }
+                    return p.kind == .tiled && self.learnMinSize(id, target: p.frame, readBack: got)
                 }
             } else if let ws = state[wsID] {
                 if animated, let was = previous[id] {
@@ -392,6 +476,7 @@ public final class WindowManager {
         for (id, p) in previous where visible[id] == nil && (handles[id] == nil || state.workspace(of: id) == nil) {
             changes.append(WindowFrameChange(id: id, kind: .close, from: p.frame, to: nil))
         }
+        displaced.removeAll()
         let commit = { [weak self] in
             var learned = false
             for w in writes where w() { learned = true }
@@ -562,7 +647,7 @@ public final class WindowManager {
         if target == nil { target = state.activeWorkspace(forDisplay: displayID) }
 
         var floating: CGRect?
-        let isFloating = effects.float == true || d.isDialogLike || d.isFixedSize || !d.isStandardWindow
+        let isFloating = config.appRuleBook.floats(d, ruleFloat: effects.float)
         if isFloating {
             let size = frame.isNull ? CGSize(width: area.width * 0.6, height: area.height * 0.7) : frame.size
             if isDiscovering, !frame.isNull, area.intersects(frame) {
@@ -579,7 +664,16 @@ public final class WindowManager {
         self.effects[id] = effects
         if everManaged.contains(id) || isDiscovering { reappeared.insert(id) }
         everManaged.insert(id)
-        if let m = d.minSize { minSizes[id] = m }
+        if let m = d.minSize {
+            minSizes[id] = m
+        } else if let hint = appMinSizes[d.bundleID] {
+            minSizes[id] = hint
+            minSizeHinted.insert(id)
+        }
+        if manageSerial[id] == nil {
+            manageSerial[id] = nextManageSerial
+            nextManageSerial += 1
+        }
         let focus = !isDiscovering && effects.noInitialFocus != true && effects.noFocus != true && d.isStandardWindow
         guard state.addWindow(id, to: target, floating: floating, cursor: windowSystem.cursorLocation, focus: focus, env: environment) else {
             forget(id)
@@ -613,6 +707,13 @@ public final class WindowManager {
         applied[id] = nil
         parked[id] = nil
         minSizes[id] = nil
+        minSizeHinted.remove(id)
+        pendingMinSizes[id] = nil
+        nativeDrags[id] = nil
+        nativeGrace[id] = nil
+        displaced[id] = nil
+        autoFloated[id] = nil
+        manageSerial[id] = nil
         suspended[id] = nil
         snapBacks[id] = nil
         forceApply.remove(id)
@@ -644,7 +745,7 @@ public final class WindowManager {
         guard let ws = suspended.removeValue(forKey: id) else { return }
         suspendChangedSinceLayout = true
         let frame = handles[id]!.frame
-        let floating = effects[id]?.float == true || descriptors[id].map { $0.isDialogLike || $0.isFixedSize || !$0.isStandardWindow } == true
+        let floating = descriptors[id].map { config.appRuleBook.floats($0, ruleFloat: effects[id]?.float) } ?? false
         // A special that closed while the window was away is reopened only by focusing it.
         state.addWindow(id, to: ws, floating: floating && !frame.isNull ? frame : nil, focus: true, env: environment)
         setNeedsLayout()
@@ -671,12 +772,211 @@ public final class WindowManager {
             return
         }
         decorations?.externalMove(id)
-        guard let target = applied[id], !frame.approximatelyEquals(target, tolerance: 2) else { return }
+        guard let target = applied[id] else { return }
+        // The user holds the button on this window: a title-bar drag or an edge resize. Nothing is
+        // written until the release (`pointerReleased`); a resize moves the neighbours live.
+        if windowSystem.isLeftMouseDown, pressWasOn(id, slot: target) || nativeDrags[id] != nil {
+            trackNativeDrag(id, frame: frame, slot: nativeDrags[id]?.slot ?? target)
+            return
+        }
+        // Released before this notification arrived (a quick drag): finish it now.
+        if nativeDrags[id] != nil {
+            finishNativeDrag(id, at: windowSystem.cursorLocation)
+            return
+        }
+        guard !frame.approximatelyEquals(target, tolerance: 2) else { return }
+        // Late notifications from a drag that just ended: put it back, it is not the app.
+        if let until = nativeGrace[id], now() < until {
+            forceApply.insert(id)
+            setNeedsLayout()
+            return
+        }
+        // The app moved or resized its own tiled window: back to the slot, a few times, then
+        // float it instead of fighting it in a resize loop.
         let tries = snapBacks[id, default: 0]
-        guard tries < Self.maxSnapBackRetries else { return }
+        guard tries < Self.maxSnapBackRetries else {
+            autoFloat(id, reason: "the app keeps moving or resizing it out of its slot")
+            return
+        }
         snapBacks[id] = tries + 1
+        counters.snapBacks += 1
         forceApply.insert(id)
         setNeedsLayout()
+    }
+
+    /// The press that started the current button-down was on `id` (its slot, plus a margin for
+    /// the resize handles just outside the frame). Unknown press: assume it was.
+    private func pressWasOn(_ id: WindowID, slot: CGRect) -> Bool {
+        guard let p = lastPointerPress else { return true }
+        return slot.insetBy(dx: -12, dy: -12).contains(p)
+    }
+
+    // MARK: - Min sizes
+
+    /// Called with the frame read back after writing `target` to a tiled window. A read-back
+    /// bigger than the target is the app's minimum size, but only once a second write reads the
+    /// same back (the first may be an app that applies sizes later). Returns true when the layout
+    /// must run again (to retry, or because a min size was confirmed).
+    func learnMinSize(_ id: WindowID, target: CGRect, readBack got: CGRect) -> Bool {
+        guard !got.isNull else { return false }
+        let grewW = got.width > target.width + 1
+        let grewH = got.height > target.height + 1
+        guard grewW || grewH else {
+            pendingMinSizes[id] = nil
+            return false
+        }
+        let candidate = CGSize(width: grewW ? got.width.rounded() : 0, height: grewH ? got.height.rounded() : 0)
+        guard let pending = pendingMinSizes[id], abs(pending.width - candidate.width) <= 2, abs(pending.height - candidate.height) <= 2 else {
+            pendingMinSizes[id] = candidate
+            forceApply.insert(id)
+            return true
+        }
+        pendingMinSizes[id] = nil
+        let known = minSizeHinted.remove(id) != nil ? .zero : (minSizes[id] ?? .zero)
+        let merged = CGSize(width: max(known.width, candidate.width), height: max(known.height, candidate.height))
+        guard merged != known else { return false }
+        minSizes[id] = merged
+        counters.minSizesLearned += 1
+        if let bundle = handles[id]?.bundleID, !bundle.isEmpty {
+            let app = appMinSizes[bundle] ?? .zero
+            appMinSizes[bundle] = CGSize(width: max(app.width, merged.width), height: max(app.height, merged.height))
+        }
+        Log.wm.notice("learned min size \(Int(merged.width))x\(Int(merged.height)) for #\(id)")
+        return true
+    }
+
+    /// Placements of a visible workspace after floating every tiled window whose minimum size
+    /// cannot fit even with the splits moved for it (newest first, one at a time).
+    func placementsFloatingOverflow(of wsID: WorkspaceID) -> [Placement] {
+        var list = placements(of: wsID)
+        for _ in 0..<8 {
+            let over = list.filter { $0.kind == .tiled && $0.overflows && !$0.hidden }
+            // A window that only overflows because of its app's hint loses the hint instead.
+            let hinted = over.filter { minSizeHinted.contains($0.window) }
+            if !hinted.isEmpty {
+                for p in hinted {
+                    minSizeHinted.remove(p.window)
+                    minSizes[p.window] = nil
+                }
+                list = placements(of: wsID)
+                continue
+            }
+            guard let victim = over.max(by: { (manageSerial[$0.window] ?? 0) < (manageSerial[$1.window] ?? 0) }) else { break }
+            autoFloat(victim.window, reason: "its minimum size does not fit in the layout")
+            list = placements(of: wsID)
+        }
+        return list
+    }
+
+    /// Floats a tiled window the layout cannot hold, centred in its display's usable area at its
+    /// current (or minimum) size, clamped so it is never off-screen.
+    func autoFloat(_ id: WindowID, reason: String) {
+        guard let area = area(of: id), !isFloating(id) else { return }
+        let current = handles[id]?.frame ?? .null
+        var size = current.isNull ? (applied[id]?.size ?? CGSize(width: area.width * 0.6, height: area.height * 0.7)) : current.size
+        if let m = minSizes[id] { size = CGSize(width: max(size.width, m.width), height: max(size.height, m.height)) }
+        let frame = Self.clamp(centered(size, in: area), to: area).integralPoints
+        guard state.setFloating(id, true, frame: frame, env: environment) else { return }
+        autoFloated[id] = reason
+        snapBacks[id] = 0
+        forceApply.insert(id)
+        counters.autoFloats += 1
+        Log.wm.notice("floating #\(id) (\(self.handles[id]?.bundleID ?? "", privacy: .public)): \(reason, privacy: .public)")
+        setNeedsLayout()
+    }
+
+    // MARK: - Native drags (title bar / window edge)
+
+    /// The left button went down at `location` (event tap, main thread).
+    public func pointerPressed(at location: CGPoint?) {
+        lastPointerPress = location
+    }
+
+    /// The left button was released: every native drag of a tiled window ends.
+    public func pointerReleased(at location: CGPoint?) {
+        guard !nativeDrags.isEmpty else { return }
+        for id in nativeDrags.keys.sorted() { finishNativeDrag(id, at: location) }
+    }
+
+    private func trackNativeDrag(_ id: WindowID, frame: CGRect, slot: CGRect) {
+        var d = nativeDrags[id] ?? NativeDrag(slot: slot, latest: frame, startTree: state.workspace(of: id).flatMap { state[$0]?.tree })
+        d.latest = frame
+        if d.isResize, now().timeIntervalSince(d.lastLiveUpdate) >= Self.liveResizeInterval {
+            d.lastLiveUpdate = now()
+            applyNativeResize(id, d)
+            setNeedsLayout()
+        }
+        nativeDrags[id] = d
+        startPointerPoll()
+    }
+
+    /// The drag is over: decide what it meant and put the window where it belongs.
+    func finishNativeDrag(_ id: WindowID, at location: CGPoint?) {
+        guard let d = nativeDrags.removeValue(forKey: id) else { return }
+        if nativeDrags.isEmpty { stopPointerPoll() }
+        guard let handle = handles[id], state.workspace(of: id) != nil, !isFloating(id) else { return }
+        let read = handle.frame
+        var drop = d
+        drop.latest = read.isNull ? d.latest : read
+        nativeGrace[id] = now().addingTimeInterval(Self.nativeDragGrace)
+        snapBacks[id] = 0
+        if drop.isResize {
+            applyNativeResize(id, drop)
+            counters.nativeResizes += 1
+        } else if !drop.latest.approximatelyEquals(drop.slot, tolerance: 2) {
+            let point = location ?? windowSystem.cursorLocation ?? CGPoint(x: drop.latest.midX, y: drop.latest.minY + 12)
+            if let target = dropTarget(for: id, at: point) {
+                _ = state.updateTree(of: id) { $0.swap(id, target.window) }
+            } else if let here = state.display(of: id), let there = DisplayGeometry.display(containing: point, in: displays), there.id != here,
+                      let n = state.activeNumberedWorkspace(forDisplay: there.id) {
+                state.moveWindow(id, to: .numbered(n), follow: true, env: environment)
+            }
+            counters.nativeDrops += 1
+        }
+        displaced[id] = drop.latest
+        forceApply.insert(id)
+        setNeedsLayout()
+    }
+
+    /// Re-derives the splits from the tree at drag start plus the edges the user moved, so the
+    /// window's slot takes its new size (smart resizing: the dragged edge follows, the opposite
+    /// edge stays).
+    private func applyNativeResize(_ id: WindowID, _ d: NativeDrag) {
+        guard let area = area(of: id) else { return }
+        let dl = d.latest.minX - d.slot.minX, dr = d.latest.maxX - d.slot.maxX
+        let dt = d.latest.minY - d.slot.minY, db = d.latest.maxY - d.slot.maxY
+        var edges: ResizeEdges = []
+        var delta = CGPoint.zero
+        if abs(dr) > 1 || abs(dl) > 1 {
+            if abs(dr) >= abs(dl) { edges.insert(.right); delta.x = dr } else { edges.insert(.left); delta.x = dl }
+        }
+        if abs(db) > 1 || abs(dt) > 1 {
+            if abs(db) >= abs(dt) { edges.insert(.bottom); delta.y = db } else { edges.insert(.top); delta.y = dt }
+        }
+        let dwindle = config.wm.dwindle
+        _ = state.updateTree(of: id) { tree in
+            // From the tree at drag start, unless windows came or went meanwhile (restoring it
+            // then would drop or resurrect them).
+            if let start = d.startTree, start.contains(id), Set(start.windows) == Set(tree.windows) { tree = start }
+            return tree.resizeDrag(id, edges: edges, delta: delta, in: area, config: dwindle)
+        }
+    }
+
+    private func startPointerPoll() {
+        guard scheduling == .mainQueue, pointerPoll == nil else { return }
+        let t = Timer(timeInterval: Self.pointerPollInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.windowSystem.isLeftMouseDown else { return }
+                self.pointerReleased(at: self.windowSystem.cursorLocation)
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        pointerPoll = t
+    }
+
+    private func stopPointerPoll() {
+        pointerPoll?.invalidate()
+        pointerPoll = nil
     }
 
     // MARK: - Helpers

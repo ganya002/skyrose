@@ -116,6 +116,26 @@ public final class WMDaemon {
         }
         wm.onConfigReload = { [weak self] in self?.reloadConfigAndKeymap() ?? [] }
         wm.onRulesReload = { [weak self] in self?.reloadRules() ?? [] }
+        // Per-app rules API: saved into config.toml [appRules] (one line, comments kept).
+        wm.appRulePersister = { bundle, mode in
+            if mode == .auto {
+                try ConfigFileEditor.remove(bundle, inTable: "appRules", file: Paths.configFile)
+            } else {
+                try ConfigFileEditor.set(bundle, to: ConfigFileEditor.string(mode.rawValue), inTable: "appRules", file: Paths.configFile)
+            }
+        }
+        wm.runningApps = {
+            NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+                .compactMap { app in app.bundleIdentifier.map { ($0, app.localizedName ?? $0) } }
+        }
+        // Media keys: the tap swallows the ones Caelestia can do itself (CoreAudio volume,
+        // DisplayServices brightness) so Apple's HUD never shows next to ours.
+        let mediaKeys = tap.mediaKeys
+        mediaKeys.update(enabled: wm.config.input.interceptMediaKeys)
+        shell.controller.onMediaCapabilities = { volume, brightness in
+            mediaKeys.update(volumeControllable: volume, brightnessControllable: brightness)
+            Log.input.notice("media keys: volume \(volume ? "Caelestia" : "macOS", privacy: .public), brightness \(brightness ? "Caelestia" : "macOS", privacy: .public)")
+        }
 
         // Borders, group bars, workspace slide, debug overlay (CaelestiaOverlay).
         let deco = OverlayDecorations(config: wm.config)
@@ -137,6 +157,13 @@ public final class WMDaemon {
         let wm = wm
         tap.onFired = { fired in
             MainActor.assumeIsolated { wm.handle(fired: fired) }
+        }
+        tap.onLeftMouse = { down, location in
+            MainActor.assumeIsolated { down ? wm.pointerPressed(at: location) : wm.pointerReleased(at: location) }
+        }
+        let shell = shell
+        tap.onMediaKey = { event in
+            MainActor.assumeIsolated { shell?.controller.handleMediaKey(event) }
         }
         tap.onSecureInputChanged = { active, appName in
             Log.input.notice("secure input \(active ? "on" : "off", privacy: .public) (\(appName ?? "unknown", privacy: .public)): hotkeys \(active ? "paused" : "resumed", privacy: .public)")
@@ -179,6 +206,7 @@ public final class WMDaemon {
                 case .loaded(let config, let warnings):
                     for w in warnings { Log.config.warning("\(w, privacy: .public)") }
                     matcher.update(input: config.input)
+                    self.tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
                     wm.apply(config: config)
                     self.decorations?.apply(config: config)
                     self.shell?.apply(config: config)
@@ -203,6 +231,7 @@ public final class WMDaemon {
         let (config, warnings) = ConfigLoader.loadUserOrDefault()
         let (keymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
         matcher.update(input: config.input)
+        tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
         matcher.update(keymap: keymap)
         wm.apply(config: config)
         wm.apply(keymap: keymap)

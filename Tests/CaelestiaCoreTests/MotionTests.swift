@@ -264,23 +264,25 @@ final class MotionTests: XCTestCase {
     func testGabbySpringyTableValues() {
         let t = AnimationTable.gabbySpringy
         XCTAssertEqual(t[.global], .bezier(.default, milliseconds: 800))
-        XCTAssertEqual(t[.windowsOut].durationMs, 240)
+        XCTAssertEqual(t[.windowsOut].durationMs, 180)
         XCTAssertEqual(t[.windowsOut].curve, .bezier(.emphasizedAccel))
-        XCTAssertEqual(t[.windowsOut].style, .popin(scale: 0.8))
-        XCTAssertEqual(t[.windowsIn].curve, .spring(.riko))
-        XCTAssertEqual(t[.windowsIn].style, .popin(scale: 0.8))
-        XCTAssertEqual(t[.windowsIn].durationMs, Spring.riko.settlingTime() * 1000, accuracy: 1e-9)
-        XCTAssertEqual(t[.windowsMove], .spring(.riko))
+        XCTAssertEqual(t[.windowsOut].style, .popin(scale: 0.85))
+        XCTAssertEqual(t[.windowsIn].curve, .spring(.snappy))
+        XCTAssertEqual(t[.windowsIn].style, .popin(scale: 0.85))
+        XCTAssertEqual(t[.windowsIn].durationMs, Spring.snappy.settlingTime() * 1000, accuracy: 1e-9)
+        XCTAssertEqual(t[.windowsIn].durationMs, 303, accuracy: 1)
+        XCTAssertEqual(t[.windowsMove], .spring(.snappy))
         for name in [AnimationName.workspaces, .workspacesIn, .workspacesOut] {
-            XCTAssertEqual(t[name], .bezier(.snappy, milliseconds: 320, style: .slide), "\(name)")
+            XCTAssertEqual(t[name], .spring(.snappy, style: .slide), "\(name)")
         }
-        XCTAssertEqual(t[.specialWorkspace], .bezier(.specialWorkSwitch, milliseconds: 320, style: .slideFadeVert(percent: 0.15)))
+        XCTAssertEqual(t[.specialWorkspace], .spring(.snappy, style: .slideFadeVert(percent: 0.15)))
         XCTAssertEqual(t[.layersIn], .bezier(.emphasizedDecel, milliseconds: 400, style: .slide))
         XCTAssertEqual(t[.layersOut], .bezier(.emphasizedAccel, milliseconds: 320, style: .slide))
         XCTAssertEqual(t[.fadeLayers], .bezier(.standard, milliseconds: 400))
-        for name in [AnimationName.fade, .fadeDim, .border] {
-            XCTAssertEqual(t[name], .bezier(.standard, milliseconds: 480), "\(name)")
+        for name in [AnimationName.fade, .fadeDim] {
+            XCTAssertEqual(t[name], .bezier(.standard, milliseconds: 200), "\(name)")
         }
+        XCTAssertEqual(t[.border], .bezier(.standard, milliseconds: 240))
         for name in [AnimationName.borderangle, .glowangle, .shadowangle] {
             XCTAssertFalse(t[name].enabled, "\(name)")
             XCTAssertEqual(t[name].progress(at: 0), 1, "\(name)")
@@ -306,7 +308,9 @@ final class MotionTests: XCTestCase {
         XCTAssertEqual(AnimationTable.caelestiaStock(shellScale: 1.0)[.shellSmall].durationMs, 200, accuracy: 1e-9)
         XCTAssertEqual(AnimationTable.caelestiaStock(shellScale: 1.0)[.shellExtraLarge].durationMs, 1000, accuracy: 1e-9)
         XCTAssertEqual(AnimationTable.caelestiaStock(shellScale: 1.0)[.windowsMove].durationMs, 480)
-        for name in AnimationName.allCases where !name.isShellDuration && ![.windowsIn, .windowsMove, .workspaces, .workspacesIn, .workspacesOut].contains(name) {
+        // windowsOut, specialWorkspace, fade, fadeDim and border now differ between the presets on purpose.
+        let differing: [AnimationName] = [.windowsIn, .windowsMove, .windowsOut, .workspaces, .workspacesIn, .workspacesOut, .specialWorkspace, .fade, .fadeDim, .border]
+        for name in AnimationName.allCases where !name.isShellDuration && !differing.contains(name) {
             XCTAssertEqual(t[name], AnimationTable.gabbySpringy[name], "\(name) should be shared between presets")
         }
     }
@@ -332,7 +336,7 @@ final class MotionTests: XCTestCase {
             XCTAssertEqual(halved[name].enabled, base[name].enabled, "\(name)")
         }
         guard case .spring(let fast) = halved[.windowsMove].curve else { return XCTFail("windowsMove must stay a spring") }
-        XCTAssertEqual(fast.dampingRatio, Spring.riko.dampingRatio, accuracy: 1e-12)
+        XCTAssertEqual(fast.dampingRatio, Spring.snappy.dampingRatio, accuracy: 1e-12)
         XCTAssertLessThan(abs(fast.position(at: halved[.windowsMove].duration) - 1), 0.0011)
         XCTAssertEqual(fast.settlingTime() * 1000, halved[.windowsMove].durationMs, accuracy: 1)
     }
@@ -373,13 +377,13 @@ final class MotionTests: XCTestCase {
 
         let windowsIn = t[.windowsIn]
         XCTAssertEqual(windowsIn.durationMs, 400, accuracy: 1e-9)
-        XCTAssertEqual(windowsIn.style, .popin(scale: 0.8))
+        XCTAssertEqual(windowsIn.style, .popin(scale: 0.85))
         guard case .spring(let spring) = windowsIn.curve else { return XCTFail("windowsIn must stay a spring") }
-        XCTAssertEqual(spring.dampingRatio, Spring.riko.dampingRatio, accuracy: 1e-12)
+        XCTAssertEqual(spring.dampingRatio, Spring.snappy.dampingRatio, accuracy: 1e-12)
         XCTAssertLessThan(abs(spring.position(at: 0.4) - 1), 0.0011)
         XCTAssertGreaterThanOrEqual(abs(spring.position(at: 0.39) - 1), 0.0009)
 
-        XCTAssertEqual(t[.windowsOut], AnimationSpec(enabled: false, curve: .bezier(.standard), durationMs: 240, style: .slide))
+        XCTAssertEqual(t[.windowsOut], AnimationSpec(enabled: false, curve: .bezier(.standard), durationMs: 180, style: .slide))
         XCTAssertEqual(t[.workspaces].curve, .spring(.riko))
         XCTAssertEqual(t[.workspaces].durationMs, Spring.riko.settlingTime() * 1000, accuracy: 1e-9)
         XCTAssertEqual(t[.workspaces].style, .slide)
@@ -529,18 +533,19 @@ final class MotionTests: XCTestCase {
     }
 
     func testFrameSamplerReachesOneAndIsDone() {
-        let spec = AnimationTable.gabbySpringy[.workspaces]
+        let spec = AnimationSpec.bezier(.snappy, milliseconds: 280, style: .slide)
         let sampler = FrameSampler(spec: spec, startTime: 10)
-        XCTAssertEqual(sampler.endTime, 10.32, accuracy: 1e-12)
+        XCTAssertEqual(spec.duration, 0.28, accuracy: 1e-12)
+        XCTAssertEqual(sampler.endTime, 10.28, accuracy: 1e-12)
         XCTAssertEqual(sampler.value(at: 9.5), 0)
         XCTAssertFalse(sampler.isDone(at: 9.5))
         XCTAssertEqual(sampler.value(at: 10), 0)
-        let mid = sampler.value(at: 10.16)
+        let mid = sampler.value(at: 10.14)
         XCTAssertGreaterThan(mid, 0)
         XCTAssertEqual(mid, CubicBezier.snappy.value(at: 0.5), accuracy: 1e-12)
-        XCTAssertFalse(sampler.isDone(at: 10.3199))
-        XCTAssertEqual(sampler.value(at: 10.32), 1)
-        XCTAssertTrue(sampler.isDone(at: 10.32))
+        XCTAssertFalse(sampler.isDone(at: sampler.endTime - 1e-4))
+        XCTAssertEqual(sampler.value(at: sampler.endTime + 1e-9), 1)
+        XCTAssertTrue(sampler.isDone(at: sampler.endTime + 1e-9))
         XCTAssertEqual(sampler.value(at: 11), 1)
         XCTAssertTrue(sampler.isDone(at: 11))
 
@@ -548,14 +553,14 @@ final class MotionTests: XCTestCase {
         let to = CGRect(x: 100, y: 100, width: 300, height: 200)
         XCTAssertEqual(sampler.frame(from: from, to: to, at: 10), from)
         XCTAssertEqual(sampler.frame(from: from, to: to, at: 20), to)
-        XCTAssertEqual(sampler.scalar(from: 0.8, to: 1, at: 10.16), Interpolation.lerp(0.8, 1, mid), accuracy: 1e-12)
+        XCTAssertEqual(sampler.scalar(from: 0.8, to: 1, at: 10.14), Interpolation.lerp(0.8, 1, mid), accuracy: 1e-12)
     }
 
     func testFrameSamplerSpringAndDisabled() {
         let spring = FrameSampler(spec: AnimationTable.gabbySpringy[.windowsMove], startTime: 100)
         XCTAssertEqual(spring.value(at: 100), 0)
         XCTAssertFalse(spring.isDone(at: 100))
-        XCTAssertEqual(spring.value(at: 100.2), Spring.riko.position(at: 0.2), accuracy: 1e-12)
+        XCTAssertEqual(spring.value(at: 100.2), Spring.snappy.position(at: 0.2), accuracy: 1e-12)
         let end = spring.endTime
         XCTAssertFalse(spring.isDone(at: end - 1e-6))
         XCTAssertLessThan(abs(spring.value(at: end - 1e-6) - 1), 0.0011)

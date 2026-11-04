@@ -42,6 +42,54 @@ public final class ShellPanel: NSPanel {
     public override var canBecomeKey: Bool { acceptsKey }
     public override var canBecomeMain: Bool { false }
 
+    /// Bumped by every fade so a stale fade-out completion never orders out a re-shown panel.
+    private var fadeGeneration = 0
+
+    /// Orders the panel in (if needed) and fades it to full opacity. The window server animates
+    /// the alpha; together with the SwiftUI slide this is the drawer's "slide + fade".
+    public func fadeIn(duration: TimeInterval) {
+        fadeGeneration += 1
+        if !isVisible {
+            alphaValue = 0
+            if acceptsKey { makeKeyAndOrderFront(nil) } else { orderFrontRegardless() }
+        } else if acceptsKey {
+            makeKey()
+        }
+        guard duration > 0 else {
+            alphaValue = 1
+            return
+        }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            animator().alphaValue = 1
+        }
+    }
+
+    /// Fades the panel out and orders it out at the end (unless it was shown again meanwhile).
+    public func fadeOut(duration: TimeInterval, completion: (() -> Void)? = nil) {
+        fadeGeneration += 1
+        let generation = fadeGeneration
+        guard isVisible, duration > 0 else {
+            orderOut(nil)
+            alphaValue = 1
+            completion?()
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.fadeGeneration == generation else { return }
+                self.orderOut(nil)
+                self.alphaValue = 1
+                completion?()
+            }
+        })
+    }
+
     public override func keyDown(with event: NSEvent) {
         if onKeyDown?(event) == true { return }
         super.keyDown(with: event)

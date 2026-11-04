@@ -40,7 +40,7 @@ struct SidebarView: View {
                 .padding(.leading, 4)
             }
             .frame(width: model.width)
-            .offset(x: model.shown ? 0 : model.width + 4)
+            .offset(x: model.shown ? 0 : theme.slide(model.width + 4))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)

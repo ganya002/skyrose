@@ -449,12 +449,18 @@ public struct DwindleTree: Sendable, Hashable, Codable {
     /// inset by `gapsOut` on sides touching the area edge and `gapsIn` elsewhere, then by
     /// `borderSize` on all sides. With exactly one leaf `gapsOutSingle` replaces `gapsOut`.
     ///
-    /// A window whose min size exceeds its slot gets its min size centred in the slot (it may
-    /// overlap neighbours); ratios are never adjusted because of min sizes, so repeated layouts
-    /// converge immediately. Inactive group members are returned with `hidden = true` and the
-    /// group's frame.
+    /// Minimum sizes (`minSizes`, learned from apps that refuse to shrink): every split first
+    /// gives each side at least what its subtree needs (`minimumBox`), moving the divider only as
+    /// far as necessary; the stored ratios are not changed, so the layout stays a pure function
+    /// and the extra room goes back when the window closes. When both sides cannot fit, the box is
+    /// shared in proportion to the needs and the window that still does not fit gets its min
+    /// size centred in its slot with `overflows = true` (the WM floats it). Inactive group members
+    /// are returned with `hidden = true` and the group's frame.
     public func layout(area: CGRect, params: LayoutParams, minSizes: [WindowID: CGSize] = [:]) -> [Placement] {
-        let leaves = leafGeometries(in: area, config: params.dwindle)
+        let relevant = minSizes.filter { contains($0.key) }
+        let leaves = relevant.isEmpty
+            ? leafGeometries(in: area, config: params.dwindle)
+            : minimumAwareLeafGeometries(in: area, params: params, minSizes: relevant)
         let gapsOut = (leaves.count == 1 ? params.gapsOutSingle : nil) ?? params.gapsOut
         let border = params.borderSize
         var placements: [Placement] = []
@@ -476,18 +482,87 @@ public struct DwindleTree: Sendable, Hashable, Codable {
                 height: max(0, box.height - top - bottom - 2 * border - bar)
             )
             let active = leaf.activeWindow
-            if let minimum = minSizes[active] {
+            var overflows = false
+            if let minimum = relevant[active] {
+                // Half a point of rounding is not an overflow.
+                overflows = minimum.width > frame.width + 0.5 || minimum.height > frame.height + 0.5
                 frame = HyprGeometry.atLeast(frame, minimum)
             }
             let borderFrame = CGRect(
                 x: frame.minX - border, y: frame.minY - bar - border,
                 width: frame.width + 2 * border, height: frame.height + bar + 2 * border
             )
-            placements.append(Placement(window: active, frame: frame, borderFrame: borderFrame, kind: .tiled, hidden: false))
+            placements.append(Placement(window: active, frame: frame, borderFrame: borderFrame, kind: .tiled, hidden: false, overflows: overflows))
             for member in leaf.windows where member != active {
                 placements.append(Placement(window: member, frame: frame, borderFrame: borderFrame, kind: .tiled, hidden: true))
             }
         }
         return placements
+    }
+
+    // MARK: Minimum sizes
+
+    /// The smallest box (gaps and border included) a subtree needs so every visible window gets
+    /// at least its minimum size. Gaps are counted as the larger of `gapsIn` / `gapsOut` on both
+    /// sides, so a box this size always fits whatever edge it ends up on.
+    static func minimumBox(_ node: Node, box: CGRect, params: LayoutParams, minSizes: [WindowID: CGSize]) -> CGSize {
+        switch node {
+        case .leaf(let leaf):
+            guard let m = minSizes[leaf.activeWindow] else { return .zero }
+            let gap = max(params.gapsIn, params.gapsOut, params.gapsOutSingle ?? 0)
+            let bar = leaf.isGroup ? max(0, params.groupBarHeight) : 0
+            let pad = 2 * gap + 2 * params.borderSize
+            return CGSize(width: m.width > 0 ? m.width + pad : 0, height: m.height > 0 ? m.height + pad + bar : 0)
+        case .split(let s):
+            let direction = effectiveDirection(of: s, box: box, config: params.dwindle)
+            let children = childBoxes(of: box, direction: direction, ratio: s.ratio)
+            let a = minimumBox(s.first, box: children.first, params: params, minSizes: minSizes)
+            let b = minimumBox(s.second, box: children.second, params: params, minSizes: minSizes)
+            switch direction {
+            case .horizontal: return CGSize(width: a.width + b.width, height: max(a.height, b.height))
+            case .vertical: return CGSize(width: max(a.width, b.width), height: a.height + b.height)
+            }
+        }
+    }
+
+    /// Size of the first child along the split axis after honouring minimum sizes: the stored
+    /// ratio's size, clamped so each side gets at least what it needs; when both cannot fit,
+    /// the space is shared in proportion to the needs. Pure (for tests).
+    public static func minimumAwareFirstSize(total: Double, ratio: Double, firstNeeds: Double, secondNeeds: Double) -> Double {
+        let wanted = total / 2 * ratio
+        guard firstNeeds > 0 || secondNeeds > 0 else { return wanted }
+        if firstNeeds + secondNeeds <= total {
+            return min(max(wanted, firstNeeds), total - secondNeeds)
+        }
+        return total * firstNeeds / (firstNeeds + secondNeeds)
+    }
+
+    func minimumAwareLeafGeometries(in area: CGRect, params: LayoutParams, minSizes: [WindowID: CGSize]) -> [NodeGeometry] {
+        var out: [NodeGeometry] = []
+        if let root { Self.walkHonouringMinimums(root, path: [], box: area, params: params, minSizes: minSizes, into: &out) }
+        return out
+    }
+
+    private static func walkHonouringMinimums(
+        _ node: Node, path: Path, box: CGRect, params: LayoutParams, minSizes: [WindowID: CGSize], into out: inout [NodeGeometry]
+    ) {
+        switch node {
+        case .leaf(let l):
+            out.append(NodeGeometry(path: path, box: box, direction: nil, leaf: l))
+        case .split(let s):
+            let direction = effectiveDirection(of: s, box: box, config: params.dwindle)
+            let plain = childBoxes(of: box, direction: direction, ratio: s.ratio)
+            let a = minimumBox(s.first, box: plain.first, params: params, minSizes: minSizes)
+            let b = minimumBox(s.second, box: plain.second, params: params, minSizes: minSizes)
+            let total = direction == .horizontal ? box.width : box.height
+            let first = minimumAwareFirstSize(
+                total: total, ratio: s.ratio,
+                firstNeeds: direction == .horizontal ? a.width : a.height,
+                secondNeeds: direction == .horizontal ? b.width : b.height)
+            let ratio = total > 0 ? first * 2 / total : s.ratio
+            let children = childBoxes(of: box, direction: direction, ratio: ratio)
+            walkHonouringMinimums(s.first, path: path + [.first], box: children.first, params: params, minSizes: minSizes, into: &out)
+            walkHonouringMinimums(s.second, path: path + [.second], box: children.second, params: params, minSizes: minSizes, into: &out)
+        }
     }
 }

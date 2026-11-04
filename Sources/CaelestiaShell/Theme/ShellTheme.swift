@@ -33,7 +33,7 @@ public struct ShellTheme: Equatable, Sendable {
         fontSans = [a.fontSans] + a.fontSansFallbacks
         fontMono = [a.fontMono] + a.fontMonoFallbacks
         uiScale = a.uiScale
-        durationScale = config.animations.shellDurationScale
+        durationScale = config.animations.shellDurationScale * config.animations.durationFactor
         self.reduceMotion = reduceMotion && config.animations.respectReduceMotion
         frameThickness = config.wm.screenFrame ? config.wm.screenFrameInset : 0
         frameRounding = config.wm.windowRounding + config.wm.gapsOut
@@ -99,21 +99,41 @@ public struct ShellTheme: Equatable, Sendable {
 
     // MARK: Motion (Material 3 expressive, as Caelestia's Appearance.anim)
 
-    /// Drawer open: expressiveDefaultSpatial (overshoots slightly), 500 ms × scale.
-    public var drawerOpen: Animation { curve(.expressiveDefaultSpatial, ms: 500) }
-    /// Drawer close: emphasizedAccel, 200 ms × scale.
-    public var drawerClose: Animation { curve(.emphasizedAccel, ms: 250) }
+    /// Base durations (ms, before `durationScale`). Round 4 shortened them: nothing in the shell
+    /// runs over ~350 ms at the default 0.8 scale (open 304 ms, close 176 ms).
+    public static let drawerOpenMs: Double = 380
+    public static let drawerCloseMs: Double = 220
+    /// Under Reduce Motion every shell transition is a cross-fade of this length (no slide or
+    /// scale), like macOS itself does.
+    public static let reducedFadeMs: Double = 120
+
+    /// Drawer open: expressiveDefaultSpatial (overshoots slightly), 380 ms × scale.
+    public var drawerOpen: Animation { curve(.expressiveDefaultSpatial, ms: Self.drawerOpenMs) }
+    /// Drawer close: emphasizedAccel, 220 ms × scale.
+    public var drawerClose: Animation { curve(.emphasizedAccel, ms: Self.drawerCloseMs) }
     /// Small state changes (selection, hover): standard, 200 ms × scale.
     public var small: Animation { curve(.standard, ms: 200) }
-    /// Workspace indicator: expressiveFastSpatial, 350 ms × scale.
-    public var fastSpatial: Animation { curve(.expressiveFastSpatial, ms: 350) }
+    /// Workspace indicator: expressiveFastSpatial, 300 ms × scale.
+    public var fastSpatial: Animation { curve(.expressiveFastSpatial, ms: 300) }
+
+    /// Seconds a drawer takes to open / close (the panel's fade and the delay before it is
+    /// ordered out use the same numbers as the SwiftUI slide).
+    public var drawerOpenSeconds: Double { seconds(Self.drawerOpenMs) }
+    public var drawerCloseSeconds: Double { seconds(Self.drawerCloseMs) }
 
     public func curve(_ c: ShellCurve, ms: Double) -> Animation {
-        if reduceMotion { return .linear(duration: 0) }
+        if reduceMotion { return .easeInOut(duration: seconds(ms)) }
         return .timingCurve(c.x1, c.y1, c.x2, c.y2, duration: seconds(ms))
     }
 
-    public func seconds(_ ms: Double) -> Double { reduceMotion ? 0 : ms * durationScale / 1000 }
+    /// Scaled duration. Under Reduce Motion every transition is the short cross-fade.
+    public func seconds(_ ms: Double) -> Double {
+        let scale = max(0, durationScale)
+        return (reduceMotion ? min(ms, Self.reducedFadeMs) : ms) * scale / 1000
+    }
+
+    /// A slide distance: 0 under Reduce Motion (drawers then only fade, through their panel).
+    public func slide(_ distance: Double) -> Double { reduceMotion ? 0 : distance }
 }
 
 /// Material 3 curves used by Caelestia (`Appearance.anim.curves`), single-segment versions.

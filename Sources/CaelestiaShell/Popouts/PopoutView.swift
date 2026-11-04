@@ -68,7 +68,7 @@ struct PopoutView: View {
                 .padding(.leading, 6).padding(.trailing, 10).padding(.vertical, fillet + 4)
             }
             .frame(width: ShellSizing.popoutWidth)
-            .offset(x: model.shown ? 0 : -(ShellSizing.popoutWidth + 4))
+            .offset(x: model.shown ? 0 : theme.slide(-(ShellSizing.popoutWidth + 4)))
             .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             Spacer(minLength: 0)
         }

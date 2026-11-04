@@ -15,6 +15,9 @@ public struct WindowFrameChange: Equatable, Sendable {
         case close
         /// Moved to a hidden workspace (it gets parked): fades out from `from`.
         case leave
+        /// Shown again (app switch / unhide / unminimize) while windows are animating: shown live
+        /// at `to` (through the cover, never from a still), the other windows keep animating.
+        case reveal
     }
 
     public var id: CGWindowID
@@ -103,6 +106,8 @@ public struct WindowAnimationRequest: Equatable, Sendable {
 @MainActor
 public protocol WindowAnimator: AnyObject {
     func animate(_ request: WindowAnimationRequest, commit: @escaping () -> Void)
+    /// A cover is up (an animation is in flight): new passes retarget it.
+    var isAnimating: Bool { get }
     /// True while `id` is drawn by the animator (its border window must snap, not fade).
     func isCovering(_ id: CGWindowID) -> Bool
     /// The WM itself is about to close `id` (its close action). Puts the cover up with every still
@@ -121,6 +126,14 @@ public protocol WindowAnimator: AnyObject {
     func windowsChanged(visible: [AnimatedWindow])
     /// Panic / quit / game mode: everything goes now.
     func cancel()
+    /// A frame write read back `actual`, not the requested frame (the app picked its own size):
+    /// the window's animation retargets there.
+    func frameApplied(_ id: CGWindowID, actual: CGRect)
+}
+
+extension WindowAnimator {
+    public var isAnimating: Bool { false }
+    public func frameApplied(_ id: CGWindowID, actual: CGRect) {}
 }
 
 /// Commits at once. Used when window animations are off and as the test default.

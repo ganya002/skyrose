@@ -95,6 +95,7 @@ final class FakeWindowSystem: WindowSystem {
     var focusedWindowID: WindowID?
     var cursorLocation: CGPoint?
     var underCursor: WindowID?
+    var isLeftMouseDown = false
     var started = false
     private var pending: [WindowSystemEvent] = []
     private var nextID: WindowID = 100

@@ -38,11 +38,12 @@ final class RulesTests: XCTestCase {
     }
 
     func testUtilityAppsFloatAt50x60() {
-        for id in ["com.apple.calculator", "com.apple.ActivityMonitor"] {
-            let e = effects(id)
-            XCTAssertEqual(e.float, true, id)
-            XCTAssertEqual(e.sizeFraction, CGSize(width: 0.5, height: 0.6), id)
-        }
+        // Calculator now floats at its own size through the built-in app rule (AppRuleBook), not this rule.
+        let e = effects("com.apple.ActivityMonitor")
+        XCTAssertEqual(e.float, true)
+        XCTAssertEqual(e.sizeFraction, CGSize(width: 0.5, height: 0.6))
+        XCTAssertNil(effects("com.apple.calculator").sizeFraction)
+        XCTAssertEqual(AppRuleBook().mode(for: "com.apple.calculator").mode, .float)
     }
 
     func testOpenSaveDialogsFloatAt60x70() {

@@ -92,17 +92,29 @@ final class DwindleOperationTests: XCTestCase {
         XCTAssertFalse(t.resize(2, axis: .height, delta: 10, in: area), "no vertical split above it")
     }
 
-    func testMinSizeClipsCentredWithoutChangingNeighbours() throws {
+    /// A learned minimum bigger than the slot moves the divider (neighbour shrinks) instead of
+    /// clipping the window centred over its neighbour; the stored ratios are untouched.
+    func testMinSizeGivesTheWindowRoomAndShrinksTheNeighbour() throws {
         let t = tree(2)
         let slot = try XCTUnwrap(frame(t, 1))
+        let neighbour = try XCTUnwrap(frame(t, 2))
         let big = CGSize(width: slot.width + 100, height: slot.height)
-        let clipped = try XCTUnwrap(frame(t, 1, minSizes: [1: big]))
-        XCTAssertEqual(clipped.size, big)
-        XCTAssertEqual(clipped.midX, slot.midX, accuracy: 0.5)
-        XCTAssertEqual(frame(t, 2, minSizes: [1: big]), frame(t, 2))
-        // Converges: the same inputs give the same output on every pass.
-        XCTAssertEqual(t.layout(area: area, params: LayoutParams(), minSizes: [1: big]),
-                       t.layout(area: area, params: LayoutParams(), minSizes: [1: big]))
+        let placements = t.layout(area: area, params: LayoutParams(), minSizes: [1: big])
+        let grown = try XCTUnwrap(placements.first { $0.window == 1 })
+        let shrunk = try XCTUnwrap(placements.first { $0.window == 2 })
+        XCTAssertGreaterThanOrEqual(grown.frame.width, big.width)
+        XCTAssertLessThanOrEqual(grown.frame.width, big.width + 40, "only a few points of conservative gap slack")
+        XCTAssertLessThan(shrunk.frame.width, neighbour.width)
+        XCTAssertFalse(grown.frame.intersects(shrunk.frame), "no overlap")
+        XCTAssertFalse(grown.overflows)
+        XCTAssertFalse(shrunk.overflows)
+        XCTAssertGreaterThanOrEqual(grown.frame.minX, area.minX)
+        XCTAssertLessThanOrEqual(shrunk.frame.maxX, area.maxX)
+        // Pure function of the tree and the minimums: same inputs, same output on every pass.
+        XCTAssertEqual(placements, t.layout(area: area, params: LayoutParams(), minSizes: [1: big]))
+        // Dropping the minimum gives the original layout back (ratios were never changed).
+        XCTAssertEqual(frame(t, 1), slot)
+        XCTAssertEqual(frame(t, 2), neighbour)
     }
 
     func testGroupsHideInactiveTabs() {

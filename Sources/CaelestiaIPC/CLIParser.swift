@@ -181,8 +181,27 @@ public enum CLIParser {
         case "keys":
             inv.kind = try parseKeys(args)
         case "rules":
-            try expectVerb("rules", args, ["reload"])
-            inv.kind = .ipc(IPCRequest(.rulesReload))
+            try expectVerb("rules", args, ["reload", "apps", "set", "focused"])
+            switch args[0] {
+            case "apps":
+                try rejectExtra("rules apps", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.rulesApps))
+            case "focused":
+                try rejectExtra("rules focused", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.rulesFocused))
+            case "set":
+                guard args.count >= 2 else { throw CLIUsageError.missingArgument(command: "rules set", name: "bundle-id") }
+                guard args.count >= 3 else { throw CLIUsageError.missingArgument(command: "rules set", name: "tile|float|auto") }
+                let mode = args[2].lowercased()
+                guard AppLayoutMode(rawValue: mode) != nil else {
+                    throw CLIUsageError.unknownVerb(group: "rules set \(args[1])", verb: args[2], expected: AppLayoutMode.allCases.map(\.rawValue))
+                }
+                try rejectExtra("rules set", Array(args.dropFirst(3)))
+                inv.kind = .ipc(IPCRequest(.rulesSet, args: ["bundleID": .string(args[1]), "mode": .string(mode)]))
+            default:
+                try rejectExtra("rules reload", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.rulesReload))
+            }
         case "config":
             try expectVerb("config", args, ["reload"])
             inv.kind = .ipc(IPCRequest(.configReload))
@@ -574,6 +593,9 @@ public enum CLIParser {
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),
             ("keys list [--json]", "Table of every bind"),
             ("rules reload", "Re-read rules.toml"),
+            ("rules apps [--json]", "Per-app window rules (tile / float / auto) and where they come from"),
+            ("rules set <bundle-id> <tile|float|auto>", "Set an app's window rule (saved to config.toml [appRules])"),
+            ("rules focused [--json]", "The rule of the focused window's app"),
             ("config reload", "Re-read config.toml and keymap.toml"),
         ]),
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [

@@ -47,6 +47,8 @@ final class FakeWindowAnimator: WindowAnimator {
     func endDrag() {}
     func windowsChanged(visible: [AnimatedWindow]) { visibleReports.append(visible) }
     func cancel() { cancelCount += 1 }
+    var applied: [(CGWindowID, CGRect)] = []
+    func frameApplied(_ id: CGWindowID, actual: CGRect) { applied.append((id, actual)) }
 }
 
 @MainActor
@@ -284,5 +286,27 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         h.system.destroy(a.windowID)
         h.settle()
         XCTAssertEqual(d.lastScene?.vanish[a.windowID], .fadeOut)
+    }
+
+    /// Live finding (round 4): a window whose app refused its new size was drawn at the slot
+    /// size until the cover faded onto the smaller real window. The WM reports the frame the
+    /// app really took so the animation ends there; an unchanged read-back is not reported.
+    func testAFrameTheAppChoseItselfIsReportedToTheAnimator() {
+        let (h, a) = harness()
+        let w = h.system.existing("w")
+        h.start()
+        a.applied.removeAll()
+        // The app now clamps its width to 900: the next retile reads back 900, not the slot.
+        w.minSize = CGSize(width: 900, height: 0)
+        h.system.open("other")
+        h.settle()
+        XCTAssertTrue(a.applied.contains { $0.0 == w.windowID && $0.1.width == 900 }, "\(a.applied)")
+        // A new window has no previous frame to compare with (an app may apply its size a moment
+        // later): its first write is never reported. A window that ignores writes is reported
+        // where it really is.
+        a.applied.removeAll()
+        let frozen = h.system.open("frozen") { $0.ignoresWrites = true }
+        h.settle()
+        for (id, f) in a.applied where id == frozen.windowID { XCTAssertEqual(f, frozen.frame) }
     }
 }

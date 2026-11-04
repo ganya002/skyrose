@@ -206,7 +206,7 @@ public enum ConfigLoader {
 
     /// Tables whose keys are user-defined names rather than fixed fields. Their children are validated
     /// against the prototype stored under ``mapPrototypeKey`` in the schema table.
-    static let mapTablePaths: Set<String> = ["displays", "animations.overrides", "wm.specialWorkspaces"]
+    static let mapTablePaths: Set<String> = ["displays", "animations.overrides", "wm.specialWorkspaces", "appRules"]
     static let mapPrototypeKey = "*"
 
     static func encodeTable<T: Encodable>(_ value: T) throws -> TOMLTable {
@@ -235,6 +235,7 @@ public enum ConfigLoader {
         proto.animations.overrides = [mapPrototypeKey: AnimationOverride(enabled: true, curve: "", speed: 1, style: "")]
         proto.wm.specialWorkspaces = [mapPrototypeKey: SpecialWorkspaceConfig(apps: [""], launch: "")]
         proto.bar.statusIcons = [BarConfig.StatusIcon(id: "", enabled: true)]
+        proto.appRules = [mapPrototypeKey: "auto"]
         return try encodeTable(proto)
     }
 
@@ -400,6 +401,13 @@ public enum ConfigLoader {
         check(["overview", "media", "performance"].contains(c.dashboard.defaultTab.lowercased()), "dashboard.defaultTab", "must be \"overview\", \"media\" or \"performance\" (got \"\(c.dashboard.defaultTab)\")")
         check(a.uiScale > 0 && a.uiScale <= 4, "appearance.uiScale", "must be in (0, 4] (got \(a.uiScale))")
         check(a.wallpaperRandomIntervalMinutes >= 0, "appearance.wallpaperRandomIntervalMinutes", "must be >= 0 (got \(a.wallpaperRandomIntervalMinutes))")
+
+        for (bundle, mode) in c.appRules.sorted(by: { $0.key < $1.key }) {
+            let path = joinPath("appRules", bundle)
+            check(!bundle.isEmpty, "appRules", "bundle ids must not be empty")
+            check(AppLayoutMode(rawValue: mode.lowercased()) != nil, path, "must be \"tile\", \"float\" or \"auto\" (got \"\(mode)\")")
+        }
+        check(c.animations.speed > 0 && c.animations.speed <= 10, "animations.speed", "must be in (0, 10] (got \(c.animations.speed))")
 
         positive(c.bar.width, "bar.width")
         var seenIcons: Set<String> = []

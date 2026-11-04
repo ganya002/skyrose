@@ -190,11 +190,11 @@ appName = "nwg-look|system-config-printer|blueman*|gnome-calculator"
 [rule.effects]
 tag = "float_50_60"
 
-# Calculator and Activity Monitor.
+# Activity Monitor (Calculator floats at its own size: built-in app rule).
 [[rule]]
 id = "tag-50-60-mac-utilities"
 [rule.match]
-bundleID = "com.apple.calculator|com.apple.ActivityMonitor"
+bundleID = "com.apple.ActivityMonitor"
 [rule.effects]
 tag = "float_50_60"
 

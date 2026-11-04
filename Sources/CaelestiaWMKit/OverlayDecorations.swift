@@ -18,6 +18,7 @@ public final class OverlayDecorations: WindowDecorations {
     private var scheme: Scheme
     private var reduceMotionObserver: NSObjectProtocol?
     private var screensObserver: NSObjectProtocol?
+    private var screenFrames: [CGRect] = NSScreen.screens.map(\.frame)
     private var config: Config
 
     public init(config: Config, scheme: Scheme = SchemeLoader.builtIn(named: "caelestia-dynamic-dark") ?? OverlayStyle.gabbyScheme) {
@@ -40,8 +41,17 @@ public final class OverlayDecorations: WindowDecorations {
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.slide.displaysChanged()
-                self?.animator.invalidate()
+                // Only a real display change makes covers and stills stale. macOS posts this for
+                // Dock / menu-bar changes too; cancelling then snapped running animations.
+                let frames = NSScreen.screens.map(\.frame)
+                guard let self else { return }
+                guard frames != self.screenFrames else {
+                    self.animator.cache.invalidateDesktops()  // the Dock or menu bar may have changed
+                    return
+                }
+                self.screenFrames = frames
+                self.slide.displaysChanged()
+                self.animator.invalidate()
             }
         }
         spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(

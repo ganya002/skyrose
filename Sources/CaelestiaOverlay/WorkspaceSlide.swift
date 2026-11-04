@@ -194,15 +194,26 @@ public final class WorkspaceSlide {
         p?()
     }
 
-    private func armTimeout(_ mine: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.hardTimeout) { [weak self] in
+    private var timeoutWork: DispatchWorkItem?
+
+    private func armTimeout(_ mine: Int) { rearmTimeout(mine, after: 0) }
+
+    /// The cover never outlives the slide by much: `hardTimeout`, or the slide's own length
+    /// (a slower `animations.speed`) plus a margin, from now.
+    private func rearmTimeout(_ mine: Int, after duration: TimeInterval) {
+        timeoutWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
             guard let self, self.token == mine else { return }
             self.finish()
         }
+        timeoutWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(Self.hardTimeout, duration + 0.25), execute: work)
     }
 
     private func watchInput() {
-        inputMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown, .scrollWheel]) { [weak self] _ in
+        // Clicks and scrolls end the cover at once (they are aimed at the real windows). Keys do
+        // not: typing or the next shortcut during a ~280 ms slide cut it off mid-way (a snap).
+        inputMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .scrollWheel]) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.isActive else { return }
                 self.aborted += 1
@@ -211,9 +222,14 @@ public final class WorkspaceSlide {
         }
     }
 
+    /// The slide is played by Core Animation (render server, display rate), so a busy main thread
+    /// cannot stall it half-way and make it jump; the link only notices the end.
     private func animate(spec: AnimationSpec, mine: Int) {
-        sampler = FrameSampler(spec: spec, startTime: CACurrentMediaTime())
-        step(mine)
+        let begin = CACurrentMediaTime()
+        sampler = FrameSampler(spec: spec, startTime: begin)
+        for c in covers { c.play(spec: spec, gap: gap, at: begin) }
+        CATransaction.flush()
+        rearmTimeout(mine, after: spec.duration)
         let target = DisplayLinkTarget { [weak self] in self?.step(mine) }
         guard let screen = NSScreen.screens.first else { return finish() }
         let l = screen.displayLink(target: target, selector: #selector(DisplayLinkTarget.step(_:)))
@@ -224,10 +240,7 @@ public final class WorkspaceSlide {
 
     private func step(_ mine: Int) {
         guard token == mine, let sampler else { return }
-        let now = CACurrentMediaTime()
-        let p = sampler.value(at: now)
-        for c in covers { c.layout(progress: p, gap: gap) }
-        if sampler.isDone(at: now) { finish() }
+        if sampler.isDone(at: CACurrentMediaTime()) { finish() }
     }
 
     private func stopLink() {
@@ -369,6 +382,60 @@ final class Cover {
         }
         CATransaction.commit()
         layout(progress: 0, gap: 0)
+    }
+
+    /// Plays the whole slide on the render server: both stills animate from progress 0 to 1 with
+    /// the spec's curve (a spring as a `CASpringAnimation`, a Bézier as its timing function).
+    func play(spec: AnimationSpec, gap: Double, at begin: TimeInterval) {
+        let size = transition.region.size
+        func frames(_ p: Double) -> (outgoing: CGRect, incoming: CGRect, outAlpha: Float, inAlpha: Float) {
+            switch transition.kind {
+            case .horizontal(let forward):
+                let travel = (size.width + gap) * (forward ? -1 : 1)
+                return (CGRect(x: travel * p, y: 0, width: size.width, height: size.height),
+                        CGRect(x: travel * (p - 1), y: 0, width: size.width, height: size.height), 1, 1)
+            case .specialIn:
+                return (CGRect(origin: .zero, size: size),
+                        CGRect(x: 0, y: -size.height * 0.15 * (1 - p), width: size.width, height: size.height), 1, Float(p))
+            case .specialOut:
+                return (CGRect(x: 0, y: -size.height * 0.15 * p, width: size.width, height: size.height),
+                        CGRect(origin: .zero, size: size), Float(1 - p), 1)
+            }
+        }
+        let a = frames(0), b = frames(1)
+        func animation(_ keyPath: String, _ from: Any, _ to: Any) -> CAAnimation {
+            let anim: CABasicAnimation
+            switch spec.curve {
+            case .spring(let s):
+                let spring = CASpringAnimation(keyPath: keyPath)
+                spring.mass = s.mass
+                spring.stiffness = s.stiffness
+                spring.damping = s.damping
+                anim = spring
+            case .bezier(let c):
+                anim = CABasicAnimation(keyPath: keyPath)
+                anim.timingFunction = CAMediaTimingFunction(controlPoints: Float(c.x1), Float(c.y1), Float(c.x2), Float(c.y2))
+            }
+            anim.fromValue = from
+            anim.toValue = to
+            anim.duration = spec.duration
+            anim.beginTime = begin
+            anim.fillMode = .backwards
+            anim.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+            return anim
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for (layer, from, to, fromAlpha, toAlpha) in [(outgoing, a.outgoing, b.outgoing, a.outAlpha, b.outAlpha),
+                                                      (incoming, a.incoming, b.incoming, a.inAlpha, b.inAlpha)] {
+            layer.frame = to
+            layer.opacity = toAlpha
+            if from != to {
+                layer.add(animation("position", NSValue(point: CGPoint(x: from.midX, y: from.midY)), NSValue(point: CGPoint(x: to.midX, y: to.midY))), forKey: "slide")
+            }
+            if fromAlpha != toAlpha { layer.add(animation("opacity", fromAlpha, toAlpha), forKey: "fade") }
+        }
+        CATransaction.commit()
     }
 
     /// Positions both stills at eased progress `p` (may overshoot past 1).

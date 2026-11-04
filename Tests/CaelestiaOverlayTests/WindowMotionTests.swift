@@ -88,7 +88,7 @@ final class WindowMotionTests: XCTestCase {
         m.apply(request([WindowFrameChange(id: 1, kind: .open, from: nil, to: a)], [win(1, a)]), at: 0)
         let s0 = sample(m, 1, at: 0)!
         XCTAssertEqual(s0.alpha, 0, accuracy: 0.05)
-        XCTAssertEqual(s0.scale, 0.8, accuracy: 0.01)
+        XCTAssertEqual(s0.scale, 0.85, accuracy: 0.01)
         XCTAssertLessThan(s0.scale, 1)
         XCTAssertFalse(m.isSettled(at: 0.01))
         let end = sample(m, 1, at: 10)!
@@ -240,5 +240,22 @@ final class WindowMotionTests: XCTestCase {
         XCTAssertFalse(animator.isCovering(1))
         XCTAssertFalse(animator.prepareClose(1, scene: request([], [])))
         XCTAssertFalse(animator.beginDrag(1, pointer: .zero, scene: request([], [])))
+    }
+
+    /// `retarget` (a refused size): the item heads for the real frame from where it is, keeping
+    /// its velocity; leaving and dragged items are not touched.
+    func testRetargetMovesAShownItemToTheRealFrame() {
+        var m = WindowMotionModel(table: .gabbySpringy)
+        let from = CGRect(x: 0, y: 0, width: 700, height: 880)
+        let slot = CGRect(x: 0, y: 0, width: 700, height: 500)
+        let real = CGRect(x: 0, y: 0, width: 640, height: 476)
+        m.apply(WindowAnimationRequest(changes: [WindowFrameChange(id: 1, kind: .move, from: from, to: slot)],
+                                       windows: [AnimatedWindow(id: 1, frame: slot, displayID: 1, isActive: true)],
+                                       displays: [1: CGRect(x: 0, y: 0, width: 1470, height: 956)]), at: 0)
+        let mid = m.samples(at: 0.05)[0].frame
+        m.retarget(1, to: real, at: 0.05)
+        XCTAssertEqual(m.items[1]?.target, real)
+        XCTAssertEqual(m.samples(at: 0.05)[0].frame.height, mid.height, accuracy: 0.5, "continues from where it was")
+        XCTAssertEqual(m.samples(at: 2)[0].frame, real)
     }
 }

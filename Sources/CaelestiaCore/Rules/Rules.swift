@@ -580,7 +580,7 @@ extension RuleSet {
             effects: RuleEffects(tag: "float_50_60")),
         WindowRule(
             id: "tag-50-60-mac-utilities",
-            match: RuleMatch(bundleID: "com.apple.calculator|com.apple.ActivityMonitor"),
+            match: RuleMatch(bundleID: "com.apple.ActivityMonitor"),
             effects: RuleEffects(tag: "float_50_60")),
 
         // Games (tag game)

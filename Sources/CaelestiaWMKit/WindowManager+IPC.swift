@@ -60,6 +60,21 @@ extension WindowManager {
             return ok(.object(["warnings": .array((onConfigReload?() ?? []).map(JSONValue.string))]))
         case .rulesReload:
             return ok(.object(["warnings": .array((onRulesReload?() ?? []).map(JSONValue.string))]))
+        case .rulesApps:
+            return encoded(appRuleEntries())
+        case .rulesFocused:
+            guard let e = focusedAppRule() else { return ok(.null) }
+            return encoded(e)
+        case .rulesSet:
+            guard let bundle = request.string("bundleID"), !bundle.isEmpty else { return refused("bundleID is required") }
+            guard let mode = request.string("mode").flatMap({ AppLayoutMode(rawValue: $0.lowercased()) }) else {
+                return refused("mode must be tile, float or auto")
+            }
+            do {
+                return encoded(try setAppRule(mode, for: bundle))
+            } catch {
+                return refused(String(describing: error))
+            }
 
         case .wmPanic:
             return (.success(for: request), panicFromIPC())

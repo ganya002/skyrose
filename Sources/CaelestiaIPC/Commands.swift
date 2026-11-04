@@ -236,6 +236,10 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     // MARK: Config
     case configReload = "config.reload"
     case rulesReload = "rules.reload"
+    /// Per-app tile / float / auto rules (the API the Settings app uses).
+    case rulesApps = "rules.apps"
+    case rulesSet = "rules.set"
+    case rulesFocused = "rules.focused"
     case keysList = "keys.list"
 
     // MARK: WM lifecycle / safety
@@ -388,6 +392,15 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.config, "Re-read config.toml and keymap.toml and apply them live.", returns: "{warnings: [string]}")
         case .rulesReload:
             return IPCCommandSpec(.config, "Re-read rules.toml and re-evaluate every window.", returns: "{warnings: [string]}")
+        case .rulesApps:
+            return IPCCommandSpec(.config, "Per-app window rules: running apps, apps with a rule and the built-in floating apps, with their effective mode.",
+                                  returns: "array of AppRuleEntry")
+        case .rulesSet:
+            return IPCCommandSpec(.config, "Set an app's window rule (tile / float / auto), save it to config.toml [appRules] and apply it to its open windows.",
+                                  arguments: [IPCArgument("bundleID", help: "the app's bundle id"), IPCArgument("mode", help: "tile, float or auto")],
+                                  returns: "AppRuleEntry")
+        case .rulesFocused:
+            return IPCCommandSpec(.config, "The window rule of the focused window's app.", returns: "AppRuleEntry or null")
         case .keysList:
             return IPCCommandSpec(.config, "Binds as the WM currently has them loaded.", returns: "array of BindQueryEntry")
 

@@ -235,6 +235,31 @@ public struct WindowMotionModel: Sendable {
         return gone
     }
 
+    /// The real window ended up at `frame` (its app refused the requested one): a shown item
+    /// retargets there, from where it is now.
+    public mutating func retarget(_ id: CGWindowID, to frame: CGRect, at now: TimeInterval) {
+        guard var item = items[id], item.phase == .shown, item.target != frame else { return }
+        item.move(to: frame, spec: table[.windowsMove], at: now)
+        items[id] = item
+    }
+
+    /// Every segment that started at or after `since` starts `dt` later: a new cover takes a
+    /// frame or two to reach the screen, and motion that began before it would show its first
+    /// 20-40 % as one jump (live finding, round 4).
+    public mutating func delayStarts(since: TimeInterval, by dt: TimeInterval, on displays: Set<CGDirectDisplayID>? = nil) {
+        guard dt > 0 else { return }
+        for id in Array(items.keys) {
+            guard var i = items[id], displays?.contains(i.displayID) ?? true else { continue }
+            i.x.delay(by: dt, since: since)
+            i.y.delay(by: dt, since: since)
+            i.w.delay(by: dt, since: since)
+            i.h.delay(by: dt, since: since)
+            i.alpha.delay(by: dt, since: since)
+            i.scale.delay(by: dt, since: since)
+            items[id] = i
+        }
+    }
+
     mutating func replace(_ item: Item) { items[item.id] = item }
 
     public mutating func removeAll() {
