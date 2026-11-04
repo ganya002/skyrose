@@ -1,5 +1,69 @@
 # Changelog
 
+## Unreleased — Shell part 2: dashboard, sidebar, popouts, wallpaper, dynamic colours (2026-11-04)
+
+Verified live on the MacBook Air (1470x956, one display this run) with TestWindows; screenshots and
+reference comparisons are in `/tmp/cwm/shell-p2/`. The build was signed with the "Caelestia Local
+Signing" certificate and Accessibility, Input Monitoring and Screen Recording were still granted
+after the rebuild. The user's wallpaper was restored afterwards and the temporary `config.toml`
+removed. No system setting was changed.
+
+### Added
+- **Dashboard** (`caelestia shell dashboard`, `shell drawers toggle dashboard`, the bar clock,
+  `panels.showAll` / `dashboard.toggle` keybinds): a top drawer sized from the reference (860x560, scaled
+  down uniformly on small screens). Tabs Overview, Media, Performance.
+  - Overview: weather card (placeholder "Weather not set up": no weather service), user card
+    (initial avatar, macOS version, uptime), vertical clock with seconds (`dashboard.showClockSeconds`),
+    month calendar (arrows, scroll, today as a cookie), CPU / memory / storage gauges, media card.
+  - Performance: CPU and memory with 60 s history, storage, GPU (IOAccelerator, shown only when it
+    reports), network down/up, battery (only on a Mac with a battery, `dashboard.showBattery`),
+    thermal pressure. Temperatures in degrees are hidden: they need root or private API.
+  - Media: big cover, progress, controls. Reads Spotify and Music (AppleScript). MediaRemote is
+    restricted to Apple processes on current macOS, so no other player is shown; the tab says so.
+  - Sampling runs at 1 Hz only while the dashboard is open.
+- **Sidebar** (`shell sidebar`, `sidebar.toggle` keybind): right drawer with notification history
+  (our own toasts and `caelestia notify`, grouped by app, dismiss, clear all, in memory only), Keep
+  awake, volume and brightness sliders (brightness hidden when unavailable) and quick toggles.
+  Real toggles: Wi-Fi (CoreWLAN), Do-not-disturb (Caelestia's own toasts), Keep awake. Bluetooth and
+  dark mode show their state and open System Settings (no public API to switch them).
+- **Bar popouts**: clicking the audio / network / Bluetooth / battery status icon opens a drawer
+  next to the bar (audio output picker + volume + mute, Wi-Fi switch + on-demand scan, Bluetooth
+  state and connected devices, battery state). Also `shell drawers toggle popout.<kind>`.
+- **Wallpaper picker** (`>wallpaper`, `shell drawers toggle wallpaper`, sidebar button): thumbnail
+  strip from `appearance.wallpaperFolder` (default `~/Pictures/Wallpapers`), thumbnails made off the
+  main thread and cached in `~/Library/Caches/CaelestiaMac/wallpaper-thumbs`. A missing or empty
+  folder shows a message. Picking sets the wallpaper on every display. `caelestia wallpaper
+  set|get|list|random` and `>random` work too.
+- **Dynamic colours**: `appearance.schemeMode = "static" | "dynamic"` (default static = periwinkle).
+  Dynamic extracts a Material You tonal-spot scheme from the current wallpaper (Wu quantizer, source
+  scoring, CAM16/HCT tonal palettes, all in `CaelestiaCore/Palette`, no packages) and applies it live
+  to the frame, bar, launcher, session menu, dashboard, sidebar, OSD, toasts and the border overlay.
+  Grey or unreadable wallpapers fall back to static; `appearance.accentOverride` pins the source;
+  `appearance.variant` picks dark/light. `caelestia config reload` applies mode changes live.
+- Config: `appearance.schemeMode`, `[dashboard] showClockSeconds, showBattery, defaultTab`.
+- IPC: `shell.dashboard|sidebar|showall|clear-notifs`, `shell.notifs.*`, `notify`,
+  `shell.wallpaper.set|get|list`, `wallpaper.random`; drawers `dashboard`, `sidebar`, `utilities`,
+  `wallpaper`.
+- Tests: 478 passing (46 new: HCT/quantizer/scheme determinism and fallback, config keys, wallpaper
+  scan, drawer sizing on notched/external/ultrawide/small/portrait screens, calendar, clock,
+  notifications, quick toggles, system-stat parsers).
+
+### Fixed
+- Panels now accept the first click (`acceptsFirstMouse`), as they are never key or active.
+
+### Not verified live
+- Clicking the bar status icons and clock with a real pointer: synthetic mouse events were not
+  reliable in this harness, so popouts were opened through the IPC route. The click code path is
+  the same `Button` the logo uses.
+- A real Spotify/Music session in the media card, the Wi-Fi switch and scan, the Keep awake switch
+  (these change system state), and a second display.
+- A new `config.toml` created while the daemon runs was not picked up within 2 s; `caelestia config
+  reload` applied it.
+
+### Known limitations
+- No Weather tab or weather data, no screen recorder card, no opening the dashboard from the top
+  edge, no bongo-cat art, avatar is an initial (not the account picture).
+
 ## Unreleased — Shell part 1 + borders fade on move (2026-11-04)
 
 Native SwiftUI/AppKit shell (`CaelestiaShell`) wired into the WM daemon via `ShellBridge`.

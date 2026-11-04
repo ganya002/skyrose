@@ -36,6 +36,7 @@ public final class ShellBridge: ShellHost {
     public func apply(config: Config) {
         state.config = config
         controller.stateChanged()
+        controller.refreshColors()
     }
 
     /// Mirrors the WM into `ShellState` (cheap; called after each layout pass).
@@ -95,6 +96,31 @@ public final class ShellBridge: ShellHost {
         switch command {
         case .shellLauncher: controller.toggle(.launcher); return ok()
         case .shellSession: controller.toggle(.session); return ok()
+        case .shellDashboard, .shellShowAll: controller.toggle(.dashboard); return ok()
+        case .shellSidebar: controller.toggle(.sidebar); return ok()
+        case .shellClearNotifs, .shellNotifsClear: controller.clearNotifications(); return ok()
+        case .shellNotifsToggleDnd: controller.setDoNotDisturb(!state.doNotDisturb); return ok()
+        case .shellNotifsEnableDnd: controller.setDoNotDisturb(true); return ok()
+        case .shellNotifsDisableDnd: controller.setDoNotDisturb(false); return ok()
+        case .shellNotifsIsDndEnabled: return ok(.string(state.doNotDisturb ? "true" : "false"))
+        case .notify:
+            guard let title = request.string("title"), !title.isEmpty else { return fail("title is required") }
+            let id = controller.notify(title: title, body: request.string("body") ?? "", app: request.string("app") ?? "", icon: request.string("icon") ?? "")
+            return ok(.object(["id": .string(id.uuidString)]))
+        case .shellWallpaperGet:
+            return ok(.string(controller.wallpaper.current()?.path ?? ""))
+        case .shellWallpaperList:
+            let folder = WallpaperLibrary.folderURL(state.config.appearance.wallpaperFolder)
+            return ok(.string(WallpaperLibrary.scan(folder: folder).urls.map(\.path).joined(separator: "\n")))
+        case .shellWallpaperSet:
+            guard let path = request.string("path") else { return fail("path is required") }
+            let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
+            guard FileManager.default.fileExists(atPath: url.path) else { return fail("no such file: \(url.path)") }
+            controller.setWallpaper(url)
+            return ok()
+        case .wallpaperRandom:
+            controller.randomWallpaper()
+            return ok()
         case .shellKill: controller.stop(); return ok()
         case .shellRestart: controller.restart(); return ok()
         case .shellToasterError: return toast(.error)
@@ -106,9 +132,13 @@ public final class ShellBridge: ShellHost {
         case .shellDrawersIsOpen:
             guard let d = drawer() else { return fail("unknown drawer \(request.string("drawer") ?? ""); see `shell drawers list`") }
             return ok(.string(controller.isOpen(d) ? "true" : "false"))
+        case .shellDrawersToggle where (request.string("drawer") ?? "").lowercased().hasPrefix("popout."):
+            let name = String((request.string("drawer") ?? "").lowercased().dropFirst("popout.".count))
+            guard let kind = PopoutKind(rawValue: name) else { return fail("unknown popout \(name); use audio, network, bluetooth or battery") }
+            controller.togglePopout(kind)
+            return ok()
         case .shellDrawersToggle:
             guard let d = drawer() else { return fail("unknown drawer \(request.string("drawer") ?? ""); see `shell drawers list`") }
-            guard [.launcher, .session, .osd].contains(d) else { return fail("the \(d.rawValue) is not built yet (shell part 1: launcher, session, osd)") }
             controller.toggle(d)
             return ok()
         case .shellBrightnessGet:

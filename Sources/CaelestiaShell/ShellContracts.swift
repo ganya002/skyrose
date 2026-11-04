@@ -34,6 +34,9 @@ public final class ShellState: ObservableObject {
     /// Installed apps for the launcher (filled lazily by the WM's app index).
     @Published public var apps: [LaunchableApp]
     @Published public var wallpapers: [URL]
+    @Published public var currentWallpaper: URL?
+    /// macOS appearance (read only; changing it needs System Settings).
+    @Published public var systemDarkMode: Bool
     @Published public var secureInputApp: String?
     @Published public var reduceMotion: Bool
 
@@ -59,6 +62,8 @@ public final class ShellState: ObservableObject {
         self.capsLockOn = false
         self.apps = []
         self.wallpapers = []
+        self.currentWallpaper = nil
+        self.systemDarkMode = true
         self.secureInputApp = nil
         self.reduceMotion = false
     }
@@ -100,17 +105,22 @@ public struct StatusInfo: Hashable, Sendable {
     public var outputDeviceName: String = ""
     public var micMuted: Bool = false
     public var micVolume: Double = 1
+    public var wifiAvailable: Bool = true
     public var wifiEnabled: Bool = true
     public var wifiConnected: Bool = false
     public var ssid: String? = nil
     public var wifiStrength: Int = 0
     public var ethernetConnected: Bool = false
+    public var bluetoothAvailable: Bool = false
     public var bluetoothOn: Bool = false
     public var bluetoothDevices: [String] = []
     public var hasBattery: Bool = false
     public var batteryPercent: Int = 0
     public var batteryCharging: Bool = false
     public var batteryTimeRemainingMinutes: Int? = nil
+    public var batteryPluggedIn: Bool = false
+    public var lowPowerMode: Bool = false
+    public var inputDeviceName: String = ""
     public var keyboardLayout: String = ""
     public var brightness: Double = 1
     public init() {}
@@ -196,6 +206,9 @@ public struct PerformanceInfo: Hashable, Sendable {
     public var cpuHistory: [Double] = []
     public var memoryHistory: [Double] = []
     public var uptimeSeconds: Double = 0
+    public var thermalState: Int = 0
+    public var networkUpHistory: [Double] = []
+    public var networkDownHistory: [Double] = []
     public var osVersion: String = ""
     public init() {}
 }
@@ -220,7 +233,7 @@ public struct LaunchableApp: Hashable, Sendable, Identifiable {
 
 /// Drawers the shell can open (Caelestia `drawers` IPC target names).
 public enum Drawer: String, CaseIterable, Sendable, Codable {
-    case launcher, dashboard, sidebar, session, osd, utilities
+    case launcher, dashboard, sidebar, session, osd, utilities, wallpaper
 }
 
 /// What the shell asks the WM / services to do. Implemented by CaelestiaWMKit.

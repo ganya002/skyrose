@@ -10,13 +10,14 @@ public struct Config: Codable, Equatable, Sendable {
     public var input: InputConfig
     public var apps: AppsConfig
     public var animations: AnimationsConfig
+    public var dashboard: DashboardConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
 
     public init(
         wm: WMConfig = WMConfig(), appearance: AppearanceConfig = AppearanceConfig(),
         bar: BarConfig = BarConfig(), input: InputConfig = InputConfig(), apps: AppsConfig = AppsConfig(),
-        animations: AnimationsConfig = AnimationsConfig(), displays: [String: DisplayOverride] = [:]
+        animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(), displays: [String: DisplayOverride] = [:]
     ) {
         self.wm = wm
         self.appearance = appearance
@@ -24,6 +25,7 @@ public struct Config: Codable, Equatable, Sendable {
         self.input = input
         self.apps = apps
         self.animations = animations
+        self.dashboard = dashboard
         self.displays = displays
     }
 
@@ -153,7 +155,11 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     public var variant: String = "dark"
     /// Manual accent override, hex RRGGBB, empty for none.
     public var accentOverride: String = ""
+    /// Legacy flag from the first config draft; `schemeMode` is what the shell reads.
     public var dynamicColor: Bool = true
+    /// "static": the scheme named by `theme` (periwinkle Caelestia Dynamic by default).
+    /// "dynamic": a Material You palette extracted from the current wallpaper, applied live.
+    public var schemeMode: String = "static"
     public var uiScale: Double = 1.0
     public var fontSans: String = "Rubik"
     public var fontSansFallbacks: [String] = ["Inter", "SF Pro"]
@@ -162,6 +168,16 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     public var fontIcons: String = "Material Symbols Rounded"
     public var wallpaperFolder: String = "~/Pictures/Wallpapers"
     public var wallpaperRandomIntervalMinutes: Int = 0
+    public init() {}
+}
+
+public struct DashboardConfig: Codable, Equatable, Sendable {
+    /// Seconds in the Overview clock (shell.json dashboard.showClockSeconds).
+    public var showClockSeconds: Bool = true
+    /// Battery card in the Performance tab (shown only on Macs that have a battery).
+    public var showBattery: Bool = true
+    /// "overview", "media" or "performance".
+    public var defaultTab: String = "overview"
     public init() {}
 }
 

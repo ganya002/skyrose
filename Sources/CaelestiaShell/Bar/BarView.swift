@@ -14,6 +14,9 @@ public final class BarModel: ObservableObject {
     public var onWorkspace: (Int) -> Void = { _ in }
     public var onScrollWorkspace: (Int) -> Void = { _ in }
     public var onTray: () -> Void = {}
+    public var onClock: () -> Void = {}
+    /// A status icon was clicked: its id and the vertical centre in the bar window (top-left space).
+    public var onStatus: (String, Double) -> Void = { _, _ in }
 
     public init(displayID: String) {
         self.displayID = displayID
@@ -43,9 +46,9 @@ struct BarView: View {
             BarIconButton(symbol: "menubar.rectangle", size: 14, color: theme[.onSurfaceVariant], action: model.onTray)
                 .help("Show the macOS menu bar (menu-bar extras)")
                 .accessibilityIdentifier("bar.tray")
-            ClockColumn(now: model.now)
+            ClockColumn(now: model.now, onTap: model.onClock)
                 .padding(.top, 12)
-            StatusColumn(state: state)
+            StatusColumn(state: state, onTap: model.onStatus)
                 .padding(.top, 12)
             BarIconButton(symbol: "power", size: 16, color: theme[.error], action: model.onPower)
                 .padding(.top, 10)
@@ -160,6 +163,7 @@ struct ActiveWindowColumn: View {
 
 struct ClockColumn: View {
     var now: Date
+    var onTap: () -> Void = {}
     @Environment(\.shellTheme) var theme
 
     var body: some View {
@@ -175,6 +179,9 @@ struct ClockColumn: View {
         .font(theme.sans(14, weight: .medium))
         .monospacedDigit()
         .foregroundStyle(theme[.tertiary])
+        .contentShape(Rectangle())
+        .overlay(Button(action: onTap) { Color.clear.contentShape(Rectangle()) }.buttonStyle(.plain))
+        .help("Open the dashboard")
         .accessibilityIdentifier("bar.clock")
     }
 }
@@ -183,6 +190,7 @@ struct ClockColumn: View {
 /// battery, in the order and with the switches of `bar.statusIcons`.
 struct StatusColumn: View {
     @ObservedObject var state: ShellState
+    var onTap: (String, Double) -> Void = { _, _ in }
     @Environment(\.shellTheme) var theme
 
     var body: some View {
@@ -190,10 +198,7 @@ struct StatusColumn: View {
         VStack(spacing: 10) {
             ForEach(enabled, id: \.self) { id in
                 if let symbol = symbol(for: id) {
-                    Image(systemName: symbol)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(theme[.onSurface])
-                        .frame(width: 24, height: 18)
+                    StatusIconButton(symbol: symbol, hasPopout: PopoutKind.forStatusIcon(id) != nil) { midY in onTap(id, midY) }
                         .accessibilityIdentifier("bar.status.\(id)")
                         .help(help(for: id))
                 }
@@ -285,5 +290,33 @@ enum AppIconCache {
         let image = NSWorkspace.shared.icon(forFile: url.path)
         cache[key] = image
         return image
+    }
+}
+
+
+/// A status icon; clicking opens its utilities popout (audio, network, Bluetooth, battery).
+struct StatusIconButton: View {
+    var symbol: String
+    var hasPopout: Bool
+    var onTap: (Double) -> Void
+    @State private var midY: Double = 0
+    @State private var hover = false
+    @Environment(\.shellTheme) var theme
+
+    var body: some View {
+        Button { if hasPopout { onTap(midY) } } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(theme[.onSurface])
+                .frame(width: 28, height: 22)
+                .background(Capsule().fill(theme[.onSurface].opacity(hover && hasPopout ? 0.1 : 0)))
+                .background(GeometryReader { g in
+                    Color.clear.onAppear { midY = g.frame(in: .global).midY }
+                        .onChange(of: g.frame(in: .global).midY) { _, v in midY = v }
+                })
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }

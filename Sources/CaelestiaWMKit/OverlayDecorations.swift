@@ -50,6 +50,12 @@ public final class OverlayDecorations: WindowDecorations {
         slide.gap = config.wm.gapsWorkspaces
     }
 
+    /// A new colour scheme (dynamic colours): borders, group bars and the workspace slide follow.
+    public func apply(scheme: Scheme) {
+        self.scheme = scheme
+        apply(config: config)
+    }
+
     static func table(for config: Config) -> AnimationTable {
         if config.wm.gameMode { return .off }
         return AnimationTable.from(config: config.animations, reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)

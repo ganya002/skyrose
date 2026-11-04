@@ -6,6 +6,9 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         case session(SessionAction)
         /// Exists in Caelestia but needs a later phase (wallpaper, schemes, Settings).
         case later(String)
+        /// Opens one of the part-2 drawers (wallpaper picker).
+        case drawer(Drawer)
+        case randomWallpaper
     }
 
     public var id: String { name }
@@ -24,11 +27,11 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
 
     public static let all: [LauncherCommand] = [
         LauncherCommand("calculator", "Do simple math equations", icon: "calculate", effect: .later("Type = followed by an expression")),
-        LauncherCommand("scheme", "Change the current colour scheme", icon: "palette", effect: .later("Schemes arrive with the Settings phase")),
-        LauncherCommand("wallpaper", "Change the current wallpaper", icon: "image", effect: .later("The wallpaper picker arrives in a later phase")),
+        LauncherCommand("scheme", "Change the current colour scheme", icon: "palette", effect: .later("Set appearance.schemeMode = \"dynamic\" or \"static\" in config.toml")),
+        LauncherCommand("wallpaper", "Change the current wallpaper", icon: "image", effect: .drawer(.wallpaper)),
         LauncherCommand("variant", "Change the current scheme variant", icon: "contrast", effect: .later("Scheme variants arrive with dynamic colour")),
         LauncherCommand("transparency", "Change shell transparency", icon: "opacity", effect: .later("Transparency is set in config.toml for now")),
-        LauncherCommand("random", "Switch to a random wallpaper", icon: "shuffle", effect: .later("Random wallpapers arrive in a later phase")),
+        LauncherCommand("random", "Switch to a random wallpaper", icon: "shuffle", effect: .randomWallpaper),
         LauncherCommand("lock", "Lock the current session", icon: "lock", effect: .session(.lock)),
         LauncherCommand("sleep", "Put the Mac to sleep", icon: "bedtime", effect: .session(.sleep)),
         LauncherCommand("shutdown", "Shut down the Mac", icon: "power_settings_new", effect: .session(.shutdown)),

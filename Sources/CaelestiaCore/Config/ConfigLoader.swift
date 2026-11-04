@@ -392,6 +392,8 @@ public enum ConfigLoader {
         check(
             a.accentOverride.isEmpty || RGBA(hex: a.accentOverride) != nil, "appearance.accentOverride",
             "must be empty or a hex color like \"bac5ee\" (got \"\(a.accentOverride)\")")
+        check(["static", "dynamic"].contains(a.schemeMode.lowercased()), "appearance.schemeMode", "must be \"static\" or \"dynamic\" (got \"\(a.schemeMode)\")")
+        check(["overview", "media", "performance"].contains(c.dashboard.defaultTab.lowercased()), "dashboard.defaultTab", "must be \"overview\", \"media\" or \"performance\" (got \"\(c.dashboard.defaultTab)\")")
         check(a.uiScale > 0 && a.uiScale <= 4, "appearance.uiScale", "must be in (0, 4] (got \(a.uiScale))")
         check(a.wallpaperRandomIntervalMinutes >= 0, "appearance.wallpaperRandomIntervalMinutes", "must be >= 0 (got \(a.wallpaperRandomIntervalMinutes))")
 

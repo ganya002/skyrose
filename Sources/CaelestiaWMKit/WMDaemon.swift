@@ -119,6 +119,7 @@ public final class WMDaemon {
         let deco = OverlayDecorations(config: wm.config)
         decorations = deco
         wm.decorations = deco
+        shell.controller.onSchemeChange = { [weak deco] scheme in deco?.apply(scheme: scheme) }
 
         wm.start()
         shell.start()

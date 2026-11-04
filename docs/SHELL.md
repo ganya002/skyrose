@@ -5,8 +5,8 @@ Caelestia's shell is drawn natively (SwiftUI + AppKit) inside the WM process, in
 volume/brightness OSD and toasts. Verified live on a MacBook Air (1470x956) plus an external
 3440x1440 display.
 
-Not built yet: dashboard, sidebar / notifications / utilities drawers, Settings app, lock-screen
-cover, wallpaper-driven colours, bar hover popouts. See LIMITATIONS.md.
+Part 2 (below) adds the dashboard, sidebar, bar popouts, wallpaper picker and dynamic colours.
+Not built yet: Settings app, lock-screen cover, weather, screen recorder. See LIMITATIONS.md.
 
 ## Screen frame
 
@@ -83,10 +83,40 @@ stacking.
 
     caelestia shell toaster error|warn|info|success <title> <message> <icon>
 
+## Dashboard (part 2)
+
+Top drawer, 860x560 at full size (scaled uniformly to fit smaller screens, never over the notch
+strip). Open: bar clock, `caelestia shell dashboard`, or the `panels.showAll` / `dashboard.toggle`
+keybinds; click elsewhere closes it. Tabs Overview / Media / Performance (`dashboard.defaultTab`).
+Data: CPU `host_processor_info`, memory `host_statistics64` (active + wired + compressed), disk
+`volumeAvailableCapacityForImportantUsage`, GPU IOAccelerator, network `NetworkThroughputSampler`,
+battery IOKit, thermal `ProcessInfo.thermalState`, media Spotify/Music via AppleScript. Sampling
+runs at 1 Hz only while open. Hidden: temperatures in degrees, GPU when not reported, battery on a
+desktop Mac. Weather is a placeholder.
+
+## Sidebar and popouts (part 2)
+
+Right drawer: notification history, Keep awake, volume/brightness sliders, quick toggles. Real
+toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (Caelestia toasts only), Keep awake (IOPM
+assertion). Bluetooth and dark mode are read-only tiles that open System Settings. Notifications
+are in memory only. Bar status icons (audio, network, Bluetooth, battery) open popouts on click;
+`shell drawers toggle popout.audio|network|bluetooth|battery` does the same.
+
+## Wallpaper and dynamic colours (part 2)
+
+`>wallpaper` / `shell drawers toggle wallpaper` open a thumbnail strip of `appearance.wallpaperFolder`.
+`appearance.schemeMode = "dynamic"` builds a Material You scheme from the current wallpaper
+(`CaelestiaCore/Palette`) and applies it to every surface and the borders; `"static"` (default)
+keeps the periwinkle scheme. Extraction failure (grey, unreadable, dynamic wallpaper) falls back to
+static. Config reload applies it live.
+
 ## IPC
 
     caelestia shell launcher | session | kill | restart
-    caelestia shell drawers toggle <name> | isOpen <name> | list     (toggle: launcher, session, osd)
+    caelestia shell dashboard | sidebar | clear-notifs
+    caelestia shell drawers toggle <name> | isOpen <name> | list   (launcher, session, osd, dashboard, sidebar, wallpaper, popout.<kind>)
+    caelestia notify <title> [body] [--app NAME] [--icon ICON]
+    caelestia wallpaper set <file> | get | list | random
     caelestia shell toaster.<level> ...
     caelestia shell brightness get | set <0..1 | N% | N%+ | N%->
 
@@ -103,6 +133,9 @@ stacking.
 | `appearance.font*` | font chains (`fontSans` etc.) |
 | `animations.shellDurationScale` | speed of shell animations |
 | `launcher.tap`, `session.toggle` | keybinds |
+| `appearance.schemeMode` | `static` (default) or `dynamic` (wallpaper palette) |
+| `appearance.wallpaperFolder` | wallpaper picker folder |
+| `dashboard.*` | clock seconds, battery card, default tab |
 
 ## Fonts and icons
 

@@ -133,8 +133,13 @@ theme = "caelestia-dynamic"
 variant = "dark"
 # Manual accent override as hex RRGGBB ("" = none).
 accentOverride = ""
-# Regenerate the scheme from the wallpaper (Material You tonal spot).
+# Legacy flag, ignored: use schemeMode.
 dynamicColor = true
+# "static" = the scheme named by `theme` above (periwinkle by default).
+# "dynamic" = Material You palette from the current wallpaper, applied live to borders, bar,
+# launcher, session menu, dashboard, sidebar, OSD and toasts. Falls back to static when the
+# wallpaper cannot be read or is grey. `variant` picks dark/light, `accentOverride` pins the source.
+schemeMode = "static"
 uiScale = 1.0
 # Caelestia shell fonts (fonts.txt): sans Rubik, mono CaskaydiaCove NF, icons Material Symbols.
 fontSans = "Rubik"
@@ -145,6 +150,16 @@ fontIcons = "Material Symbols Rounded"
 wallpaperFolder = "~/Pictures/Wallpapers"
 # 0 = never rotate wallpapers automatically.
 wallpaperRandomIntervalMinutes = 0
+
+# =====================================================================================
+# Dashboard (shell.json dashboard.*)
+# =====================================================================================
+[dashboard]
+showClockSeconds = true
+# Battery card in the Performance tab (only on Macs with a battery).
+showBattery = true
+# "overview", "media" or "performance".
+defaultTab = "overview"
 
 # =====================================================================================
 # Bar (shell.json bar.*)

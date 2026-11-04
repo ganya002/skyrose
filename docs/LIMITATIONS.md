@@ -28,6 +28,11 @@ feature cannot work, the UI says so and the closest substitute is used.
 | Shell tray, part 1 | Other apps' menu extras are not shown; the bar's tray button only reveals the menu bar. | Same as the Tray row above. |
 | Stock HUD with the native OSD | Apple's volume/brightness HUD also shows next to ours. | No public way to hide it. |
 | Bar hover with synthetic pointer moves | `CGWarpMouseCursorPosition` does not trigger the bar's hover reveal; real mouse movement does. | Warps post no mouse-moved event. |
+| Quick toggles | Wi-Fi, Do-not-disturb (Caelestia toasts only) and Keep awake switch. **Bluetooth and macOS dark mode are read-only** and open System Settings; macOS Focus cannot be switched. | No public API; private hacks or silent system changes are not used. |
+| Notification history | In memory, our own toasts and `caelestia notify` only. | See the notifications row above. |
+| Dashboard temperatures | Only the thermal pressure level; degrees hidden. | SMC needs root. |
+| Dashboard weather | Placeholder card; no Weather tab. | No weather service yet. |
+| Dynamic colours | Follow the wallpaper macOS reports for the main display (or the one picked here); dynamic/aerial wallpapers fall back to the static scheme. | No public colour feed. |
 | Fonts and icons | Rubik / Inter / CaskaydiaCove / Material Symbols are not installed or bundled yet; the shell uses SF Pro and SF Symbols. The `fontSans` chain uses Rubik/Inter once installed. | Material Symbols bundling is TODO (spec 7.1). |
 | Session menu mascot | A drawn moon glyph placeholder; no character art is shipped. | — |
 | Brightness slider | Hidden when the display reports no brightness (it was unavailable on the test setup). | See the brightness row above. |
@@ -37,7 +42,7 @@ feature cannot work, the UI says so and the closest substitute is used.
 
 | Phase | Item | Status |
 |---|---|---|
-| P6 | (shell part 1 is built: see SHELL.md; the rest below is not) Dashboard, sidebar, utilities drawers; recorder/screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`); the drawer UIs are not wired yet |
+| P6 | (shell parts 1 and 2 are built: see SHELL.md; the rest below is not) Weather tab, screen recorder card; screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`) for some; the UIs are not wired yet |
 | P7 | Wallpaper-driven dynamic colour (Material "tonal spot") | static themes only (Caelestia Dynamic dark snapshot, Caelestia Default, Catppuccin Mocha, Noctalia); accent override is an approximation |
 | P8 | Caelestia Settings app | not built; everything is editable in `~/.config/caelestia-mac/*.toml` with hot reload, and `caelestia keys check` / `caelestia doctor` cover the checks |
 | P9 | kitty config installer, fonts installer, xcursor2cape | kitty theme file is written from the scheme; the installer/cursor tool are not built |

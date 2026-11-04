@@ -28,7 +28,7 @@ public final class ShellController {
     public private(set) var frames: [String: ScreenFrameWindow] = [:]
     public private(set) var bars: [String: BarSurface] = [:]
     public private(set) var visibility: [String: BarVisibility] = [:]
-    private var layouts: [String: DisplayLayout] = [:]
+    var layouts: [String: DisplayLayout] = [:]
 
     // Drawers.
     public let launcher = LauncherModel()
@@ -39,9 +39,33 @@ public final class ShellController {
     private var sessionPanel: ShellPanel?
     private var osdPanel: ShellPanel?
     private var toastPanel: ShellPanel?
-    private var launcherDisplay: String?
+    // Part 2.
+    public let dashboard = DashboardModel()
+    public let sidebar = SidebarModel()
+    public let popout = PopoutModel()
+    public let wallpaperPicker = WallpaperModel()
+    var dashboardPanel: ShellPanel?
+    var sidebarPanel: ShellPanel?
+    var popoutPanel: ShellPanel?
+    var wallpaperPanel: ShellPanel?
+    public internal(set) var popoutKind: PopoutKind?
+    var popoutDisplay: String?
+    public var notificationStore = NotificationStore()
+    public let wallpaper = WallpaperService()
+    let wallpaperColors = WallpaperColors()
+    public let media = MediaService()
+    public let bluetooth = BluetoothService()
+    public let keepAwake = KeepAwakeService()
+    let sampler = SystemStatsSampler()
+    let throughput = NetworkThroughputSampler()
+    var statsTimer: Timer?
+    var partTwoWired = false
+    /// Called with every scheme the shell applies (the WM pushes it to the border overlay).
+    public var onSchemeChange: ((Scheme) -> Void)?
+    public var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    var launcherDisplay: String?
     private var osdTimer = OSDTimer()
-    public private(set) var openDrawers: Set<Drawer> = []
+    public internal(set) var openDrawers: Set<Drawer> = []
 
     // Services.
     public let audio = AudioService()
@@ -53,7 +77,7 @@ public final class ShellController {
     public var runSession: (SessionAction) -> Void = SessionCommands.run
 
     private var monitors: [Any] = []
-    private var observers: [NSObjectProtocol] = []
+    var observers: [NSObjectProtocol] = []
     private var timers: [Timer] = []
     private var hideTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
@@ -75,6 +99,7 @@ public final class ShellController {
         session.onClose = { [weak self] in self?.close(.session) }
         osd.onSetVolume = { [weak self] v in self?.audio.setVolume(v); self?.pokeOSD() }
         osd.onSetBrightness = { [weak self] v in self?.brightness.set(v); self?.pokeOSD() }
+        wirePartTwo()
     }
 
     // MARK: Lifecycle
@@ -85,6 +110,7 @@ public final class ShellController {
         rebuildSurfaces()
         if startServices { startServicesAndMonitors() }
         reloadApps()
+        refreshColors()
     }
 
     /// `shell.kill`: every surface goes; services keep running.
@@ -93,8 +119,9 @@ public final class ShellController {
         for (_, b) in bars { b.close() }
         frames.removeAll()
         bars.removeAll()
-        for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] { p?.orderOut(nil); p?.close() }
+        for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
         launcherPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
+        dropPartTwoPanels()
         openDrawers.removeAll()
         for d in visibility.keys where visibility[d]?.isShown == true && visibility[d]?.persistent == false {
             host?.shellBarReservation(display: d, reserved: false)
@@ -166,6 +193,8 @@ public final class ShellController {
         bar.model.onWorkspace = { [weak self] n in self?.host?.shellFocusWorkspace(n, display: id) }
         bar.model.onScrollWorkspace = { [weak self] d in self?.host?.shellCycleWorkspace(d, display: id) }
         bar.model.onTray = { [weak self] in self?.revealMenuBar(display: id) }
+        bar.model.onClock = { [weak self] in self?.toggle(.dashboard, display: id) }
+        bar.model.onStatus = { [weak self] icon, midY in self?.statusIconClicked(icon, display: id, windowMidY: midY) }
         bar.reveal.onChange = { [weak self, weak bar] v in
             bar?.model.reveal = v
             self?.frames[id]?.setBarReveal(v)
@@ -188,7 +217,7 @@ public final class ShellController {
             let barStrip = layout.barFrame.insetBy(dx: 0, dy: 0)
             let over = p.x <= barStrip.maxX + BarVisibility.leaveMargin && p.x >= layout.area.minX - 1
                 && p.y >= layout.area.minY && p.y <= layout.area.maxY
-            vis.pinned = openDrawers.contains(.session) && launcherDisplay == id
+            vis.pinned = (openDrawers.contains(.session) && launcherDisplay == id) || (popoutKind != nil && popoutDisplay == id)
             if vis.pointer(inHotZone: layout.barHotZone(contains: p), overBar: over, at: now) {
                 Log.shell.debug("bar \(vis.isShown ? "show" : "hide", privacy: .public) at \(p.x, privacy: .public),\(p.y, privacy: .public)")
                 applyVisibility(id, vis)
@@ -258,6 +287,7 @@ public final class ShellController {
         switch d {
         case .launcher:
             if openDrawers.contains(.session) { close(.session) }
+            closeTransient()
             let panel = launcherPanel ?? makeDrawerPanel(LauncherView(model: launcher, fillet: theme.frameRounding), name: "launcher", key: true)
             launcherPanel = panel
             let body = LauncherModel.maxBodySize
@@ -269,6 +299,7 @@ public final class ShellController {
             launcher.shown = true
         case .session:
             if openDrawers.contains(.launcher) { close(.launcher) }
+            closeTransient()
             let panel = sessionPanel ?? makeDrawerPanel(SessionView(model: session, fillet: theme.frameRounding), name: "session", key: true)
             sessionPanel = panel
             let body = SessionModel.bodySize
@@ -281,9 +312,14 @@ public final class ShellController {
         case .osd:
             showOSD(display: id)
             return
-        default:
-            toast(.info, title: "Not built yet", message: "The \(d.rawValue) arrives in a later phase.")
+        case .dashboard: openDashboard(id, layout: layout, reveal: reveal)
+        case .sidebar, .utilities:
+            openSidebar(id, layout: layout, reveal: reveal)
+            openDrawers.insert(.utilities)
+            launcherDisplay = id
+            openDrawers.insert(.sidebar)
             return
+        case .wallpaper: openWallpaper(id, layout: layout, reveal: reveal)
         }
         launcherDisplay = id
         openDrawers.insert(d)
@@ -302,7 +338,9 @@ public final class ShellController {
             dismiss(sessionPanel)
         case .osd:
             hideOSD(animated: true)
-        default: break
+        case .dashboard: closeDashboard()
+        case .sidebar, .utilities: closeSidebar()
+        case .wallpaper: closeWallpaper()
         }
         openDrawers.remove(d)
     }
@@ -311,7 +349,7 @@ public final class ShellController {
         for d in openDrawers { close(d) }
     }
 
-    private func makeDrawerPanel<V: View>(_ view: V, name: String, key: Bool, clickThrough: Bool = false) -> ShellPanel {
+    func makeDrawerPanel<V: View>(_ view: V, name: String, key: Bool, clickThrough: Bool = false) -> ShellPanel {
         let panel = ShellPanel(frame: .zero, level: ShellLevel.drawer, clickThrough: clickThrough, name: name)
         panel.acceptsKey = key
         let host = ShellHostingView(rootView: AnyView(view.environment(\.shellTheme, theme)))
@@ -322,15 +360,16 @@ public final class ShellController {
 
     private func rebuildDrawers() {
         closeAll()
-        for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] { p?.orderOut(nil); p?.close() }
+        for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
         launcherPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
+        dropPartTwoPanels()
     }
 
-    private func present(_ panel: ShellPanel) {
+    func present(_ panel: ShellPanel) {
         if panel.acceptsKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
     }
 
-    private func dismiss(_ panel: ShellPanel?) {
+    func dismiss(_ panel: ShellPanel?) {
         guard let panel else { return }
         if panel.isKeyWindow { panel.resignKey() }
         let delay = theme.seconds(250) + 0.05
@@ -364,6 +403,12 @@ public final class ShellController {
                 open(.session)
                 if let i = SessionModel.actions.firstIndex(of: a) { session.focused = i }
                 if a == .lock { close(.session); runSession(.lock) }
+            case .drawer(let d):
+                close(.launcher)
+                open(d)
+            case .randomWallpaper:
+                close(.launcher)
+                randomWallpaper()
             case .later(let why):
                 if c.name == "calculator" { launcher.query = "=" ; return }
                 close(.launcher)
@@ -423,7 +468,7 @@ public final class ShellController {
         }
     }
 
-    private func hideOSD(animated: Bool) {
+    func hideOSD(animated: Bool) {
         guard osd.shown else { return }
         osd.shown = false
         osdTimer.reset()
@@ -437,9 +482,13 @@ public final class ShellController {
     // MARK: Toasts
 
     @discardableResult
-    public func toast(_ kind: ToastKind, title: String, message: String, icon: String = "") -> UUID {
+    public func toast(_ kind: ToastKind, title: String, message: String, icon: String = "", record: Bool = true) -> UUID {
         let id = toasts.queue.add(Toast(kind: kind, title: title, message: message, icon: icon, createdAt: ProcessInfo.processInfo.systemUptime))
-        guard isRunning else { return id }
+        if record { recordNotification(kind: kind, title: title, message: message, icon: icon) }
+        guard isRunning, !state.doNotDisturb else {
+            if state.doNotDisturb { toasts.queue.dismiss(id) }
+            return id
+        }
         let displayID = pointerDisplayID() ?? state.displays.first?.id
         if let displayID, let layout = layouts[displayID] {
             let panel = toastPanel ?? makeDrawerPanel(ToastsView(model: toasts), name: "toasts", key: false, clickThrough: true)
@@ -471,6 +520,11 @@ public final class ShellController {
         case .launcherToggle: toggle(.launcher)
         case .sessionToggle: toggle(.session)
         case .lock: runSession(.lock)
+        case .dashboardToggle, .panelsShowAll: toggle(.dashboard)
+        case .sidebarToggle: toggle(.sidebar)
+        case .notifsClear: clearNotifications()
+        case .notifyTest:
+            notify(title: "Test notification", body: "Sent from the keybind. Notifications from Caelestia appear here.", app: "caelestia-shell", icon: "info")
         case .shellKill: stop()
         case .shellRestart: restart()
         case .audioVolumeUp, .audioVolumeDown:
@@ -507,6 +561,7 @@ public final class ShellController {
         battery.onChange = { [weak self] s in self?.applyBattery(s) }
         keyboard.onChange = { [weak self] s in self?.state.status.keyboardLayout = s.name }
         audio.start(); brightness.start(); network.start(); battery.start(); keyboard.start()
+        startPartTwoServices()
         audioChanged(audio.state, quiet: true)
         brightnessChanged(brightness.state, quiet: true)
         applyNetwork(network.state)
@@ -525,6 +580,7 @@ public final class ShellController {
             guard let self else { return }
             if self.openDrawers.contains(.launcher) { self.close(.launcher) }
             if self.openDrawers.contains(.session) { self.close(.session) }
+            self.closeTransient(includingSidebar: true)
         }) { monitors.append(m) }
 
         let ws = NSWorkspace.shared.notificationCenter
@@ -555,6 +611,7 @@ public final class ShellController {
     /// once more shortly after (the window server may still be settling).
     public func reassertSoon() {
         rebuildSurfaces()
+        refreshColors()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.rebuildSurfaces() }
     }
 
@@ -563,6 +620,7 @@ public final class ShellController {
         state.status.volume = s.volume
         state.status.muted = s.muted
         state.status.outputDeviceName = s.outputDeviceName
+        state.status.inputDeviceName = s.inputDeviceName
         state.status.micMuted = s.micMuted
         state.status.micVolume = s.micVolume
         osd.volume = s.volume
@@ -579,6 +637,7 @@ public final class ShellController {
     }
 
     private func applyNetwork(_ s: NetworkState) {
+        state.status.wifiAvailable = s.unavailableReason == nil
         state.status.wifiEnabled = s.wifiEnabled
         state.status.wifiConnected = s.wifiConnected
         state.status.ssid = s.ssid
@@ -591,6 +650,8 @@ public final class ShellController {
         state.status.batteryPercent = s.percent
         state.status.batteryCharging = s.isCharging
         state.status.batteryTimeRemainingMinutes = s.timeRemainingMinutes
+        state.status.batteryPluggedIn = s.isPluggedIn
+        state.status.lowPowerMode = s.isLowPowerMode
     }
 
     /// macOS has no public API for other apps' menu extras: reveal the auto-hidden menu bar by
@@ -600,7 +661,7 @@ public final class ShellController {
         CGWarpMouseCursorPosition(CGPoint(x: d.frame.midX, y: d.frame.minY + 1))
     }
 
-    private func pointerDisplayID() -> String? {
+    func pointerDisplayID() -> String? {
         let p = NSEvent.mouseLocation
         return layouts.first { $0.value.area.insetBy(dx: -1, dy: -40).contains(p) }?.key
     }
@@ -614,6 +675,8 @@ public final class ShellController {
         for t in timers { t.invalidate() }
         timers.removeAll()
         audio.stop(); brightness.stop(); network.stop(); battery.stop(); keyboard.stop()
+        media.stop(); bluetooth.stop()
+        stopStatsTimer()
     }
 }
 

@@ -66,6 +66,10 @@ public final class ShellHostingView<Content: View>: NSHostingView<Content> {
 
     public override var isOpaque: Bool { false }
 
+    /// The panels are never key or active: without this the first click on a control would only
+    /// be swallowed.
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     public override func hitTest(_ point: NSPoint) -> NSView? {
         let hit = super.hitTest(point)
         if passThroughEmpty, hit === self { return nil }
