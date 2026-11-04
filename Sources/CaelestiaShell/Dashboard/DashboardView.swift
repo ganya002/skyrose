@@ -241,7 +241,8 @@ struct CalendarCard: View {
                 arrow("chevron.right") { model.monthOffset += 1 }
             }
             LazyVGrid(columns: cols, spacing: 4) {
-                ForEach(Array(CalendarGrid.weekdayHeaders(calendar: cal).enumerated()), id: \.offset) { _, d in
+                // Header IDs must not collide with Day.id (0..<42) in the same grid, or SwiftUI drops week 1.
+                ForEach(Array(CalendarGrid.weekdayHeaders(calendar: cal).enumerated()), id: \.offset.headerID) { _, d in
                     Text(d).font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onSurface])
                 }
                 ForEach(weeks.flatMap { $0 }) { day in
@@ -502,4 +503,9 @@ struct ScrollStepCatcher: NSViewRepresentable {
             if event.phase == .ended || event.momentumPhase == .ended { acc = 0 }
         }
     }
+}
+
+
+private extension Int {
+    var headerID: String { "header-\(self)" }
 }
