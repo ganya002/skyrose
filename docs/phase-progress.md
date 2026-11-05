@@ -9,7 +9,7 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 | Part | State | Commit |
 |---|---|---|
 | 1. Launcher index + empty-workspace jump | done, live-checked | see `git log` ("Phase 5 part 1") |
-| 2. Wallpaper subfolders + live wallpapers | not started | |
+| 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
 | 3. SIP-off mode | not started (verify `csrutil status` + `nvram boot-args` first; no sudo by Claude) | |
 | 4. Material Symbols | not started | |
 | 5. Screenshots, keep-awake, Clamshell | not started | |
@@ -41,9 +41,39 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 Decisions: DMG apps (/Volumes) are not listed; Bundle's info cache means an app renamed in place
 shows its new name after a WM restart.
 
+## Part 2 — done
+
+- `WallpaperLibrary.scan`: the folder and sub-folders 3 levels deep, hidden files, packages,
+  symlinked dirs and non-media (.md notes) skipped; `ScanResult.groups` (`""` = top level,
+  then "Live", "Live/Anime", "Static" by name) + flattened `urls`. Videos: .mp4/.mov/.m4v.
+- `LiveWallpaper.swift`: `LiveWallpaperStill` (AVAssetImageGenerator first frame → JPEG in
+  `Application Support/SkyRose/live-stills/<key>.jpg`, cached by path/mtime/size);
+  `LiveWallpaperPolicy` (pause on battery, Low Power Mode, every window covered, screens
+  asleep / session inactive); `LiveWallpaperRecord` (`live-wallpaper.json`, resumed at shell
+  start only while macOS still shows our still); `LiveWallpaperController` (one muted
+  `AVQueuePlayer` + `AVPlayerLooper`, one borderless window per screen at desktop level + 1,
+  i.e. under the Finder's icons, all Spaces, click-through; rebuilt on screen changes).
+- `setWallpaper(video)`: still → desktop picture on every display (lock screen, Mission Control,
+  colour extraction all read it) → video loops above. Picking a picture stops it and forgets the
+  record; `shell kill` stops it but keeps the record. `wallpaper get` returns the video.
+- Picker: group chips (All / Live / Static with counts) + play badge on video thumbs (first
+  frame). Settings › Appearance › Wallpaper: one grid per group, badge, "Choose…" accepts movies.
+- Test-only: `SKYROSE_LIVE_WALLPAPER_ON_BATTERY=1` (env at launch) ignores the battery rule.
+- Live (Gabby's `Live/Sky - Aurora at dawn.mp4`, on battery): paused on the first frame
+  ("paused (on battery)" in the log) and the still was the desktop picture on both displays;
+  with the override: "playing … on 2 display(s)", two crops 2 s apart differ, WM CPU 1.6 %;
+  a WM restart resumed it. Restored `~/Pictures/arch-mac-blue.png` with its original options
+  (scaling 3, clipping, fill colour) afterwards; record cleared, no live windows left.
+  Shots: `/tmp/cwm/phase5/live-battery.png`, `picker.png`. Not live-tested: the "covered" pause
+  (needs a window covering a whole display; unit-tested in the policy).
+
+Decisions: no config key for "play on battery" (the brief says pause); the first occlusion
+report can log one "paused (covered by windows)" before the windows are on screen.
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
+After part 2: 976 tests, 0 failures.
 
 ---
 

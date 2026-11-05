@@ -127,7 +127,7 @@ public final class ShellBridge: ShellHost {
             let id = controller.notify(title: title, body: request.string("body") ?? "", app: request.string("app") ?? "", icon: request.string("icon") ?? "")
             return ok(.object(["id": .string(id.uuidString)]))
         case .shellWallpaperGet:
-            return ok(.string(controller.wallpaper.current()?.path ?? ""))
+            return ok(.string(controller.displayedWallpaper?.path ?? ""))
         case .shellWallpaperList:
             let folder = WallpaperLibrary.folderURL(state.config.appearance.wallpaperFolder)
             return ok(.string(WallpaperLibrary.scan(folder: folder).urls.map(\.path).joined(separator: "\n")))

@@ -80,6 +80,7 @@ public final class ShellController {
     /// Where the history is persisted (set by the daemon; nil in tests: memory only).
     public internal(set) var notificationHistory: NotificationHistoryFile?
     public let wallpaper = WallpaperService()
+    public let liveWallpaper = LiveWallpaperController()
     let wallpaperColors = WallpaperColors()
     public let media = MediaService()
     public let bluetooth = BluetoothService()
@@ -155,10 +156,12 @@ public final class ShellController {
         }
         reloadApps()
         refreshColors()
+        resumeLiveWallpaper()
     }
 
     /// `shell.kill`: every surface goes; services keep running.
     public func stop() {
+        liveWallpaper.stop(clearRecord: false)
         calibration?.close()
         calibration = nil
         cornerRadiusTrials.removeAll()
@@ -900,7 +903,10 @@ public final class ShellController {
             })
         }
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reassertSoon() }
+            MainActor.assumeIsolated {
+                self?.reassertSoon()
+                self?.liveWallpaper.screensChanged()
+            }
         })
 
         // Clock: tick on the minute.
@@ -958,6 +964,7 @@ public final class ShellController {
     }
 
     private func applyBattery(_ s: BatteryState) {
+        liveWallpaper.update(battery: s)
         state.status.hasBattery = s.hasBattery
         state.status.batteryPercent = s.percent
         state.status.batteryCharging = s.isCharging

@@ -51,18 +51,24 @@ public final class WallpaperService {
         let key = WallpaperLibrary.thumbnailKey(path: url.path, modified: modified, size: size)
         let cached = cacheDir.appendingPathComponent(key + ".jpg")
         if let data = try? Data(contentsOf: cached), let img = NSImage(data: data) { return img }
-        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let opts: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: thumbnailSize,
-        ]
-        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        guard let cg = thumbnailImage(url, maxPixel: thumbnailSize) else { return nil }
         let rep = NSBitmapImageRep(cgImage: cg)
         if let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) {
             try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
             try? jpeg.write(to: cached, options: .atomic)
         }
         return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+    }
+
+    /// A downsampled image of a picture, or the first frame of a live wallpaper. Blocks.
+    public nonisolated static func thumbnailImage(_ url: URL, maxPixel: Int) -> CGImage? {
+        if WallpaperLibrary.isLive(url) { return LiveWallpaperStill.firstFrame(url, maxPixel: maxPixel) }
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
     }
 
     /// Sets the desktop picture on all displays. Returns false (with a reason) on failure.

@@ -79,7 +79,7 @@ struct ModePicker: View {
 struct AppearancePage: View {
     @ObservedObject var store: SettingsStore
     @Environment(\.look) var look
-    @State private var wallpapers: [URL] = []
+    @State private var wallpaperGroups: [WallpaperLibrary.Group] = []
     @State private var calibrationDisplays: [DisplayInfo] = []
 
     var body: some View {
@@ -107,14 +107,25 @@ struct AppearancePage: View {
             Card {
                 SectionLabel(text: "Wallpaper")
                 Text(store.config.appearance.wallpaperFolder).font(look.mono(11.5)).foregroundStyle(look[.onSurfaceVariant])
-                if wallpapers.isEmpty {
-                    Text("No pictures in this folder yet.").font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
+                if wallpaperGroups.isEmpty {
+                    Text("No pictures or videos in this folder yet.").font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
                 } else {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                        ForEach(wallpapers.prefix(16), id: \.self) { url in
-                            WallpaperThumb(url: url) { store.setWallpaper(url) }
+                    ForEach(wallpaperGroups) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Text(group.title).font(look.font(12.5, .semibold)).foregroundStyle(look[.onSurface])
+                                Text(group.liveCount == group.urls.count ? "\(group.urls.count) live" : "\(group.urls.count)")
+                                    .font(look.font(11.5)).foregroundStyle(look[.onSurfaceVariant])
+                            }
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
+                                ForEach(group.urls.prefix(16), id: \.self) { url in
+                                    WallpaperThumb(url: url) { store.setWallpaper(url) }
+                                }
+                            }
                         }
                     }
+                    Text("Videos (.mp4, .mov) loop muted on the desktop, and pause on battery, in Low Power Mode and when windows cover them.")
+                        .font(look.font(11.5)).foregroundStyle(look[.onSurfaceVariant])
                 }
                 HStack {
                     PillButton(title: "Choose a picture…", icon: "photo.on.rectangle", kind: .tonal) { pickWallpaper() }
@@ -155,14 +166,14 @@ struct AppearancePage: View {
             }
         }
         .onAppear {
-            wallpapers = WallpaperLibrary.scan(folder: WallpaperLibrary.folderURL(store.config.appearance.wallpaperFolder)).urls
+            wallpaperGroups = WallpaperLibrary.scan(folder: WallpaperLibrary.folderURL(store.config.appearance.wallpaperFolder)).groups
             calibrationDisplays = DisplayInfo.all()
         }
     }
 
     private func pickWallpaper() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
+        panel.allowedContentTypes = [.image, .movie]
         panel.canChooseDirectories = false
         panel.directoryURL = WallpaperLibrary.folderURL(store.config.appearance.wallpaperFolder)
         if panel.runModal() == .OK, let url = panel.url { store.setWallpaper(url) }
@@ -204,9 +215,13 @@ struct WallpaperThumb: View {
     @Environment(\.look) var look
     var body: some View {
         Button(action: action) {
-            ZStack {
+            ZStack(alignment: .bottomLeading) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous).fill(look[.surfaceContainerHighest])
-                if let image { Image(nsImage: image).resizable().aspectRatio(contentMode: .fill) }
+                if let image { Image(nsImage: image).resizable().aspectRatio(contentMode: .fill).frame(minWidth: 0, maxWidth: .infinity) }
+                if WallpaperLibrary.isLive(url) {
+                    Image(systemName: "play.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                        .padding(5).background(Circle().fill(.black.opacity(0.45))).padding(6)
+                }
             }
             .frame(height: 68)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -222,12 +237,7 @@ struct WallpaperThumb: View {
 enum Thumbnailer {
     static func thumbnail(_ url: URL, maxPixel: Int) async -> NSImage? {
         await Task.detached(priority: .utility) {
-            guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-                let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel,
-                    kCGImageSourceCreateThumbnailWithTransform: true,
-                ] as CFDictionary)
-            else { return nil }
+            guard let cg = WallpaperService.thumbnailImage(url, maxPixel: maxPixel) else { return nil }
             return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
         }.value
     }

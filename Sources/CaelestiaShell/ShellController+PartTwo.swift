@@ -236,11 +236,12 @@ extension ShellController {
         wallpaperPanel = panel
         panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: CGSize(width: body.width + 2 * fillet, height: body.height), edge: .bottom, barReveal: reveal),
                                               edge: .bottom, room: theme.overshootRoom(depth: body.height)), display: false)
-        wallpaperPicker.current = wallpaper.current()
+        wallpaperPicker.current = displayedWallpaper
         wallpaperPicker.loading = true
         wallpaper.scan(folder: state.config.appearance.wallpaperFolder) { [weak self] result in
             guard let self else { return }
             self.wallpaperPicker.items = result.urls
+            self.wallpaperPicker.groups = result.groups
             self.wallpaperPicker.message = result.message
             self.wallpaperPicker.loading = false
             self.state.wallpapers = result.urls
@@ -462,20 +463,62 @@ extension ShellController {
     // MARK: Wallpaper and dynamic colours
 
     public func setWallpaper(_ url: URL) {
+        if WallpaperLibrary.isLive(url) { return setLiveWallpaper(url) }
         if let failure = wallpaper.apply(url) {
             toast(.error, title: "Wallpaper not set", message: failure)
             return
         }
+        liveWallpaper.stop()
         wallpaperPicker.current = url
         state.currentWallpaper = url
         refreshColors()
     }
 
+    /// A video: its first frame becomes the desktop picture (lock screen, colours), then the
+    /// video loops above it.
+    func setLiveWallpaper(_ video: URL) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let still = LiveWallpaperStill.makeStill(for: video)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let still else {
+                        self.toast(.error, title: "Live wallpaper not set", message: "Could not read a frame of \(video.lastPathComponent)")
+                        return
+                    }
+                    if let failure = self.wallpaper.apply(still) {
+                        self.toast(.error, title: "Wallpaper not set", message: failure)
+                        return
+                    }
+                    self.liveWallpaper.play(video: video, still: still)
+                    self.wallpaperPicker.current = video
+                    self.state.currentWallpaper = still
+                    self.refreshColors()
+                }
+            }
+        }
+    }
+
+    /// After a WM / shell restart: loop the live wallpaper again if macOS still shows its still.
+    func resumeLiveWallpaper() {
+        guard liveWallpaper.video == nil, let record = liveWallpaper.record else { return }
+        let desktop = NSScreen.main.flatMap { NSWorkspace.shared.desktopImageURL(for: $0) }
+        guard record.isCurrent(desktopPicture: desktop) else {
+            liveWallpaper.stop()  // forgets the record
+            return
+        }
+        liveWallpaper.play(video: URL(fileURLWithPath: record.video), still: URL(fileURLWithPath: record.still))
+        liveWallpaper.update(battery: battery.state)
+        wallpaperPicker.current = liveWallpaper.video
+    }
+
+    /// The wallpaper as the user picked it: the video when a live wallpaper loops.
+    public var displayedWallpaper: URL? { liveWallpaper.video ?? wallpaper.current() }
+
     public func randomWallpaper() {
         wallpaper.scan(folder: state.config.appearance.wallpaperFolder) { [weak self] result in
             guard let self else { return }
             var rng = SystemRandomNumberGenerator()
-            guard let url = WallpaperLibrary.random(from: result.urls, excluding: self.wallpaper.current(), using: &rng) else {
+            guard let url = WallpaperLibrary.random(from: result.urls, excluding: self.displayedWallpaper, using: &rng) else {
                 self.toast(.warn, title: "No wallpapers", message: result.message ?? "The wallpaper folder is empty")
                 return
             }

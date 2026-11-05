@@ -269,7 +269,7 @@ final class WallpaperLibraryTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: d) }
         let empty = WallpaperLibrary.scan(folder: d)
         XCTAssertTrue(empty.urls.isEmpty)
-        XCTAssertTrue(empty.message?.hasPrefix("No images") == true)
+        XCTAssertTrue(empty.message?.hasPrefix("No wallpapers") == true)
         let file = d.appendingPathComponent("x.jpg")
         FileManager.default.createFile(atPath: file.path, contents: Data([1]))
         XCTAssertTrue(WallpaperLibrary.scan(folder: file).message?.hasPrefix("Not a folder") == true)
