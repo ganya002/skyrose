@@ -682,7 +682,8 @@ public final class WindowManager {
             nextManageSerial += 1
         }
         let focus = !isDiscovering && effects.noInitialFocus != true && effects.noFocus != true && d.isStandardWindow
-        guard state.addWindow(id, to: target, floating: floating, cursor: windowSystem.cursorLocation, focus: focus, env: environment) else {
+        guard state.addWindow(id, to: target, floating: floating, cursor: windowSystem.cursorLocation,
+                              size: frame.isNull ? nil : frame.size, focus: focus, env: environment) else {
             forget(id)
             return
         }

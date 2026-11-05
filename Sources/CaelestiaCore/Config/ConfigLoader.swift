@@ -373,6 +373,8 @@ public enum ConfigLoader {
         let d = wm.dwindle
         check(d.forceSplit >= 0 && d.forceSplit <= 2, "wm.dwindle.forceSplit", "must be 0, 1 or 2 (got \(d.forceSplit))")
         positive(d.splitWidthMultiplier, "wm.dwindle.splitWidthMultiplier")
+        nonNegative(d.minTileWidth, "wm.dwindle.minTileWidth")
+        nonNegative(d.minTileHeight, "wm.dwindle.minTileHeight")
         check(d.minSplitRatio > 0 && d.minSplitRatio < 2, "wm.dwindle.minSplitRatio", "must be in (0, 2) (got \(d.minSplitRatio))")
         check(d.maxSplitRatio > 0 && d.maxSplitRatio < 2, "wm.dwindle.maxSplitRatio", "must be in (0, 2) (got \(d.maxSplitRatio))")
         check(d.minSplitRatio <= d.maxSplitRatio, "wm.dwindle.minSplitRatio", "must be <= maxSplitRatio")

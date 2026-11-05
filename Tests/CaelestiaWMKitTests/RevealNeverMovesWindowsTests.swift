@@ -114,17 +114,17 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
         let windows = [h.system.existing("a", frame: CGRect(x: 300, y: 100, width: 600, height: 400)),
                        h.system.existing("e", frame: CGRect(x: 1700, y: 100, width: 800, height: 500))]
         h.start()
-        XCTAssertEqual(h.wm.usableArea(of: air).minX, 48)
-        XCTAssertEqual(h.wm.usableArea(of: ext).minX, ext.frame.minX + 48)
-        for w in windows { XCTAssertGreaterThanOrEqual(w.frame.minX, 48) }
+        XCTAssertEqual(h.wm.usableArea(of: air).minX, 60)
+        XCTAssertEqual(h.wm.usableArea(of: ext).minX, ext.frame.minX + 60)
+        for w in windows { XCTAssertGreaterThanOrEqual(w.frame.minX, 60) }
         let before = snapshot(h, windows)
         for revealed in [true, false, true] {
             h.wm.setBarRevealed(revealed, display: "air")
             h.wm.setBarRevealed(revealed, display: "ext")
             XCTAssertFalse(h.wm.needsLayout)
             XCTAssertEqual(h.settle(), 0)
-            XCTAssertEqual(h.wm.usableArea(of: air).minX, 48)
-            XCTAssertEqual(h.wm.usableArea(of: ext).minX, ext.frame.minX + 48)
+            XCTAssertEqual(h.wm.usableArea(of: air).minX, 60)
+            XCTAssertEqual(h.wm.usableArea(of: ext).minX, ext.frame.minX + 60)
             XCTAssertEqual(snapshot(h, windows), before)
         }
     }
@@ -136,7 +136,7 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
         config.displays["ext"] = o
         let h = Harness(displays: [air, ext], config: config)
         XCTAssertEqual(h.wm.usableArea(of: air).minX, 10)
-        XCTAssertEqual(h.wm.usableArea(of: ext).minX, ext.frame.minX + 48)
+        XCTAssertEqual(h.wm.usableArea(of: ext).minX, ext.frame.minX + 60)
         h.wm.setBarRevealed(true, display: "air")
         XCTAssertEqual(h.wm.usableArea(of: air).minX, 10)
     }
@@ -292,7 +292,7 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
     func testPersistentBarNeverTellsTheWMAnythingOnPointerMoves() throws {
         let r = rig(persistent: true)
         defer { r.shell.stop() }
-        XCTAssertEqual(r.h.wm.usableArea(of: TestDisplays.air).minX, 48)
+        XCTAssertEqual(r.h.wm.usableArea(of: TestDisplays.air).minX, 60)
         let before = snapshot(r.h, r.windows)
         let layout = try XCTUnwrap(r.shell.layouts["air"])
         for p in [CGPoint(x: layout.area.minX + 1, y: layout.area.midY), CGPoint(x: layout.area.midX, y: layout.area.midY),
@@ -301,7 +301,7 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
         }
         XCTAssertTrue(r.shell.visibility["air"]?.isShown ?? false)
         XCTAssertTrue(r.host.reservations.isEmpty)
-        XCTAssertEqual(r.h.wm.usableArea(of: TestDisplays.air).minX, 48, "the persistent bar still reserves its width")
+        XCTAssertEqual(r.h.wm.usableArea(of: TestDisplays.air).minX, 60, "the persistent bar still reserves its width")
         assertUntouched(r, before, "persistent")
     }
 

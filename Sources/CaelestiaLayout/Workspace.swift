@@ -23,6 +23,8 @@ public struct Workspace: Sendable, Hashable, Codable {
     public var focusHistory: [WindowID]
     /// Windows in the order they arrived on the workspace (Hyprland `cyclenext` order).
     public var order: [WindowID]
+    /// Pseudotiled windows (Hyprland `pseudo`) and the size each keeps, centred in its slot.
+    public var pseudo: [WindowID: CGSize] = [:]
 
     public init(id: WorkspaceID, displayID: String) {
         self.id = id
@@ -68,14 +70,22 @@ public struct Workspace: Sendable, Hashable, Codable {
         pinned.remove(window)
         if fullscreen == window { fullscreen = nil }
         if maximized == window { maximized = nil }
+        pseudo[window] = nil
         focusHistory.removeAll { $0 == window }
         order.removeAll { $0 == window }
         return found
     }
 
-    mutating func addTiled(_ window: WindowID, cursor: CGPoint?, area: CGRect, config: DwindleConfig) {
-        tree.insert(window, relativeTo: lastFocusedTiled, cursor: cursor, in: area, config: config)
+    /// Tiles a new window next to the last focused tiled one. With `tilePadding` (gaps + border
+    /// per axis) the dwindle minimum tile size is enforced: false when no tile has room left (the
+    /// window was not added).
+    @discardableResult
+    mutating func addTiled(_ window: WindowID, cursor: CGPoint?, area: CGRect, config: DwindleConfig, tilePadding: Double? = nil) -> Bool {
+        tree.insert(window, relativeTo: lastFocusedTiled, cursor: cursor, in: area, config: config,
+                    enforceMinTile: tilePadding != nil, tilePadding: tilePadding ?? 0)
+        guard tree.contains(window) else { return false }
         if !order.contains(window) { order.append(window) }
+        return true
     }
 
     mutating func addFloating(_ window: WindowID, frame: CGRect) {

@@ -18,7 +18,7 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(wm.borderSize, 1)
         XCTAssertEqual(wm.windowRounding, 15)
         XCTAssertEqual(wm.popupRounding, 10)
-        XCTAssertEqual(wm.windowOpacity, 0.94)
+        XCTAssertEqual(wm.windowOpacity, 0.95)
         XCTAssertEqual(wm.screenFrameInset, 10)
         XCTAssertTrue(wm.dwindle.preserveSplit)
         XCTAssertFalse(wm.dwindle.smartSplit)

@@ -2,7 +2,7 @@
 
 **You do not need this.** Standard mode (SIP fully on, public APIs only) tiles, switches
 workspaces, draws borders, the bar and every panel. Enhanced mode only adds what macOS forbids
-from outside the window server: real window opacity (0.94), scale/alpha animations of other
+from outside the window server: real window opacity (0.95), scale/alpha animations of other
 apps' windows, instant moves, always-on-top and focus-without-raise.
 
 ## What it changes on your Mac

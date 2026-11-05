@@ -113,6 +113,7 @@ extension ActionKind {
             return .windowCycling
         case .windowFocus, .windowSwap, .windowResize, .windowDrag, .windowResizeDrag, .windowCenter,
             .windowNormalize, .windowPip, .windowPin, .windowFullscreen, .windowMaximize, .windowToggleFloat,
+            .windowPseudo, .layoutToggleSplit, .layoutSwapSplit,
             .windowClose:
             return .windows
         case .specialToggle:

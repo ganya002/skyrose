@@ -88,7 +88,7 @@ final class WindowMotionTests: XCTestCase {
         m.apply(request([WindowFrameChange(id: 1, kind: .open, from: nil, to: a)], [win(1, a)]), at: 0)
         let s0 = sample(m, 1, at: 0)!
         XCTAssertEqual(s0.alpha, 0, accuracy: 0.05)
-        XCTAssertEqual(s0.scale, 0.85, accuracy: 0.01)
+        XCTAssertEqual(s0.scale, 0.8, accuracy: 0.01, "Arch popin 80 %")
         XCTAssertLessThan(s0.scale, 1)
         XCTAssertFalse(m.isSettled(at: 0.01))
         let end = sample(m, 1, at: 10)!

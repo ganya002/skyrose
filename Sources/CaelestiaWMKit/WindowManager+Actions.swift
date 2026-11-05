@@ -113,6 +113,15 @@ extension WindowManager {
         case .windowCenter:
             guard let f = focused, let frame = floatingFrame(f), let area = area(of: f) else { return false }
             done = state.setFloatingFrame(f, centered(frame.size, in: area))
+        case .windowPseudo:
+            guard let f = focused else { return false }
+            done = state.togglePseudo(f)
+        case .layoutToggleSplit:
+            guard let f = focused else { return false }
+            done = state.updateTree(of: f) { $0.toggleSplit(f) } ?? false
+        case .layoutSwapSplit:
+            guard let f = focused else { return false }
+            done = state.updateTree(of: f) { $0.swapSplit(f) } ?? false
         case .windowNormalize:
             guard let f = focused, let area = area(of: f) else { return false }
             let size = CGSize(width: floor(area.width * 0.55), height: floor(area.height * 0.7))

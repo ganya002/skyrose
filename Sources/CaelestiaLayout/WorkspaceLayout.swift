@@ -28,6 +28,16 @@ public enum WorkspaceLayout {
         let params = LayoutParams(wm: config, singleWindowGaps: !workspace.id.isSpecial, groupBarHeight: groupBarHeight)
         let border = params.borderSize
         var placements = workspace.tree.layout(area: area, params: params, minSizes: minSizes)
+        if !workspace.pseudo.isEmpty {
+            for i in placements.indices {
+                guard let size = workspace.pseudo[placements[i].window] else { continue }
+                let frame = pseudoFrame(size, in: placements[i].frame)
+                let bar = placements[i].frame.minY - placements[i].borderFrame.minY - border
+                placements[i].frame = frame
+                placements[i].borderFrame = CGRect(x: frame.minX - border, y: frame.minY - bar - border,
+                                                   width: frame.width + 2 * border, height: frame.height + bar + 2 * border)
+            }
+        }
 
         for window in workspace.floatingOrder {
             guard let stored = workspace.floating[window] else { continue }
@@ -52,5 +62,22 @@ public enum WorkspaceLayout {
         }
 
         return placements
+    }
+
+    /// Hyprland's pseudotile maths: the window keeps `size` centred in `slot`; when it does not
+    /// fit it is scaled down (aspect kept) to fit, then centred. Integral points.
+    public static func pseudoFrame(_ size: CGSize, in slot: CGRect) -> CGRect {
+        guard size.width > 0, size.height > 0 else { return slot }
+        var w = size.width, h = size.height
+        if w > slot.width || h > slot.height {
+            var scale = 1.0
+            if w > slot.width { scale = slot.width / w }
+            if h * scale > slot.height { scale = slot.height / h }
+            w *= scale
+            h *= scale
+        }
+        w = w.rounded(.down)
+        h = h.rounded(.down)
+        return CGRect(x: (slot.minX + (slot.width - w) / 2).rounded(), y: (slot.minY + (slot.height - h) / 2).rounded(), width: w, height: h)
     }
 }

@@ -264,11 +264,12 @@ final class MotionTests: XCTestCase {
     func testGabbySpringyTableValues() {
         let t = AnimationTable.gabbySpringy
         XCTAssertEqual(t[.global], .bezier(.default, milliseconds: 800))
-        XCTAssertEqual(t[.windowsOut].durationMs, 180)
+        // Arch parity (2026-11-05 capture): close = emphasizedAccel 240 ms, open pops in from 80 %.
+        XCTAssertEqual(t[.windowsOut].durationMs, 240)
         XCTAssertEqual(t[.windowsOut].curve, .bezier(.emphasizedAccel))
-        XCTAssertEqual(t[.windowsOut].style, .popin(scale: 0.85))
+        XCTAssertEqual(t[.windowsOut].style, .popin(scale: 0.8))
         XCTAssertEqual(t[.windowsIn].curve, .spring(.snappy))
-        XCTAssertEqual(t[.windowsIn].style, .popin(scale: 0.85))
+        XCTAssertEqual(t[.windowsIn].style, .popin(scale: 0.8))
         XCTAssertEqual(t[.windowsIn].durationMs, Spring.snappy.settlingTime() * 1000, accuracy: 1e-9)
         XCTAssertEqual(t[.windowsIn].durationMs, 303, accuracy: 1)
         XCTAssertEqual(t[.windowsMove], .spring(.snappy))
@@ -282,7 +283,8 @@ final class MotionTests: XCTestCase {
         for name in [AnimationName.fade, .fadeDim] {
             XCTAssertEqual(t[name], .bezier(.standard, milliseconds: 200), "\(name)")
         }
-        XCTAssertEqual(t[.border], .bezier(.standard, milliseconds: 240))
+        // Border colour fade: Arch's 480 ms standard (a colour change; Gabby kept it over the cap).
+        XCTAssertEqual(t[.border], .bezier(.standard, milliseconds: 480))
         for name in [AnimationName.borderangle, .glowangle, .shadowangle] {
             XCTAssertFalse(t[name].enabled, "\(name)")
             XCTAssertEqual(t[name].progress(at: 0), 1, "\(name)")
@@ -377,13 +379,13 @@ final class MotionTests: XCTestCase {
 
         let windowsIn = t[.windowsIn]
         XCTAssertEqual(windowsIn.durationMs, 400, accuracy: 1e-9)
-        XCTAssertEqual(windowsIn.style, .popin(scale: 0.85))
+        XCTAssertEqual(windowsIn.style, .popin(scale: 0.8))
         guard case .spring(let spring) = windowsIn.curve else { return XCTFail("windowsIn must stay a spring") }
         XCTAssertEqual(spring.dampingRatio, Spring.snappy.dampingRatio, accuracy: 1e-12)
         XCTAssertLessThan(abs(spring.position(at: 0.4) - 1), 0.0011)
         XCTAssertGreaterThanOrEqual(abs(spring.position(at: 0.39) - 1), 0.0009)
 
-        XCTAssertEqual(t[.windowsOut], AnimationSpec(enabled: false, curve: .bezier(.standard), durationMs: 180, style: .slide))
+        XCTAssertEqual(t[.windowsOut], AnimationSpec(enabled: false, curve: .bezier(.standard), durationMs: 240, style: .slide))
         XCTAssertEqual(t[.workspaces].curve, .spring(.riko))
         XCTAssertEqual(t[.workspaces].durationMs, Spring.riko.settlingTime() * 1000, accuracy: 1e-9)
         XCTAssertEqual(t[.workspaces].style, .slide)

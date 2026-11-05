@@ -363,14 +363,16 @@ public struct AnimationTable: Sendable, Equatable, Codable {
 
     /// Gabby's springy table, tuned shorter for macOS (round 4 of real-hardware testing: the
     /// riko spring's ~600 ms felt slow): windowsIn / windowsMove on the snappy spring (≈ 300 ms to
-    /// settle, popin 85 % for windowsIn), windowsOut a 180 ms accelerating shrink + fade, the
-    /// workspace slides on the snappy spring too. Nothing in the window set exceeds 350 ms.
+    /// settle), the workspace slides on the snappy spring too. Nothing that moves exceeds 350 ms.
+    /// Arch parity (2026-11-05 capture): windowsIn pops in from 80 %, windowsOut is Arch's own
+    /// 240 ms `emphasizedAccel` shrink + fade, and the border colour fade keeps Arch's 480 ms
+    /// `standard` (a colour change, nothing moves; chosen by Gabby over the 350 ms cap).
     /// The riko spring is still available as `curve = "riko"` in an override.
     public static func gabbySpringy(shellScale: Double = 0.8) -> AnimationTable {
         var t = caelestiaStock(shellScale: shellScale)
-        t[.windowsIn] = .spring(.snappy, style: .popin(scale: 0.85))
+        t[.windowsIn] = .spring(.snappy, style: .popin(scale: 0.8))
         t[.windowsMove] = .spring(.snappy)
-        t[.windowsOut] = .bezier(.emphasizedAccel, milliseconds: 180, style: .popin(scale: 0.85))
+        t[.windowsOut] = .bezier(.emphasizedAccel, milliseconds: 240, style: .popin(scale: 0.8))
         // Springs, not the front-loaded "snappy" Bézier: that one covers 62 % of a slide in its
         // first 7 % of time, so a full-screen slide moved ~900 pt in one frame (live, round 4).
         t[.workspaces] = .spring(.snappy, style: .slide)
@@ -379,7 +381,7 @@ public struct AnimationTable: Sendable, Equatable, Codable {
         t[.specialWorkspace] = .spring(.snappy, style: .slideFadeVert(percent: 0.15))
         t[.fade] = .bezier(.standard, speed: 2)
         t[.fadeDim] = .bezier(.standard, speed: 2)
-        t[.border] = .bezier(.standard, speed: 2.4)
+        t[.border] = .bezier(.standard, speed: 4.8)
         return t
     }
 

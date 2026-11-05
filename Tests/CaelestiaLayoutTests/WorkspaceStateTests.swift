@@ -153,7 +153,8 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertEqual(s[.numbered(1)]?.floating[1], rect)
         XCTAssertTrue(s.setFloating(1, false, env: env))
         XCTAssertTrue(s.toggleFloating(1, env: env))
-        XCTAssertEqual(s[.numbered(1)]?.floating[1], rect, "last floating frame is reused")
+        // Hyprland re-floats at the remembered *size*, centred on the window's tile (ops21).
+        XCTAssertEqual(s[.numbered(1)]?.floating[1]?.size, rect.size, "last floating size is reused")
     }
 
     func testPinRequiresFloating() {

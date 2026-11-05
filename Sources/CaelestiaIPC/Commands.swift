@@ -220,6 +220,9 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case windowPin = "window.pin"
     case windowClose = "window.close"
     case windowCenter = "window.center"
+    case windowPseudo = "window.pseudo"
+    case windowToggleSplit = "window.toggleSplit"
+    case windowSwapSplit = "window.swapSplit"
 
     /// Generic dispatcher: any `ActionKind` raw value with its arguments.
     case action
@@ -377,6 +380,12 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.window, "Close the focused window (killactive).")
         case .windowCenter:
             return IPCCommandSpec(.window, "Center the focused floating window.")
+        case .windowPseudo:
+            return IPCCommandSpec(.window, "Toggle pseudotiling (pseudo): the tiled window keeps its own size, centred in its slot.")
+        case .windowToggleSplit:
+            return IPCCommandSpec(.window, "Flip the split of the focused window's pair (dwindle togglesplit).")
+        case .windowSwapSplit:
+            return IPCCommandSpec(.window, "Swap the two sides of the focused window's pair (dwindle swapsplit).")
 
         case .action:
             return IPCCommandSpec(.wm, "Run any keymap action by name.", arguments: [IPCArgument("action", .string, help: "an ActionKind raw value, e.g. workspace.next"), .optional("args", .object, help: "action arguments")], returns: "null")
@@ -504,6 +513,9 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
         case .windowPin: return .windowPin
         case .windowClose: return .windowClose
         case .windowCenter: return .windowCenter
+        case .windowPseudo: return .windowPseudo
+        case .windowToggleSplit: return .layoutToggleSplit
+        case .windowSwapSplit: return .layoutSwapSplit
         case .shellLauncher: return .launcherToggle
         case .shellDashboard: return .dashboardToggle
         case .shellSidebar: return .sidebarToggle

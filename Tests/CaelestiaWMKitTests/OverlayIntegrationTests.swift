@@ -268,7 +268,7 @@ final class OverlayIntegrationTests: XCTestCase {
         XCTAssertEqual(group.titles.first, "a")
         XCTAssertEqual(group.activeIndex, 0)
         let frame = try XCTUnwrap(h.wm.visiblePlacements[a.windowID]?.frame)
-        let reserved = h.wm.config.wm.groupBarHeight + h.wm.config.wm.groupBarGaps
+        let reserved = h.wm.config.wm.groupBarHeight + 2 * h.wm.config.wm.groupBarGaps
         XCTAssertEqual(frame.minY - border.frame.minY, 1 + reserved, "bar strip between the top border and the window")
         XCTAssertNotNil(d.lastScene?.borders.first { $0.id == b.windowID })
         assertNoGhosts(h, d, "group")

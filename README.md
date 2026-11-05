@@ -80,7 +80,7 @@ Panic chord (always on): **⌃⌥⌘⇧Esc** stops tiling and brings every windo
 | Instant workspace switch | ~fast; AX moves 5–30 ms per window | instant (SkyLight batch) |
 | Window borders | overlay windows | overlay or SA-drawn |
 | Rounded 15 px window corners | overlay stroke + optional corner caps (can't clip other apps) | no (macOS draws its own ≈10 pt corners; Tahoe ≈16 pt) |
-| Window opacity 0.94 | no | yes |
+| Window opacity 0.95 | no | yes |
 | Window blur behind | no | partial |
 | Open/close/move/drag animations | snapshot stills animate on an overlay, real windows move once underneath (app-initiated closes: neighbours only) | planned: real windows via the SA (`WindowAnimator` hook) |
 | Special workspace slide-in | snapshot slide/fade, then snap | real windows slide |

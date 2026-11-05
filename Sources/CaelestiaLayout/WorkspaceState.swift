@@ -27,6 +27,9 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     public private(set) var focusedDisplay: String?
     /// Last floating frame of every window that has floated (Hyprland `m_lastFloatingSize`).
     public private(set) var lastFloatingFrames: [WindowID: CGRect]
+    /// The size each window had when it was first managed (Hyprland's initial `m_lastFloatingSize`
+    /// / pseudo size): used by float and pseudo for windows that never floated.
+    public private(set) var naturalSizes: [WindowID: CGSize] = [:]
 
     public init() {
         workspaces = [:]
@@ -144,20 +147,30 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     /// (Hyprland focuses new windows) it becomes the focused window when its workspace is visible,
     /// and that workspace's last focused window otherwise. Returns false if the window is already
     /// managed or no display is registered.
+    ///
+    /// `size` is the window's own size when it appeared (remembered for float and pseudo). When no
+    /// tile has room for another split (dwindle `minTileWidth/Height`), the window floats centred
+    /// at that size instead.
     @discardableResult
     public mutating func addWindow(
         _ id: WindowID, to target: WorkspaceID? = nil, floating frame: CGRect? = nil, cursor: CGPoint? = nil,
-        focus: Bool = true, env: LayoutEnvironment
+        size: CGSize? = nil, focus: Bool = true, env: LayoutEnvironment
     ) -> Bool {
         guard workspace(of: id) == nil, let display = focusedDisplay ?? displays.first else { return false }
         ensureDisplay(display)
         let wsID = target ?? activeWorkspace(forDisplay: display)!
         let wsDisplay = ensureWorkspace(wsID, preferredDisplay: display)
+        if let size, size.width > 0, size.height > 0, naturalSizes[id] == nil { naturalSizes[id] = size }
         if let frame {
             workspaces[wsID]!.addFloating(id, frame: frame)
             lastFloatingFrames[id] = frame
         } else {
-            workspaces[wsID]!.addTiled(id, cursor: cursor, area: env.area(forDisplay: wsDisplay), config: env.config.dwindle)
+            let area = env.area(forDisplay: wsDisplay)
+            if !workspaces[wsID]!.addTiled(id, cursor: cursor, area: area, config: env.config.dwindle, tilePadding: Self.tilePadding(env.config)) {
+                let f = Self.centred(naturalSizes[id], in: area)
+                workspaces[wsID]!.addFloating(id, frame: f)
+                lastFloatingFrames[id] = f
+            }
         }
         if focus {
             if isVisible(wsID) {
@@ -178,6 +191,7 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         guard let wsID = workspace(of: id) else { return nil }
         workspaces[wsID]!.detach(id)
         lastFloatingFrames[id] = nil
+        naturalSizes[id] = nil
         if focusedWindow == id { focusedWindow = nil }
         prune(wsID)
         return wsID
@@ -195,6 +209,7 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         let wasFocused = focusedWindow == id
         workspaces[wsID]!.detach(id)
         lastFloatingFrames[id] = nil
+        naturalSizes[id] = nil
         prune(wsID)
 
         var candidate: WindowID?
@@ -297,9 +312,11 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         return workspaces[wsID]!.tree.move(id, direction, in: area, config: env.config.dwindle, focusHistory: history)
     }
 
-    /// Hyprland `togglefloating`. Floating uses `frame`, else the window's last floating frame,
-    /// else a 60%×70% rect centred in the usable area. Tiling inserts the window at the leaf under
-    /// its centre and drops its pin. Fullscreen/maximized windows are refused (false).
+    /// Hyprland `togglefloating`. Floating uses `frame`, else the window's last floating size (or
+    /// its natural size, or 60%×70% of the area) centred on the centre of its tile, like Hyprland
+    /// (ops10: a 1280×1410 float centred on its 1263×1398 slot), kept on-screen. Tiling inserts
+    /// the window at the leaf under its centre and drops its pin. Fullscreen/maximized windows are
+    /// refused (false).
     @discardableResult
     public mutating func setFloating(_ id: WindowID, _ floating: Bool, frame: CGRect? = nil, env: LayoutEnvironment) -> Bool {
         guard let wsID = workspace(of: id), var ws = workspaces[wsID] else { return false }
@@ -307,7 +324,18 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         let area = env.area(forDisplay: ws.displayID)
         if floating {
             guard ws.floating[id] == nil else { return false }
-            let f = frame ?? lastFloatingFrames[id] ?? Self.defaultFloatingFrame(in: area)
+            var f: CGRect
+            if let frame {
+                f = frame
+            } else {
+                let size = lastFloatingFrames[id]?.size ?? naturalSizes[id] ?? Self.defaultFloatingFrame(in: area).size
+                let params = LayoutParams(wm: env.config, singleWindowGaps: !wsID.isSpecial)
+                let slot = ws.tree.layout(area: area, params: params).first { $0.window == id }?.frame
+                let centre = slot.map { CGPoint(x: $0.midX, y: $0.midY) } ?? CGPoint(x: area.midX, y: area.midY)
+                f = HyprGeometry.clamp(CGRect(x: (centre.x - size.width / 2).rounded(), y: (centre.y - size.height / 2).rounded(),
+                                              width: size.width, height: size.height), to: area)
+            }
+            ws.pseudo[id] = nil
             ws.tree.remove(id)
             ws.addFloating(id, frame: f)
             lastFloatingFrames[id] = f
@@ -363,6 +391,26 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
             if workspaces[wsID]!.fullscreen == id { workspaces[wsID]!.fullscreen = nil }
         }
         return true
+    }
+
+    /// Hyprland `pseudo`: a tiled window keeps its own size (last floating size, else its natural
+    /// size) centred in its slot, scaled down to fit. Toggles; refused for floating windows and
+    /// windows whose size is unknown.
+    @discardableResult
+    public mutating func togglePseudo(_ id: WindowID) -> Bool {
+        guard let wsID = workspace(of: id), var ws = workspaces[wsID], ws.tree.contains(id) else { return false }
+        if ws.pseudo[id] != nil {
+            ws.pseudo[id] = nil
+        } else {
+            guard let size = lastFloatingFrames[id]?.size ?? naturalSizes[id], size.width > 0, size.height > 0 else { return false }
+            ws.pseudo[id] = size
+        }
+        workspaces[wsID] = ws
+        return true
+    }
+
+    public func isPseudo(_ id: WindowID) -> Bool {
+        workspace(of: id).flatMap { workspaces[$0]?.pseudo[id] } != nil
     }
 
     /// Hyprland `pin`: only floating, non-fullscreen windows can be pinned. The window moves to
@@ -572,6 +620,18 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     }
 
     /// 60%×70% of the area, centred (first-time float without a remembered frame).
+    /// Gaps and border a tile loses per axis (conservative: the larger gap on both sides).
+    static func tilePadding(_ config: WMConfig) -> Double {
+        config.gameMode ? 0 : 2 * max(config.gapsIn, config.gapsOut) + 2 * config.borderSize
+    }
+
+    /// `size` (else the default float size) centred in `area`, clamped to it.
+    static func centred(_ size: CGSize?, in area: CGRect) -> CGRect {
+        guard let size else { return defaultFloatingFrame(in: area) }
+        let w = min(size.width, area.width), h = min(size.height, area.height)
+        return CGRect(x: (area.midX - w / 2).rounded(), y: (area.midY - h / 2).rounded(), width: w, height: h)
+    }
+
     static func defaultFloatingFrame(in area: CGRect) -> CGRect {
         let w = (area.width * 0.6).rounded()
         let h = (area.height * 0.7).rounded()

@@ -45,6 +45,9 @@ public enum ActionKind: String, Codable, Sendable, CaseIterable {
     case windowDrag = "window.drag"  // mouse flag
     case windowResizeDrag = "window.resizeDrag"  // mouse flag
     case windowCenter = "window.center"
+    case windowPseudo = "window.pseudo"
+    case layoutToggleSplit = "layout.toggleSplit"
+    case layoutSwapSplit = "layout.swapSplit"
     case windowNormalize = "window.normalize"
     case windowPip = "window.pip"
     case windowPin = "window.pin"

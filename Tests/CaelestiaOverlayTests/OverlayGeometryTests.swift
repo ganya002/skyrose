@@ -12,13 +12,13 @@ final class OverlayGeometryTests: XCTestCase {
         for n in 1...6 {
             let tabs = GroupBarGeometry.tabs(count: n, in: frame, style: style)
             XCTAssertEqual(tabs.count, n)
-            let inner = frame.insetBy(dx: style.borderWidth, dy: style.borderWidth)
-            XCTAssertEqual(tabs.first!.minX, inner.minX, accuracy: 1e-9)
-            XCTAssertEqual(tabs.last!.maxX, inner.maxX, accuracy: 1e-9)
+            // Hyprland ops16: the tabs sit above the ring, spanning the whole border frame.
+            XCTAssertEqual(tabs.first!.minX, frame.minX, accuracy: 1e-9)
+            XCTAssertEqual(tabs.last!.maxX, frame.maxX, accuracy: 1e-9)
             for (i, t) in tabs.enumerated() {
                 XCTAssertEqual(t.width, tabs[0].width, accuracy: 1e-9)
                 XCTAssertEqual(t.height, style.groupBarHeight)
-                XCTAssertEqual(t.minY, inner.minY)
+                XCTAssertEqual(t.minY, frame.minY + style.groupBarGapsOut)
                 if i > 0 { XCTAssertEqual(t.minX - tabs[i - 1].maxX, style.groupBarGapsIn, accuracy: 1e-9) }
             }
         }

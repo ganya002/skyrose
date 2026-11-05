@@ -351,6 +351,7 @@ public enum CLIParser {
         let simple: [String: IPCCommand] = [
             "float": .windowFloat, "fullscreen": .windowFullscreen, "maximize": .windowMaximize,
             "pin": .windowPin, "close": .windowClose, "center": .windowCenter,
+            "pseudo": .windowPseudo, "togglesplit": .windowToggleSplit, "swapsplit": .windowSwapSplit,
         ]
         let verbs = ["focus", "move"] + simple.keys.sorted()
         guard let verb = args.first else { throw CLIUsageError.missingArgument(command: "window", name: verbs.joined(separator: "|")) }
@@ -609,6 +610,7 @@ public enum CLIParser {
             ("window focus <left|right|up|down>", "Move focus in a direction"),
             ("window move <left|right|up|down>", "Move/swap the focused window in a direction"),
             ("window float|fullscreen|maximize|pin|close|center", "Act on the focused window"),
+            ("window pseudo|togglesplit|swapsplit", "Pseudotile, flip or swap the focused window's split (dwindle)"),
         ]),
         HelpSection(title: "Shell", topics: ["shell", "frame"], rows: [
             ("shell launcher|dashboard|sidebar|session|lock|showall|clear-notifs", "Toggle a panel"),

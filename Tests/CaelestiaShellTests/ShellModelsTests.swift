@@ -257,7 +257,7 @@ final class ShellThemeTests: XCTestCase {
         let t = theme()
         XCTAssertEqual(t.frameRounding, 25)
         XCTAssertEqual(t.frameThickness, 10)
-        XCTAssertEqual(t.barWidth, 48)
+        XCTAssertEqual(t.barWidth, 60)
         let off = theme { $0.wm.screenFrame = false }
         XCTAssertEqual(off.frameThickness, 0)
         let custom = theme { $0.wm.windowRounding = 20; $0.wm.gapsOut = 4 }

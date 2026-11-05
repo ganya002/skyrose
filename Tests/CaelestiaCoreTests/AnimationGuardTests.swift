@@ -4,9 +4,17 @@ import XCTest
 
 /// Guards on how long the default window animations may take, and on `animations.speed`.
 final class AnimationGuardTests: XCTestCase {
+    /// Everything that moves or fades a window. The border *colour* fade is the one exception to
+    /// the cap: Gabby chose Arch's 480 ms for it (2026-11-05 parity pass).
     private let windowSet: [AnimationName] = [
-        .windowsIn, .windowsMove, .windowsOut, .workspaces, .workspacesIn, .workspacesOut, .specialWorkspace, .fade, .fadeDim, .border,
+        .windowsIn, .windowsMove, .windowsOut, .workspaces, .workspacesIn, .workspacesOut, .specialWorkspace, .fade, .fadeDim,
     ]
+
+    func testBorderColourFadeKeepsArchDuration() {
+        let table = AnimationTable.from(config: AnimationsConfig(), reduceMotion: false)
+        XCTAssertEqual(table[.border].durationMs, 480, accuracy: 1e-9)
+        XCTAssertEqual(table[.border].curve, .bezier(.standard))
+    }
 
     func testNoDefaultWindowAnimationExceeds350ms() {
         let table = AnimationTable.from(config: AnimationsConfig(), reduceMotion: false)
@@ -49,7 +57,7 @@ final class AnimationGuardTests: XCTestCase {
         config.globalMultiplier = 3
         XCTAssertEqual(config.durationFactor, 1.5, accuracy: 1e-12)
         let t = AnimationTable.from(config: config, reduceMotion: false)
-        XCTAssertEqual(t[.windowsOut].durationMs, 180 * 1.5, accuracy: 1e-9)
+        XCTAssertEqual(t[.windowsOut].durationMs, 240 * 1.5, accuracy: 1e-9)
         config.speed = 0.5
         config.globalMultiplier = 1
         XCTAssertEqual(AnimationTable.from(config: config, reduceMotion: false)[.fade].durationMs, 400, accuracy: 1e-9)

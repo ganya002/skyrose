@@ -99,8 +99,8 @@ public struct OverlayStyle: Equatable, Sendable {
     /// Fill of the workspace-slide gap and of the cross-fade cover (surfaceContainer).
     public var surface: RGBA
 
-    /// Strip reserved above a grouped window (bar + gap to the window).
-    public var groupBarReserved: Double { groupBarHeight + groupBarGapsOut }
+    /// Strip reserved above a grouped window: gap, bar, gap to the window (Hyprland 3 + 25 + 3).
+    public var groupBarReserved: Double { groupBarHeight + 2 * groupBarGapsOut }
 
     public init(scheme: Scheme, wm: WMConfig = WMConfig(), fonts: [String] = ["JetBrainsMono Nerd Font", "JetBrains Mono", "Menlo"]) {
         borderWidth = wm.borderSize
@@ -131,17 +131,24 @@ public struct OverlayStyle: Equatable, Sendable {
     ])
 }
 
-/// Group bar tab rectangles inside a border frame (top-left space): tabs share the bar width with
-/// `gapsIn` between them, inset by the border on the sides, starting right under the top border.
+/// Group bar geometry inside a group's border frame (top-left space). Like Hyprland the bar sits
+/// above the window, outside its border ring: the frame's top `groupBarReserved` points hold
+/// gap, bar, gap; the ring goes around the rest (the window). Tabs share the window's width
+/// with `gapsIn` between them.
 public enum GroupBarGeometry {
     public static func tabs(count: Int, in borderFrame: CGRect, style: OverlayStyle) -> [CGRect] {
         guard count > 0 else { return [] }
-        let b = style.borderWidth
-        let inner = borderFrame.insetBy(dx: b, dy: b)
         let gaps = style.groupBarGapsIn * Double(count - 1)
-        let width = max(0, (inner.width - gaps) / Double(count))
+        let width = max(0, (borderFrame.width - gaps) / Double(count))
         return (0..<count).map { i in
-            CGRect(x: inner.minX + Double(i) * (width + style.groupBarGapsIn), y: inner.minY, width: width, height: style.groupBarHeight)
+            CGRect(x: borderFrame.minX + Double(i) * (width + style.groupBarGapsIn), y: borderFrame.minY + style.groupBarGapsOut,
+                   width: width, height: style.groupBarHeight)
         }
+    }
+
+    /// The border ring of a grouped window: the border frame minus the bar strip.
+    public static func ring(in borderFrame: CGRect, style: OverlayStyle) -> CGRect {
+        let r = min(style.groupBarReserved, borderFrame.height)
+        return CGRect(x: borderFrame.minX, y: borderFrame.minY + r, width: borderFrame.width, height: borderFrame.height - r)
     }
 }

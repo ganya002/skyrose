@@ -40,11 +40,11 @@ final class ShellIntegrationTests: XCTestCase {
         var config = Config()
         config.bar.persistent = true
         let h = Harness(config: config)
-        XCTAssertEqual(h.wm.usableArea(of: air).minX, 48)
+        XCTAssertEqual(h.wm.usableArea(of: air).minX, 60)
         h.wm.setBarRevealed(true, display: "air")
-        XCTAssertEqual(h.wm.usableArea(of: air).minX, 48)
+        XCTAssertEqual(h.wm.usableArea(of: air).minX, 60)
         h.wm.setBarRevealed(false, display: "air")
-        XCTAssertEqual(h.wm.usableArea(of: air).minX, 48)
+        XCTAssertEqual(h.wm.usableArea(of: air).minX, 60)
     }
 
     func testDisabledBarReservesNothingExtra() {

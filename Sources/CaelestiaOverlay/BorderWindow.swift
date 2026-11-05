@@ -105,7 +105,8 @@ public final class BorderWindow: NSPanel, BorderSurface {
         let inner = bounds.insetBy(dx: m, dy: m)
         content.bounds = CGRect(origin: .zero, size: inner.size)
         content.position = CGPoint(x: inner.midX, y: inner.midY)
-        ring.frame = content.bounds
+        // A tab group's ring goes around the window only; its bar sits above, outside it.
+        ring.frame = target.group == nil ? content.bounds : GroupBarGeometry.ring(in: content.bounds, style: style)
         content.transform = sample.scale == 1 ? CATransform3DIdentity : CATransform3DMakeScale(sample.scale, sample.scale, 1)
         content.opacity = Float(sample.alpha)
         ring.borderWidth = style.borderWidth

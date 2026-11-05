@@ -65,16 +65,17 @@ final class DwindleGoldenTests: XCTestCase {
     func testThreeWindowsSplitTheFocusedRightHalfByAspect() {
         let f = frames(tree(3, in: ultrawide), in: ultrawide)
         XCTAssertEqual(f[1], CGRect(x: 21, y: 21, width: 2533, height: 1398))
-        // The right box is 2550×1420 (wider than tall) → side by side.
-        XCTAssertEqual(f[2], CGRect(x: 2566, y: 21, width: 1263, height: 1398))
-        XCTAssertEqual(f[3], CGRect(x: 3841, y: 21, width: 1258, height: 1398))
+        // The right box is wider than tall → side by side. Hyprland partitions the area minus
+        // gaps_out, so the outer tile is the wider one (capture geometry.txt n3: 1258 | 1263).
+        XCTAssertEqual(f[2], CGRect(x: 2566, y: 21, width: 1258, height: 1398))
+        XCTAssertEqual(f[3], CGRect(x: 3836, y: 21, width: 1263, height: 1398))
     }
 
     func testFourWindowsStackOnceSlotsAreTall() {
         let f = frames(tree(4, in: ultrawide), in: ultrawide)
         // Window 3's box is 1275×1420 (taller than wide) → stacked.
-        XCTAssertEqual(f[3], CGRect(x: 3841, y: 21, width: 1258, height: 693))
-        XCTAssertEqual(f[4], CGRect(x: 3841, y: 726, width: 1258, height: 693))
+        XCTAssertEqual(f[3], CGRect(x: 3836, y: 21, width: 1263, height: 693))
+        XCTAssertEqual(f[4], CGRect(x: 3836, y: 726, width: 1263, height: 693))
     }
 
     func testAirTwoWindows() {

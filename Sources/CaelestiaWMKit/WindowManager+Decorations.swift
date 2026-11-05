@@ -194,7 +194,8 @@ extension WindowManager {
     /// Strip reserved above grouped windows for the group bar (0 in game mode / without borders).
     func groupBarReserved(_ wm: WMConfig) -> Double {
         guard !wm.gameMode, wm.borderSize > 0 else { return 0 }
-        return wm.groupBarHeight + wm.groupBarGaps
+        // Hyprland: gaps_out above and below the 25 pt bar (3 + 25 + 3 = 31; y 21 → 52 in ops16).
+        return wm.groupBarHeight + 2 * wm.groupBarGaps
     }
 
     // MARK: Debug overlay

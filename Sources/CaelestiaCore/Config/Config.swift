@@ -88,8 +88,8 @@ public struct WMConfig: Codable, Equatable, Sendable {
     /// Window borders on or off (Settings › Windows); `borderSize` is their width.
     public var bordersEnabled: Bool = true
     public var borderSize: Double = 1
-    /// Group (tab) bar: tab height, and the gap between tabs and between the bar and the window
-    /// (Hyprland groupbar height 25, gaps_in/gaps_out 3).
+    /// Group (tab) bar: tab height, and the gap between tabs and around the bar (Hyprland groupbar
+    /// height 25, gaps_in/gaps_out 3). A grouped window moves down by height + 2 × gaps = 31.
     public var groupBarHeight: Double = 25
     public var groupBarGaps: Double = 3
     public var windowRounding: Double = 15
@@ -97,7 +97,8 @@ public struct WMConfig: Codable, Equatable, Sendable {
     /// Rounding for xwl_popup-style windows: min(10, windowRounding).
     public var popupRounding: Double = 10
     /// Non-fullscreen window opacity (Enhanced mode only; Standard cannot set it).
-    public var windowOpacity: Double = 0.94
+    /// variables.lua windowOpacity = 0.95 (the live getoption in the 2026-11-05 capture).
+    public var windowOpacity: Double = 0.95
     public var blurEnabled: Bool = true
     public var blurSize: Double = 10
     public var blurPasses: Int = 3
@@ -136,12 +137,19 @@ public struct DwindleConfig: Codable, Equatable, Sendable {
     public var preserveSplit: Bool = true
     public var smartSplit: Bool = false
     public var smartResizing: Bool = true
-    /// 0 = follow mouse side only when smart_split is on (effectively right/bottom), 1 = left/top, 2 = right/bottom.
+    /// Hyprland dwindle:force_split. 0 = the new window goes to the half of the focused tile the
+    /// cursor is in (right/bottom when the cursor is outside that tile), 1 = always left/top,
+    /// 2 = always right/bottom.
     public var forceSplit: Int = 0
     public var splitWidthMultiplier: Double = 1.0
     public var defaultSplitRatio: Double = 1.0
     public var minSplitRatio: Double = 0.1
     public var maxSplitRatio: Double = 1.9
+    /// Smallest window a split may produce (pt, gaps and border not included). Hyprland has no
+    /// minimum (tiles went down to 27×32 px); a split that would go below this splits the largest
+    /// tile that still fits instead, and when none fits the new window floats. 0 = no minimum.
+    public var minTileWidth: Double = 120
+    public var minTileHeight: Double = 80
     public init() {}
 }
 
@@ -215,7 +223,8 @@ public struct BarConfig: Codable, Equatable, Sendable {
     /// the bar's width in the usable area.
     public var persistent: Bool = false
     public var edge: Edge = .left
-    public var width: Double = 48
+    /// Measured in the 2026-11-05 capture: the revealed bar is ~60 px wide at scale 1.
+    public var width: Double = 60
     public var showOnHover: Bool = true
     public var clockBackground: Bool = false
     public var trayBackground: Bool = false

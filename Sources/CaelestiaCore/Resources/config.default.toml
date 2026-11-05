@@ -52,8 +52,8 @@ windowRounding = 15
 roundingPower = 2
 # rules.lua xwl_popup tag: rounding = math.min(10, windowRounding).
 popupRounding = 10
-# variables.lua windowOpacity (stock 0.95; hypr-vars.lua 0.94). Enhanced mode only.
-windowOpacity = 0.94
+# variables.lua windowOpacity = 0.95 (live getoption, 2026-11-05 capture). Enhanced mode only.
+windowOpacity = 0.95
 # variables.lua blurEnabled -> decoration:blur:enabled.
 blurEnabled = true
 # variables.lua blurSize (stock 8; hypr-vars.lua 10 "glass: stronger blur").
@@ -98,7 +98,8 @@ gameMode = false
 preserveSplit = true
 smartSplit = false
 smartResizing = true
-# dwindle:force_split: 0 = follow mouse side, 1 = left/top, 2 = right/bottom.
+# dwindle:force_split: 0 = the new window goes to the half of the focused tile the cursor is in
+# (right/bottom when the cursor is outside it), 1 = always left/top, 2 = always right/bottom.
 forceSplit = 0
 # dwindle:split_width_multiplier.
 splitWidthMultiplier = 1.0
@@ -106,6 +107,11 @@ splitWidthMultiplier = 1.0
 defaultSplitRatio = 1.0
 minSplitRatio = 0.1
 maxSplitRatio = 1.9
+# Smallest window a split may produce (pt; gaps and border not included). Hyprland has none (it
+# went down to 27x32 px). A split that would go below this splits the largest tile that still
+# fits instead; if none fits, the new window floats centred. 0 = no minimum.
+minTileWidth = 120
+minTileHeight = 80
 
 # Named special workspaces (scratchpads) and the app that owns each (functions.lua toggle()
 # + cli.json toggles). `apps` are bundle ids in preference order; `launch` runs when the
@@ -195,7 +201,8 @@ showPower = true
 persistent = false
 # "left", "right", "top" or "bottom".
 edge = "left"
-width = 48
+# Measured: the revealed bar is ~60 px wide at scale 1 (2026-11-05 capture).
+width = 60
 showOnHover = true
 # shell.json bar.clock.background.
 clockBackground = false

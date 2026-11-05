@@ -334,6 +334,6 @@ final class WindowManagerTests: XCTestCase {
         var c = Config()
         c.bar.persistent = true
         let h = Harness(config: c)
-        XCTAssertEqual(h.wm.usableArea(of: TestDisplays.air).minX, 48, "max(frame, bar), not the sum")
+        XCTAssertEqual(h.wm.usableArea(of: TestDisplays.air).minX, 60, "max(frame, bar), not the sum")
     }
 }

@@ -276,6 +276,25 @@ public struct DwindleTree: Sendable, Hashable, Codable {
         return min(max(ratio, lo), hi)
     }
 
+    /// Hyprland `force_split = 0`: is `point` in the first (left/top) half of `box`? A point
+    /// outside the box counts as the second half (the new window goes right/bottom).
+    public static func inFirstHalf(_ point: CGPoint, of box: CGRect, direction: SplitDirection) -> Bool {
+        guard point.x >= box.minX, point.x <= box.maxX, point.y >= box.minY, point.y <= box.maxY else { return false }
+        switch direction {
+        case .horizontal: return point.x <= box.minX + box.width / 2
+        case .vertical: return point.y <= box.minY + box.height / 2
+        }
+    }
+
+    /// Whether splitting `box` the way `insert` would (aspect direction, default ratio) leaves both
+    /// halves at least `minTileWidth × minTileHeight` after `padding` (gaps + border per axis).
+    public static func splitFits(_ box: CGRect, config: DwindleConfig, padding: Double) -> Bool {
+        let minW = max(0, config.minTileWidth), minH = max(0, config.minTileHeight)
+        guard minW > 0 || minH > 0 else { return true }
+        let halves = childBoxes(of: box, direction: aspectDirection(of: box, config: config), ratio: clampRatio(config.defaultSplitRatio, config))
+        return [halves.first, halves.second].allSatisfy { $0.width - padding >= minW - 0.5 && $0.height - padding >= minH - 0.5 }
+    }
+
     // MARK: Structural operations
 
     /// Opens `window` by splitting the leaf of `focused` (Hyprland `use_active_for_splits`).
@@ -283,17 +302,23 @@ public struct DwindleTree: Sendable, Hashable, Codable {
     /// then the window becomes the root.
     ///
     /// The split direction follows the leaf's current box: side by side when
-    /// `width > height · splitWidthMultiplier`, stacked otherwise. The new window goes right/bottom
-    /// (`forceSplit` 0 or 2) or left/top (`forceSplit` 1); with `smartSplit` the cursor's quadrant
-    /// of the leaf picks both the direction and the side like Hyprland. When `autoGroup` is set and
-    /// the target leaf is an unlocked tab group, the window joins the group after the active tab
-    /// instead (Hyprland `group:auto_group`).
+    /// `width > height · splitWidthMultiplier`, stacked otherwise. Which side the new window takes
+    /// follows Hyprland `force_split`: 0 = the half of the leaf the cursor is in (right/bottom when
+    /// the cursor is outside the leaf or unknown), 1 = left/top, 2 = right/bottom; with
+    /// `smartSplit` the cursor's triangle of the leaf picks both the direction and the side. When
+    /// `autoGroup` is set and the target leaf is an unlocked tab group, the window joins the group
+    /// after the active tab instead (Hyprland `group:auto_group`).
     ///
-    /// Returns false (no change) when the window is already in the tree.
+    /// `enforceMinTile` (new windows): a split that would leave either half smaller than
+    /// `minTileWidth × minTileHeight` plus `tilePadding` (gaps and border, per axis) splits the
+    /// largest leaf that still fits instead; when none fits nothing changes and false comes back
+    /// (the caller floats the window).
+    ///
+    /// Returns false (no change) when the window is already in the tree or there is no room.
     @discardableResult
     public mutating func insert(
         _ window: WindowID, relativeTo focused: WindowID? = nil, cursor: CGPoint? = nil, in area: CGRect,
-        config: DwindleConfig = DwindleConfig(), autoGroup: Bool = true
+        config: DwindleConfig = DwindleConfig(), autoGroup: Bool = true, enforceMinTile: Bool = false, tilePadding: Double = 0
     ) -> Bool {
         guard !contains(window) else { return false }
         guard root != nil else {
@@ -306,7 +331,15 @@ public struct DwindleTree: Sendable, Hashable, Codable {
             target = leaves.min { HyprGeometry.distanceSquared(from: cursor, to: $0.box) < HyprGeometry.distanceSquared(from: cursor, to: $1.box) }
         }
         if target == nil { target = leaves.last }
-        guard let target, let leaf = target.leaf else { return false }
+        guard var target, target.leaf != nil else { return false }
+        let joinsGroup = autoGroup && target.leaf!.isGroup && !target.leaf!.isLocked
+        if enforceMinTile, !joinsGroup, !Self.splitFits(target.box, config: config, padding: tilePadding) {
+            // Largest leaf (by area) whose split still leaves two usable tiles; ties keep tree order.
+            let roomy = leaves.filter { Self.splitFits($0.box, config: config, padding: tilePadding) }
+            guard let best = roomy.max(by: { $0.box.width * $0.box.height < $1.box.width * $1.box.height }) else { return false }
+            target = best
+        }
+        guard let leaf = target.leaf else { return false }
 
         if autoGroup, leaf.isGroup, !leaf.isLocked {
             updateLeaf(at: target.path) { l in
@@ -334,6 +367,8 @@ public struct DwindleTree: Sendable, Hashable, Codable {
                 direction = .vertical
                 newGoesFirst = dy <= 0
             }
+        } else if config.forceSplit == 0 {
+            newGoesFirst = cursor.map { Self.inFirstHalf($0, of: box, direction: direction) } ?? false
         } else {
             newGoesFirst = config.forceSplit == 1
         }
@@ -432,6 +467,20 @@ public struct DwindleTree: Sendable, Hashable, Codable {
         return true
     }
 
+    /// Hyprland `swapsplit`: swaps the two children of the parent split of `window` (positions
+    /// trade places; each position keeps its size, the ratio is unchanged). Returns false for the
+    /// root.
+    @discardableResult
+    public mutating func swapSplit(_ window: WindowID) -> Bool {
+        guard let path = path(to: window), !path.isEmpty else { return false }
+        updateSplit(at: Array(path.dropLast())) { s in
+            let first = s.first
+            s.first = s.second
+            s.second = first
+        }
+        return true
+    }
+
     /// Hyprland `splitratio` layoutmsg: sets (`exact`) or adjusts the parent split's ratio of
     /// `window`, clamped to `minSplitRatio...maxSplitRatio`. Returns false for the root.
     @discardableResult
@@ -445,9 +494,11 @@ public struct DwindleTree: Sendable, Hashable, Codable {
 
     // MARK: Layout
 
-    /// Pure layout: node boxes partition `area`; each leaf's window frame is its (rounded) box
-    /// inset by `gapsOut` on sides touching the area edge and `gapsIn` elsewhere, then by
-    /// `borderSize` on all sides. With exactly one leaf `gapsOutSingle` replaces `gapsOut`.
+    /// Pure layout, Hyprland's formula (measured on Gabby's 5120×1440 capture): node boxes
+    /// partition `area` inset by `gapsOut` (`gapsOutSingle` with exactly one leaf); each leaf's
+    /// window frame is its (rounded) box inset by `gapsIn` on sides facing a neighbour and by
+    /// nothing on sides touching that inset area, then by `borderSize` on all sides. So with
+    /// asymmetric splits the outer tile keeps the extra `gapsIn` (n3: 1258 | 1263, not 1263 | 1258).
     ///
     /// Minimum sizes (`minSizes`, learned from apps that refuse to shrink): every split first
     /// gives each side at least what its subtree needs (`minimumBox`), moving the divider only as
@@ -458,10 +509,11 @@ public struct DwindleTree: Sendable, Hashable, Codable {
     /// are returned with `hidden = true` and the group's frame.
     public func layout(area: CGRect, params: LayoutParams, minSizes: [WindowID: CGSize] = [:]) -> [Placement] {
         let relevant = minSizes.filter { contains($0.key) }
+        let gapsOut = (leafCount == 1 ? params.gapsOutSingle : nil) ?? params.gapsOut
+        let tiling = Self.tilingArea(area, gapsOut: gapsOut)
         let leaves = relevant.isEmpty
-            ? leafGeometries(in: area, config: params.dwindle)
-            : minimumAwareLeafGeometries(in: area, params: params, minSizes: relevant)
-        let gapsOut = (leaves.count == 1 ? params.gapsOutSingle : nil) ?? params.gapsOut
+            ? leafGeometries(in: tiling, config: params.dwindle)
+            : minimumAwareLeafGeometries(in: tiling, params: params, minSizes: relevant)
         let border = params.borderSize
         var placements: [Placement] = []
         placements.reserveCapacity(windows.count)
@@ -469,10 +521,10 @@ public struct DwindleTree: Sendable, Hashable, Codable {
         for g in leaves {
             guard let leaf = g.leaf else { continue }
             let box = HyprGeometry.rounded(g.box)
-            let left = HyprGeometry.sticks(box.minX, area.minX) ? gapsOut : params.gapsIn
-            let right = HyprGeometry.sticks(box.maxX, area.maxX) ? gapsOut : params.gapsIn
-            let top = HyprGeometry.sticks(box.minY, area.minY) ? gapsOut : params.gapsIn
-            let bottom = HyprGeometry.sticks(box.maxY, area.maxY) ? gapsOut : params.gapsIn
+            let left = HyprGeometry.sticks(box.minX, tiling.minX) ? 0 : params.gapsIn
+            let right = HyprGeometry.sticks(box.maxX, tiling.maxX) ? 0 : params.gapsIn
+            let top = HyprGeometry.sticks(box.minY, tiling.minY) ? 0 : params.gapsIn
+            let bottom = HyprGeometry.sticks(box.maxY, tiling.maxY) ? 0 : params.gapsIn
             let bar = leaf.isGroup ? max(0, params.groupBarHeight) : 0
 
             var frame = CGRect(
@@ -498,6 +550,12 @@ public struct DwindleTree: Sendable, Hashable, Codable {
             }
         }
         return placements
+    }
+
+    /// The box dwindle partitions: `area` minus `gapsOut` on every side (never negative).
+    public static func tilingArea(_ area: CGRect, gapsOut: Double) -> CGRect {
+        let g = max(0, min(gapsOut, area.width / 2, area.height / 2))
+        return area.insetBy(dx: g, dy: g)
     }
 
     // MARK: Minimum sizes
