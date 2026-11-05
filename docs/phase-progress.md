@@ -10,7 +10,7 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 |---|---|---|
 | 1. Launcher index + empty-workspace jump | done, live-checked | see `git log` ("Phase 5 part 1") |
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
-| 3. SIP-off mode | not started (verify `csrutil status` + `nvram boot-args` first; no sudo by Claude) | |
+| 3. SIP-off mode | built + tested without the Dock; **waiting for Gabby to run the sudo loader**, then live test | "Phase 5 part 3a" |
 | 4. Material Symbols | not started | |
 | 5. Screenshots, keep-awake, Clamshell | not started | |
 
@@ -70,10 +70,44 @@ shows its new name after a WM restart.
 Decisions: no config key for "play on battery" (the brief says pause); the first occlusion
 report can log one "paused (covered by windows)" before the windows are on screen.
 
+## Part 3 — SIP-off mode (3a committed; live test pending)
+
+Verified first (2026-11-05): `csrutil status` = Custom Configuration with Filesystem, Debugging
+and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS 27.2 (26B123), arm64.
+
+- `Packaging/sa/`: `trampoline.s`, `loader.c` (`skyrose-sa-loader`, no arguments, sudo, invoking
+  user's Dock only), `payload.c` (`SkyRoseSA.dylib`). `scripts/build-sa.sh` (arm64e), called by
+  build.sh into `SkyRose.app/Contents/Resources/sa/` (ad-hoc signed before the bundle seal).
+  Protocol and safety: docs/ENHANCED_MODE.md › How it works.
+- Swift: `CaelestiaPlatform/Enhanced/ScriptingAddition.swift` (`SAClient`, `SAProtocol`),
+  `CaelestiaWMKit/EnhancedMode.swift` (`EnhancedMode`, `EnhancedWindowAnimator`), hooks in the
+  layout pass (instant switch hide/restore, `layoutApplied`), the slide gate, the close action,
+  `shutdown()` (reset), daemon wiring (animator swap on `onChange`), `query state` mode.
+- `[sipOff]` config: enabled=false, animations, opacity, shadows, instantWorkspaces, pinOnTop.
+- `SIPOffReadiness` (Core): parses csrutil + boot-args. CLI `skyrose sa status | load-command |
+  reset`; `skyrose wm panic` also sends `reset` + `stop` straight to the SA socket.
+- Settings › SIP-off mode (`SIPOffPage`): warning, status, sudo line + Copy, switch locked until
+  the showcase's "I understand the risks" (`@AppStorage sipOffShowcaseSeen`), per-feature
+  switches, how to turn SIP back on. `SIPOffShowcase`: live side-by-side demos (animations,
+  opacity/shadows, instant workspaces, pinning) + risks. `--sip-off-showcase` opens it.
+- SIP reminder flag: `EnhancedMode.probe()` calls `RestoreManifest.recordModeUsed(.sipOff)` the
+  first time the SA answers.
+- Tested without the Dock: payload loaded into a throwaway arm64e host process with its own
+  window (`SKYROSE_SA_SOCKET` override): hello listed all 5 capabilities on macOS 27.2; info
+  read the window server transform convention translate(-x,-y); `visual` drew the 400×332
+  window at 200×166 at (700,360) with alpha 0.9 (`/tmp/cwm/phase5/sa-visual.png`); alpha/level
+  went back when the client disconnected; freeze/thaw ok. Settings page + showcase shots:
+  `/tmp/cwm/phase5/settings-sipoff.png`, `showcase.png`.
+- **Next (after Gabby loads the SA):** `skyrose sa status`; `skyrose config set sipOff.enabled
+  true` with `sipOff.opacity false` (opacity would touch Gabby's kitty); TestWindows only (float
+  rule): pop-in, move, close, pin on top, alpha via the socket; `skyrose wm panic` → everything
+  restored; then flip the macOS-limit rows in arch-parity.md that work, commit "part 3b".
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
 After part 2: 976 tests, 0 failures.
+After part 3a: 987 tests, 0 failures.
 
 ---
 
@@ -197,6 +231,39 @@ is installed without the explicit button; icons stay SF Symbols for now.
 - Closing a key drawer on an empty workspace follows the re-activated app to its workspace.
 - Not live-tested this phase: bar spring reveal, toasts, OSD, popouts, wallpaper drawer; the
   kitty profile against a real kitty (Gabby's kitty.conf was deliberately not changed).
+
+## Part 3 — SIP-off mode (3a committed; live test pending)
+
+Verified first (2026-11-05): `csrutil status` = Custom Configuration with Filesystem, Debugging
+and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS 27.2 (26B123), arm64.
+
+- `Packaging/sa/`: `trampoline.s`, `loader.c` (`skyrose-sa-loader`, no arguments, sudo, invoking
+  user's Dock only), `payload.c` (`SkyRoseSA.dylib`). `scripts/build-sa.sh` (arm64e), called by
+  build.sh into `SkyRose.app/Contents/Resources/sa/` (ad-hoc signed before the bundle seal).
+  Protocol and safety: docs/ENHANCED_MODE.md › How it works.
+- Swift: `CaelestiaPlatform/Enhanced/ScriptingAddition.swift` (`SAClient`, `SAProtocol`),
+  `CaelestiaWMKit/EnhancedMode.swift` (`EnhancedMode`, `EnhancedWindowAnimator`), hooks in the
+  layout pass (instant switch hide/restore, `layoutApplied`), the slide gate, the close action,
+  `shutdown()` (reset), daemon wiring (animator swap on `onChange`), `query state` mode.
+- `[sipOff]` config: enabled=false, animations, opacity, shadows, instantWorkspaces, pinOnTop.
+- `SIPOffReadiness` (Core): parses csrutil + boot-args. CLI `skyrose sa status | load-command |
+  reset`; `skyrose wm panic` also sends `reset` + `stop` straight to the SA socket.
+- Settings › SIP-off mode (`SIPOffPage`): warning, status, sudo line + Copy, switch locked until
+  the showcase's "I understand the risks" (`@AppStorage sipOffShowcaseSeen`), per-feature
+  switches, how to turn SIP back on. `SIPOffShowcase`: live side-by-side demos (animations,
+  opacity/shadows, instant workspaces, pinning) + risks. `--sip-off-showcase` opens it.
+- SIP reminder flag: `EnhancedMode.probe()` calls `RestoreManifest.recordModeUsed(.sipOff)` the
+  first time the SA answers.
+- Tested without the Dock: payload loaded into a throwaway arm64e host process with its own
+  window (`SKYROSE_SA_SOCKET` override): hello listed all 5 capabilities on macOS 27.2; info
+  read the window server transform convention translate(-x,-y); `visual` drew the 400×332
+  window at 200×166 at (700,360) with alpha 0.9 (`/tmp/cwm/phase5/sa-visual.png`); alpha/level
+  went back when the client disconnected; freeze/thaw ok. Settings page + showcase shots:
+  `/tmp/cwm/phase5/settings-sipoff.png`, `showcase.png`.
+- **Next (after Gabby loads the SA):** `skyrose sa status`; `skyrose config set sipOff.enabled
+  true` with `sipOff.opacity false` (opacity would touch Gabby's kitty); TestWindows only (float
+  rule): pop-in, move, close, pin on top, alpha via the socket; `skyrose wm panic` → everything
+  restored; then flip the macOS-limit rows in arch-parity.md that work, commit "part 3b".
 
 ## Tests
 

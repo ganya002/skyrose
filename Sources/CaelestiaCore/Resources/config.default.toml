@@ -209,6 +209,18 @@ fahrenheit = false
 refreshMinutes = 30
 
 # =====================================================================================
+# SIP-off mode (docs/ENHANCED_MODE.md). Opt-in: needs SIP partly off and the scripting
+# addition loaded into the Dock (`skyrose sa load-command`). Without it nothing changes.
+# =====================================================================================
+[sipOff]
+enabled = false
+animations = true          # real-window pop-in / close / move animations
+opacity = true             # wm.windowOpacity on non-fullscreen windows
+shadows = true             # false removes other apps' window shadows
+instantWorkspaces = true   # instant workspace switches, no slide
+pinOnTop = true            # pinned windows really stay on top
+
+# =====================================================================================
 # Bar (shell.json bar.*)
 # =====================================================================================
 [bar]

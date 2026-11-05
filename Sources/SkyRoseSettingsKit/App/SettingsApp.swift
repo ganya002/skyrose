@@ -16,6 +16,8 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
     /// ``RestoreManifest/mustShowSIPReminder(csrutilStatus:)`` agrees or the manifest is already
     /// gone (the uninstaller decided before removing it).
     public var sipReminder = false
+    /// `--sip-off-showcase`: opens "What changes with SIP off?" (with `--page sipOff`).
+    public var sipOffShowcase = false
     /// Opens the onboarding at this step (screenshots, tests).
     public var onboardingStep: OnboardingStep?
 
@@ -35,6 +37,7 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
         o.simulateMissing = missing
         o.demoSIPPopup = args.contains("--demo-sip-popup")
         o.sipReminder = args.contains("--sip-reminder")
+        o.sipOffShowcase = args.contains("--sip-off-showcase")
         if let i = args.firstIndex(of: "--step"), i + 1 < args.count { o.onboardingStep = OnboardingStep(rawValue: args[i + 1]) }
         return o
     }
@@ -73,6 +76,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         } else {
             showSettings(page: options.page)
         }
+        if options.sipOffShowcase { SIPOffShowcase.present(look: store.look) }
         if options.demoSIPPopup || (options.sipReminder && Self.uninstallerReminderStillNeeded()) {
             SIPReminderPresenter.show(look: store.look)
         }

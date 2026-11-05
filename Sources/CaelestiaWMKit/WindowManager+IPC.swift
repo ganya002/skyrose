@@ -124,7 +124,8 @@ extension WindowManager {
             ))
         case .doctor:
             return ok(.object([
-                "mode": "standard",
+                "mode": .string(enhanced?.active == true ? "enhanced" : "standard"),
+                "sipOff": .string(enhanced?.status ?? "off"),
                 "managing": .bool(isManaging),
                 "windows": JSONValue(managedWindowIDs.count),
                 "parked": JSONValue(parked.count),
@@ -255,7 +256,7 @@ extension WindowManager {
 
     public func stateEntry() -> StateQueryEntry {
         StateQueryEntry(
-            mode: "standard", uptimeSeconds: now().timeIntervalSince(startDate),
+            mode: enhanced?.active == true ? "enhanced" : "standard", uptimeSeconds: now().timeIntervalSince(startDate),
             focusedWindow: state.focusedWindow.map(WindowQueryEntry.address(for:)),
             focusedWorkspace: state.focusedWorkspace.map(workspaceRef),
             focusedMonitor: display(id: state.focusedDisplay)?.name,

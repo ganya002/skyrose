@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Settings pages, in sidebar order.
 public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
-    case general, appearance, windows, rules, keybinds, shell, terminal, permissions, about
+    case general, appearance, windows, rules, keybinds, shell, terminal, sipOff, permissions, about
     public var id: String { rawValue }
 
     public var title: String {
@@ -15,6 +15,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .keybinds: return "Keybinds"
         case .shell: return "Bar and Shell"
         case .terminal: return "Terminal"
+        case .sipOff: return "SIP-off mode"
         case .permissions: return "Permissions"
         case .about: return "About"
         }
@@ -29,6 +30,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .keybinds: return "keyboard"
         case .shell: return "sidebar.left"
         case .terminal: return "terminal"
+        case .sipOff: return "bolt.shield"
         case .permissions: return "lock.shield"
         case .about: return "info.circle"
         }
@@ -151,6 +153,7 @@ public struct SettingsRoot: View {
         case .keybinds: KeybindsPage(store: store)
         case .shell: ShellPage(store: store)
         case .terminal: TerminalPage(store: store)
+        case .sipOff: SIPOffPage(store: store)
         case .permissions: PermissionsPage(store: store, only: [])
         case .about: AboutPage(store: store)
         }

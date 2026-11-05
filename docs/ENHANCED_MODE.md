@@ -33,16 +33,15 @@ done by you, by hand, in Recovery. Everything is reversible.
    sudo nvram boot-args=-arm64e_preview_abi
    ```
    Reboot.
-5. In **SkyRose Settings → Enhanced mode** press **Load CaelestiaSA**. Loading needs
-   administrator rights **once per boot**; macOS shows its normal authorisation dialog.
-
-### Optional: no password prompt per boot
-
-If you prefer not to type the password at every boot, copy the template
-`Resources/sudoers.caelestia-sa.template` by hand to `/etc/sudoers.d/caelestia-sa`
-(`sudo visudo -f /etc/sudoers.d/caelestia-sa`). It allows exactly one binary
-(the SA loader, by absolute path and SHA-256) and nothing else. The installer never writes
-sudoers; the default is the authorisation dialog.
+5. Open **SkyRose Settings › SIP-off mode**, press **What changes with SIP off?** and read it to
+   the end (**I understand the risks** unlocks the switch), then switch **SIP-off mode** on.
+6. Load the scripting addition, once per boot, in Terminal (Settings shows this line with a
+   Copy button; `skyrose sa load-command` prints it):
+   ```
+   sudo /path/to/SkyRose.app/Contents/Resources/sa/skyrose-sa-loader
+   ```
+   The loader takes no arguments: it only loads `SkyRoseSA.dylib` from its own folder, only
+   into the Dock of the user who ran sudo. SkyRose notices within 5 s and switches over.
 
 ## Reverting
 
@@ -52,12 +51,32 @@ sudoers; the default is the authorisation dialog.
 
 After this SkyRose falls back to Standard mode automatically; nothing else needs changing.
 
-## How the WM decides which mode it is in
+## How it works
 
-At launch the WM asks the Dock for `CaelestiaSA` through a handshake that returns the SA's
-build hash. Only when that hash matches the daemon's own build is the SA used; otherwise a
-notice says "SA version mismatch — rebuild" and Standard mode is used. Every feature has a
-Standard-mode fallback (see the table in README.md and LIMITATIONS.md).
+- `Packaging/sa/loader.c` + `trampoline.s` (arm64e, run as root): `task_for_pid(Dock)`, a
+  read-execute page with a 30-instruction trampoline and a read-write data page; the thread
+  state is converted to the Dock's pointer-authentication keys (`thread_convert_thread_state`).
+  The trampoline calls `pthread_create_from_mach_thread`; that pthread `dlopen`s the payload
+  and calls `skyrose_sa_start`. Written for SkyRose from the Mach/dyld APIs; the approach is
+  the one yabai made known (yabai is MIT-licensed; none of its code is copied).
+- `Packaging/sa/payload.c` (`SkyRoseSA.dylib`, inside the Dock): a Unix socket
+  `/tmp/skyrose-sa-<uid>.socket` (0600, peer uid checked) with a line protocol: `hello`,
+  `alpha`, `shadow`, `level`, `visual` (window transform so a window is drawn in a given rect),
+  `visual-reset`, `freeze`/`thaw` (screen updates, auto-thaw after 250 ms), `space`, `info`,
+  `reset`, `stop`. All SkyLight symbols come from `dlsym`; `hello` lists what was found.
+- Safety: every change is recorded with its original value and the connection that made it;
+  when SkyRose disconnects (quit, crash) its changes are undone. `skyrose wm panic` sends
+  `reset` + `stop` itself (works even if the WM hangs). The WM's quit sends `reset` too.
+- `EnhancedMode` (WM): probes every 5 s while `sipOff.enabled`; uses the SA only when its
+  `hello` matches this build's protocol version; any failed command drops back to the SIP-on
+  paths silently. The first successful use writes the `sipOff-mode-used` flag, so the
+  uninstaller's SIP reminder appears.
+- `EnhancedWindowAnimator`: commits frames at once inside `freeze`/`thaw` with the first
+  transform, then springs each real window from its old rect (open: 80 % + fade in, ζ 0.58;
+  move: ζ 0.72; the WM's close action: shrink + fade 180 ms, then close). Instant workspaces:
+  windows get alpha 0 just before being parked / unparked and their alpha back 60 ms later;
+  the slide is skipped. Opacity: `wm.windowOpacity` on non-fullscreen windows. Pinned windows:
+  floating window level. `[sipOff]` switches each feature.
 
 ## Window animation hook
 
@@ -82,5 +101,5 @@ implemented** in this build.
 
 ## Status
 
-The SA itself is Phase 10 and is **not part of this build**; Settings shows the capability
-table and these instructions, and the daemon's capability probe reports "Standard".
+Built and tested in this build: `skyrose sa status | load-command | reset`, Settings › SIP-off
+mode, the showcase. See docs/phase-progress.md for what was live-tested on this Mac.

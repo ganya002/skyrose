@@ -17,6 +17,8 @@ public struct Config: Codable, Equatable, Sendable {
     public var dashboard: DashboardConfig
     /// Where the dashboard's weather comes from (`[weather]`, Open-Meteo).
     public var weather: WeatherConfig
+    /// SIP-off mode (`[sipOff]`): opt-in, needs the scripting addition loaded into the Dock.
+    public var sipOff: SIPOffConfig
     public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
@@ -29,10 +31,11 @@ public struct Config: Codable, Equatable, Sendable {
         animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
         frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
         general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig(),
-        weather: WeatherConfig = WeatherConfig()
+        weather: WeatherConfig = WeatherConfig(), sipOff: SIPOffConfig = SIPOffConfig()
     ) {
         self.general = general
         self.weather = weather
+        self.sipOff = sipOff
         self.shell = shell
         self.appRules = appRules
         self.frame = frame
@@ -219,6 +222,25 @@ public struct DashboardConfig: Codable, Equatable, Sendable {
     public var showBattery: Bool = true
     /// "overview", "media" or "performance".
     public var defaultTab: String = "overview"
+    public init() {}
+}
+
+/// SIP-off mode (docs/ENHANCED_MODE.md). Off by default; Settings only lets it be switched on
+/// after the "What changes with SIP off?" showcase. Every feature needs the scripting addition
+/// in the Dock; while it is not loaded (or a macOS update broke it) SkyRose silently keeps its
+/// SIP-on behaviour.
+public struct SIPOffConfig: Codable, Equatable, Sendable {
+    public var enabled: Bool = false
+    /// Real-window open / close / move animations (transform + alpha), no snapshot cover.
+    public var animations: Bool = true
+    /// `wm.windowOpacity` on every non-fullscreen window.
+    public var opacity: Bool = true
+    /// false: other apps' windows lose their macOS shadow.
+    public var shadows: Bool = true
+    /// Workspace switches swap instantly (no slide, no visible parking).
+    public var instantWorkspaces: Bool = true
+    /// Pinned windows are really always on top (floating window level).
+    public var pinOnTop: Bool = true
     public init() {}
 }
 

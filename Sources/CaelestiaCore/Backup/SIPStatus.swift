@@ -50,3 +50,66 @@ public enum SIPReminderDecision {
         return status != .enabled
     }
 }
+
+/// Whether this Mac is set up for SIP-off mode (docs/ENHANCED_MODE.md): Debugging Restrictions
+/// off (the loader needs the Dock's task port), Filesystem Protections off, and on Apple Silicon
+/// the `-arm64e_preview_abi` boot argument. Read-only, like everything about SIP in SkyRose.
+public struct SIPOffReadiness: Equatable, Sendable {
+    public var filesystemOff = false
+    public var debuggingOff = false
+    public var nvramOff = false
+    public var bootArg = false
+    public var appleSilicon = true
+    public init() {}
+
+    /// `csrutil status` output + `nvram boot-args` output.
+    public static func parse(csrutil: String?, bootArgs: String?, appleSilicon: Bool = true) -> SIPOffReadiness {
+        var r = SIPOffReadiness()
+        r.appleSilicon = appleSilicon
+        let text = (csrutil ?? "").lowercased()
+        func off(_ name: String) -> Bool {
+            if text.contains("status: disabled") { return true }
+            return text.split(separator: "\n").contains { $0.contains(name) && $0.contains("disabled") }
+        }
+        r.filesystemOff = off("filesystem protections")
+        r.debuggingOff = off("debugging restrictions")
+        r.nvramOff = off("nvram protections")
+        r.bootArg = (bootArgs ?? "").split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" }).contains("-arm64e_preview_abi")
+        return r
+    }
+
+    public var ready: Bool { filesystemOff && debuggingOff && (bootArg || !appleSilicon) }
+
+    /// What is still missing, in the order Recovery asks for it.
+    public var missing: [String] {
+        var m: [String] = []
+        if !filesystemOff || !debuggingOff || !nvramOff { m.append("csrutil enable --without fs --without debug --without nvram (in Recovery)") }
+        if appleSilicon, !bootArg { m.append("sudo nvram boot-args=-arm64e_preview_abi") }
+        return m
+    }
+
+    public var summary: String {
+        ready ? "ready (filesystem + debugging protections off" + (appleSilicon ? ", -arm64e_preview_abi set)" : ")")
+            : "not ready: " + missing.joined(separator: "; ")
+    }
+
+    /// `/usr/sbin/nvram boot-args` (no root needed), nil on failure.
+    public static func readBootArgs() -> String? {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/sbin/nvram")
+        p.arguments = ["boot-args"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = Pipe()
+        do { try p.run() } catch { return nil }
+        p.waitUntilExit()
+        return String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)
+    }
+
+    public static func current() -> SIPOffReadiness {
+        var info = utsname()
+        uname(&info)
+        let machine = withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+        return parse(csrutil: SIPStatus.readCSRUtil(), bootArgs: readBootArgs(), appleSilicon: machine.hasPrefix("arm64"))
+    }
+}

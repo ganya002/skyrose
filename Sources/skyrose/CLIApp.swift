@@ -58,7 +58,9 @@ struct CLIApp {
         case .local(let command):
             return LocalCommands.run(command, invocation: invocation, client: client)
         case .ipc(let request):
-            return send(request, invocation: invocation, client: client)
+            let code = send(request, invocation: invocation, client: client)
+            if request.knownCommand == .wmPanic { LocalCommands.neutraliseScriptingAddition() }
+            return code
         }
     }
 

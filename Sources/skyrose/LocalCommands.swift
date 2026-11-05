@@ -31,7 +31,65 @@ enum LocalCommands {
             return kitty(verb, json: invocation.json)
         case .fonts(let verb):
             return fonts(verb, json: invocation.json)
+        case .sa(let verb):
+            return sa(verb, json: invocation.json)
         }
+    }
+
+    // MARK: SIP-off scripting addition
+
+    /// The loader inside the SkyRose.app this CLI belongs to (else the installed one).
+    static var saLoader: URL? {
+        let exe = Bundle.main.executableURL?.resolvingSymlinksInPath()
+        let app = exe?.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        return SAClient.bundledLoader(appBundle: app?.pathExtension == "app" ? app : Environment.wmAppURL)
+    }
+
+    /// `skyrose sa status | load-command | reset`.
+    static func sa(_ verb: SAVerb, json: Bool) -> Int32 {
+        let client = SAClient()
+        let hello = client.connect()
+        switch verb {
+        case .status:
+            let sip = SIPOffReadiness.current()
+            let config = ConfigLoader.loadUserOrDefault().config
+            var rows: [(String, String)] = [
+                ("scripting addition", hello.map { "loaded (v\($0.version): \($0.capabilities.names.joined(separator: ", ")))" } ?? "not loaded"),
+                ("sipOff.enabled", config.sipOff.enabled ? "true" : "false (Settings › SIP-off mode)"),
+                ("SIP", sip.summary),
+                ("socket", SAClient.socketPath()),
+            ]
+            if hello == nil, let loader = saLoader { rows.append(("load with", SAProtocol.loadCommand(loader: loader))) }
+            if json {
+                Console.out(JSONValue.object(Dictionary(rows.map { ($0.0, JSONValue.string($0.1)) }, uniquingKeysWith: { a, _ in a })).prettyJSON)
+            } else {
+                for (k, v) in rows { Console.out("\(k.padding(toLength: 20, withPad: " ", startingAt: 0)) \(v)") }
+            }
+            return ExitCode.ok
+        case .loadCommand:
+            guard let loader = saLoader else {
+                Console.error("skyrose-sa-loader not found in SkyRose.app (rebuild with scripts/build.sh)")
+                return ExitCode.failed
+            }
+            Console.out(SAProtocol.loadCommand(loader: loader))
+            return ExitCode.ok
+        case .reset:
+            guard hello != nil else {
+                Console.out("scripting addition not loaded: nothing to reset")
+                return ExitCode.ok
+            }
+            return client.reset() ? ExitCode.ok : ExitCode.failed
+        }
+    }
+
+    /// `wm panic` also talks to the SA directly (works when the WM hangs or is gone): undo every
+    /// window change and close its socket.
+    static func neutraliseScriptingAddition() {
+        let client = SAClient()
+        guard client.connect() != nil else { return }
+        _ = client.reset()
+        _ = client.stop()
+        Console.err("scripting addition: every window change undone, socket closed")
     }
 
     // MARK: fonts

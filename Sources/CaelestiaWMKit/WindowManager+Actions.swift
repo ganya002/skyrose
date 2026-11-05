@@ -136,6 +136,11 @@ extension WindowManager {
             if !state.isPinned(f) { state.setPinned(f, true) }
         case .windowClose:
             guard let f = focused, let handle = handles[f] else { return false }
+            // SIP-off mode: the real window shrinks and fades, then closes.
+            if let enhanced, windowAnimator === enhanced.animator, let p = visiblePlacements[f],
+               enhanced.animator.closeAnimated(f, frame: p.frame, close: { _ = handle.close() }) {
+                return true
+            }
             // The window goes away through the window system's `destroyed` event (the app may
             // also refuse, e.g. "save changes?"). The animator puts the stills up first so the
             // close can shrink and fade a window that never vanished.

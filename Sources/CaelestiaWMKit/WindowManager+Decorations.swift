@@ -111,6 +111,8 @@ extension WindowManager {
     func holdForWorkspaceTransition() -> Bool {
         let visible = visibleWorkspacesByDisplay()
         guard let decorations, !lastVisibleWorkspaces.isEmpty else { return false }
+        // SIP-off mode switches instantly (windows are hidden while they move), no slide.
+        if enhanced?.instantWorkspaces == true { return false }
         let transitions = workspaceTransitions(from: lastVisibleWorkspaces, to: visible)
         guard !transitions.isEmpty else { return false }
         if transitionReleased {

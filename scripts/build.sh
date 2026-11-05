@@ -76,6 +76,10 @@ ln -s skyrose "$APP/Contents/MacOS/caelestia"
 copy_resource_bundles "$APP"
 [[ -d "$ROOT/Resources" ]] && cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"   # optional extra resources (untracked)
 cp "$ROOT/Packaging/SkyRose.icns" "$ROOT/Packaging/SkyRoseWM.icns" "$APP/Contents/Resources/"   # scripts/make-icons.swift
+# SIP-off scripting addition (arm64e): payload for the Dock + the sudo loader. Ad-hoc signed
+# before the bundle seal; nothing is loaded at build time.
+"$ROOT/scripts/build-sa.sh" "$APP/Contents/Resources/sa"
+codesign --force --sign - "$APP/Contents/Resources/sa/SkyRoseSA.dylib" "$APP/Contents/Resources/sa/skyrose-sa-loader"
 sed "s/__VERSION__/$VERSION/g" "$ROOT/Packaging/SkyRose-Info.plist" > "$APP/Contents/Info.plist"
 sed "s|__APP_PATH__|$HOME/Applications/SkyRose.app|g" "$ROOT/Packaging/com.skyrose.mac.plist" \
   > "$APP/Contents/Library/LaunchAgents/com.skyrose.mac.plist"

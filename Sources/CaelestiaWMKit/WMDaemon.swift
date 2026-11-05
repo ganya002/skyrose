@@ -2,6 +2,7 @@ import AppKit
 import CaelestiaCore
 import CaelestiaIPC
 import CaelestiaLayout
+import CaelestiaOverlay
 import CaelestiaPlatform
 import CaelestiaShell
 import Foundation
@@ -23,6 +24,8 @@ public final class WMDaemon {
     private var signalSources: [DispatchSourceSignal] = []
     private var accessibilityTimer: Timer?
     private var decorations: OverlayDecorations?
+    /// SIP-off mode (`[sipOff]`); inactive unless the scripting addition answers.
+    private let enhanced = EnhancedMode()
     private var shell: ShellBridge?
     /// Settings › Appearance › Cursor (session-only, reset on quit).
     private let cursors = CursorController()
@@ -175,6 +178,19 @@ public final class WMDaemon {
         decorations = deco
         wm.decorations = deco
         wm.windowAnimator = deco.animator
+        wm.enhanced = enhanced
+        enhanced.onChange = { [weak self, weak deco] in
+            guard let self, let deco else { return }
+            // Real-window animations when the SA can do them, else the snapshot cover.
+            let useSA = self.enhanced.canAnimate
+            let next: any WindowAnimator = useSA ? self.enhanced.animator : deco.animator
+            if self.wm.windowAnimator !== next {
+                self.wm.windowAnimator?.cancel()
+                self.wm.windowAnimator = next
+            }
+            self.wm.setNeedsLayout()
+        }
+        enhanced.apply(config: wm.config)
         shell.controller.onSchemeChange = { [weak deco] scheme in
             deco?.apply(scheme: scheme)
             // The Settings app draws itself in the same colours (static or dynamic).
@@ -277,6 +293,7 @@ public final class WMDaemon {
                     self.tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
                     wm.apply(config: config)
                     self.decorations?.apply(config: config)
+                    self.enhanced.apply(config: config)
                     self.shell?.apply(config: config)
                     self.cursors.update(identifier: config.appearance.cursor)
                 case .failed(let error, _):
@@ -306,6 +323,7 @@ public final class WMDaemon {
         wm.apply(config: config)
         wm.apply(keymap: keymap)
         decorations?.apply(config: config)
+        enhanced.apply(config: config)
         // Fonts downloaded since start (Settings asks for a reload afterwards).
         if !FontStore.shared.registerForProcess().isEmpty { ShellTheme.fontsChanged() }
         shell?.apply(config: config)

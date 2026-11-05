@@ -123,6 +123,8 @@ public final class WindowManager {
     /// Animates real windows between layout passes (snapshot covers in Standard mode). Nil:
     /// every frame is written at once (tests, animations off).
     public var windowAnimator: (any WindowAnimator)?
+    /// SIP-off mode (nil or inactive: every SIP-on path as before).
+    public var enhanced: EnhancedMode?
     /// A workspace-change layout is held at most this long for the slide's outgoing still.
     public static let maxTransitionHold: TimeInterval = 0.3
 
@@ -306,6 +308,8 @@ public final class WindowManager {
     /// Used by the panic chord, `wm.quit`/`wm.panic` and SIGTERM.
     @discardableResult
     public func shutdown() -> Int {
+        // SIP-off mode: every alpha / level / transform / shadow goes back first.
+        enhanced?.shutdown()
         if isManaging { saveSessionIfChanged(immediately: true) }
         let restored = restoreEverything()
         windowSystem.onEvent = nil
@@ -461,6 +465,8 @@ public final class WindowManager {
         if suspendChanged { windowAnimator?.cancel() }
         var writes: [() -> Bool] = []
         var changes: [WindowFrameChange] = []
+        let instantSwitch = !animated && enhanced?.instantWorkspaces == true
+        var unparking: [WindowID] = []
         var borders: [WindowID: CGRect] = [:]
         for id in handles.keys.sorted() {
             guard let handle = handles[id], let wsID = state.workspace(of: id) else { continue }
@@ -477,6 +483,7 @@ public final class WindowManager {
                 if wasParked {
                     parked[id] = nil
                     try? journal.remove(id)
+                    unparking.append(id)
                 }
                 // A frame written again unchanged (snap-back after an app moved it, a forced
                 // re-apply on focus) is not a change to animate.
@@ -506,10 +513,13 @@ public final class WindowManager {
                         return false
                     }
                 } else {
+                    // SIP-off instant switch: invisible while it is moved off screen.
+                    if instantSwitch, previous[id] != nil, parked[id] == nil { enhanced?.hideForSwitch([id]) }
                     park(id, handle, on: ws.displayID)
                 }
             }
         }
+        if instantSwitch, !unparking.isEmpty { enhanced?.hideForSwitch(unparking) }
         // Closed or minimized since the last pass: their stills shrink and fade.
         for (id, p) in previous where visible[id] == nil && (handles[id] == nil || state.workspace(of: id) == nil) {
             changes.append(WindowFrameChange(id: id, kind: .close, from: p.frame, to: nil))
@@ -525,6 +535,12 @@ public final class WindowManager {
             animator.animate(WindowAnimationRequest(changes: changes, windows: scene, displays: displayFrames), commit: commit)
         } else {
             commit()
+        }
+        if instantSwitch { enhanced?.restoreAfterSwitch() }
+        if let enhanced, enhanced.active {
+            enhanced.layoutApplied(visible.map { id, p in
+                EnhancedMode.WindowInfo(id: id, fullscreen: p.kind == .fullscreen, pinned: state.isPinned(id))
+            })
         }
         borderFrames = borders
         visiblePlacements = visible
