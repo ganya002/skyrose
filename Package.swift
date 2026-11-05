@@ -116,7 +116,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "skyrose",
-            dependencies: ["CaelestiaCore", "CaelestiaIPC"],
+            dependencies: ["CaelestiaCore", "CaelestiaIPC", "CaelestiaPlatform"],
             path: "Sources/skyrose",
             swiftSettings: relaxed
         ),

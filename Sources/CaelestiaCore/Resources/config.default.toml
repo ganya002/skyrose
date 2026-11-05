@@ -178,6 +178,12 @@ fontIcons = "Material Symbols Rounded"
 wallpaperFolder = "~/Pictures/Wallpapers"
 # 0 = never rotate wallpapers automatically.
 wallpaperRandomIntervalMinutes = 0
+# Cursor theme for this login session: a Mousecape cape identifier such as
+# "Bibata-Modern-Classic" (looked up in ~/Library/Application Support/SkyRose/cursors, then
+# Mousecape's capes folder), or "" for the macOS cursors. Session-only: nothing on disk changes,
+# and quitting SkyRose or logging out puts the macOS cursors back. The spinning wait cursor is
+# never replaced (macOS cannot put it back once changed).
+cursor = ""
 
 # =====================================================================================
 # Dashboard (shell.json dashboard.*)

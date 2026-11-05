@@ -201,6 +201,9 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     public var fontIcons: String = "Material Symbols Rounded"
     public var wallpaperFolder: String = "~/Pictures/Wallpapers"
     public var wallpaperRandomIntervalMinutes: Int = 0
+    /// Cursor theme for this login session: a Mousecape cape identifier (e.g.
+    /// "Bibata-Modern-Classic"), or "" for the macOS cursors. The wait cursor is never replaced.
+    public var cursor: String = ""
     public init() {}
 }
 

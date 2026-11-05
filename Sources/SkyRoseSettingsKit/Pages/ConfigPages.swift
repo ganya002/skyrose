@@ -2,6 +2,7 @@ import AppKit
 import CaelestiaCore
 import CaelestiaShell
 import SwiftUI
+import CaelestiaPlatform
 
 // MARK: - General
 
@@ -138,6 +139,7 @@ struct AppearancePage: View {
                 }
             }
             .animation(look.motion.page, value: store.config.wm.screenFrame)
+            CursorCard(store: store)
             Card {
                 SectionLabel(text: "Corner calibration")
                 Text("Match the frame to the rounded corners of each display. Auto uses a good guess for MacBook screens.")
@@ -413,6 +415,89 @@ struct CloseQuitsCard: View {
         guard let url = appURL(id) else { return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage() }
         return NSWorkspace.shared.icon(forFile: url.path)
     }
+}
+
+/// Appearance › Cursor: a Mousecape cape (Bibata Modern Classic, from Gabby's Arch setup) for
+/// this login session, applied by the WM. The wait cursor is never replaced.
+struct CursorCard: View {
+    @ObservedObject var store: SettingsStore
+    @Environment(\.look) var look
+    @State private var capes: [(identifier: String, name: String, url: URL)] = []
+    @State private var previews: [String: [NSImage]] = [:]
+    @State private var resetNote: String?
+
+    var body: some View {
+        let current = store.config.appearance.cursor
+        Card {
+            SectionLabel(text: "Cursor")
+            SettingRow(title: "Pointer theme",
+                       detail: "For this login session only: nothing on disk changes, and quitting SkyRose or logging out brings the macOS cursors back. Same size and hotspots as on Arch (24 pt).",
+                       icon: "cursorarrow") {
+                PillSegmented(options: [("", "macOS", nil)] + capes.map { ($0.identifier, $0.name, nil) },
+                              selection: Binding(get: { current }, set: { choose($0) }))
+            }
+            if capes.isEmpty {
+                Text("No cursor themes found. Put a Mousecape .cape file (e.g. Bibata Modern Classic) in ~/Library/Application Support/SkyRose/cursors.")
+                    .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
+            }
+            if let images = previews[current], !images.isEmpty {
+                HStack(spacing: 14) {
+                    ForEach(images.indices, id: \.self) { i in
+                        Image(nsImage: images[i]).frame(width: 30, height: 30)
+                            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(look[.onSurface].opacity(0.06)))
+                    }
+                }
+                .padding(.leading, 34)
+            }
+            HStack(spacing: 10) {
+                PillButton(title: "Reset to macOS default", icon: "arrow.uturn.backward", kind: .tonal) { reset() }
+                    .accessibilityIdentifier("appearance.cursor.reset")
+                if let resetNote {
+                    Text(resetNote).font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+                } else if !current.isEmpty, !store.wmRunning {
+                    Text("Applies when SkyRose is running.").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+                }
+            }
+            Label("The spinning wait cursor always stays macOS's: once it is changed macOS cannot put it back until you log out, so SkyRose never touches it.",
+                  systemImage: "info.circle")
+                .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+        }
+        .onAppear(perform: load)
+    }
+
+    private func choose(_ identifier: String) {
+        resetNote = nil
+        store.set("appearance.cursor", .string(identifier), update: { $0.appearance.cursor = identifier })
+        if identifier.isEmpty, !store.wmRunning { reset() }
+    }
+
+    /// Clears the option (the WM restores) and, when the WM is not running, restores right here.
+    private func reset() {
+        store.set("appearance.cursor", .string(""), update: { $0.appearance.cursor = "" })
+        guard !store.wmRunning else { resetNote = "macOS cursors restored."; return }
+        let report = CursorThemeManager().reset()
+        resetNote = report.ok ? "macOS cursors restored." : "Some cursors could not be restored; logging out restores them."
+    }
+
+    private func load() {
+        let library = CursorCapeLibrary()
+        capes = library.available()
+        for cape in capes where previews[cape.identifier] == nil {
+            guard let loaded = try? CursorCape.load(cape.url) else { continue }
+            previews[cape.identifier] = Self.previewNames.compactMap { loaded.cursors[$0] }.compactMap { c in
+                c.images.last.map { image in
+                    // Animated cursors stack their frames vertically: show the first one.
+                    let frameHeight = image.height / max(1, c.frameCount)
+                    let first = image.cropping(to: CGRect(x: 0, y: 0, width: image.width, height: frameHeight)) ?? image
+                    return NSImage(cgImage: first, size: c.size)
+                }
+            }
+        }
+    }
+
+    /// Arrow, I-beam, pointing hand, resize, crosshair.
+    static let previewNames = ["com.apple.coregraphics.Arrow", "com.apple.coregraphics.IBeam", "com.apple.cursor.13",
+                               "com.apple.cursor.19", "com.apple.cursor.7"]
 }
 
 // MARK: - Bar and Shell

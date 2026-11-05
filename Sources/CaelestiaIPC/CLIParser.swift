@@ -19,6 +19,13 @@ public enum CLILocalCommand: Equatable, Sendable {
     case migrate
     /// `settings` / `onboarding`: open SkyRose Settings (at the onboarding).
     case openSettings(onboarding: Bool)
+    /// `cursor list | status | set <cape> | reset`: the session cursor theme (works without the WM).
+    case cursor(CursorVerb)
+}
+
+public enum CursorVerb: Equatable, Sendable {
+    case list, status, reset
+    case set(String)
 }
 
 /// What a parsed command line asks the CLI to do.
@@ -263,6 +270,19 @@ public enum CLIParser {
         case "uninstall":
             try rejectExtra("uninstall", args)
             inv.kind = .local(.uninstall)
+        case "cursor":
+            let verb = args.first ?? "status"
+            switch verb {
+            case "list", "status", "reset":
+                try rejectExtra("cursor \(verb)", Array(args.dropFirst()))
+                inv.kind = .local(.cursor(verb == "list" ? .list : verb == "status" ? .status : .reset))
+            case "set":
+                guard args.count >= 2 else { throw CLIUsageError.missingArgument(command: "cursor set", name: "cape identifier | default") }
+                try rejectExtra("cursor set", Array(args.dropFirst(2)))
+                inv.kind = .local(.cursor(.set(args[1])))
+            default:
+                throw CLIUsageError.unknownVerb(group: "cursor", verb: verb, expected: ["list", "status", "set", "reset"])
+            }
         case "version":
             try rejectExtra("version", args)
             inv.kind = .version
@@ -648,13 +668,14 @@ public enum CLIParser {
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [
             ("query windows|workspaces|monitors|binds|state [--json]", "Inspect WM state (tables, or raw JSON with --json)"),
         ]),
-        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "version"], rows: [
+        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "cursor", "version"], rows: [
             ("action <name> [key=value ...]", "Run any keymap action, e.g. action workspace.focus index=3"),
             ("wm panic | restore-all | quit", "Restore windows and stop managing / bring parked windows back / quit"),
             ("permissions status", "TCC permissions as the WM sees them"),
             ("permissions request <accessibility|inputMonitoring|screenRecording>", "Ask for one permission and open its System Settings pane"),
             ("doctor [--json]", "Environment, permissions, versions, SIP status, conflicts"),
             ("uninstall [--yes]", "Run scripts/uninstall.sh (or print the manual steps)"),
+            ("cursor list | status | set <cape|default> | reset", "Session cursor theme (Mousecape capes); reset puts the macOS cursors back"),
             ("version", "CLI and WM versions"),
         ]),
     ]

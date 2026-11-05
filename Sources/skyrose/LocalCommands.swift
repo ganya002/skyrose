@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import CaelestiaCore
 import CaelestiaIPC
+import CaelestiaPlatform
 
 /// Verbs that run inside the CLI process.
 enum LocalCommands {
@@ -24,6 +25,8 @@ enum LocalCommands {
             return migrate(json: invocation.json)
         case .openSettings(let onboarding):
             return openSettings(onboarding: onboarding)
+        case .cursor(let verb):
+            return cursor(verb, json: invocation.json)
         }
     }
 
@@ -255,5 +258,53 @@ extension LocalCommands {
         let r = Environment.run("/usr/bin/open", args, timeout: 10)
         if r.status != 0 { Console.error(r.stderr.trimmingCharacters(in: .whitespacesAndNewlines)) }
         return r.status == 0 ? ExitCode.ok : ExitCode.failed
+    }
+}
+
+// MARK: cursor
+
+extension LocalCommands {
+    /// `skyrose cursor …`: the session cursor theme. `set` writes `appearance.cursor` (the WM
+    /// applies it); `reset` clears it and puts the macOS cursors back right here, so it also
+    /// works when the WM is not running (uninstall).
+    static func cursor(_ verb: CursorVerb, json: Bool) -> Int32 {
+        let library = CursorCapeLibrary()
+        switch verb {
+        case .list:
+            let capes = library.available()
+            if capes.isEmpty { Console.out("No cursor capes found (looked in \(Environment.tilde(library.ownFolder)) and Mousecape's capes folder).") }
+            for c in capes { Console.out("\(c.identifier)\t\(c.name)\t\(Environment.tilde(c.url))") }
+            return ExitCode.ok
+        case .status:
+            let configured = ConfigLoader.loadUserOrDefault().config.appearance.cursor
+            let backup = CursorBackupStore()
+            Console.out("appearance.cursor: \(configured.isEmpty ? "\"\" (macOS cursors)" : configured)")
+            Console.out("SkyRose cursors active this session: \(backup.exists ? "yes (reset restores the originals)" : "no")")
+            Console.out("Wait (spinning) cursor: always macOS's; SkyRose never replaces it.")
+            return ExitCode.ok
+        case .set(let raw):
+            let id = raw.lowercased() == "default" || raw.lowercased() == "macos" ? "" : raw
+            if !id.isEmpty, library.url(for: id) == nil {
+                Console.error("no cape named \(id); see `skyrose cursor list`.")
+                return ExitCode.failed
+            }
+            do {
+                try ConfigFileEditor.set("cursor", to: ConfigFileEditor.string(id), inTable: "appearance", file: Paths.configFile)
+            } catch {
+                Console.error("could not write \(Environment.tilde(Paths.configFile)): \(error.localizedDescription)")
+                return ExitCode.failed
+            }
+            Console.out(id.isEmpty ? "appearance.cursor cleared; the WM puts the macOS cursors back." : "appearance.cursor = \(id); the WM applies it (not the wait cursor).")
+            return ExitCode.ok
+        case .reset:
+            try? ConfigFileEditor.set("cursor", to: ConfigFileEditor.string(""), inTable: "appearance", file: Paths.configFile)
+            let report = CursorThemeManager().reset()
+            if report.ok {
+                Console.out("macOS cursors restored (\(report.restored.count) put back).")
+                return ExitCode.ok
+            }
+            Console.error("could not restore: \(report.failed.joined(separator: ", ")). Logging out restores every cursor.")
+            return ExitCode.failed
+        }
     }
 }

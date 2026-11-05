@@ -24,6 +24,8 @@ public final class WMDaemon {
     private var accessibilityTimer: Timer?
     private var decorations: OverlayDecorations?
     private var shell: ShellBridge?
+    /// Settings › Appearance › Cursor (session-only, reset on quit).
+    private let cursors = CursorController()
     private var permissionTimer: Timer?
     private var permissionHistory = PermissionHistory.load()
 
@@ -181,6 +183,7 @@ public final class WMDaemon {
 
         wm.start()
         shell.start()
+        cursors.start(identifier: wm.config.appearance.cursor)
         startEventTap()
         startWatchers()
         installSignalHandlers()
@@ -271,6 +274,7 @@ public final class WMDaemon {
                     wm.apply(config: config)
                     self.decorations?.apply(config: config)
                     self.shell?.apply(config: config)
+                    self.cursors.update(identifier: config.appearance.cursor)
                 case .failed(let error, _):
                     Log.config.error("config.toml not applied: \(String(describing: error), privacy: .public)")
                 }
@@ -299,6 +303,7 @@ public final class WMDaemon {
         wm.apply(keymap: keymap)
         decorations?.apply(config: config)
         shell?.apply(config: config)
+        cursors.update(identifier: config.appearance.cursor)
         return warnings + keymapWarnings
     }
 
@@ -357,6 +362,7 @@ public final class WMDaemon {
     }
 
     private func terminate() {
+        cursors.stop()  // the macOS cursors come back with the windows
         tap.stop()
         ipc?.stop()
         configWatcher?.stop()
