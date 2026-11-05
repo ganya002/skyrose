@@ -192,8 +192,21 @@ cursor = ""
 showClockSeconds = true
 # Battery card in the Performance tab (only on Macs with a battery).
 showBattery = true
-# "overview", "media" or "performance".
+# "overview", "media", "performance" or "weather".
 defaultTab = "overview"
+
+# =====================================================================================
+# Weather (dashboard card + Weather tab). Open-Meteo, no API key; pick the city in
+# Settings › Bar and Shell. Nothing is fetched and no values are shown until a city is set.
+# =====================================================================================
+[weather]
+city = ""
+latitude = 0.0
+longitude = 0.0
+# Use this Mac's location (asks for the Location permission). Falls back to the city.
+useLocation = false
+fahrenheit = false
+refreshMinutes = 30
 
 # =====================================================================================
 # Bar (shell.json bar.*)

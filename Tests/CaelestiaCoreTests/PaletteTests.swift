@@ -200,7 +200,10 @@ final class DashboardConfigParsingTests: XCTestCase {
 
     func testInvalidValuesAreRejected() {
         XCTAssertThrowsError(try ConfigLoader.parse(toml: "[appearance]\nschemeMode = \"rainbow\""))
-        XCTAssertThrowsError(try ConfigLoader.parse(toml: "[dashboard]\ndefaultTab = \"weather\""))
+        XCTAssertThrowsError(try ConfigLoader.parse(toml: "[dashboard]\ndefaultTab = \"news\""))
+        XCTAssertNoThrow(try ConfigLoader.parse(toml: "[dashboard]\ndefaultTab = \"weather\""), "the Weather tab exists now")
+        XCTAssertThrowsError(try ConfigLoader.parse(toml: "[weather]\nlatitude = 91.0"))
+        XCTAssertThrowsError(try ConfigLoader.parse(toml: "[weather]\nrefreshMinutes = 1"))
     }
 
     func testSerializeRoundTripKeepsTheNewKeys() throws {

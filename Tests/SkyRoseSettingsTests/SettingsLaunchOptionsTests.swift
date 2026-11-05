@@ -8,6 +8,9 @@ final class SettingsLaunchOptionsTests: XCTestCase {
         XCTAssertNil(o.onboarding)
         XCTAssertEqual(o.page, .general)
         XCTAssertTrue(o.simulateMissing.isEmpty)
+        XCTAssertFalse(o.sipReminder)
+        XCTAssertFalse(o.demoSIPPopup)
+        XCTAssertTrue(SettingsLaunchOptions.parse(["--sip-reminder"]).sipReminder)
     }
 
     func testRepairAndSimulate() {

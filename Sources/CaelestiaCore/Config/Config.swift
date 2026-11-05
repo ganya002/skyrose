@@ -15,6 +15,8 @@ public struct Config: Codable, Equatable, Sendable {
     public var apps: AppsConfig
     public var animations: AnimationsConfig
     public var dashboard: DashboardConfig
+    /// Where the dashboard's weather comes from (`[weather]`, Open-Meteo).
+    public var weather: WeatherConfig
     public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
@@ -26,9 +28,11 @@ public struct Config: Codable, Equatable, Sendable {
         bar: BarConfig = BarConfig(), input: InputConfig = InputConfig(), apps: AppsConfig = AppsConfig(),
         animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
         frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
-        general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig()
+        general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig(),
+        weather: WeatherConfig = WeatherConfig()
     ) {
         self.general = general
+        self.weather = weather
         self.shell = shell
         self.appRules = appRules
         self.frame = frame
@@ -215,6 +219,28 @@ public struct DashboardConfig: Codable, Equatable, Sendable {
     /// "overview", "media" or "performance".
     public var defaultTab: String = "overview"
     public init() {}
+}
+
+/// Weather for the dashboard (Open-Meteo, no API key). Nothing is fetched until a city is set or
+/// `useLocation` is on; there are no placeholder values.
+public struct WeatherConfig: Codable, Equatable, Sendable {
+    /// Shown name of the chosen place ("Munich, Germany"); "" = no weather.
+    public var city: String = ""
+    /// Coordinates of `city`, from the Open-Meteo geocoding search in Settings.
+    public var latitude: Double = 0
+    public var longitude: Double = 0
+    /// Use this Mac's location (CoreLocation) instead of the city. Off by default; asks for the
+    /// Location permission when switched on. Falls back to the city if it is denied.
+    public var useLocation: Bool = false
+    /// Show °F instead of °C.
+    public var fahrenheit: Bool = false
+    /// Minutes between refreshes (Open-Meteo updates hourly).
+    public var refreshMinutes: Int = 30
+    public init() {}
+
+    /// A city was picked (coordinates are set) or the location is used.
+    public var isConfigured: Bool { useLocation || hasCity }
+    public var hasCity: Bool { !city.isEmpty && !(latitude == 0 && longitude == 0) }
 }
 
 public struct BarConfig: Codable, Equatable, Sendable {

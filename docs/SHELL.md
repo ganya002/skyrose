@@ -6,7 +6,7 @@ volume/brightness OSD and toasts. Verified live on a MacBook Air (1470x956) plus
 3440x1440 display.
 
 Part 2 (below) adds the dashboard, sidebar, bar popouts, wallpaper picker and dynamic colours.
-Not built yet: Settings app, lock-screen cover, weather, screen recorder. See LIMITATIONS.md.
+Not built yet: lock-screen cover, screen recorder. See LIMITATIONS.md.
 
 ## Screen frame
 
@@ -121,12 +121,24 @@ stacking.
 
 Top drawer, 860x560 at full size (scaled uniformly to fit smaller screens, never over the notch
 strip). Open: bar clock, `skyrose shell dashboard`, or the `panels.showAll` / `dashboard.toggle`
-keybinds; click elsewhere closes it. Tabs Overview / Media / Performance (`dashboard.defaultTab`).
+keybinds; click elsewhere closes it. Tabs Overview / Media / Performance / Weather (`dashboard.defaultTab`).
 Data: CPU `host_processor_info`, memory `host_statistics64` (active + wired + compressed), disk
 `volumeAvailableCapacityForImportantUsage`, GPU IOAccelerator, network `NetworkThroughputSampler`,
 battery IOKit, thermal `ProcessInfo.thermalState`, media Spotify/Music via AppleScript. Sampling
-runs at 1 Hz only while open. Hidden: temperatures in degrees, GPU when not reported, battery on a
-desktop Mac. Weather is a placeholder.
+runs at 1 Hz only while open. Temperatures: IOKit HID sensors (CPU die, battery, SSD; GPU only
+where the chip names one), no root. Hidden: any sensor that is missing, GPU when not reported,
+battery on a desktop Mac.
+
+Weather (`[weather]`, Open-Meteo forecast + geocoding, no API key): Settings › Bar and Shell has
+the city search; the Overview card and the Weather tab (now, feels like, humidity, wind,
+sunrise/sunset, 12 hours, 7 days) show nothing but a set-up hint until a city is set. Refreshed
+every `refreshMinutes` (30) and when the dashboard opens on a stale report. "Use my location"
+(CoreLocation, off by default) falls back to the city when denied.
+
+Right-edge drags (Caelestia `Interactions.qml`): press on the right frame band and drag left —
+past 30 pt within the session menu's height opens the session menu, past 80 pt elsewhere on the
+band opens the sidebar. A two-finger swipe left with the pointer on the band does the same. The
+frame stays click-through: the WM only watches the pointer.
 
 ## Sidebar and popouts (part 2)
 

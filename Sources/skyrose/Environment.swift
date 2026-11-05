@@ -52,13 +52,12 @@ enum Environment {
 
     /// SIP status from `csrutil status` (read-only): "enabled", "disabled", "custom", or nil.
     static var sipStatus: String? {
-        let r = run("/usr/bin/csrutil", ["status"], timeout: 5)
-        let text = (r.stdout + r.stderr).lowercased()
-        guard r.status == 0 || !text.isEmpty else { return nil }
-        if text.contains("status: enabled") { return text.contains("custom") ? "enabled (custom configuration)" : "enabled" }
-        if text.contains("status: disabled") { return "disabled" }
-        if text.contains("unknown") { return "unknown" }
-        return text.split(separator: "\n").first.map(String.init)
+        switch SIPStatus.parse(SIPStatus.readCSRUtil()) {
+        case .enabled: return "enabled"
+        case .custom: return "enabled (custom configuration)"
+        case .disabled: return "disabled"
+        case .unknown: return nil
+        }
     }
 
     /// Location of the installed WM app, if Launch Services knows one.

@@ -568,6 +568,7 @@ struct ShellPage: View {
                         }
                     }
                 }
+                WeatherSettingsCard(store: store, enabled: store.config.shell.enabled)
             }
             .opacity(wmOnly ? 0.45 : 1)
             .allowsHitTesting(!wmOnly)

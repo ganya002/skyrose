@@ -10,6 +10,10 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
     public var simulateMissing: Set<SkyRosePermission> = []
     /// Shows the SIP reminder on launch (uninstaller preview).
     public var demoSIPPopup = false
+    /// `--sip-reminder`: the uninstaller found that SIP-off mode was used. Shown only if
+    /// ``RestoreManifest/mustShowSIPReminder(csrutilStatus:)`` agrees or the manifest is already
+    /// gone (the uninstaller decided before removing it).
+    public var sipReminder = false
     /// Opens the onboarding at this step (screenshots, tests).
     public var onboardingStep: OnboardingStep?
 
@@ -28,6 +32,7 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
         }
         o.simulateMissing = missing
         o.demoSIPPopup = args.contains("--demo-sip-popup")
+        o.sipReminder = args.contains("--sip-reminder")
         if let i = args.firstIndex(of: "--step"), i + 1 < args.count { o.onboardingStep = OnboardingStep(rawValue: args[i + 1]) }
         return o
     }
@@ -65,10 +70,17 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         } else {
             showSettings(page: options.page)
         }
-        if options.demoSIPPopup {
+        if options.demoSIPPopup || (options.sipReminder && Self.uninstallerReminderStillNeeded()) {
             SIPReminderPresenter.show(look: store.look)
         }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// The uninstaller's decision stands when the manifest is gone; otherwise it is re-checked.
+    static func uninstallerReminderStillNeeded() -> Bool {
+        let m = RestoreManifest()
+        let recordsLeft = FileManager.default.fileExists(atPath: m.journal.url.path) || FileManager.default.fileExists(atPath: m.flagURL(.sipOff).path)
+        return !recordsLeft || m.mustShowSIPReminder(csrutilStatus: SIPStatus.readCSRUtil())
     }
 
     public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

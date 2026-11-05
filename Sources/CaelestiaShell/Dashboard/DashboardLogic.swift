@@ -1,12 +1,13 @@
 import Foundation
 
 public enum DashboardTab: String, CaseIterable, Sendable {
-    case overview, media, performance
+    case overview, media, performance, weather
     public var title: String {
         switch self {
         case .overview: return "Overview"
         case .media: return "Media"
         case .performance: return "Performance"
+        case .weather: return "Weather"
         }
     }
     public var icon: String {
@@ -14,6 +15,7 @@ public enum DashboardTab: String, CaseIterable, Sendable {
         case .overview: return "square.grid.2x2.fill"
         case .media: return "music.note.list"
         case .performance: return "gauge.with.dots.needle.33percent"
+        case .weather: return "cloud.sun.fill"
         }
     }
     public init(config: String) { self = DashboardTab(rawValue: config.lowercased()) ?? .overview }
@@ -109,6 +111,10 @@ public enum ShellText {
         if h > 0 { return "up \(plural(h, "hour")), \(m) min" }
         return "up \(m) min"
     }
+    /// "48°C".
+    public static func celsius(_ c: Double) -> String { "\(Int(c.rounded()))°C" }
+    /// 20 °C → 0, 105 °C → 1 (the bar and sparkline scale for temperatures).
+    public static func temperatureFraction(_ c: Double) -> Double { min(1, max(0, (c - 20) / 85)) }
     public static func thermalText(_ raw: Int) -> String { ["Nominal", "Fair", "Serious", "Critical"][max(0, min(3, raw))] }
 }
 

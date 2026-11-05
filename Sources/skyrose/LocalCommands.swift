@@ -155,6 +155,9 @@ struct Uninstaller {
     let client: IPCClient
 
     func run() -> Int32 {
+        // Decided before anything is removed (the script moves Application Support to the Trash).
+        let sipReminder = RestoreManifest().mustShowSIPReminder(csrutilStatus: SIPStatus.readCSRUtil())
+        defer { if sipReminder { showSIPReminder() } }
         guard let script = locateScript() else {
             printManualSteps()
             return ExitCode.failed
@@ -179,6 +182,16 @@ struct Uninstaller {
         let status = Environment.runInteractive("/bin/sh", args)
         if status != 0 { Console.error("uninstall script exited with status \(status)") }
         return status == 0 ? ExitCode.ok : ExitCode.failed
+    }
+
+    /// SIP-off mode was used and SIP is not fully back on: say so here and open the reminder
+    /// window (SkyRose Settings `--sip-reminder`). Never shown otherwise.
+    func showSIPReminder() {
+        Console.out("")
+        Console.out("You used SkyRose's SIP-off mode. Turn System Integrity Protection back on from Recovery:")
+        Console.out("  shut down, hold the power button, Options › Utilities › Terminal, `csrutil enable`, restart.")
+        guard let url = Environment.settingsAppURL else { return }
+        _ = Environment.run("/usr/bin/open", ["-n", "-a", url.path, "--args", "--sip-reminder"], timeout: 10)
     }
 
     /// Looks next to the app bundle first, then in the repository the CLI was built from.

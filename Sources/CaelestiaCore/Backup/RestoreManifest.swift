@@ -12,12 +12,18 @@ import Foundation
 public struct RestoreManifest: Sendable {
     public let journal: BackupJournal
 
-    public init(journal: BackupJournal = BackupJournal(url: Paths.restoreManifest)) {
+    /// Folder of the per-mode flag files (`<mode>-mode-used`). A second, tiny record next to the
+    /// journal so a corrupt or deleted manifest still remembers that SIP-off mode was used.
+    public let flagDirectory: URL
+
+    public init(journal: BackupJournal = BackupJournal(url: Paths.restoreManifest), flagDirectory: URL = Paths.appSupport) {
         self.journal = journal
+        self.flagDirectory = flagDirectory
     }
 
     public init(url: URL) {
         journal = BackupJournal(url: url)
+        flagDirectory = url.deletingLastPathComponent()
     }
 
     /// Modes that change the system around SkyRose and need a manual step to undo.
@@ -28,23 +34,35 @@ public struct RestoreManifest: Sendable {
 
     static let modeDomain = "skyrose.mode"
 
-    /// Records that `mode` was used (once is enough; later calls add nothing).
+    /// The flag file for `mode` (`sipOff-mode-used`): exists once the mode was used.
+    public func flagURL(_ mode: Mode) -> URL { flagDirectory.appendingPathComponent("\(mode.rawValue)-mode-used") }
+
+    /// Records that `mode` was used (once is enough; later calls add nothing). Writes the flag
+    /// file first, then the journal entry.
     public func recordModeUsed(_ mode: Mode, note: String? = nil) throws {
+        let flag = flagURL(mode)
+        if !FileManager.default.fileExists(atPath: flag.path) {
+            try FileManager.default.createDirectory(at: flagDirectory, withIntermediateDirectories: true)
+            let stamp = ISO8601DateFormatter().string(from: Date())
+            try Data("\(stamp)\n".utf8).write(to: flag, options: .atomic)
+        }
         guard try !journal.contains(domain: Self.modeDomain, key: mode.rawValue) else { return }
         try journal.append(BackupEntry(domain: Self.modeDomain, key: mode.rawValue, oldValue: .bool(false), newValue: .bool(true),
                                        kind: .mode, note: note))
     }
 
-    /// True when the manifest records that `mode` was used. An unreadable manifest returns false
-    /// here; ``mustShowSIPReminder`` treats that case as "maybe" and shows the reminder.
+    /// True when the flag file or the manifest records that `mode` was used. Nothing recorded
+    /// (or an unreadable manifest without the flag) means it was not used.
     public func everUsed(_ mode: Mode) -> Bool {
-        ((try? journal.contains(domain: Self.modeDomain, key: mode.rawValue)) ?? false)
+        FileManager.default.fileExists(atPath: flagURL(mode).path)
+            || ((try? journal.contains(domain: Self.modeDomain, key: mode.rawValue)) ?? false)
     }
 
-    /// Whether the uninstaller must show the SIP reminder: SIP-off mode was recorded, or the
-    /// manifest exists but cannot be read (then we cannot prove it was never used).
-    public var mustShowSIPReminder: Bool {
-        everUsed(.sipOff) || readError != nil
+    /// Whether the uninstaller shows the SIP reminder: only when SIP-off mode was actually used
+    /// (``SIPReminderDecision``). `csrutilStatus` is the raw `csrutil status` output, nil when it
+    /// could not be read.
+    public func mustShowSIPReminder(csrutilStatus: String?) -> Bool {
+        SIPReminderDecision.shouldShow(sipOffModeUsed: everUsed(.sipOff), status: SIPStatus.parse(csrutilStatus))
     }
 
     /// Why the manifest cannot be read, if it exists and is corrupt.

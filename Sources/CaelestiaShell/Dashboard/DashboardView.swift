@@ -60,6 +60,7 @@ struct DashboardView: View {
                 case .overview: OverviewTab(model: model, state: state)
                 case .media: MediaTab(state: state, model: model)
                 case .performance: PerformanceTab(state: state)
+                case .weather: WeatherTab(state: state)
                 }
             }
             .padding(.horizontal, 12)
@@ -106,7 +107,8 @@ private struct OverviewTab: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
-                    WeatherCard(weather: state.weather).frame(width: 275, height: 130)
+                    WeatherCard(state: state).frame(width: 275, height: 130)
+                        .onTapGesture { withAnimation(theme.small) { model.tab = .weather } }
                     UserCard(state: state).frame(width: 339, height: 130)
                 }
                 HStack(spacing: 12) {
@@ -121,25 +123,164 @@ private struct OverviewTab: View {
 }
 
 struct WeatherCard: View {
-    var weather: WeatherInfo?
+    @ObservedObject var state: ShellState
     @Environment(\.shellTheme) var theme
 
     var body: some View {
-        HStack(spacing: 20) {
-            Image(systemName: weather.map { ShellIcon.sf($0.icon) } ?? "cloud.sun")
-                .font(.system(size: 54, weight: .light))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(theme[.onSurface])
-            VStack(spacing: 4) {
-                Text(weather.map { "\(Int($0.temperatureC.rounded()))°C" } ?? "--°C")
-                    .font(theme.sans(30, weight: .semibold)).foregroundStyle(theme[.primary])
-                Text(weather?.description ?? "Weather not set up")
-                    .font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface]).multilineTextAlignment(.center)
+        Group {
+            if let w = state.weather {
+                HStack(spacing: 20) {
+                    Image(systemName: ShellIcon.sf(w.icon))
+                        .font(.system(size: 54, weight: .light))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(theme[.onSurface])
+                    VStack(spacing: 4) {
+                        Text(WeatherText.temperature(w.temperatureC, fahrenheit: state.config.weather.fahrenheit))
+                            .font(theme.sans(30, weight: .semibold)).foregroundStyle(theme[.primary])
+                        Text(w.description)
+                            .font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface]).multilineTextAlignment(.center)
+                        Text(w.location).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
+                    }
+                }
+            } else {
+                WeatherPlaceholderText(status: state.weatherStatus, compact: true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .shellCard()
         .accessibilityIdentifier("dashboard.weather")
+    }
+}
+
+/// What to show instead of numbers: set-up hint, loading, or the error. No fake values.
+struct WeatherPlaceholderText: View {
+    var status: WeatherStatus
+    var compact: Bool
+    @Environment(\.shellTheme) var theme
+
+    var body: some View {
+        let (icon, title, detail): (String, String, String) = {
+            switch status {
+            case .notConfigured: return ("location.magnifyingglass", "No city set", "Choose one in Settings › Bar and Shell")
+            case .loading: return ("arrow.triangle.2.circlepath", "Getting the weather…", "")
+            case .ready: return ("cloud", "No weather yet", "")
+            case .failed(let why): return ("exclamationmark.icloud", "Weather unavailable", why)
+            }
+        }()
+        VStack(spacing: compact ? 4 : 8) {
+            Image(systemName: icon).font(.system(size: compact ? 28 : 40, weight: .light)).foregroundStyle(theme[.onSurfaceVariant])
+            Text(title).font(theme.sans(compact ? 14 : 17, weight: .semibold)).foregroundStyle(theme[.onSurface])
+            if !detail.isEmpty {
+                Text(detail).font(theme.sans(compact ? 11 : 13)).foregroundStyle(theme[.onSurfaceVariant])
+                    .multilineTextAlignment(.center).lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+}
+
+// MARK: Weather tab
+
+private struct WeatherTab: View {
+    @ObservedObject var state: ShellState
+    @Environment(\.shellTheme) var theme
+
+    var f: Bool { state.config.weather.fahrenheit }
+
+    var body: some View {
+        Group {
+            if let w = state.weather {
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        current(w).frame(width: 300)
+                        details(w)
+                    }
+                    .frame(height: 170)
+                    hourly(w).frame(height: 104)
+                    daily(w)
+                }
+            } else {
+                WeatherPlaceholderText(status: state.weatherStatus, compact: false)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity).shellCard()
+            }
+        }
+        .accessibilityIdentifier("dashboard.weatherTab")
+    }
+
+    func current(_ w: WeatherInfo) -> some View {
+        HStack(spacing: 18) {
+            Image(systemName: ShellIcon.sf(w.icon)).font(.system(size: 64, weight: .light))
+                .symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface])
+            VStack(alignment: .leading, spacing: 4) {
+                Text(WeatherText.temperature(w.temperatureC, fahrenheit: f)).font(theme.sans(40, weight: .semibold)).foregroundStyle(theme[.primary])
+                Text(w.description).font(theme.sans(14, weight: .medium)).foregroundStyle(theme[.onSurface])
+                Label(w.location, systemImage: state.config.weather.useLocation ? "location.fill" : "mappin.and.ellipse")
+                    .font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .frame(maxHeight: .infinity)
+        .shellCard()
+    }
+
+    func details(_ w: WeatherInfo) -> some View {
+        let items: [(String, String, String)] = [
+            w.feelsLikeC.map { ("thermometer.medium", "Feels like", WeatherText.temperature($0, fahrenheit: f)) },
+            w.humidity.map { ("humidity.fill", "Humidity", "\($0)%") },
+            w.windKmh.map { ("wind", "Wind", f ? "\(Int(($0 / 1.609).rounded())) mph" : "\(Int($0.rounded())) km/h") },
+            w.sunrise.map { ("sunrise.fill", "Sunrise", $0.formatted(date: .omitted, time: .shortened)) },
+            w.sunset.map { ("sunset.fill", "Sunset", $0.formatted(date: .omitted, time: .shortened)) },
+            w.updated.map { ("clock.arrow.circlepath", "Updated", $0.formatted(date: .omitted, time: .shortened)) },
+        ].compactMap { $0 }
+        let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+        return LazyVGrid(columns: cols, spacing: 10) {
+            ForEach(items, id: \.1) { item in
+                HStack(spacing: 8) {
+                    Image(systemName: item.0).font(.system(size: 15)).foregroundStyle(theme[.primary]).frame(width: 20)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.1).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                        Text(item.2).font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface]).monospacedDigit()
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12).frame(height: 70).shellCard(radius: 20)
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    func hourly(_ w: WeatherInfo) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(w.hourly.prefix(12).enumerated()), id: \.offset) { i, h in
+                VStack(spacing: 5) {
+                    Text(i == 0 ? "Now" : h.time.formatted(.dateTime.hour())).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                    Image(systemName: ShellIcon.sf(h.icon)).font(.system(size: 17)).symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface]).frame(height: 22)
+                    Text(WeatherText.temperature(h.temperatureC, fahrenheit: f, unit: false)).font(theme.sans(13, weight: .semibold)).foregroundStyle(theme[.onSurface])
+                    Text(h.precipitationChance.map { $0 >= 10 ? "\($0)%" : " " } ?? " ").font(theme.sans(10)).foregroundStyle(theme[.primary])
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(maxHeight: .infinity)
+        .shellCard()
+    }
+
+    func daily(_ w: WeatherInfo) -> some View {
+        HStack(spacing: 10) {
+            ForEach(Array(w.daily.prefix(7).enumerated()), id: \.offset) { i, d in
+                VStack(spacing: 6) {
+                    Text(i == 0 ? "Today" : d.date.formatted(.dateTime.weekday(.abbreviated))).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurface])
+                    Image(systemName: ShellIcon.sf(d.icon)).font(.system(size: 20)).symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface]).frame(height: 26)
+                    Text(WeatherText.temperature(d.maxC, fahrenheit: f, unit: false)).font(theme.sans(13, weight: .semibold)).foregroundStyle(theme[.primary])
+                    Text(WeatherText.temperature(d.minC, fahrenheit: f, unit: false)).font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .shellCard(radius: 20)
+            }
+        }
+        .frame(maxHeight: .infinity)
     }
 }
 
@@ -411,7 +552,16 @@ private struct PerformanceTab: View {
             }
             NetCard(p: p)
             if state.status.hasBattery, state.config.dashboard.showBattery { BatteryCard(status: state.status) }
-            StatCard(icon: "thermometer.medium", title: "Thermal", value: ShellText.thermalText(p.thermalState), detail: "pressure; degrees need root", fraction: Double(p.thermalState) / 3, history: [])
+            if let t = p.temperatureC {
+                StatCard(icon: "thermometer.medium", title: "CPU temp", value: ShellText.celsius(t),
+                         detail: [p.cpuMaxTemperatureC.map { "hottest \(ShellText.celsius($0))" }, "pressure \(ShellText.thermalText(p.thermalState).lowercased())"].compactMap { $0 }.joined(separator: " · "),
+                         fraction: ShellText.temperatureFraction(t), history: p.temperatureHistory.map(ShellText.temperatureFraction))
+            } else {
+                StatCard(icon: "thermometer.medium", title: "Thermal", value: ShellText.thermalText(p.thermalState), detail: "pressure", fraction: Double(p.thermalState) / 3, history: [])
+            }
+            if p.gpuTemperatureC != nil || p.batteryTemperatureC != nil || p.ssdTemperatureC != nil {
+                TempsCard(p: p)
+            }
         }
         .accessibilityIdentifier("dashboard.performance")
     }
@@ -442,6 +592,36 @@ private struct StatCard: View {
         .padding(14)
         .frame(height: 140)
         .shellCard(radius: 22)
+    }
+}
+
+/// The other temperatures that this Mac exposes (each row hidden when its sensor is missing).
+private struct TempsCard: View {
+    var p: PerformanceInfo
+    @Environment(\.shellTheme) var theme
+    var body: some View {
+        let rows: [(String, String, Double)] = [
+            p.gpuTemperatureC.map { ("display", "GPU", $0) },
+            p.batteryTemperatureC.map { ("battery.75percent", "Battery", $0) },
+            p.ssdTemperatureC.map { ("internaldrive", "SSD", $0) },
+        ].compactMap { $0 }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "thermometer.variable").font(.system(size: 14)).foregroundStyle(theme[.primary])
+                Text("Temperatures").font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface])
+            }
+            ForEach(rows, id: \.1) { r in
+                HStack(spacing: 8) {
+                    Image(systemName: r.0).font(.system(size: 12)).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 18)
+                    Text(r.1).font(theme.sans(13)).foregroundStyle(theme[.onSurface])
+                    Spacer()
+                    Text(ShellText.celsius(r.2)).font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.primary]).monospacedDigit()
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14).frame(height: 140).shellCard(radius: 22)
+        .accessibilityIdentifier("dashboard.temperatures")
     }
 }
 

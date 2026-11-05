@@ -102,7 +102,7 @@ Legend for "Action": **fixed** = changed in this phase; **kept** = already match
 | Bar content | logo, workspace column (dots / pills with app icons), vertical active title, clock HH/MM/am, status pill (audio, network), red power | same modules (logo is the Apple logo; SF Symbols for Material icons) | kept |
 | Bar timing | in ≈ 420 ms, out ≈ 420 ms measured (bar_open / bar_close clips) | 400 ms × 0.8 in, 250 ms × 0.8 out | kept (decision) |
 | Drawer shape | rounded blobs joined to the frame by concave fillets | `DrawerPath` blobs with fillets | kept |
-| Dashboard | top centre; **revealed by hovering the top band over its width**; tabs Dashboard, Media, Performance, Weather | top centre; keybind/IPC only; no Weather tab | **fixed**: top-band hover (Caelestia `inTopPanel`; the notch dip counts as band; 100 ms dwell so crossing to the menu bar does not flash it). On a display whose menu bar auto-hides, the same edge also reveals the macOS menu bar (limit). Weather tab still missing |
+| Dashboard | top centre; **revealed by hovering the top band over its width**; tabs Dashboard, Media, Performance, Weather | top centre; keybind/IPC only; no Weather tab | **fixed**: top-band hover (Caelestia `inTopPanel`; the notch dip counts as band; 100 ms dwell so crossing to the menu bar does not flash it). On a display whose menu bar auto-hides, the same edge also reveals the macOS menu bar (limit). **fixed (this phase)**: Weather tab + Overview card from Open-Meteo, city picked in Settings |
 | Launcher | bottom centre, SUPER tap | same | kept |
 | Sidebar | right, SUPER+N; notifications (upstream shows utilities with it) | right; notifications **and** utilities in one panel | kept (matches upstream: sidebar + utilities together) |
 | Utilities | bottom right; **revealed by hovering the bottom-right corner**; keep awake, screen recorder, quick toggles | merged into the sidebar | **fixed**: own bottom-right drawer + corner hover (Caelestia `inBottomPanel`) |
@@ -122,7 +122,7 @@ Caelestia/Hyprland upstream source and docs:
 | Bar clicks | workspace pill click focuses it; status icons open popouts; power opens session | same |
 | Bar scroll | scroll over workspaces = ±1 workspace | same |
 | Launcher typing | fuzzy app search, ↑/↓, Return launches, Esc closes; `>` prefixes for actions | same subset |
-| Drawer drags | dragging from the right edge opens the session/sidebar (`Interactions.qml`) | not done: our frame is click-through |
+| Drawer drags | dragging from the right edge opens the session/sidebar (`Interactions.qml`) | **fixed (this phase)**: drag or two-finger swipe from the right band; session past 30 pt within its height, sidebar past 80 pt elsewhere; the frame stays click-through (passive monitors) |
 | Tab groups with 2+ tabs | Hyprland groups docs | see Groups |
 
 ## SkyRose-only items in this phase

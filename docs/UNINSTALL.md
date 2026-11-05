@@ -7,6 +7,13 @@
 > including the Dock / menu bar auto-hide tweaks from onboarding) and the SIP reminder popup
 > component (shown for at least 5 s, cannot be dismissed early) that the uninstaller will use.
 > The text below describes the intended behaviour.
+>
+> **SIP reminder rule:** it is shown only when SkyRose's SIP-off (Enhanced) mode was actually used
+> (the `sipOff-mode-used` flag file in `~/Library/Application Support/SkyRose`, also recorded in
+> the restore manifest) **and** `csrutil status` does not report SIP fully enabled. Never
+> otherwise: not for a corrupt manifest, not for a Mac whose SIP was lowered for something else.
+> `skyrose uninstall` decides before removing anything and opens it with
+> `SkyRose Settings --sip-reminder`.
 
 Three equivalent routes; all run as your normal user, never `sudo`:
 

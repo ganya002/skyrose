@@ -230,7 +230,7 @@ final class DashboardLogicTests: XCTestCase {
     func testTabsAndText() {
         XCTAssertEqual(DashboardTab(config: "MEDIA"), .media)
         XCTAssertEqual(DashboardTab(config: "nonsense"), .overview)
-        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["overview", "media", "performance"])
+        XCTAssertEqual(DashboardTab.allCases.map(\.rawValue), ["overview", "media", "performance", "weather"])
         XCTAssertEqual(ShellText.uptimeText(15 * 3600 + 11 * 60), "up 15 hours, 11 min")
         XCTAssertEqual(ShellText.uptimeText(30), "up 0 min")
         XCTAssertEqual(ShellText.bytesText(8 * 1024 * 1024 * 1024), "8.0 GiB")

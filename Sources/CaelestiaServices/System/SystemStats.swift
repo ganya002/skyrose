@@ -76,7 +76,8 @@ public enum SysInfo {
         return h
     }
 
-    /// Thermal pressure from `ProcessInfo.ThermalState` (public, no root); degrees are not readable.
+    /// Thermal pressure from `ProcessInfo.ThermalState` (public, no root). Degrees come from
+    /// ``HIDTemperatureReader``.
     public static func thermalName(_ raw: Int) -> String {
         switch raw {
         case 0: return "Nominal"
@@ -96,6 +97,7 @@ public struct SystemStats: Equatable, Sendable {
     public var diskTotal: UInt64 = 0
     public var uptime: Double = 0
     public var thermal: Int = 0
+    public var temperatures = TemperatureSummary()
     public init() {}
 }
 
@@ -103,6 +105,7 @@ public struct SystemStats: Equatable, Sendable {
 /// calls `sample()` once a second while the dashboard is open (spec 13: no idle polling).
 public final class SystemStatsSampler: @unchecked Sendable {
     private var previous: SysInfo.CPUTicks?
+    private let temperatures = HIDTemperatureReader()
 
     public init() {}
 
@@ -118,6 +121,7 @@ public final class SystemStatsSampler: @unchecked Sendable {
         s.gpu = Self.readGPU()
         s.uptime = ProcessInfo.processInfo.systemUptime
         s.thermal = ProcessInfo.processInfo.thermalState.rawValue
+        s.temperatures = TemperatureSummary.summarize(temperatures.read())
         return s
     }
 

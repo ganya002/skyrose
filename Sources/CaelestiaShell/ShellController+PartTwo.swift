@@ -61,6 +61,7 @@ extension ShellController {
         keepAwake.onChange = { [weak self] on in self?.state.keepAwake = on }
         bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b) }
         bluetooth.start()
+        weatherController.configure(state.config.weather)
         state.systemDarkMode = Self.readDarkMode()
         observers.append(DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main
@@ -115,6 +116,7 @@ extension ShellController {
         dashboard.shown = true
         media.isObserved = true
         startStatsTimer()
+        weatherController.refreshIfStale()
     }
 
     /// The dashboard's fit on `layout`: scale, notch clearance and panel size (fillets included).
@@ -434,6 +436,12 @@ extension ShellController {
         p.storageTotalBytes = s.diskTotal
         p.uptimeSeconds = s.uptime
         p.thermalState = s.thermal
+        p.temperatureC = s.temperatures.cpuC
+        p.cpuMaxTemperatureC = s.temperatures.cpuMaxC
+        p.gpuTemperatureC = s.temperatures.gpuC
+        p.batteryTemperatureC = s.temperatures.batteryC
+        p.ssdTemperatureC = s.temperatures.ssdC
+        if let t = s.temperatures.cpuC { p.temperatureHistory = SysInfo.appended(p.temperatureHistory, t) }
         p.networkUpBytesPerSec = net.uploadBytesPerSecond
         p.networkDownBytesPerSec = net.downloadBytesPerSecond
         p.cpuHistory = SysInfo.appended(p.cpuHistory, p.cpuPercent)

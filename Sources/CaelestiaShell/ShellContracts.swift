@@ -29,6 +29,7 @@ public final class ShellState: ObservableObject {
     @Published public var recorder: RecorderInfo
     @Published public var media: MediaInfo
     @Published public var weather: WeatherInfo?
+    @Published public var weatherStatus: WeatherStatus
     @Published public var performance: PerformanceInfo
     @Published public var capsLockOn: Bool
     /// Installed apps for the launcher (filled lazily by the WM's app index).
@@ -58,6 +59,7 @@ public final class ShellState: ObservableObject {
         self.recorder = RecorderInfo()
         self.media = MediaInfo()
         self.weather = nil
+        self.weatherStatus = .notConfigured
         self.performance = PerformanceInfo()
         self.capsLockOn = false
         self.apps = []
@@ -175,22 +177,55 @@ public struct MediaInfo: Hashable, Sendable {
 public struct WeatherInfo: Hashable, Sendable {
     public var temperatureC: Double
     public var description: String
+    /// SF Symbol name.
     public var icon: String
     public var location: String
     public var hourly: [HourlyForecast]
     public var daily: [DailyForecast]
-    public init(temperatureC: Double, description: String, icon: String, location: String, hourly: [HourlyForecast] = [], daily: [DailyForecast] = []) {
+    public var feelsLikeC: Double?
+    public var humidity: Int?
+    public var windKmh: Double?
+    public var sunrise: Date?
+    public var sunset: Date?
+    public var updated: Date?
+    public init(temperatureC: Double, description: String, icon: String, location: String, hourly: [HourlyForecast] = [], daily: [DailyForecast] = [],
+                feelsLikeC: Double? = nil, humidity: Int? = nil, windKmh: Double? = nil, sunrise: Date? = nil, sunset: Date? = nil, updated: Date? = nil) {
         self.temperatureC = temperatureC
         self.description = description
         self.icon = icon
         self.location = location
         self.hourly = hourly
         self.daily = daily
+        self.feelsLikeC = feelsLikeC
+        self.humidity = humidity
+        self.windKmh = windKmh
+        self.sunrise = sunrise
+        self.sunset = sunset
+        self.updated = updated
     }
-    public struct HourlyForecast: Hashable, Sendable { public var time: Date; public var temperatureC: Double; public var icon: String
-        public init(time: Date, temperatureC: Double, icon: String) { self.time = time; self.temperatureC = temperatureC; self.icon = icon } }
-    public struct DailyForecast: Hashable, Sendable { public var date: Date; public var minC: Double; public var maxC: Double; public var icon: String
-        public init(date: Date, minC: Double, maxC: Double, icon: String) { self.date = date; self.minC = minC; self.maxC = maxC; self.icon = icon } }
+    public struct HourlyForecast: Hashable, Sendable { public var time: Date; public var temperatureC: Double; public var icon: String; public var precipitationChance: Int?
+        public init(time: Date, temperatureC: Double, icon: String, precipitationChance: Int? = nil) { self.time = time; self.temperatureC = temperatureC; self.icon = icon; self.precipitationChance = precipitationChance } }
+    public struct DailyForecast: Hashable, Sendable { public var date: Date; public var minC: Double; public var maxC: Double; public var icon: String; public var description: String; public var precipitationChance: Int?
+        public init(date: Date, minC: Double, maxC: Double, icon: String, description: String = "", precipitationChance: Int? = nil) { self.date = date; self.minC = minC; self.maxC = maxC; self.icon = icon; self.description = description; self.precipitationChance = precipitationChance } }
+}
+
+/// Where the weather is at: the shell shows text for each state, never made-up numbers.
+public enum WeatherStatus: Hashable, Sendable {
+    /// No city set and the location is off.
+    case notConfigured
+    case loading
+    case ready
+    /// The last fetch failed (the previous report, if any, stays shown with its time).
+    case failed(String)
+}
+
+/// °C or °F text for a Celsius value.
+public enum WeatherText {
+    public static func temperature(_ c: Double, fahrenheit: Bool, unit: Bool = true) -> String {
+        let v = fahrenheit ? c * 9 / 5 + 32 : c
+        let n = Int(v.rounded())
+        return unit ? "\(n)°\(fahrenheit ? "F" : "C")" : "\(n)°"
+    }
 }
 
 public struct PerformanceInfo: Hashable, Sendable {
@@ -202,7 +237,13 @@ public struct PerformanceInfo: Hashable, Sendable {
     public var storageTotalBytes: UInt64 = 0
     public var networkUpBytesPerSec: Double = 0
     public var networkDownBytesPerSec: Double = 0
+    /// SoC die average (CPU), from the HID sensors; nil = not readable on this Mac (hidden).
     public var temperatureC: Double? = nil
+    public var cpuMaxTemperatureC: Double? = nil
+    public var gpuTemperatureC: Double? = nil
+    public var batteryTemperatureC: Double? = nil
+    public var ssdTemperatureC: Double? = nil
+    public var temperatureHistory: [Double] = []
     public var cpuHistory: [Double] = []
     public var memoryHistory: [Double] = []
     public var uptimeSeconds: Double = 0

@@ -32,13 +32,12 @@ feature cannot work, the UI says so and the closest substitute is used.
 | Trackpad gestures (3/4-finger) | Opt-in, public `NSEvent` gesture API only; macOS owns 3/4-finger swipes until you turn them off in Trackpad settings. | — |
 | Now playing (media card) | Spotify and Music via AppleScript (asks for Automation once each). Other players: controls only through media keys. | MediaRemote is restricted to Apple-entitled processes on macOS 15.4+. |
 | Wi-Fi network name | Needs the Location permission on macOS 14+; otherwise the bar shows "Connected". | Apple policy. |
-| Temperature in the Performance tab | Hidden. | SMC reads need root/private API. |
+| Temperatures in the Performance tab | CPU (SoC die average and hottest), battery and SSD on Apple Silicon, read from the IOKit HID temperature services without root (as the Stats app does). GPU shows only on chips with a named GPU sensor (M1); an M4 has none, so it is hidden. Intel Macs: only the thermal pressure level. | The HID event calls are private IOKit exports, looked up at runtime: a macOS that drops them hides the temperatures instead of crashing. |
 | Shell tray, part 1 | Other apps' menu extras are not shown; the bar's tray button only reveals the menu bar. | Same as the Tray row above. |
 | Bar hover with synthetic pointer moves | `CGWarpMouseCursorPosition` does not trigger the bar's hover reveal; real mouse movement does. | Warps post no mouse-moved event. |
 | Quick toggles | Wi-Fi, Do-not-disturb (SkyRose toasts only) and Keep awake switch. **Bluetooth and macOS dark mode are read-only** and open System Settings; macOS Focus cannot be switched. | No public API; private hacks or silent system changes are not used. |
 | Notification history | Our own toasts and `skyrose notify` only; kept in `~/Library/Application Support/SkyRose/notifications.json`. | See the notifications row above. |
-| Dashboard temperatures | Only the thermal pressure level; degrees hidden. | SMC needs root. |
-| Dashboard weather | Placeholder card; no Weather tab. | No weather service yet. |
+| Dashboard weather | Open-Meteo (no API key). Nothing shows until a city is picked in Settings › Bar and Shell; "Use my location" (CoreLocation) is off by default. | Needs the network; a failed fetch keeps the last report and says why. |
 | Dynamic colours | Follow the wallpaper macOS reports for the main display (or the one picked here); dynamic/aerial wallpapers fall back to the static scheme. | No public colour feed. |
 | Fonts and icons | Rubik / Inter / CaskaydiaCove / Material Symbols are not installed or bundled yet; the shell uses SF Pro and SF Symbols. The `fontSans` chain uses Rubik/Inter once installed. | Material Symbols bundling is TODO (spec 7.1). |
 | Session menu mascot | A drawn moon glyph placeholder; no character art is shipped. | — |
@@ -49,7 +48,7 @@ feature cannot work, the UI says so and the closest substitute is used.
 
 | Phase | Item | Status |
 |---|---|---|
-| P6 | (shell parts 1 and 2 are built: see SHELL.md; the rest below is not) Weather tab, screen recorder card; screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`) for some; the UIs are not wired yet |
+| P6 | (shell parts 1 and 2 are built: see SHELL.md; the rest below is not) Screen recorder card; screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`) for some; the UIs are not wired yet |
 | P7 | Wallpaper-driven dynamic colour (Material "tonal spot") | static themes only (SkyRose Dynamic dark snapshot, SkyRose Default, Catppuccin Mocha, Noctalia); accent override is an approximation |
 | P8 | SkyRose Settings is built (General, Appearance, Windows, Window rules, Keybinds, Bar and Shell, Terminal, Permissions, About) but not the Enhanced-mode, Backup & uninstall or installer pages | the uninstaller is not built yet; `skyrose keys check` / `skyrose doctor` cover the checks |
 | P9 | kitty config installer, fonts installer, xcursor2cape | kitty theme file is written from the scheme; the installer/cursor tool are not built |

@@ -8,5 +8,8 @@
 	<!-- Microphone for the optional "record with sound". -->
 	<key>com.apple.security.device.audio-input</key>
 	<true/>
+	<!-- Location, only when Settings › Bar and Shell › Weather › "Use my location" is on (off by default). -->
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
 </dict>
 </plist>

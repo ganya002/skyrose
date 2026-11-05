@@ -102,7 +102,7 @@ let package = Package(
         // Settings app UI + models (a library so the models are unit-testable).
         .target(
             name: "SkyRoseSettingsKit",
-            dependencies: ["CaelestiaCore", "CaelestiaIPC", "CaelestiaPlatform", "CaelestiaShell"],
+            dependencies: ["CaelestiaCore", "CaelestiaIPC", "CaelestiaPlatform", "CaelestiaShell", "CaelestiaServices"],
             path: "Sources/SkyRoseSettingsKit",
             swiftSettings: relaxed
         ),
@@ -191,7 +191,7 @@ let package = Package(
         ),
         .testTarget(
             name: "CaelestiaShellTests",
-            dependencies: ["CaelestiaShell"],
+            dependencies: ["CaelestiaShell", "CaelestiaServices"],
             path: "Tests/CaelestiaShellTests",
             swiftSettings: relaxed
         ),

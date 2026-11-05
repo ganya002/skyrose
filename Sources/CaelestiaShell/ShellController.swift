@@ -63,6 +63,9 @@ public final class ShellController {
     var hoverPending: (target: HoverReveal.Target, display: String, since: TimeInterval)?
     var utilitiesSizeCache: [String: CGSize] = [:]
     var lastHoverPointer: CGPoint?
+    /// Drag / swipe from the right edge (session menu, sidebar).
+    var edgeDrag = EdgeDrag()
+    var edgeDragDisplay: String?
     /// The scrim behind the session menu (Caelestia dims the screen while it is open).
     var dimPanel: ShellPanel?
     var popoutPanel: ShellPanel?
@@ -77,6 +80,8 @@ public final class ShellController {
     public let media = MediaService()
     public let bluetooth = BluetoothService()
     public let keepAwake = KeepAwakeService()
+    /// Open-Meteo weather for the dashboard (`[weather]`).
+    public private(set) lazy var weatherController = WeatherController(state: state)
     let sampler = SystemStatsSampler()
     let throughput = NetworkThroughputSampler()
     var statsTimer: Timer?
@@ -178,6 +183,7 @@ public final class ShellController {
         let themeChanged = newTheme != theme
         theme = newTheme
         guard isRunning else { return }
+        if servicesStarted { weatherController.configure(state.config.weather) }
         closeDisabledDrawers()
         if themeChanged { rebuildDrawers() }
         rebuildSurfaces()
@@ -264,6 +270,53 @@ public final class ShellController {
         }
         scheduleHideTick()
         hoverReveal(p, at: now)
+    }
+
+    // MARK: Edge drags (Caelestia Interactions.qml)
+
+    func edgeZone(_ p: CGPoint) -> (display: String, zone: EdgeDrag.Zone)? {
+        guard isRunning else { return nil }
+        for (id, layout) in layouts {
+            let sessionH = SessionModel.bodySize.height + 2 * theme.frameRounding
+            if let z = EdgeDrag.zone(at: p, layout: layout, barReveal: bars[id]?.reveal.target ?? 0, sessionHeight: sessionH) {
+                let moduleOn = z == .session ? isModuleOn(.session) : isModuleOn(.sidebar)
+                return moduleOn ? (id, z) : nil
+            }
+        }
+        return nil
+    }
+
+    func edgeDragBegin(_ p: CGPoint) {
+        let hit = edgeZone(p)
+        edgeDrag.begin(at: p, zone: hit?.zone)
+        edgeDragDisplay = hit?.display
+    }
+
+    func edgeDragMoved(_ p: CGPoint) {
+        if let z = edgeDrag.drag(to: p) { edgeOpen(z) }
+    }
+
+    func edgeSwipe(_ e: NSEvent) {
+        guard e.hasPreciseScrollingDeltas else { return }
+        if e.phase.contains(.began) {
+            let p = NSEvent.mouseLocation
+            let hit = edgeZone(p)
+            edgeDrag.begin(at: p, zone: hit?.zone)
+            edgeDragDisplay = hit?.display
+        }
+        if e.phase.contains(.changed) {
+            let dx = EdgeDrag.fingerDelta(scrollingDeltaX: e.scrollingDeltaX, invertedFromDevice: e.isDirectionInvertedFromDevice)
+            let dy = EdgeDrag.fingerDelta(scrollingDeltaX: e.scrollingDeltaY, invertedFromDevice: e.isDirectionInvertedFromDevice)
+            if let z = edgeDrag.swipe(fingerDX: dx, fingerDY: dy) { edgeOpen(z) }
+        }
+        if e.phase.contains(.ended) || e.phase.contains(.cancelled) { edgeDrag.end() }
+    }
+
+    func edgeOpen(_ z: EdgeDrag.Zone) {
+        let d: Drawer = z == .session ? .session : .sidebar
+        Log.shell.debug("edge drag opens \(d.rawValue, privacy: .public)")
+        guard !openDrawers.contains(d) else { return }
+        open(d, display: edgeDragDisplay)
     }
 
     // MARK: Hover reveals (Caelestia Interactions.qml)
@@ -799,11 +852,20 @@ public final class ShellController {
             self?.state.capsLockOn = e.modifierFlags.contains(.capsLock)
         }) { monitors.append(m) }
         // A click anywhere else closes the launcher / session menu (Caelestia: click outside).
-        if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
+        if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] e in
             guard let self else { return }
             if self.openDrawers.contains(.launcher) { self.close(.launcher) }
             if self.openDrawers.contains(.session) { self.close(.session) }
             self.closeTransient(includingSidebar: true)
+            if e.type == .leftMouseDown { self.edgeDragBegin(NSEvent.mouseLocation) }
+        }) { monitors.append(m) }
+        // Right-edge drags and two-finger swipes (watched only: the frame stays click-through).
+        if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged, .leftMouseUp], handler: { [weak self] e in
+            guard let self else { return }
+            if e.type == .leftMouseUp { self.edgeDrag.end() } else { self.edgeDragMoved(NSEvent.mouseLocation) }
+        }) { monitors.append(m) }
+        if let m = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel, handler: { [weak self] e in
+            self?.edgeSwipe(e)
         }) { monitors.append(m) }
 
         let ws = NSWorkspace.shared.notificationCenter

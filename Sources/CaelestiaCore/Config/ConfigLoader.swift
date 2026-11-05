@@ -400,7 +400,10 @@ public enum ConfigLoader {
             a.accentOverride.isEmpty || RGBA(hex: a.accentOverride) != nil, "appearance.accentOverride",
             "must be empty or a hex color like \"bac5ee\" (got \"\(a.accentOverride)\")")
         check(["static", "dynamic"].contains(a.schemeMode.lowercased()), "appearance.schemeMode", "must be \"static\" or \"dynamic\" (got \"\(a.schemeMode)\")")
-        check(["overview", "media", "performance"].contains(c.dashboard.defaultTab.lowercased()), "dashboard.defaultTab", "must be \"overview\", \"media\" or \"performance\" (got \"\(c.dashboard.defaultTab)\")")
+        check(["overview", "media", "performance", "weather"].contains(c.dashboard.defaultTab.lowercased()), "dashboard.defaultTab", "must be \"overview\", \"media\", \"performance\" or \"weather\" (got \"\(c.dashboard.defaultTab)\")")
+        check((-90...90).contains(c.weather.latitude), "weather.latitude", "must be between -90 and 90 (got \(c.weather.latitude))")
+        check((-180...180).contains(c.weather.longitude), "weather.longitude", "must be between -180 and 180 (got \(c.weather.longitude))")
+        check((5...720).contains(c.weather.refreshMinutes), "weather.refreshMinutes", "must be between 5 and 720 (got \(c.weather.refreshMinutes))")
         check(a.uiScale > 0 && a.uiScale <= 4, "appearance.uiScale", "must be in (0, 4] (got \(a.uiScale))")
         check(a.wallpaperRandomIntervalMinutes >= 0, "appearance.wallpaperRandomIntervalMinutes", "must be >= 0 (got \(a.wallpaperRandomIntervalMinutes))")
 
