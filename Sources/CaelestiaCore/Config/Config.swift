@@ -200,8 +200,9 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     public var uiScale: Double = 1.0
     public var fontSans: String = "Rubik"
     public var fontSansFallbacks: [String] = ["Inter", "SF Pro"]
-    public var fontMono: String = "CaskaydiaCove NF"
-    public var fontMonoFallbacks: [String] = ["JetBrainsMono Nerd Font", "Menlo"]
+    /// Nerd Fonts v3 family name ("CaskaydiaCove NF" is the v2 / Windows name, kept as a fallback).
+    public var fontMono: String = "CaskaydiaCove Nerd Font"
+    public var fontMonoFallbacks: [String] = ["CaskaydiaCove NF", "JetBrainsMono Nerd Font", "JetBrainsMono NF", "Menlo"]
     public var fontIcons: String = "Material Symbols Rounded"
     public var wallpaperFolder: String = "~/Pictures/Wallpapers"
     public var wallpaperRandomIntervalMinutes: Int = 0
@@ -322,6 +323,10 @@ public struct AppsConfig: Codable, Equatable, Sendable {
     public var editor: String = "com.vscodium"
     public var fileManager: String = "com.apple.finder"
     public var audioSettings: String = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
+    /// Font of the SkyRose kitty profile (skyrose.conf): Gabby's kitty.conf value.
+    public var kittyFont: String = KittyProfile.Options.defaultFont
+    public var kittyFontSize: Double = 13
+    public var kittyOptions: KittyProfile.Options { KittyProfile.Options(fontFamily: kittyFont, fontSize: kittyFontSize) }
     public init() {}
 }
 

@@ -404,6 +404,8 @@ public enum ConfigLoader {
         check((-90...90).contains(c.weather.latitude), "weather.latitude", "must be between -90 and 90 (got \(c.weather.latitude))")
         check((-180...180).contains(c.weather.longitude), "weather.longitude", "must be between -180 and 180 (got \(c.weather.longitude))")
         check((5...720).contains(c.weather.refreshMinutes), "weather.refreshMinutes", "must be between 5 and 720 (got \(c.weather.refreshMinutes))")
+        check(!c.apps.kittyFont.trimmingCharacters(in: .whitespaces).isEmpty && !c.apps.kittyFont.contains("\n"), "apps.kittyFont", "must be a font family name")
+        check((6...72).contains(c.apps.kittyFontSize), "apps.kittyFontSize", "must be between 6 and 72 (got \(c.apps.kittyFontSize))")
         check(a.uiScale > 0 && a.uiScale <= 4, "appearance.uiScale", "must be in (0, 4] (got \(a.uiScale))")
         check(a.wallpaperRandomIntervalMinutes >= 0, "appearance.wallpaperRandomIntervalMinutes", "must be >= 0 (got \(a.wallpaperRandomIntervalMinutes))")
 

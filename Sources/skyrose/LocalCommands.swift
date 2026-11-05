@@ -29,7 +29,65 @@ enum LocalCommands {
             return cursor(verb, json: invocation.json)
         case .kitty(let verb):
             return kitty(verb, json: invocation.json)
+        case .fonts(let verb):
+            return fonts(verb, json: invocation.json)
         }
+    }
+
+    // MARK: fonts
+
+    /// `skyrose fonts status | download | install | uninstall`.
+    static func fonts(_ verb: FontsVerb, json: Bool) -> Int32 {
+        let store = FontStore()
+        var notes: [String] = []
+        do {
+            switch verb {
+            case .status: break
+            case .download:
+                let box = ResultBox()
+                let sem = DispatchSemaphore(value: 0)
+                Task.detached {
+                    do { box.set(.success(try await store.download())) } catch { box.set(.failure(error)) }
+                    sem.signal()
+                }
+                sem.wait()
+                notes = try box.get().map { "downloaded \($0)" }
+                if notes.isEmpty { notes = ["already downloaded"] }
+                notes.append("the WM picks them up on its next start or `skyrose config reload`")
+            case .install:
+                notes = try store.installForUser(journal: BackupJournal())
+            case .uninstall:
+                notes = try store.uninstallUser()
+            }
+        } catch {
+            Console.error((error as? LocalizedError)?.errorDescription ?? String(describing: error))
+            return ExitCode.failed
+        }
+        let status = store.status()
+        if json {
+            let families: [JSONValue] = status.map { s in
+                .object(["name": .string(s.name), "downloaded": .bool(s.downloaded), "installedBySkyRose": .bool(s.installedBySkyRose),
+                         "availableSystemWide": .bool(s.availableSystemWide)])
+            }
+            Console.out(JSONValue.object(["families": .array(families), "notes": .array(notes.map { .string($0) }),
+                                          "cache": .string(store.cacheDirectory.path)]).prettyJSON)
+        } else {
+            for n in notes { Console.out(n) }
+            for (s, f) in zip(status, FontPack.families) {
+                let state = s.installedBySkyRose ? "installed by SkyRose (~/Library/Fonts)"
+                    : s.availableSystemWide ? "installed (not by SkyRose)" : s.downloaded ? "downloaded (SkyRose only)" : "not downloaded"
+                Console.out(s.name.padding(toLength: 26, withPad: " ", startingAt: 0) + f.licence.padding(toLength: 13, withPad: " ", startingAt: 0) + state)
+            }
+        }
+        return ExitCode.ok
+    }
+
+    /// Hands an async result back to the synchronous CLI.
+    final class ResultBox: @unchecked Sendable {
+        private var value: Result<[String], Error> = .success([])
+        private let lock = NSLock()
+        func set(_ v: Result<[String], Error>) { lock.withLock { value = v } }
+        func get() throws -> [String] { try lock.withLock { value }.get() }
     }
 
     // MARK: kitty
@@ -45,7 +103,8 @@ enum LocalCommands {
                 let scheme = (try? SchemeLoader.load(from: Paths.currentScheme))
                     ?? SchemeLoader.builtIn(named: "skyrose-dynamic") ?? SchemeLoader.builtIn(named: "skyrose-default")
                 guard let scheme else { Console.error("no colour scheme to write"); return ExitCode.failed }
-                notes = try setup.install(scheme: scheme, journal: BackupJournal())
+                let apps = ConfigLoader.loadUserOrDefault().config.apps
+                notes = try setup.install(scheme: scheme, options: apps.kittyOptions, journal: BackupJournal())
             case .uninstall:
                 notes = try setup.uninstall()
             }
@@ -265,6 +324,7 @@ struct Uninstaller {
         Console.err("  4. Remove key remaps: `hidutil property --set '{\"UserKeyMapping\":[]}'`.")
         Console.err("  5. Remove the login item in System Settings > General > Login Items.")
         Console.err("     Remove the kitty profile (the include line in kitty.conf and our two files): `skyrose kitty uninstall`.")
+        Console.err("     Remove the fonts SkyRose copied into ~/Library/Fonts: `skyrose fonts uninstall`.")
         Console.err("  6. Delete ~/Applications/SkyRose.app, ~/Applications/SkyRose Settings.app and the `skyrose` symlink in ~/.local/bin or /usr/local/bin.")
         Console.err("  7. Move \(Environment.tilde(Paths.configDir)) and \(Environment.tilde(Paths.appSupport)) to the Trash.")
         Console.err("  8. Enhanced mode only: unload the scripting addition as described in docs/ENHANCED_MODE.md.")

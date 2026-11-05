@@ -23,6 +23,12 @@ public enum CLILocalCommand: Equatable, Sendable {
     case cursor(CursorVerb)
     /// `kitty status | install | uninstall`: the SkyRose kitty profile (works without the WM).
     case kitty(KittyVerb)
+    /// `fonts status | download | install | uninstall`: the Arch font pack.
+    case fonts(FontsVerb)
+}
+
+public enum FontsVerb: String, Equatable, Sendable {
+    case status, download, install, uninstall
 }
 
 public enum KittyVerb: String, Equatable, Sendable {
@@ -289,6 +295,13 @@ public enum CLIParser {
             default:
                 throw CLIUsageError.unknownVerb(group: "cursor", verb: verb, expected: ["list", "status", "set", "reset"])
             }
+        case "fonts":
+            let verb = args.first ?? "status"
+            guard let v = FontsVerb(rawValue: verb) else {
+                throw CLIUsageError.unknownVerb(group: "fonts", verb: verb, expected: ["status", "download", "install", "uninstall"])
+            }
+            try rejectExtra("fonts \(verb)", Array(args.dropFirst()))
+            inv.kind = .local(.fonts(v))
         case "kitty":
             let verb = args.first ?? "status"
             guard let v = KittyVerb(rawValue: verb) else {
@@ -681,7 +694,7 @@ public enum CLIParser {
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [
             ("query windows|workspaces|monitors|binds|state [--json]", "Inspect WM state (tables, or raw JSON with --json)"),
         ]),
-        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "cursor", "kitty", "version"], rows: [
+        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "cursor", "kitty", "fonts", "version"], rows: [
             ("action <name> [key=value ...]", "Run any keymap action, e.g. action workspace.focus index=3"),
             ("wm panic | restore-all | quit", "Restore windows and stop managing / bring parked windows back / quit"),
             ("permissions status", "TCC permissions as the WM sees them"),
@@ -689,6 +702,7 @@ public enum CLIParser {
             ("doctor [--json]", "Environment, permissions, versions, SIP status, conflicts"),
             ("uninstall [--yes]", "Run scripts/uninstall.sh (or print the manual steps)"),
             ("cursor list | status | set <cape|default> | reset", "Session cursor theme (Mousecape capes); reset puts the macOS cursors back"),
+            ("fonts status | download | install | uninstall", "Arch font pack: download (checksummed, SkyRose only) / install into ~/Library/Fonts for kitty and other apps"),
             ("kitty status | install | uninstall", "SkyRose kitty profile: Gabby's Arch settings + live scheme colours (one include line in kitty.conf)"),
             ("version", "CLI and WM versions"),
         ]),

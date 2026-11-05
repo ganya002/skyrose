@@ -1,5 +1,7 @@
 import AppKit
 import CaelestiaCore
+import CaelestiaPlatform
+import CaelestiaShell
 import SwiftUI
 
 /// Command-line options of SkyRose Settings.
@@ -58,6 +60,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = Self.menu()
+        if !FontStore.shared.registerForProcess().isEmpty { ShellTheme.fontsChanged() }
         store.start()
         DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("com.skyrose.mac.settings.show"), object: nil, queue: .main

@@ -11,7 +11,7 @@ Order: 1 bugs → 2 liquid animations → 3 terminal → 4 fonts. Commit on main
 | 1. Bugs (SIP reminder, weather, temperatures, edge drags) | done, live-tested | see `git log` ("Part 1") |
 | 2. Liquid animations | done, live-tested | see `git log` ("Part 2") |
 | 3. Terminal | done, live-checked (Settings page, sync no-op) | see `git log` ("Part 3") |
-| 4. Fonts | not started | |
+| 4. Fonts | done, live-tested (dashboard in Rubik) | see `git log` ("Part 4") |
 
 ## Part 1 — done
 
@@ -86,12 +86,40 @@ Decisions: no new config key; the include line is the opt-in. Terminal/iTerm2/Gh
 open or come forward (no new-window scripting); only kitty opens a new window each time. Kitty
 install offer in onboarding is left to the installer phase (brief).
 
-## Remaining
+## Part 4 — done
 
-- Part 4 (fonts).
+- `CaelestiaCore/Fonts/FontPack.swift`: Rubik, Inter, CaskaydiaCove NF, JetBrainsMono NF,
+  Material Symbols Rounded; URLs pinned to tags/commits, SHA-256 + size per file, licence file per
+  family (OFL 1.1 ×4, Apache 2.0). See `docs/FONTS.md`.
+- `CaelestiaPlatform/FontStore.swift`: verified download into `Application Support/SkyRose/Fonts`,
+  process-only registration (WM at start + on config reload, Settings at start), opt-in copy
+  into `~/Library/Fonts` with `installed.json` + journal, uninstall of exactly those files.
+- `ShellTheme.fontsChanged()` / `fontGeneration`: newly registered fonts re-render every surface.
+- Config: `appearance.fontMono` is now the v3 family "CaskaydiaCove Nerd Font" (the v2 "NF" name
+  is a fallback, plus "JetBrainsMono NF" which is what this Mac has); `apps.kittyFont` /
+  `apps.kittyFontSize` feed `skyrose.conf`.
+- Settings: Appearance › Fonts card (download with progress, install for other apps, remove);
+  Terminal › kitty setup › Font picker (re-renders the profile and reloads kitty if in use).
+- CLI: `skyrose fonts status | download | install | uninstall [--json]`.
+- Live: `skyrose fonts download` (into SkyRose's folder only; nothing in ~/Library/Fonts) +
+  `skyrose config reload` switched the running dashboard from SF Pro to Rubik:
+  `/tmp/cwm/phase/fonts-compare.png` (left before, right after). JetBrainsMono Nerd Font was
+  already installed on this Mac (Gabby's own copy), so kitty's font resolves today.
+
+Decisions: fetch instead of committing ~32 MB of binaries; registration is per process so nothing
+is installed without the explicit button; icons stay SF Symbols for now.
+
+## Remaining (next phases)
+
+- Installer phase: onboarding offers kitty (not installed by SkyRose) and the font download.
+- Material Symbols for the shell's icons.
+- Closing a key drawer on an empty workspace follows the re-activated app to its workspace.
+- Not live-tested this phase: bar spring reveal, toasts, OSD, popouts, wallpaper drawer; the
+  kitty profile against a real kitty (Gabby's kitty.conf was deliberately not changed).
 
 ## Tests
 
 After part 1: 928 tests, 0 failures (`/usr/bin/swift test`).
 After part 2: 942 tests, 0 failures.
 After part 3: 954 tests, 0 failures.
+After part 4: 964 tests, 0 failures.

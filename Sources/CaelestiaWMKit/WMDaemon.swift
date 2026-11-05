@@ -182,6 +182,8 @@ public final class WMDaemon {
             KittyLiveSync.apply(scheme)
         }
 
+        // Downloaded fonts (Settings › Appearance › Fonts) for this process only, before any view.
+        if !FontStore.shared.registerForProcess().isEmpty { ShellTheme.fontsChanged() }
         wm.start()
         shell.start()
         KittyLiveSync.apply(shell.controller.state.scheme)
@@ -304,6 +306,8 @@ public final class WMDaemon {
         wm.apply(config: config)
         wm.apply(keymap: keymap)
         decorations?.apply(config: config)
+        // Fonts downloaded since start (Settings asks for a reload afterwards).
+        if !FontStore.shared.registerForProcess().isEmpty { ShellTheme.fontsChanged() }
         shell?.apply(config: config)
         cursors.update(identifier: config.appearance.cursor)
         return warnings + keymapWarnings

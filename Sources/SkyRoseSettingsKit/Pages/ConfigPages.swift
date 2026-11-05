@@ -140,6 +140,7 @@ struct AppearancePage: View {
             }
             .animation(look.motion.page, value: store.config.wm.screenFrame)
             CursorCard(store: store)
+            FontsCard(store: store)
             Card {
                 SectionLabel(text: "Corner calibration")
                 Text("Match the frame to the rounded corners of each display. Auto uses a good guess for MacBook screens.")
@@ -587,6 +588,7 @@ struct TerminalPage: View {
     @State private var recording = false
     @State private var kitty = KittySetup().status()
     @State private var kittyNote: String?
+    @State private var fontStatus: [FontStore.FamilyStatus] = []
 
     static let bindID = "app.terminal"
     var choice: TerminalChoice { TerminalChoice(config: store.config.apps.terminal) }
@@ -610,6 +612,7 @@ struct TerminalPage: View {
         .onAppear {
             if case .command(let c) = choice { custom = c } else if case .app(let id) = choice, choice.preset == nil { custom = id }
             kitty = KittySetup().status()
+            fontStatus = FontStore.shared.status()
         }
         .onChange(of: recording) { _, r in if !r { store.pauseHotkeys(0) } }
         .onDisappear { if recording { store.pauseHotkeys(0) } }
@@ -661,10 +664,14 @@ struct TerminalPage: View {
                     PillButton(title: "Remove", kind: .outline) { runKitty { try KittySetup().uninstall() } }
                 } else {
                     PillButton(title: "Set up", icon: "wand.and.stars", kind: .filled) {
-                        runKitty { try KittySetup().install(scheme: store.scheme, journal: BackupJournal()) }
+                        runKitty { try KittySetup().install(scheme: store.scheme, options: store.config.apps.kittyOptions, journal: BackupJournal()) }
                     }
                     .disabled(kitty.foreignFile != nil).opacity(kitty.foreignFile == nil ? 1 : 0.5)
                 }
+            }
+            SettingRow(title: "Font", detail: kittyFontDetail, icon: "textformat") {
+                PillSegmented(options: FontPack.terminalFamilies.map { ($0.name, $0.name.replacingOccurrences(of: " Nerd Font", with: ""), nil) },
+                              selection: Binding(get: { store.config.apps.kittyFont }, set: { setKittyFont($0) }))
             }
             if let f = kitty.foreignFile {
                 Text("\(f) was not written by SkyRose; move it away to use the profile.").font(look.font(12)).foregroundStyle(look[.error])
@@ -672,6 +679,27 @@ struct TerminalPage: View {
             if let kittyNote {
                 Text(kittyNote).font(look.mono(11.5)).foregroundStyle(look[.onSurfaceVariant]).textSelection(.enabled)
             }
+        }
+    }
+
+    var kittyFontDetail: String {
+        let f = store.config.apps.kittyFont
+        let visible = fontStatus.first { $0.name == f }?.availableSystemWide ?? true
+        return visible ? "\(f), \(Int(store.config.apps.kittyFontSize)) pt (apps.kittyFont / kittyFontSize)."
+            : "\(f) is not installed for other apps yet: Appearance › Fonts › Install for kitty."
+    }
+
+    func setKittyFont(_ family: String) {
+        store.set("apps.kittyFont", .string(family), update: { $0.apps.kittyFont = family })
+        guard kitty.included else { return }
+        var options = store.config.apps.kittyOptions
+        options.fontFamily = family
+        runKitty {
+            let notes = try KittySetup().install(scheme: store.scheme, options: options)
+            for app in NSRunningApplication.runningApplications(withBundleIdentifier: TerminalChoice.kittyBundleID) where app.processIdentifier > 0 {
+                kill(app.processIdentifier, SIGUSR1)
+            }
+            return notes
         }
     }
 

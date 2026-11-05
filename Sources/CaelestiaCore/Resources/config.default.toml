@@ -172,8 +172,8 @@ uiScale = 1.0
 # Caelestia shell fonts (fonts.txt): sans Rubik, mono CaskaydiaCove NF, icons Material Symbols.
 fontSans = "Rubik"
 fontSansFallbacks = ["Inter", "SF Pro"]
-fontMono = "CaskaydiaCove NF"
-fontMonoFallbacks = ["JetBrainsMono Nerd Font", "Menlo"]
+fontMono = "CaskaydiaCove Nerd Font"
+fontMonoFallbacks = ["CaskaydiaCove NF", "JetBrainsMono Nerd Font", "JetBrainsMono NF", "Menlo"]
 fontIcons = "Material Symbols Rounded"
 wallpaperFolder = "~/Pictures/Wallpapers"
 # 0 = never rotate wallpapers automatically.
@@ -322,6 +322,9 @@ editor = "com.vscodium"
 fileManager = "com.apple.finder"
 # variables.lua audioSettings "pwvucontrol" -> System Settings > Sound.
 audioSettings = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
+# Font of the SkyRose kitty profile (skyrose.conf, Settings › Terminal): Gabby's kitty.conf.
+kittyFont = "JetBrainsMono Nerd Font"
+kittyFontSize = 13.0
 
 # =====================================================================================
 # Animations (hypr-user.lua "Riko's springy motion" + shell.json appearance.anim)

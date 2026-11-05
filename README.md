@@ -49,7 +49,12 @@ Terminal. Settings › Terminal › kitty setup (or `skyrose kitty install`) add
 `kitty.conf` for Gabby's Arch kitty settings and colours that follow the SkyRose scheme live.
 SkyRose never installs kitty itself.
 
-**Not in this build:** screenshot tool, clamshell handling, fonts setup, an
+**Fonts.** Settings › Appearance › Fonts (or `skyrose fonts download`) fetches the Arch fonts
+(Rubik, Inter, CaskaydiaCove and JetBrainsMono Nerd Fonts, Material Symbols; OFL / Apache, pinned
+and checksummed, see docs/FONTS.md) for SkyRose's own use; "Install for kitty and other apps"
+copies them into ~/Library/Fonts.
+
+**Not in this build:** screenshot tool, clamshell handling, an
 installer, SIP-off mode, a module store and the uninstaller.
 
 ## Upgrading from Caelestia for Mac

@@ -40,7 +40,7 @@ feature cannot work, the UI says so and the closest substitute is used.
 | Dashboard weather | Open-Meteo (no API key). Nothing shows until a city is picked in Settings › Bar and Shell; "Use my location" (CoreLocation) is off by default. | Needs the network; a failed fetch keeps the last report and says why. |
 | kitty colours | Follow the scheme only once the SkyRose profile is set up (one `include skyrose.conf` line in kitty.conf); kitty reloads on `SIGUSR1`, which also drops per-window changes made at runtime (e.g. ⌘+ font size). Other terminals keep their own colours. | Terminals have no shared theme API; only kitty has a reload signal and include files. |
 | Dynamic colours | Follow the wallpaper macOS reports for the main display (or the one picked here); dynamic/aerial wallpapers fall back to the static scheme. | No public colour feed. |
-| Fonts and icons | Rubik / Inter / CaskaydiaCove / Material Symbols are not installed or bundled yet; the shell uses SF Pro and SF Symbols. The `fontSans` chain uses Rubik/Inter once installed. | Material Symbols bundling is TODO (spec 7.1). |
+| Fonts and icons | The Arch fonts (Rubik, Inter, CaskaydiaCove NF, JetBrainsMono NF, Material Symbols Rounded) are **downloaded on request** (Settings › Appearance › Fonts, `skyrose fonts download`), not shipped in the app; until then the shell uses SF Pro. Icons stay **SF Symbols** (Material Symbols is fetched but the icon views are not switched). See FONTS.md. | Fetching keeps the repo and app small; switching every icon to Material Symbols ligatures is a separate change. |
 | Session menu mascot | A drawn moon glyph placeholder; no character art is shipped. | — |
 | Brightness slider | Hidden when no display is controllable (external non-Apple displays only). | See the brightness row above. |
 | `middle_click_paste`, `hotspot_padding`, XWayland rules, env.lua | Not applicable on macOS. | — |
@@ -52,7 +52,7 @@ feature cannot work, the UI says so and the closest substitute is used.
 | P6 | (shell parts 1 and 2 are built: see SHELL.md; the rest below is not) Screen recorder card; screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`) for some; the UIs are not wired yet |
 | P7 | Wallpaper-driven dynamic colour (Material "tonal spot") | static themes only (SkyRose Dynamic dark snapshot, SkyRose Default, Catppuccin Mocha, Noctalia); accent override is an approximation |
 | P8 | SkyRose Settings is built (General, Appearance, Windows, Window rules, Keybinds, Bar and Shell, Terminal, Permissions, About) but not the Enhanced-mode, Backup & uninstall or installer pages | the uninstaller is not built yet; `skyrose keys check` / `skyrose doctor` cover the checks |
-| P9 | fonts installer, xcursor2cape, installing kitty itself | the kitty **profile** is built (Settings › Terminal, `skyrose kitty install`); installing the kitty app is left to the installer phase (onboarding will offer it); the cursor tool is not built |
+| P9 | xcursor2cape, installing kitty itself, fonts in the installer | the kitty **profile** and the **font pack** are built (Settings › Terminal / Appearance › Fonts, `skyrose kitty …`, `skyrose fonts …`); offering kitty and the fonts during onboarding is left to the installer phase; the cursor tool is not built |
 | P10 | Enhanced mode scripting addition | not built; documented in ENHANCED_MODE.md, capability probe reports Standard |
 | P11 | Fresh-Mac install→uninstall QA pass | not performed |
 

@@ -13,6 +13,9 @@ public struct ShellTheme: Equatable, Sendable {
     public var layerAlpha: Double
     public var fontSans: [String]
     public var fontMono: [String]
+    /// Bumped by ``fontsChanged()``: a theme made after new fonts were registered compares
+    /// unequal, so every surface re-renders in them.
+    public var fontGeneration: Int
     public var uiScale: Double
     /// All shell animations run at this fraction of their Material duration (0.8).
     public var durationScale: Double
@@ -32,6 +35,7 @@ public struct ShellTheme: Equatable, Sendable {
         layerAlpha = a.transparencyEnabled ? a.transparencyLayers : 1
         fontSans = [a.fontSans] + a.fontSansFallbacks
         fontMono = [a.fontMono] + a.fontMonoFallbacks
+        fontGeneration = Self.currentFontGeneration
         uiScale = a.uiScale
         durationScale = config.animations.shellDurationScale * config.animations.durationFactor
         self.reduceMotion = (reduceMotion && config.animations.respectReduceMotion) || config.animations.reduceMotion
@@ -82,6 +86,21 @@ public struct ShellTheme: Equatable, Sendable {
     /// Family names that exist on this Mac (SF Pro is the system font and never "installed").
     nonisolated(unsafe) private static var installedCache: [String: Bool] = [:]
     private static let cacheLock = NSLock()
+
+    nonisolated(unsafe) private static var generation = 0
+    static var currentFontGeneration: Int {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return generation
+    }
+
+    /// Call after fonts were registered or installed: forgets which families were missing.
+    public static func fontsChanged() {
+        cacheLock.lock()
+        installedCache.removeAll()
+        generation += 1
+        cacheLock.unlock()
+    }
 
     public static func firstInstalled(_ families: [String]) -> String? {
         for f in families where f != "SF Pro" && isInstalled(f) { return f }

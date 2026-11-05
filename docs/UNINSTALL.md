@@ -41,7 +41,9 @@ What happens, in order, with a printed report at the end:
    `~/Library/Application Support/SkyRose/originals/` (journal kind `kittyConfig`).
 8. Removes `~/Applications/SkyRose.app`, `~/Applications/SkyRose Settings.app`, `~/Applications/TestWindows.app` and the
    `~/.local/bin/skyrose` (and the deprecated `caelestia`) symlink (moved to the Trash, not deleted).
-9. Asks whether to keep the fonts we installed (listed in the install manifest) and whether to
+9. Asks whether to keep the fonts we installed into `~/Library/Fonts` (listed in
+   `~/Library/Application Support/SkyRose/Fonts/installed.json`; `skyrose fonts uninstall` removes
+   exactly those) and whether to
    keep `~/.config/skyrose` (moved to the Trash otherwise).
 10. Optionally removes the "SkyRose Local Signing" (or older "Caelestia Local Signing") certificate (`scripts/sign-setup.sh --remove`).
 
