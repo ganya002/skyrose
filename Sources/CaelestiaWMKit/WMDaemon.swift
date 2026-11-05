@@ -17,6 +17,7 @@ public final class WMDaemon {
     public let matcher: ChordMatcher
     public let tap: EventTap
     private var ipc: IPCServer?
+    private var socketWatch: Timer?
     private var configWatcher: ConfigWatcher?
     private var keymapWatcher: KeymapWatcher?
     private var signalSources: [DispatchSourceSignal] = []
@@ -221,11 +222,37 @@ public final class WMDaemon {
             return response
         }
         do {
-            try server.start()
+            // A restart launches us while the previous instance may still be quitting: wait for
+            // it to let go of the socket rather than run on without IPC (Settings then showed
+            // "SkyRose is not running" for a running WM).
+            try server.start(waitingForPreviousInstance: 6)
             ipc = server
+            startSocketWatch(server)
+        } catch IPCError.alreadyRunning(_, let pid) {
+            // Another live SkyRose owns the socket: one WM per user. Nothing is managed yet.
+            let message = "SkyRose is already running (pid \(pid)); this copy quits."
+            Log.wm.error("\(message, privacy: .public)")
+            FileHandle.standardError.write(Data((message + "\n").utf8))
+            exit(0)
         } catch {
             Log.ipc.error("IPC server failed to start: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    /// Every 3 s: if the socket file was removed or replaced (an old instance unlinking it on
+    /// exit), bind a fresh one so `skyrose` and Settings can reach us again.
+    private func startSocketWatch(_ server: IPCServer) {
+        let t = Timer(timeInterval: 3, repeats: true) { [weak self] timer in
+            do {
+                try server.rebindIfLost()
+            } catch {
+                Log.ipc.error("IPC socket lost and not rebound: \(String(describing: error), privacy: .public)")
+                timer.invalidate()
+                MainActor.assumeIsolated { self?.socketWatch = nil }
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        socketWatch = t
     }
 
     private func startWatchers() {

@@ -131,8 +131,15 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         w.isMovableByWindowBackground = true
         w.isReleasedWhenClosed = false
         w.delegate = self
+        // Clip everything (blur included) to the window's rounded shape so nothing square shows
+        // at the corners, and let the shadow follow that shape.
+        content.wantsLayer = true
+        content.layer?.cornerRadius = SettingsLook.windowRadius
+        content.layer?.cornerCurve = .circular
+        content.layer?.masksToBounds = true
         w.contentView = content
         w.center()
+        DispatchQueue.main.async { w.invalidateShadow() }
         return w
     }
 

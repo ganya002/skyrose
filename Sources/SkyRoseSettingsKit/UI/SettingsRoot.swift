@@ -120,15 +120,21 @@ public struct SettingsRoot: View {
             }
             Spacer()
             HStack(spacing: 6) {
-                Circle().fill(store.wmRunning ? look[.success] : look[.outline]).frame(width: 7, height: 7)
-                Text(store.wmRunning ? "SkyRose is running" : "SkyRose is not running").font(look.font(11.5)).foregroundStyle(look[.onSurfaceVariant])
+                Circle().fill(store.wmRunning ? (store.wmBusy ? look[.tertiary] : look[.success]) : look[.outline]).frame(width: 7, height: 7)
+                Text(store.statusLine).font(look.font(11.5)).foregroundStyle(look[.onSurfaceVariant])
             }
             .padding(.leading, 6)
         }
-        .padding(.horizontal, 14).padding(.vertical, 16)
-        .frame(width: 228)
+        .padding(.horizontal, 14 - SettingsLook.panelInset).padding(.vertical, 16 - SettingsLook.panelInset)
+        .frame(width: 228 - 2 * SettingsLook.panelInset)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(look[.surfaceContainerLow].opacity(0.6))
+        // An inset panel with concentric corners: it never meets the window edge, so there is
+        // no seam and its corners follow the window's.
+        .background(
+            RoundedRectangle(cornerRadius: SettingsLook.insetPanelRadius, style: .circular)
+                .fill(look[.surfaceContainerLow].opacity(0.6))
+        )
+        .padding(SettingsLook.panelInset)
     }
 
     private var missingCount: Int? {

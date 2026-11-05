@@ -62,6 +62,7 @@ public final class SettingsStore: ObservableObject {
         config = c
         scheme = Self.scheme(for: c)
         configStamp = Self.modified(api.file)
+        defaultProcessCheck()
     }
 
     // MARK: Look
@@ -120,9 +121,17 @@ public final class SettingsStore: ObservableObject {
                 self.wmRunning = true
                 self.wmBusy = true
                 self.probeIfDue()
-            case .failure:
-                self.wmRunning = false
+            case .failure(.refused):
+                // It answered (and refused): it is running.
+                self.wmRunning = true
                 self.wmBusy = false
+                self.probeIfDue()
+            case .failure(.notRunning), .failure(.unreachable):
+                // No socket, or no usable answer: running only if its process is alive (then it is
+                // "not responding", and the WM rebinds a lost socket within a few seconds).
+                let alive = self.wmProcessAlive()
+                self.wmRunning = alive
+                self.wmBusy = alive
                 self.probeIfDue()
             }
         }
@@ -214,7 +223,7 @@ public final class SettingsStore: ObservableObject {
                 guard let self else { return }
                 switch result {
                 case .success: self.configStamp = Self.modified(self.api.file)
-                case .failure(.notRunning): self.writeLocally([(path, value)])
+                case .failure(.notRunning), .failure(.unreachable): self.writeLocally([(path, value)])
                 case .failure(.busy):
                     // It may still apply it; the file watcher and the next refresh show the result.
                     self.configStamp = nil
@@ -338,16 +347,58 @@ public final class SettingsStore: ObservableObject {
     }
 
     /// Starts SkyRose.app (next to this app, or wherever Launch Services has it).
+    /// SkyRose.app's bundle id (the WM; permission probes share it, see ``wmProcesses()``).
+    public static let wmBundleID = "com.skyrose.mac"
+
+    /// Running SkyRose WM processes: every `com.skyrose.mac` instance except our own permission
+    /// probes (short-lived copies of the same app) and anything that started under 2 s ago.
+    func wmProcesses() -> [NSRunningApplication] {
+        let probes = prober?.probePIDs ?? []
+        return NSRunningApplication.runningApplications(withBundleIdentifier: Self.wmBundleID).filter { app in
+            guard !app.isTerminated, !probes.contains(app.processIdentifier) else { return false }
+            guard let launched = app.launchDate else { return true }
+            return Date().timeIntervalSince(launched) > 2
+        }
+    }
+
+    /// Whether a SkyRose WM process is alive (replaceable for tests: the real WM may be running
+    /// on the machine that runs them).
+    var wmProcessAlive: @MainActor () -> Bool = { false }
+    private func defaultProcessCheck() { wmProcessAlive = { [weak self] in !(self?.wmProcesses().isEmpty ?? true) } }
+
+    /// The sidebar footer's status.
+    public var statusLine: String {
+        guard wmRunning else { return "SkyRose is not running" }
+        return wmBusy ? "SkyRose is running (busy)" : "SkyRose is running"
+    }
+
     public func launchSkyRose() {
         guard let url = PermissionProber.defaultAppURL() else { message = "SkyRose.app was not found"; return }
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+        // A new instance on purpose: with a permission probe (same bundle id) alive, Launch
+        // Services would otherwise just activate the probe and the WM never starts. A second
+        // WM quits by itself when one already owns the socket.
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = !wmProcessAlive()
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { _, _ in }
     }
 
     /// Quits and starts SkyRose again (a new Screen Recording grant needs it). Windows are
-    /// restored by the quit and re-tiled by the start.
+    /// restored by the quit and re-tiled by the start, which waits until the old process has
+    /// really exited (restoring many windows can take a few seconds).
     public func restartSkyRose() {
+        let old = wmProcesses()
         connection.call(.wmQuit, timeout: 5) { [weak self] _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { MainActor.assumeIsolated { self?.launchSkyRose() } }
+            self?.launchWhenGone(old, deadline: Date().addingTimeInterval(15))
+        }
+    }
+
+    private func launchWhenGone(_ old: [NSRunningApplication], deadline: Date) {
+        if old.allSatisfy(\.isTerminated) || Date() > deadline {
+            launchSkyRose()
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            MainActor.assumeIsolated { self.launchWhenGone(old, deadline: deadline) }
         }
     }
 }

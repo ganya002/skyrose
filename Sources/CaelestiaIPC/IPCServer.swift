@@ -62,6 +62,47 @@ public final class IPCServer: @unchecked Sendable {
         onQueue { stopLocked() }
     }
 
+    /// `start()`, but while another server still answers on `path` (a previous instance that is
+    /// quitting) it keeps trying for up to `wait` seconds. Still answered after that →
+    /// `alreadyRunning`: another live instance owns the socket.
+    public func start(waitingForPreviousInstance wait: TimeInterval, interval: TimeInterval = 0.25) throws {
+        let deadline = Date().addingTimeInterval(wait)
+        while true {
+            do {
+                try start()
+                return
+            } catch IPCError.alreadyRunning(let p, let pid) {
+                guard Date() < deadline else { throw IPCError.alreadyRunning(path: p, pid: pid) }
+                Thread.sleep(forTimeInterval: interval)
+            }
+        }
+    }
+
+    /// True while running and the socket file at `path` is still the one this server bound.
+    /// False once something removed or replaced it (an old instance unlinking on exit, a
+    /// cleaner of Application Support): clients then cannot reach us.
+    public var ownsSocketFile: Bool { onQueue { running && socketFileIsOursLocked() } }
+
+    /// Binds a fresh socket when the file was removed or replaced while running. Returns true
+    /// when it rebound; throws `alreadyRunning` when another live server now owns the path.
+    @discardableResult
+    public func rebindIfLost() throws -> Bool {
+        try onQueue {
+            guard running, !socketFileIsOursLocked() else { return false }
+            Log.ipc.error("IPC socket at \(self.path.path, privacy: .public) was removed or replaced; rebinding")
+            stopLocked()
+            try startLocked()
+            return true
+        }
+    }
+
+    private func socketFileIsOursLocked() -> Bool {
+        guard let ours = boundInode else { return false }
+        var st = stat()
+        guard stat(path.path, &st) == 0 else { return false }
+        return ours.dev == st.st_dev && ours.ino == st.st_ino
+    }
+
     // MARK: - Queue helpers
 
     private func onQueue<T>(_ body: () throws -> T) rethrows -> T {

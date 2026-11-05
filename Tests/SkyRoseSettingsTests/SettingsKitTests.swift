@@ -1,4 +1,5 @@
 import CaelestiaCore
+import CaelestiaIPC
 import SwiftUI
 import XCTest
 @testable import SkyRoseSettingsKit
@@ -105,5 +106,54 @@ final class SettingsStoreOfflineTests: XCTestCase {
         XCTAssertNotNil(store.message)
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
         XCTAssertEqual(store.config.general.mode, .full)
+    }
+}
+
+/// The running status: any answer means running; no answer means running only while the WM
+/// process is alive ("SkyRose is not running" was shown for a running WM).
+@MainActor
+final class SettingsStatusTests: XCTestCase {
+    private func socketDir() throws -> URL {
+        let dir = URL(fileURLWithPath: "/tmp").appendingPathComponent("cm-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private func refreshed(_ store: SettingsStore) {
+        store.refresh()
+        let done = expectation(description: "refresh")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { done.fulfill() }
+        wait(for: [done], timeout: 3)
+    }
+
+    func testARefusingWMStillCountsAsRunning() throws {
+        let dir = try socketDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let sock = dir.appendingPathComponent("ipc.sock")
+        let server = IPCServer(path: sock) { req in .failure(for: req, error: "not now") }
+        try server.start()
+        defer { server.stop() }
+        let store = SettingsStore(api: ConfigAPI(file: dir.appendingPathComponent("c.toml")), connection: WMConnection(socket: sock), prober: nil)
+        store.wmProcessAlive = { false }
+        refreshed(store)
+        XCTAssertTrue(store.wmRunning)
+        XCTAssertFalse(store.wmBusy)
+        XCTAssertEqual(store.statusLine, "SkyRose is running")
+    }
+
+    func testNoSocketButALiveProcessIsRunningAndBusy() throws {
+        let dir = try socketDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SettingsStore(api: ConfigAPI(file: dir.appendingPathComponent("c.toml")),
+                                  connection: WMConnection(socket: dir.appendingPathComponent("none.sock")), prober: nil)
+        store.wmProcessAlive = { true }
+        refreshed(store)
+        XCTAssertTrue(store.wmRunning)
+        XCTAssertTrue(store.wmBusy)
+        XCTAssertEqual(store.statusLine, "SkyRose is running (busy)")
+        store.wmProcessAlive = { false }
+        refreshed(store)
+        XCTAssertFalse(store.wmRunning)
+        XCTAssertEqual(store.statusLine, "SkyRose is not running")
     }
 }

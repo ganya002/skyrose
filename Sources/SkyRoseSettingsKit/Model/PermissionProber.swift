@@ -9,6 +9,9 @@ import Foundation
 public final class PermissionProber {
     public let appURL: () -> URL?
     private(set) var inFlight = false
+    /// Probe processes this prober launched (same bundle id as the WM, so the running-status
+    /// check must not mistake them for it).
+    public private(set) var probePIDs: Set<pid_t> = []
     private let directory: URL
 
     public init(appURL: @escaping () -> URL? = { PermissionProber.defaultAppURL() },
@@ -42,7 +45,10 @@ public final class PermissionProber {
         config.addsToRecentItems = false
         config.hides = true
         config.promptsUserIfNeeded = false
-        NSWorkspace.shared.openApplication(at: app, configuration: config) { _, _ in }
+        NSWorkspace.shared.openApplication(at: app, configuration: config) { [weak self] running, _ in
+            guard let pid = running?.processIdentifier else { return }
+            Task { @MainActor in self?.recordProbe(pid) }
+        }
         let started = Date()
         let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll(out, started: started, timeout: timeout) }
@@ -50,6 +56,15 @@ public final class PermissionProber {
         pending = completion
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+    }
+
+    private func recordProbe(_ pid: pid_t) {
+        probePIDs.insert(pid)
+        // Forget it later (a reused pid is then a different process); probes exit within seconds.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            self?.probePIDs.remove(pid)
+        }
     }
 
     private var timer: Timer?

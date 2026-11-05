@@ -17,12 +17,17 @@ public final class WMConnection: @unchecked Sendable {
         /// The socket is there but no answer in time: SkyRose is running and busy (for example
         /// tiling every window right after Accessibility was granted).
         case busy
+        /// SkyRose answered and said no.
         case refused(String)
+        /// The socket could not be used for another reason (a socket error, a garbled reply):
+        /// no answer, but SkyRose may still be running (``SettingsStore`` checks the process).
+        case unreachable(String)
         public var description: String {
             switch self {
             case .notRunning: return "SkyRose is not running"
             case .busy: return "SkyRose is busy; try again in a moment"
             case .refused(let m): return m
+            case .unreachable(let m): return "SkyRose did not answer: \(m)"
             }
         }
     }
@@ -41,10 +46,10 @@ public final class WMConnection: @unchecked Sendable {
                 case .notRunning: result = .failure(.notRunning)
                 case .timeout: result = .failure(.busy)
                 case .remote(let m): result = .failure(.refused(m))
-                default: result = .failure(.refused(e.localizedDescription))
+                default: result = .failure(.unreachable(e.localizedDescription))
                 }
             } catch {
-                result = .failure(.refused(error.localizedDescription))
+                result = .failure(.unreachable(error.localizedDescription))
             }
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(result) } }
         }

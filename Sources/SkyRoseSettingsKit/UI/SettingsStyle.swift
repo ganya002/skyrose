@@ -47,8 +47,13 @@ public struct SettingsLook: Equatable {
     public var theme: ShellTheme
     public var motion: SettingsMotion
 
-    /// Large cards and the window: Caelestia `rounding.large` (25).
-    public static let windowRadius: Double = 25
+    /// The window: the WM's window rounding (Hyprland `rounding 15`, circular), so the WM's
+    /// border ring hugs the window edge instead of drawing a second edge outside it.
+    public static let windowRadius: Double = 15
+    /// Inset of panels that sit inside the window (the sidebar) and their concentric radius.
+    public static let panelInset: Double = 6
+    public static var insetPanelRadius: Double { windowRadius - panelInset }
+    /// Cards inside the page (well inset, so they may be rounder than the window).
     public static let cardRadius: Double = 20
     /// Rows and controls: the window rounding (15).
     public static let rowRadius: Double = 15
@@ -79,31 +84,48 @@ public extension EnvironmentValues {
 
 /// The window background: the shell's panel colour over a behind-window blur, 25 pt corners,
 /// a hairline outline.
+/// The window background: blur + panel fill in the window's rounded shape. No hairline: the
+/// WM draws its border ring on this edge, and a second stroke read as a double edge.
 struct PanelBackground: View {
     @Environment(\.look) var look
     var body: some View {
         ZStack {
-            VisualEffectBlur()
+            VisualEffectBlur(cornerRadius: SettingsLook.windowRadius)
             Color(nsColor: look.theme.panelFill)
         }
-        .clipShape(RoundedRectangle(cornerRadius: SettingsLook.windowRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: SettingsLook.windowRadius, style: .continuous)
-                .strokeBorder(look[.outlineVariant].opacity(0.6), lineWidth: 1)
-        )
+        .clipShape(RoundedRectangle(cornerRadius: SettingsLook.windowRadius, style: .circular))
     }
 }
 
+/// Behind-window blur. `NSVisualEffectView` ignores SwiftUI clip shapes (its square corners
+/// showed outside the rounded window), so it is masked with its own rounded `maskImage`.
 struct VisualEffectBlur: NSViewRepresentable {
+    var cornerRadius: Double = 0
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let v = NSVisualEffectView()
         v.material = .underWindowBackground
         v.blendingMode = .behindWindow
         v.state = .active
+        v.maskImage = cornerRadius > 0 ? Self.roundedMask(radius: cornerRadius) : nil
         return v
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
+
+    /// A stretchable rounded-rect mask (corners kept, middle stretched).
+    static func roundedMask(radius: Double) -> NSImage {
+        let r = CGFloat(radius)
+        let edge = 2 * r + 1
+        let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: r, yRadius: r).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: r, left: r, bottom: r, right: r)
+        image.resizingMode = .stretch
+        return image
+    }
 }
 
 /// An inner card (surfaceContainer at the layer transparency).
