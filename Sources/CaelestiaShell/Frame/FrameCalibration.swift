@@ -10,7 +10,7 @@ public enum CalibrationCorners: String, Sendable {
     var toggled: CalibrationCorners { self == .top ? .bottom : .top }
 }
 
-/// `caelestia frame calibrate`: a key panel over one display that draws a thin bright outline
+/// `skyrose frame calibrate`: a key panel over one display that draws a thin bright outline
 /// along the display edge with the radii being tried, while the screen frame underneath redraws
 /// with them live. The radii are tuned by eye (Apple does not publish them):
 ///
@@ -186,7 +186,7 @@ extension ShellController {
         let target: DisplayInfo?
         if let query, !query.isEmpty {
             target = state.displays.first { $0.id == query || $0.name.caseInsensitiveCompare(query) == .orderedSame }
-            guard target != nil else { return .failure(FrameCalibrationError(message: "no display \"\(query)\"; see `caelestia query monitors`")) }
+            guard target != nil else { return .failure(FrameCalibrationError(message: "no display \"\(query)\"; see `skyrose query monitors`")) }
         } else {
             target = state.displays.first { $0.id == pointerDisplayID() } ?? state.displays.first
         }

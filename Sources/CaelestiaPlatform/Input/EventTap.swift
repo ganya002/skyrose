@@ -163,6 +163,23 @@ public final class EventTap: @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }; return thread != nil
     }
 
+    private var _pausedUntil: TimeInterval = 0
+    /// The longest a pause may last; it can never leave the keyboard without hotkeys for long.
+    public static let maxHotkeyPause: TimeInterval = 15
+
+    /// Lets every key through to the focused app for `seconds` (at most ``maxHotkeyPause``), so
+    /// the Settings app can record a chord that is bound already. 0 ends the pause.
+    public func pauseHotkeys(for seconds: TimeInterval) {
+        let until = seconds <= 0 ? 0 : ProcessInfo.processInfo.systemUptime + min(seconds, Self.maxHotkeyPause)
+        lock.lock(); _pausedUntil = until; lock.unlock()
+        matcher.reset()
+    }
+
+    public var hotkeysPaused: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return ProcessInfo.processInfo.systemUptime < _pausedUntil
+    }
+
     /// Whether macOS currently delivers events to the tap.
     public var isEnabled: Bool {
         lock.lock(); let p = port; lock.unlock()
@@ -217,7 +234,7 @@ public final class EventTap: @unchecked Sendable {
             lock.unlock()
             stopped.signal()
         }
-        t.name = "com.caelestia.mac.eventtap"
+        t.name = "com.skyrose.mac.eventtap"
         t.qualityOfService = .userInteractive
         thread = t
         lock.unlock()
@@ -432,6 +449,9 @@ public final class EventTap: @unchecked Sendable {
             }
         }
         guard let synthetic = Self.convert(type: type, event: event) else { return pass }
+        // Settings › Keybinds is recording a chord: every key goes to it untouched until the pause
+        // ends (it always ends by itself, see `pauseHotkeys`).
+        if hotkeysPaused { return pass }
         switch matcher.handle(synthetic, now: ProcessInfo.processInfo.systemUptime) {
         case .passThrough:
             return pass

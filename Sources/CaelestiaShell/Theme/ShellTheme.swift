@@ -34,13 +34,13 @@ public struct ShellTheme: Equatable, Sendable {
         fontMono = [a.fontMono] + a.fontMonoFallbacks
         uiScale = a.uiScale
         durationScale = config.animations.shellDurationScale * config.animations.durationFactor
-        self.reduceMotion = reduceMotion && config.animations.respectReduceMotion
+        self.reduceMotion = (reduceMotion && config.animations.respectReduceMotion) || config.animations.reduceMotion
         frameThickness = config.wm.screenFrame ? config.wm.screenFrameInset : 0
         frameRounding = config.wm.windowRounding + config.wm.gapsOut
         barWidth = config.bar.width
     }
 
-    public static let gabby = ShellTheme(scheme: SchemeLoader.builtIn(named: "caelestia-dynamic-dark") ?? ShellTheme.fallbackScheme)
+    public static let gabby = ShellTheme(scheme: SchemeLoader.builtIn(named: "skyrose-dynamic-dark") ?? ShellTheme.fallbackScheme)
 
     static let fallbackScheme: Scheme = {
         var colors: [String: RGBA] = [:]

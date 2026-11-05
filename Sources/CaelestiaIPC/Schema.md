@@ -1,6 +1,6 @@
-# Caelestia for Mac — IPC schema (protocol version 1)
+# SkyRose — IPC schema (protocol version 2)
 
-Transport: Unix domain stream socket at `~/Library/Application Support/CaelestiaMac/ipc.sock`
+Transport: Unix domain stream socket at `~/Library/Application Support/SkyRose/ipc.sock`
 (mode `0600`, owner only). One JSON object per line, UTF-8, terminated by `\n`. A line may be at
 most 1 MiB. A connection may carry any number of requests; responses come back in request order
 and carry the request's `id`.
@@ -23,12 +23,12 @@ before the WM handler runs (`IPCServer(validatesRequests:)`).
 ## Response
 
 ```json
-{"id": 1, "ok": true, "result": null, "protocolVersion": 1}
-{"id": 1, "ok": false, "error": "No workspace 42", "protocolVersion": 1}
+{"id": 1, "ok": true, "result": null, "protocolVersion": 2}
+{"id": 1, "ok": false, "error": "No workspace 42", "protocolVersion": 2}
 ```
 
 `result` is omitted when there is nothing to return; `error` is present only when `ok` is false.
-Clients compare `protocolVersion` with their own `CaelestiaVersion.protocolVersion` and refuse to
+Clients compare `protocolVersion` with their own `CaelestiaVersion.protocolVersion` (2 since SkyRose 0.2.0) and refuse to
 talk to a mismatched WM (`IPCError.protocolMismatch`).
 
 ## Handshake
@@ -36,7 +36,7 @@ talk to a mismatched WM (`IPCError.protocolMismatch`).
 `{"command": "hello"}` is answered by the server itself (no WM code involved):
 
 ```json
-{"id": 0, "ok": true, "result": {"version": "0.1.0", "protocolVersion": 1, "pid": 4242}, "protocolVersion": 1}
+{"id": 0, "ok": true, "result": {"version": "0.2.0", "protocolVersion": 2, "pid": 4242}, "protocolVersion": 2}
 ```
 
 The server uses the same probe on start-up: a left-over socket file that does not answer `hello`
@@ -61,12 +61,17 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 | `window.center`     |                                        | null   |
 | `action`            | `action: string` (ActionKind), `args?: object` | null |
 | `config.reload`     |                                        | `{warnings: [string]}` |
+| `config.get`        | `path?: string` (`table.key`, e.g. `wm.gapsIn`; whole config when omitted) | value or object, as written in config.toml with defaults filled in |
+| `config.set`        | `path: string`, `value: bool\|number\|string` (a string starting with `[` or `{` is parsed as a TOML literal) | `{warnings: [string]}` |
+| `config.reset`      | `path: string`                         | `{warnings: [string]}` |
 | `rules.reload`      |                                        | `{warnings: [string]}` |
 | `keys.list`         |                                        | array of BindQueryEntry |
+| `keys.pause`        | `seconds?: number` (default 10, max 15; 0 ends the pause) | `{paused: bool}` |
 | `wm.panic`          |                                        | null   |
 | `wm.restoreAll`     |                                        | null   |
 | `wm.quit`           |                                        | null   |
 | `permissions.status`|                                        | PermissionsStatusEntry |
+| `permissions.request`| `kind: accessibility\|inputMonitoring\|screenRecording`, `open?: bool` (default true) | `{granted: bool}` |
 | `doctor`            |                                        | object (free-form WM diagnostics) |
 
 ### Queries (replaces `hyprctl -j`)
@@ -118,6 +123,28 @@ all parameters are strings. Return types map `void → null`, `string → string
 | `mpris`         | `next()`, `stop()`, `getActive(prop)`, `play()`, `pause()`, `playPause()`, `previous()`, `list()` |
 | `audio`         | `cycleOutput()`                                                           |
 | `hypr`          | `listSpecialWorkspaces()`, `cycleSpecialWorkspace(direction)`, `refreshDevices()` |
+
+### Config API (protocol 2)
+
+`config.set` edits `config.toml` in place (comments and ordering are kept), validates the result and
+rolls the file back if it does not parse or validate, then applies the change live. `config.reset`
+removes the key so the default applies again. `config.get` returns what is written in the file with
+defaults filled in. SkyRose Settings uses these three; when SkyRose is not running it edits
+`config.toml` directly instead. Example:
+
+```json
+{"id": 2, "command": "config.set", "args": {"path": "general.mode", "value": "wm"}}
+```
+
+`keys.pause` makes every key pass through to the focused app for a few seconds so Settings can
+record a new chord; it ends by itself. `permissions.request` triggers the macOS prompt from the WM
+process (so SkyRose, not the CLI, appears in the System Settings list) and opens the pane.
+
+### Changes in protocol 2
+
+Version 2 adds `config.get`, `config.set`, `config.reset`, `keys.pause` and `permissions.request`.
+A CLI or WM still speaking version 1 is rejected with `protocolMismatch`. The old `caelestia` CLI
+name is a deprecated alias of `skyrose` and speaks the same protocol.
 
 ## Golden JSON shapes
 
@@ -188,7 +215,7 @@ all parameters are strings. Return types map `void → null`, `string → string
 
 ```json
 {
-  "mode": "standard", "version": "0.1.0", "pid": 4242, "uptimeSeconds": 120.5,
+  "mode": "standard", "version": "0.2.0", "pid": 4242, "uptimeSeconds": 120.5,
   "focusedWindow": "0x1a2b", "focusedWorkspace": {"id": 1, "name": "1"}, "focusedMonitor": "37D8...",
   "windowCount": 6, "workspaceCount": 3, "monitorCount": 1, "gameMode": false,
   "counters": {"layoutPasses": 12, "axSetFrame": 40}

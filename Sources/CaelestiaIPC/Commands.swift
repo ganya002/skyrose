@@ -38,7 +38,7 @@ public struct IPCArgument: Hashable, Sendable, Codable {
     }
 }
 
-/// Broad grouping of commands, used by `caelestia help` and the schema document.
+/// Broad grouping of commands, used by `skyrose help` and the schema document.
 public enum IPCCommandGroup: String, Codable, Sendable, CaseIterable {
     case system, workspace, window, query, config, wm, shell, capture, misc, shellTarget
 }
@@ -63,7 +63,7 @@ public struct IPCCommandSpec: Hashable, Sendable {
     public var requiredArguments: [IPCArgument] { arguments.filter(\.required) }
 }
 
-/// A Linux-shell IPC target (`caelestia shell <target> <fn>` on Arch). The Mac shell implements
+/// A Linux-shell IPC target (`skyrose shell <target> <fn>` on Arch). The Mac shell implements
 /// every target and function in `Tests/fixtures/ref/ipc-commands.txt` under the same names.
 public enum ShellTarget: String, CaseIterable, Sendable, Codable {
     case toaster, brightness, wallpaper, nexus, lock, notifs, picker, gameMode, drawers, idleInhibitor, mpris, audio, hypr
@@ -187,7 +187,7 @@ public struct ShellFunction: Hashable, Sendable {
         self.returns = returns
     }
 
-    /// `fn(param: string, ...): ret`, as printed by the Linux `caelestia shell` help.
+    /// `fn(param: string, ...): ret`, as printed by the Linux `skyrose shell` help.
     public var signature: String {
         "\(name)(\(parameters.map { "\($0): string" }.joined(separator: ", "))): \(returns)"
     }
@@ -235,21 +235,30 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
 
     // MARK: Config
     case configReload = "config.reload"
+    /// The config API (Settings app, `skyrose config get|set|reset`): one key at a time, applied live.
+    case configGet = "config.get"
+    case configSet = "config.set"
+    case configReset = "config.reset"
     case rulesReload = "rules.reload"
     /// Per-app tile / float / auto rules (the API the Settings app uses).
     case rulesApps = "rules.apps"
     case rulesSet = "rules.set"
     case rulesFocused = "rules.focused"
     case keysList = "keys.list"
+    /// Hotkeys pass through for a few seconds (Settings records a new chord).
+    case keysPause = "keys.pause"
 
     // MARK: WM lifecycle / safety
     case wmPanic = "wm.panic"
     case wmRestoreAll = "wm.restoreAll"
     case wmQuit = "wm.quit"
     case permissionsStatus = "permissions.status"
+    /// Shows the macOS prompt for one permission from the WM process (so SkyRose appears in the
+    /// System Settings list), then opens its pane.
+    case permissionsRequest = "permissions.request"
     case doctor
 
-    // MARK: Shell conveniences (`caelestia shell <panel>`)
+    // MARK: Shell conveniences (`skyrose shell <panel>`)
     case shellLauncher = "shell.launcher"
     case shellDashboard = "shell.dashboard"
     case shellSidebar = "shell.sidebar"
@@ -390,6 +399,18 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
 
         case .configReload:
             return IPCCommandSpec(.config, "Re-read config.toml and keymap.toml and apply them live.", returns: "{warnings: [string]}")
+        case .configGet:
+            return IPCCommandSpec(.config, "Read the config as written in config.toml (defaults filled in), or one key of it.",
+                                  arguments: [.optional("path", .string, help: "table.key, e.g. wm.gapsIn; whole config when omitted")],
+                                  returns: "value or object")
+        case .configSet:
+            return IPCCommandSpec(.config, "Set one config key in config.toml (comments kept, validated, rolled back if invalid) and apply it live.",
+                                  arguments: [IPCArgument("path", help: "table.key, e.g. wm.gapsIn"),
+                                              IPCArgument("value", .any, help: "bool, number or string (TOML literal when a string starts with [ or {)")],
+                                  returns: "{warnings: [string]}")
+        case .configReset:
+            return IPCCommandSpec(.config, "Remove one key from config.toml (back to its default) and apply it live.",
+                                  arguments: [IPCArgument("path", help: "table.key")], returns: "{warnings: [string]}")
         case .rulesReload:
             return IPCCommandSpec(.config, "Re-read rules.toml and re-evaluate every window.", returns: "{warnings: [string]}")
         case .rulesApps:
@@ -403,6 +424,9 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.config, "The window rule of the focused window's app.", returns: "AppRuleEntry or null")
         case .keysList:
             return IPCCommandSpec(.config, "Binds as the WM currently has them loaded.", returns: "array of BindQueryEntry")
+        case .keysPause:
+            return IPCCommandSpec(.config, "Let every key through to the focused app for a few seconds (max 15), so SkyRose Settings can record a chord.",
+                                  arguments: [.optional("seconds", .double, help: "how long; 0 ends the pause (default 10)")], returns: "{paused: bool}")
 
         case .wmPanic:
             return IPCCommandSpec(.wm, "Panic: restore every window to a visible frame and stop managing.")
@@ -412,6 +436,11 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.wm, "Restore windows and quit the WM.")
         case .permissionsStatus:
             return IPCCommandSpec(.wm, "TCC permission status as the WM sees it.", returns: "{accessibility, inputMonitoring, screenRecording, automation: bool|string}")
+        case .permissionsRequest:
+            return IPCCommandSpec(.wm, "Ask macOS for one permission from the WM process (adds SkyRose to the System Settings list) and open its pane.",
+                                  arguments: [IPCArgument("kind", help: "accessibility, inputMonitoring or screenRecording"),
+                                              .optional("open", .bool, help: "open the System Settings pane too (default true)")],
+                                  returns: "{granted: bool}")
         case .doctor:
             return IPCCommandSpec(.wm, "WM-side diagnostics (mode, permissions, displays, counters).", returns: "object")
 
@@ -433,7 +462,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
         case .emoji:
             return IPCCommandSpec(.misc, "Open the emoji picker.")
         case .schemeSet:
-            return IPCCommandSpec(.misc, "Switch the colour scheme.", arguments: [IPCArgument("name", .string, help: "scheme name, e.g. caelestia-dynamic")])
+            return IPCCommandSpec(.misc, "Switch the colour scheme.", arguments: [IPCArgument("name", .string, help: "scheme name, e.g. skyrose-dynamic")])
         case .wallpaperRandom:
             return IPCCommandSpec(.misc, "Pick a random wallpaper from the configured folder.", returns: "{path}")
         case .frameCalibrate:

@@ -417,7 +417,7 @@ public struct AnimationTable: Sendable, Equatable, Codable {
     /// untouched; the `.off` preset always stays off.
     public static func from(config: AnimationsConfig, reduceMotion: Bool) -> AnimationTable {
         if config.preset == .off { return .off }
-        if reduceMotion && config.respectReduceMotion { return .reduced }
+        if config.reduceMotion || (reduceMotion && config.respectReduceMotion) { return .reduced }
         var table = preset(config.preset, shellScale: config.shellDurationScale)
         for (key, override) in config.overrides {
             guard let name = AnimationName(configKey: key) else { continue }

@@ -347,7 +347,7 @@ public struct ConflictChecker {
                 if hotkey.isFixed {
                     fix = "This macOS shortcut cannot be turned off: move the bind to another chord or pick another modifier preset."
                 } else if let id = hotkey.id {
-                    fix = "Turn off \"\(hotkey.name)\" in System Settings › Keyboard › Keyboard Shortcuts, or let Caelestia disable it (symbolichotkeys id \(id)) after backing up the plist."
+                    fix = "Turn off \"\(hotkey.name)\" in System Settings › Keyboard › Keyboard Shortcuts, or let SkyRose disable it (symbolichotkeys id \(id)) after backing up the plist."
                 } else {
                     fix = "Move the bind to another chord."
                 }

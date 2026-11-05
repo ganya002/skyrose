@@ -97,7 +97,7 @@ final class SchemeLoaderTests: XCTestCase {
     }
 
     func testDynamicDarkMatchesSpecColours() throws {
-        let s = try XCTUnwrap(SchemeLoader.builtIn(named: "caelestia-dynamic"))
+        let s = try XCTUnwrap(SchemeLoader.builtIn(named: "skyrose-dynamic"))
         XCTAssertEqual(s[.primary].hex, "bac5ee")
         XCTAssertEqual(s[.surfaceContainer].hex, "181920")
         XCTAssertEqual(s[.onSurfaceVariant].hex, "a9aab5")
@@ -107,7 +107,7 @@ final class SchemeLoaderTests: XCTestCase {
     }
 
     func testDerivedDecorationColours() throws {
-        let s = try XCTUnwrap(SchemeLoader.builtIn(named: "caelestia-dynamic"))
+        let s = try XCTUnwrap(SchemeLoader.builtIn(named: "skyrose-dynamic"))
         XCTAssertEqual(s.activeBorder.hexWithAlpha, "bac5eee6")
         XCTAssertEqual(s.inactiveBorder.hexWithAlpha, "a9aab511")
         XCTAssertEqual(s.windowShadow.hexWithAlpha, "525e8110")
@@ -128,9 +128,9 @@ final class SchemeLoaderTests: XCTestCase {
     }
 
     func testAccentOverride() throws {
-        let s = try XCTUnwrap(SchemeLoader.builtIn(named: "caelestia-dynamic")).withAccentOverride(hex: "ff8800")
+        let s = try XCTUnwrap(SchemeLoader.builtIn(named: "skyrose-dynamic")).withAccentOverride(hex: "ff8800")
         XCTAssertEqual(s[.primary].hex, "ff8800")
-        let unchanged = try XCTUnwrap(SchemeLoader.builtIn(named: "caelestia-dynamic")).withAccentOverride(hex: "nope")
+        let unchanged = try XCTUnwrap(SchemeLoader.builtIn(named: "skyrose-dynamic")).withAccentOverride(hex: "nope")
         XCTAssertEqual(unchanged[.primary].hex, "bac5ee")
     }
 

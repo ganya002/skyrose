@@ -257,7 +257,7 @@ public enum KeymapParser {
     /// Writes a keymap and its extras in the canonical format.
     public static func serialize(_ keymap: Keymap, extras: KeymapExtras) -> String {
         var out = """
-        # Caelestia for Mac keymap. Chords use Linux modifier names (SUPER, ALT, CTRL, SHIFT); the
+        # SkyRose keymap. Chords use Linux modifier names (SUPER, ALT, CTRL, SHIFT); the
         # [modifiers] table maps them to physical Mac keys. Flags: release, repeat, locked, mouse.
 
         [modifiers]
@@ -712,7 +712,7 @@ public struct KeymapLoader: Sendable {
         return try KeymapParser.parse(toml: text, warnings: &warnings)
     }
 
-    /// The user's `~/.config/caelestia-mac/keymap.toml` when present and valid, otherwise the bundled
+    /// The user's `~/.config/skyrose/keymap.toml` when present and valid, otherwise the bundled
     /// default. Problems with the user file are returned as warnings, never thrown.
     public static func loadUserOrDefault() -> (Keymap, [String]) {
         loadUserOrDefault(userFile: Paths.keymapFile)
@@ -779,7 +779,7 @@ public final class KeymapWatcher: @unchecked Sendable {
         self.fallback = fallback
         self.onChange = onChange
         self.onError = onError
-        self.queue = DispatchQueue(label: "com.caelestia.mac.keymap-watcher", qos: .userInitiated)
+        self.queue = DispatchQueue(label: "com.skyrose.mac.keymap-watcher", qos: .userInitiated)
     }
 
     deinit {

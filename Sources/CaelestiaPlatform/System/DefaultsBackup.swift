@@ -12,13 +12,18 @@ public protocol PreferencesStore: AnyObject {
 public final class CFPreferencesStore: PreferencesStore {
     public init() {}
 
+    /// `NSGlobalDomain` / `-g` means every app (`kCFPreferencesAnyApplication`).
+    static func cfDomain(_ domain: String) -> CFString {
+        domain == "NSGlobalDomain" || domain == "-g" ? kCFPreferencesAnyApplication : domain as CFString
+    }
+
     public func value(domain: String, key: String) -> Any? {
-        CFPreferencesCopyAppValue(key as CFString, domain as CFString)
+        CFPreferencesCopyAppValue(key as CFString, Self.cfDomain(domain))
     }
 
     public func set(_ value: Any?, domain: String, key: String) {
-        CFPreferencesSetAppValue(key as CFString, value as CFPropertyList?, domain as CFString)
-        CFPreferencesAppSynchronize(domain as CFString)
+        CFPreferencesSetAppValue(key as CFString, value as CFPropertyList?, Self.cfDomain(domain))
+        CFPreferencesAppSynchronize(Self.cfDomain(domain))
     }
 }
 
@@ -34,7 +39,7 @@ public final class DefaultsBackup {
     }
 
     public let journal: BackupJournal
-    let store: PreferencesStore
+    public let store: PreferencesStore
 
     public init(journal: BackupJournal = BackupJournal(), store: PreferencesStore = CFPreferencesStore()) {
         self.journal = journal

@@ -2,7 +2,7 @@ import XCTest
 
 @testable import CaelestiaIPC
 
-/// `caelestia rules apps | set <bundle> <tile|float|auto> | focused | reload`.
+/// `skyrose rules apps | set <bundle> <tile|float|auto> | focused | reload`.
 final class RulesCLITests: XCTestCase {
     private func request(_ argv: [String]) throws -> IPCRequest {
         let inv = try CLIParser.parse(argv)

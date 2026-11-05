@@ -6,7 +6,7 @@ import CaelestiaPlatform
 import CaelestiaShell
 import Foundation
 
-/// The CaelestiaWM process: loads config/keymap/rules, wires the AX window system, the display
+/// The SkyRose WM process (SkyRose.app): loads config/keymap/rules, wires the AX window system, the display
 /// monitor, the event tap (hotkeys + panic chord) and the IPC server to one `WindowManager`, and
 /// runs the AppKit main loop. Every exit path (panic chord, `wm.quit`, `wm.panic`, SIGTERM/SIGINT/
 /// SIGHUP) restores every window before the process ends; a crash is covered by the journal
@@ -23,18 +23,27 @@ public final class WMDaemon {
     private var accessibilityTimer: Timer?
     private var decorations: OverlayDecorations?
     private var shell: ShellBridge?
+    private var permissionTimer: Timer?
+    private var permissionHistory = PermissionHistory.load()
 
     public init() {
+        // One-time move of a pre-rename install (~/.config/caelestia-mac, …/CaelestiaMac) before
+        // anything reads the new folders. Skipped while an old CaelestiaWM still runs.
+        let legacyRunning = LaunchChecks.runningProcessNames().contains("CaelestiaWM")
+        let migration = LegacyMigration().run(legacyWMRunning: legacyRunning)
+        if migration.outcome == .migrated {
+            Log.config.notice("migrated from Caelestia for Mac: \(migration.moved.count) moved, \(migration.keptAside.count) kept aside")
+        }
         let (config, configWarnings) = ConfigLoader.loadUserOrDefault()
         let (keymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
         let (rules, rulesWarnings) = RulesLoader.loadUserOrDefault()
         for w in configWarnings + keymapWarnings + rulesWarnings {
             Log.config.warning("\(w, privacy: .public)")
         }
-        matcher = ChordMatcher(keymap: keymap, input: config.input)
+        matcher = ChordMatcher(keymap: keymap, input: config.effective.input)
         tap = EventTap(matcher: matcher, queue: .main)
         wm = WindowManager(
-            windowSystem: AXWindowSystem(), displayProvider: DisplayMonitor(), config: config, rules: rules, keymap: keymap
+            windowSystem: AXWindowSystem(), displayProvider: DisplayMonitor(), config: config.effective, rules: rules, keymap: keymap
         )
     }
 
@@ -53,20 +62,39 @@ public final class WMDaemon {
             exit(3)
         }
 
-        if Permissions.status().accessibility {
+        // IPC first: the onboarding asks this process for its permission status (TCC is per
+        // process) while it still waits for Accessibility.
+        wm.onConfigReload = { [weak self] in self?.reloadConfigAndKeymap() ?? [] }
+        let tap = tap
+        wm.onPauseHotkeys = { seconds in tap.pauseHotkeys(for: seconds) }
+        startIPC()
+        let firstRun = !OnboardingState.load().completed
+        let snapshot = wm.permissionSnapshot()
+        _ = permissionHistory.observe(snapshot)
+        permissionHistory.save()
+        if firstRun {
+            // First run (or after `skyrose onboarding`): the onboarding walks through the mode and
+            // the permissions; it opens even when everything is granted already.
+            if !SettingsLauncher.open(.firstRun) { Log.wm.error("SkyRose Settings not found; no onboarding") }
+        }
+        if snapshot.accessibility {
             startManaging()
         } else {
             Log.wm.error("waiting for Accessibility access")
             FileHandle.standardError.write(Data((LaunchChecks.accessibilityMessage + "\n").utf8))
-            _ = Permissions.request(.accessibility)
-            let choice = showAlert(
-                title: "Caelestia needs Accessibility access", message: LaunchChecks.accessibilityMessage,
-                buttons: ["Open System Settings", "Quit"]
-            )
-            if choice == 1 { exit(2) }
-            Permissions.openSettings(for: .accessibility)
+            if !firstRun, !SettingsLauncher.open(.repair([.accessibility])) {
+                // No Settings app: the old alert is the fallback.
+                _ = Permissions.request(.accessibility)
+                let choice = showAlert(
+                    title: "SkyRose needs Accessibility access", message: LaunchChecks.accessibilityMessage,
+                    buttons: ["Open System Settings", "Quit"]
+                )
+                if choice == 1 { exit(2) }
+                Permissions.openSettings(for: .accessibility)
+            }
             waitForAccessibility()
         }
+        startPermissionWatch()
         app.run()
         exit(0)
     }
@@ -81,7 +109,7 @@ public final class WMDaemon {
     }
 
     private func checkAccessibilityGranted() {
-        guard Permissions.status().accessibility else { return }
+        guard wm.permissionSnapshot().accessibility else { return }
         accessibilityTimer?.invalidate()
         accessibilityTimer = nil
         Log.wm.notice("Accessibility granted; starting")
@@ -109,12 +137,12 @@ public final class WMDaemon {
         shell.controller.useNotificationHistory(NotificationHistoryFile(url: Paths.appSupport.appendingPathComponent("notifications.json")))
         wm.onLayoutApplied = { [weak shell] in shell?.sync() }
         wm.shellResponder = { [weak shell] request, command in shell?.respond(to: request, command: command) }
-        wm.onUnhandledAction = { [weak shell] action in
+        wm.onUnhandledAction = { [weak self, weak shell] action in
+            if AppLauncher.handle(action, apps: self?.wm.config.apps ?? AppsConfig()) { return }
             if shell?.handle(action) != true {
                 Log.wm.info("action \(action.description, privacy: .public) is not handled yet")
             }
         }
-        wm.onConfigReload = { [weak self] in self?.reloadConfigAndKeymap() ?? [] }
         wm.onRulesReload = { [weak self] in self?.reloadRules() ?? [] }
         // Per-app rules API: saved into config.toml [appRules] (one line, comments kept).
         wm.appRulePersister = { bundle, mode in
@@ -134,7 +162,7 @@ public final class WMDaemon {
         mediaKeys.update(enabled: wm.config.input.interceptMediaKeys)
         shell.controller.onMediaCapabilities = { volume, brightness in
             mediaKeys.update(volumeControllable: volume, brightnessControllable: brightness)
-            Log.input.notice("media keys: volume \(volume ? "Caelestia" : "macOS", privacy: .public), brightness \(brightness ? "Caelestia" : "macOS", privacy: .public)")
+            Log.input.notice("media keys: volume \(volume ? "SkyRose" : "macOS", privacy: .public), brightness \(brightness ? "SkyRose" : "macOS", privacy: .public)")
         }
 
         // Borders, group bars, workspace slide, debug overlay (CaelestiaOverlay).
@@ -142,15 +170,18 @@ public final class WMDaemon {
         decorations = deco
         wm.decorations = deco
         wm.windowAnimator = deco.animator
-        shell.controller.onSchemeChange = { [weak deco] scheme in deco?.apply(scheme: scheme) }
+        shell.controller.onSchemeChange = { [weak deco] scheme in
+            deco?.apply(scheme: scheme)
+            // The Settings app draws itself in the same colours (static or dynamic).
+            try? Data(SchemeLoader.serialize(scheme).utf8).write(to: Paths.currentScheme, options: .atomic)
+        }
 
         wm.start()
         shell.start()
         startEventTap()
-        startIPC()
         startWatchers()
         installSignalHandlers()
-        Log.wm.notice("CaelestiaWM \(CaelestiaVersion.string, privacy: .public) managing \(self.wm.managedWindowIDs.count) window(s)")
+        Log.wm.notice("SkyRose WM \(CaelestiaVersion.string, privacy: .public) managing \(self.wm.managedWindowIDs.count) window(s)")
     }
 
     private func startEventTap() {
@@ -171,7 +202,7 @@ public final class WMDaemon {
         do {
             try tap.start()
         } catch {
-            // Without the tap there are no hotkeys and no panic chord; `caelestia wm panic` and
+            // Without the tap there are no hotkeys and no panic chord; `skyrose wm panic` and
             // SIGTERM still restore every window.
             Log.input.error("event tap failed: \(String(describing: error), privacy: .public); grant Input Monitoring")
         }
@@ -205,6 +236,7 @@ public final class WMDaemon {
                 switch event {
                 case .loaded(let config, let warnings):
                     for w in warnings { Log.config.warning("\(w, privacy: .public)") }
+                    let config = config.effective
                     matcher.update(input: config.input)
                     self.tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
                     wm.apply(config: config)
@@ -228,7 +260,8 @@ public final class WMDaemon {
     }
 
     private func reloadConfigAndKeymap() -> [String] {
-        let (config, warnings) = ConfigLoader.loadUserOrDefault()
+        let (written, warnings) = ConfigLoader.loadUserOrDefault()
+        let config = written.effective
         let (keymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
         matcher.update(input: config.input)
         tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
@@ -244,6 +277,38 @@ public final class WMDaemon {
         let (rules, warnings) = RulesLoader.loadUserOrDefault()
         wm.apply(rules: rules)
         return warnings
+    }
+
+    // MARK: Permissions
+
+    /// Every 2 s: a permission seen granted before and missing now (an update dropped it, or it
+    /// was unticked) reopens just that onboarding step, once per loss. Input Monitoring granted
+    /// after launch starts the event tap without a restart.
+    private func startPermissionWatch() {
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkPermissions() }
+        }
+        permissionTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func checkPermissions() {
+        let snapshot = wm.permissionSnapshot()
+        let before = permissionHistory
+        let lost = permissionHistory.observe(snapshot)
+        if permissionHistory != before { permissionHistory.save() }
+        if !lost.isEmpty, OnboardingState.load().completed {
+            Log.wm.notice("permission lost: \(lost.map(\.rawValue).joined(separator: ", "), privacy: .public); reopening onboarding")
+            SettingsLauncher.open(.repair(lost))
+        }
+        if snapshot.inputMonitoring, wm.isManaging, !tap.isRunning {
+            do {
+                try tap.start()
+                Log.input.notice("Input Monitoring granted; event tap started")
+            } catch {
+                Log.input.error("event tap still failing: \(String(describing: error), privacy: .public)")
+            }
+        }
     }
 
     private func installSignalHandlers() {

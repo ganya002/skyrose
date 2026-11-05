@@ -3,7 +3,7 @@ import Foundation
 import CaelestiaCore
 import CaelestiaIPC
 
-/// `caelestia doctor`: environment, versions, SIP (read-only), config/keymap parse results,
+/// `skyrose doctor`: environment, versions, SIP (read-only), config/keymap parse results,
 /// conflicts, socket state and — when the WM answers — its permission status.
 struct Doctor {
     let client: IPCClient
@@ -52,7 +52,7 @@ struct Doctor {
             for i in items { o[i.name] = ["status": .string(i.status.rawValue), "detail": .string(i.detail), "data": i.data] }
             Console.out(JSONValue.object(o).prettyJSON)
         } else {
-            Console.out("Caelestia for Mac — doctor")
+            Console.out("SkyRose — doctor")
             var t = TextTable(["", "ITEM", "DETAIL"], showsHeader: false)
             for i in items { t.addRow([i.status.mark, i.name, i.detail]) }
             Console.out(t.render(), terminator: "")
@@ -69,7 +69,7 @@ struct Doctor {
         let path = Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "?"
         return Item(
             status: .info, name: "cli",
-            detail: "caelestia \(CaelestiaVersion.string), protocol \(CaelestiaVersion.protocolVersion), \(path)",
+            detail: "skyrose \(CaelestiaVersion.string), protocol \(CaelestiaVersion.protocolVersion), \(path)",
             data: ["version": .string(CaelestiaVersion.string), "protocolVersion": .number(Double(CaelestiaVersion.protocolVersion)), "path": .string(path)]
         )
     }
@@ -144,7 +144,7 @@ struct Doctor {
         let status: Status = report.errorCount > 0 ? .fail : (report.warnCount > 0 ? .warn : .ok)
         return Item(
             status: status, name: "keysCheck",
-            detail: "\(report.errorCount) error(s), \(report.warnCount) warning(s), \(report.infoCount) info — `caelestia keys check` for details",
+            detail: "\(report.errorCount) error(s), \(report.warnCount) warning(s), \(report.infoCount) info — `skyrose keys check` for details",
             data: ["errors": .number(Double(report.errorCount)), "warnings": .number(Double(report.warnCount)), "infos": .number(Double(report.infoCount))]
         )
     }
@@ -189,8 +189,8 @@ struct Doctor {
         } catch let error as IPCError {
             let detail: String
             switch error {
-            case .notRunning: detail = "not running (start with `caelestia shell -d`)"
-            case .timeout: detail = "socket present but the WM does not answer (hung?) — `caelestia shell restart` or kill it"
+            case .notRunning: detail = "not running (start with `skyrose shell -d`)"
+            case .timeout: detail = "socket present but the WM does not answer (hung?) — `skyrose shell restart` or kill it"
             default: detail = error.localizedDescription
             }
             return (Item(status: .fail, name: "wm", detail: detail, data: ["running": false, "error": .string(error.localizedDescription)]), false)

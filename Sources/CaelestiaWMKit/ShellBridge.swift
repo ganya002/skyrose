@@ -15,7 +15,7 @@ public final class ShellBridge: ShellHost {
     public let controller: ShellController
     private weak var wm: WindowManager?
 
-    public init(wm: WindowManager, scheme: Scheme = SchemeLoader.builtIn(named: "caelestia-dynamic-dark") ?? ShellTheme.gabby.scheme) {
+    public init(wm: WindowManager, scheme: Scheme = SchemeLoader.builtIn(named: "skyrose-dynamic-dark") ?? ShellTheme.gabby.scheme) {
         self.wm = wm
         let converter = (wm.displayProvider as? DisplayMonitor)?.converter
             ?? CoordinateConverter(primaryHeight: Double(NSScreen.screens.first?.frame.height ?? 0))
@@ -28,13 +28,32 @@ public final class ShellBridge: ShellHost {
         controller.host = self
     }
 
+    /// Starts the shell, unless the config says WM-only mode or the shell is switched off (then
+    /// only the colour scheme is resolved, for the borders and the Settings app).
     public func start() {
         sync()
-        controller.start()
+        if state.config.shellOff {
+            controller.refreshColors()
+        } else {
+            controller.start()
+        }
     }
 
+    /// Applies a new (effective) config live: switching to WM-only mode or turning the shell off
+    /// closes every shell surface and releases the bar's reserved space; switching back starts
+    /// the shell again. Nothing restarts the process.
     public func apply(config: Config) {
+        let wasOff = state.config.shellOff
         state.config = config
+        if config.shellOff {
+            if controller.isRunning { controller.stop() }
+            controller.refreshColors()
+            return
+        }
+        if wasOff || !controller.isRunning {
+            controller.start()
+            return
+        }
         controller.stateChanged()
         controller.refreshColors()
     }

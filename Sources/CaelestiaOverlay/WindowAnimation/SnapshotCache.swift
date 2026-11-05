@@ -143,7 +143,7 @@ public final class SnapshotCache {
             }
             let still = Self.makeStill(image, size: size)
             windows[id] = still
-            if let dir = ProcessInfo.processInfo.environment["CAELESTIA_DUMP_STILLS"] { Self.dump(still, name: "\(id)", to: dir, ms: ms) }
+            if let dir = ProcessInfo.processInfo.environment["SKYROSE_DUMP_STILLS"] { Self.dump(still, name: "\(id)", to: dir, ms: ms) }
             return image
         } catch {
             failures += 1
@@ -185,7 +185,7 @@ public final class SnapshotCache {
             lastDesktopCaptureMs = (CACurrentMediaTime() - started) * 1000
             guard !WorkspaceSlide.isBlack(image) else { return nil }
             desktops[displayID] = Still(image: image, size: display.frame.size, capturedAt: CACurrentMediaTime())
-            if let dir = ProcessInfo.processInfo.environment["CAELESTIA_DUMP_STILLS"], let d = desktops[displayID] {
+            if let dir = ProcessInfo.processInfo.environment["SKYROSE_DUMP_STILLS"], let d = desktops[displayID] {
                 Self.dump(d, name: "desktop-\(displayID)", to: dir, ms: lastDesktopCaptureMs)
             }
             return image
@@ -280,7 +280,7 @@ public final class SnapshotCache {
         return r
     }
 
-    /// Debug aid (`CAELESTIA_DUMP_STILLS=<dir>`): writes the still as PNG plus its metadata.
+    /// Debug aid (`SKYROSE_DUMP_STILLS=<dir>`): writes the still as PNG plus its metadata.
     static func dump(_ still: Still, name: String, to dir: String, ms: Double) {
         let url = URL(fileURLWithPath: dir).appendingPathComponent("\(name)-\(Int(CACurrentMediaTime() * 1000)).png")
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)

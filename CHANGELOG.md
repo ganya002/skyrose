@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.2.0 "SkyRose" (2026-11-04)
+
+The project is renamed from "Caelestia for Mac" / CaelestiaWM to **SkyRose** (brand) and
+**SkyRose WM** (window manager). Entries below this one use the old names as they were at the time.
+Swift module names (`CaelestiaCore`, ...) are unchanged.
+
+### Added
+- **Rename.** `SkyRose.app` (executable `SkyRoseWM`, bundle id `com.skyrose.mac`, LaunchAgent label
+  `com.skyrose.mac`), `SkyRose Settings.app` (`com.skyrose.mac.settings`), CLI `skyrose`.
+  `caelestia` still works as a deprecated alias for one release and prints a notice. Paths:
+  `~/.config/skyrose`, `~/Library/Application Support/SkyRose`, `~/Library/Logs/SkyRose`;
+  `backup.json` is now `restore-manifest.json`; kitty theme file `skyrose-theme.conf`; env vars
+  `CAELESTIA_*` are now `SKYROSE_*`; schemes `skyrose-default` / `skyrose-dynamic` /
+  `skyrose-dynamic-dark` (old `caelestia-*` names still accepted). `TestWindows.app` is unchanged.
+- **One-time migration** of the old config, data, logs and kitty theme on the first SkyRose start
+  (also `skyrose migrate`); skipped while the old CaelestiaWM is running.
+- **SkyRose Settings app**: General, Appearance, Windows, Window rules, Keybinds, Bar and Shell,
+  Terminal, Permissions, About. Changes apply live; when SkyRose is not running it writes
+  `config.toml` directly.
+- **Onboarding** (first run; re-run from Settings > General or `skyrose onboarding`): Welcome, Mode,
+  Permissions (Accessibility, Input Monitoring, Screen Recording; live status, opens the exact
+  pane), Recommended macOS tweaks (auto-hide Dock / menu bar; only on click, undoable, recorded in
+  the restore manifest), Done with a cheat sheet. When a permission is lost later only that step is
+  reopened. `--simulate-missing a,b` / `SKYROSE_SIMULATE_MISSING` simulate missing permissions for
+  testing.
+- **WM-only mode and module toggles**: `[general] mode = "full" | "wm"` (WM-only = tiling, binds,
+  borders; no bar, shell or frame); `[shell] enabled` plus per-module toggles (launcher, dashboard,
+  sidebar, session, osd, notifications, wallpaperPicker); `bar.show*` module toggles;
+  `wm.bordersEnabled`; `animations.reduceMotion` (animations become short cross-fades).
+- **Config API over IPC** (protocol version 2): `config.get`, `config.set`, `config.reset`
+  (comments kept, validated, rolled back if invalid, applied live), also `skyrose config get|set|reset`.
+- **`keys.pause`** (hotkeys pass through for a few seconds so Settings can record a chord) and
+  **`permissions.request`** (ask macOS for a permission from the WM process and open its pane).
+- **Terminal choice** (kitty / Rex / other) in Settings and `[apps] terminal`. The `app.*` launch
+  actions (terminal, browser, editor, files, audioSettings, exec) are now actually handled; before
+  this they were bound but unhandled and did nothing.
+- **Restore manifest** recording system changes made by SkyRose, and the **SIP reminder popup**
+  component (shown for at least 5 s, cannot be dismissed early) for the future uninstaller.
+- New app and Settings icons.
+- **Permission status without the WM.** `SkyRoseWM --permissions-probe <file>` reports SkyRose's
+  own grants and exits. Settings starts it through Launch Services, so macOS checks SkyRose's
+  grants and not Settings', every 2 s while the WM is not running or busy. The cards stay live,
+  and "Open System Settings" still adds SkyRose to the list (`--request <kind>`).
+- SkyRose Settings floats by default (built-in window rule).
+
+### Fixed (from live testing in this phase)
+- The onboarding window floated over Settings and blocked it. It is now a normal window.
+- Onboarding said "SkyRose is not running" while the WM was running but busy, for example
+  tiling every window right after Accessibility was granted. A request timeout now counts as
+  "busy", not "not running", and the permission status comes from the probe meanwhile.
+- `skyrose onboarding` / `skyrose settings` did nothing when Settings was already running
+  (`open --args` drops arguments). They now message the running app.
+
+### Changed
+- IPC protocol version 1 to 2; version 0.1.0 to 0.2.0. A mismatched CLI/WM is refused.
+- Docs, schema and README renamed to match.
+
+### Limits / not yet
+- The **uninstaller is not built** (`skyrose uninstall` only prints manual steps; there is no
+  `scripts/uninstall.sh`). **SIP-off mode does not exist.**
+- The bundle id changed, so macOS treats SkyRose.app as a new app: **permissions must be granted
+  again** (Accessibility, Input Monitoring, Screen Recording).
+- `scripts/sign-setup.sh` now creates "SkyRose Local Signing"; an existing "Caelestia Local
+  Signing" certificate is kept and used.
+- Seen live, not fixed (comes from round 4, not this phase): switching between WM-only and full
+  mode can make the WM learn a false minimum width. The app briefly reports its old size while
+  the layout changes, so a 50/50 split can end up about 48/52.
+- The permission probe was tested with all three grants on. Settings and the probe report the same
+  values, but a real "missing" grant was only simulated (`--simulate-missing`), not revoked.
+- Not in this phase: screenshot tool, clamshell handling, kitty / fonts / cursor / Rex setup,
+  installer, SIP-off mode, module store, full uninstaller.
+
+Tests: 848 passing (764 before this phase).
+
 ## Unreleased — Core fix round 4 (2026-11-04)
 
 From real-hardware testing on the MacBook Air + DELL U3417W. Recordings (60 fps, `.mp4` with

@@ -1,6 +1,6 @@
-# Caelestia for Mac - default window rules (spec 4.5), ported from hypr/hyprland/rules.lua and
+# SkyRose - default window rules (spec 4.5), ported from hypr/hyprland/rules.lua and
 # the resizer rules in hypr/hyprland/execs.lua. Identical to RuleSet.defaults in Rules.swift (a test
-# asserts it). Copy to ~/.config/caelestia-mac/rules.toml and add/override rules; a rule with the
+# asserts it). Copy to ~/.config/skyrose/rules.toml and add/override rules; a rule with the
 # same id as a default replaces it (set `enabled = false` to drop one). `replaceDefaults = true` at
 # the top ignores the built-in rules entirely.
 #
@@ -165,11 +165,11 @@ appName = "org.gnome.Settings|qt5ct|qt6ct|nm-connection-editor"
 [rule.effects]
 tag = "float_70_80"
 
-# System Settings and the Caelestia Settings app.
+# System Settings and the SkyRose Settings app.
 [[rule]]
 id = "tag-70-80-mac-settings"
 [rule.match]
-bundleID = "com.apple.systempreferences|com.caelestia.mac.settings"
+bundleID = "com.apple.systempreferences|com.skyrose.mac.settings"
 [rule.effects]
 tag = "float_70_80"
 

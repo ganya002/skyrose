@@ -32,7 +32,7 @@ public enum SchemeError: Error, Equatable, Sendable, LocalizedError, CustomStrin
 /// TOML format (the shipped schemes live in `Resources/schemes/*.toml`):
 ///
 /// ```toml
-/// name = "Caelestia Dynamic"
+/// name = "SkyRose Dynamic"
 /// flavour = "default"      # optional, "default"
 /// mode = "dark"            # optional, "dark" | "light"
 /// variant = "tonalspot"    # optional, Material variant or "static"
@@ -45,20 +45,20 @@ public enum SchemeError: Error, Equatable, Sendable, LocalizedError, CustomStrin
 /// plain keys of `[colors]`; roles that are absent resolve through `Scheme.fallback`.
 public enum SchemeLoader {
     /// Names accepted by ``builtIn(named:)``, in menu order.
-    public static let builtInNames: [String] = ["caelestia-dynamic", "caelestia-default", "catppuccin-mocha", "noctalia"]
+    public static let builtInNames: [String] = ["skyrose-dynamic", "skyrose-default", "catppuccin-mocha", "noctalia"]
 
     /// Human-readable titles for the built-in names (for menus).
     public static let builtInTitles: [String: String] = [
-        "caelestia-dynamic": "Caelestia Dynamic",
-        "caelestia-default": "Caelestia Default",
+        "skyrose-dynamic": "SkyRose Dynamic",
+        "skyrose-default": "SkyRose Default",
         "catppuccin-mocha": "Catppuccin Mocha",
         "noctalia": "Noctalia",
     ]
 
     /// Resource file name (without extension) for each built-in name.
     static let builtInFiles: [String: String] = [
-        "caelestia-dynamic": "caelestia-dynamic-dark",
-        "caelestia-default": "caelestia-default",
+        "skyrose-dynamic": "skyrose-dynamic-dark",
+        "skyrose-default": "skyrose-default",
         "catppuccin-mocha": "catppuccin-mocha",
         "noctalia": "noctalia",
     ]
@@ -99,7 +99,7 @@ public enum SchemeLoader {
     /// `term0`...`term15`, then every other key sorted. Colours with alpha < 1 are written as `RRGGBBAA`.
     public static func serialize(_ scheme: Scheme) -> String {
         var lines: [String] = []
-        lines.append("# Caelestia for Mac colour scheme")
+        lines.append("# SkyRose colour scheme")
         lines.append("")
         lines.append("name = \(tomlString(scheme.name))")
         lines.append("flavour = \(tomlString(scheme.flavour))")
@@ -166,18 +166,31 @@ public enum SchemeLoader {
         return try parse(toml: String(decoding: data, as: UTF8.self))
     }
 
-    /// A bundled scheme by name ("caelestia-dynamic", "caelestia-default", "catppuccin-mocha",
-    /// "noctalia"; resource file names such as "caelestia-dynamic-dark" are accepted too, case-insensitively).
+    /// A bundled scheme by name ("skyrose-dynamic", "skyrose-default", "catppuccin-mocha",
+    /// "noctalia"; resource file names such as "skyrose-dynamic-dark" are accepted too, case-insensitively).
     public static func builtIn(named name: String) -> Scheme? {
-        let key = name.lowercased()
+        let key = canonicalName(name)
         if let scheme = builtIns[key] { return scheme }
         if let canonical = builtInFiles.first(where: { $0.value == key })?.key { return builtIns[canonical] }
         return nil
     }
 
+    /// Pre-rename names (Caelestia for Mac) still accepted in config.toml and `scheme.set`.
+    public static let legacyNames: [String: String] = [
+        "caelestia-dynamic": "skyrose-dynamic",
+        "caelestia-dynamic-dark": "skyrose-dynamic-dark",
+        "caelestia-default": "skyrose-default",
+    ]
+
+    /// Lower-cased, with a pre-rename name mapped to its new name.
+    public static func canonicalName(_ name: String) -> String {
+        let key = name.lowercased()
+        return legacyNames[key] ?? key
+    }
+
     /// Location of a bundled scheme file, if present.
     public static func builtInResourceURL(named name: String) -> URL? {
-        guard let file = builtInFiles[name.lowercased()] else { return nil }
+        guard let file = builtInFiles[canonicalName(name)] else { return nil }
         return CoreResources.url(forResource: file, withExtension: "toml", subdirectory: resourceSubdirectory)
     }
 

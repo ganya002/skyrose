@@ -14,7 +14,7 @@ public enum AppLayoutMode: String, Codable, Sendable, CaseIterable {
 
 /// Where an app's effective mode comes from.
 public enum AppRuleSource: String, Codable, Sendable {
-    /// `[appRules]` in config.toml (set by hand, `caelestia rules set`, or the Settings app).
+    /// `[appRules]` in config.toml (set by hand, `skyrose rules set`, or the Settings app).
     case user
     /// `AppRuleBook.builtInFloating`.
     case builtIn
@@ -30,6 +30,7 @@ public struct AppRuleBook: Equatable, Sendable {
     /// (`WindowDescriptor.isDialogLike`, `isStandardWindow`) for every app.
     public static let builtInFloating: [String: String] = [
         "com.apple.systempreferences": "System Settings",
+        "com.skyrose.mac.settings": "SkyRose Settings",
         "com.apple.calculator": "Calculator",
         "com.apple.archiveutility": "Archive Utility",
         "com.apple.SystemProfiler": "System Information",

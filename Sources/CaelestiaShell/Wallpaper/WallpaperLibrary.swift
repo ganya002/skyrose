@@ -1,6 +1,6 @@
 import Foundation
 
-/// Wallpaper folder scanning and small pure helpers (the picker and `caelestia wallpaper list`).
+/// Wallpaper folder scanning and small pure helpers (the picker and `skyrose wallpaper list`).
 public enum WallpaperLibrary {
     public static let extensions: Set<String> = ["jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "bmp", "gif", "webp"]
 

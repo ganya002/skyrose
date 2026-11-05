@@ -102,7 +102,7 @@ public struct IPCRequest: Codable, Hashable, Sendable {
     /// arguments produce a human-readable message, `nil` means the request is well-formed.
     public func validationError() -> String? {
         guard let cmd = knownCommand else {
-            return "Unknown command '\(command)'. Run `caelestia help` for the list."
+            return "Unknown command '\(command)'. Run `skyrose help` for the list."
         }
         let missing = cmd.spec.arguments.filter { $0.required && args[$0.name] == nil }.map(\.name)
         if !missing.isEmpty {
@@ -221,11 +221,11 @@ public enum IPCError: Error, Equatable, Sendable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notRunning(let path):
-            return "Caelestia WM is not running (no listener at \(path)). Start it with `caelestia shell -d`."
+            return "SkyRose WM is not running (no listener at \(path)). Start it with `skyrose shell -d`."
         case .timeout(let s):
-            return "Caelestia WM did not answer within \(formatSeconds(s))."
+            return "SkyRose WM did not answer within \(formatSeconds(s))."
         case .protocolMismatch(let local, let remote):
-            return "Protocol mismatch: this CLI speaks v\(local) but the running WM speaks v\(remote). Restart the WM (`caelestia shell restart`) or reinstall so both match."
+            return "Protocol mismatch: this CLI speaks v\(local) but the running WM speaks v\(remote). Restart the WM (`skyrose shell restart`) or reinstall so both match."
         case .remote(let message):
             return message
         case .malformedResponse(let detail):
@@ -235,7 +235,7 @@ public enum IPCError: Error, Equatable, Sendable, LocalizedError {
         case .pathTooLong(let path):
             return "Socket path is too long for a Unix socket (max 103 bytes): \(path)"
         case .alreadyRunning(let path, let pid):
-            return "Another Caelestia WM (pid \(pid)) is already listening at \(path)."
+            return "Another SkyRose WM (pid \(pid)) is already listening at \(path)."
         case .socketError(let op, let message):
             return "\(op) failed: \(message)"
         }

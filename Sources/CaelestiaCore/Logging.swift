@@ -4,7 +4,7 @@ import os
 /// Unified logging. Window titles are redacted unless `Log.includeTitles` is enabled in config
 /// (section 10.6).
 public enum Log {
-    public static let subsystem = "com.caelestia.mac"
+    public static let subsystem = "com.skyrose.mac"
     nonisolated(unsafe) public static var includeTitles = false
 
     public static let wm = Logger(subsystem: subsystem, category: "wm")

@@ -16,7 +16,7 @@ Lowering SIP **reduces the security of the machine**: any process can then injec
 the Dock. On a school-issued laptop, check the school's IT rules first; many forbid it.
 macOS updates can also break the SA until it is rebuilt.
 
-Caelestia for Mac **never** changes SIP, NVRAM or boot arguments itself. The steps below are
+SkyRose **never** changes SIP, NVRAM or boot arguments itself. The steps below are
 done by you, by hand, in Recovery. Everything is reversible.
 
 ## Enabling (Apple Silicon)
@@ -33,7 +33,7 @@ done by you, by hand, in Recovery. Everything is reversible.
    sudo nvram boot-args=-arm64e_preview_abi
    ```
    Reboot.
-5. In **Caelestia Settings → Enhanced mode** press **Load CaelestiaSA**. Loading needs
+5. In **SkyRose Settings → Enhanced mode** press **Load CaelestiaSA**. Loading needs
    administrator rights **once per boot**; macOS shows its normal authorisation dialog.
 
 ### Optional: no password prompt per boot
@@ -50,7 +50,7 @@ sudoers; the default is the authorisation dialog.
 2. Normal Terminal → `sudo nvram -d boot-args`. Reboot.
 3. Delete `/etc/sudoers.d/caelestia-sa` if you created it.
 
-After this Caelestia falls back to Standard mode automatically; nothing else needs changing.
+After this SkyRose falls back to Standard mode automatically; nothing else needs changing.
 
 ## How the WM decides which mode it is in
 

@@ -87,7 +87,7 @@ public enum AppIndex {
         "com.vscodium": "Code editing. Redefined.",
         "com.spotify.client": "Listen to music",
         "com.hnc.Discord": "Talk, chat and hang out",
-        "com.caelestia.mac.testwindows": "Caelestia test windows",
+        "com.skyrose.mac.testwindows": "SkyRose test windows",
     ]
 }
 

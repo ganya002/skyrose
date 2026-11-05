@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>TestWindows</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.caelestia.mac.testwindows</string>
+	<string>com.skyrose.mac.testwindows</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

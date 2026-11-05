@@ -1,8 +1,8 @@
-# Caelestia for Mac - default configuration
+# SkyRose - default configuration
 #
 # This file lists EVERY key with its built-in default (Gabby's effective Arch values:
 # hypr/variables.lua + caelestia/hypr-vars.lua + caelestia/hypr-user.lua + shell.json).
-# Copy it to ~/.config/caelestia-mac/config.toml and keep only the keys you change: anything
+# Copy it to ~/.config/skyrose/config.toml and keep only the keys you change: anything
 # you leave out falls back to these values. Integers are fine where a float is expected
 # (`gapsIn = 5` == `gapsIn = 5.0`). Unknown keys are reported as warnings, out-of-range
 # values as errors (the previous good config stays in effect).
@@ -13,6 +13,22 @@
 # Not yet keys (documented here as constants until they are added to Config):
 #   volumeStep = 10   (variables.lua volumeStep: % per volume key press)
 #   volumeMax  = 100  (variables.lua volumeMax: upper bound in %)
+
+[general]
+# "full" = SkyRose WM + the shell (bar, frame, launcher, dashboard, sidebar, OSDs).
+# "wm"   = SkyRose WM only: tiling, keybinds and borders; no bar, no shell, no screen frame.
+mode = "full"
+
+[shell]
+# Every shell part can be turned off on its own. enabled = false turns the whole shell off.
+enabled = true
+launcher = true
+dashboard = true
+sidebar = true
+session = true
+osd = true              # volume / brightness OSD (off: the media keys go back to macOS)
+notifications = true    # toasts + notification history
+wallpaperPicker = true
 
 # =====================================================================================
 # Window manager (Hyprland general / decoration / dwindle / misc)
@@ -28,6 +44,7 @@ gapsOutSingle = 20
 # variables.lua workspaceGaps -> general:gaps_workspaces (gap between workspaces in the slide).
 gapsWorkspaces = 20
 # variables.lua windowBorderSize -> general:border_size.
+bordersEnabled = true   # window borders on/off; borderSize is their width
 borderSize = 1
 # variables.lua windowRounding -> decoration:rounding.
 windowRounding = 15
@@ -127,8 +144,8 @@ transparencyEnabled = true
 transparencyBase = 0.75
 # Inner card alpha over the panel.
 transparencyLayers = 0.35
-# Built-in schemes: "caelestia-dynamic", "caelestia-default", "catppuccin-mocha", "noctalia".
-theme = "caelestia-dynamic"
+# Built-in schemes: "skyrose-dynamic", "skyrose-default", "catppuccin-mocha", "noctalia".
+theme = "skyrose-dynamic"
 # "dark" or "light".
 variant = "dark"
 # Manual accent override as hex RRGGBB ("" = none).
@@ -166,6 +183,13 @@ defaultTab = "overview"
 # =====================================================================================
 [bar]
 enabled = true
+showLogo = true          # bar modules, top to bottom
+showWorkspaces = true
+showActiveWindow = true
+showTray = true
+showClock = true
+showStatusIcons = true
+showPower = true
 # Matches shell.json bar.persistent = false: the bar slides in on hover and reserves no width.
 # Set true for an always-visible bar that reserves its width in the usable area.
 persistent = false
@@ -289,6 +313,7 @@ speed = 1.0
 shellDurationScale = 0.8
 # Honour the macOS "Reduce motion" accessibility setting.
 respectReduceMotion = true
+reduceMotion = false    # SkyRose Reduce Motion: every animation becomes a short cross-fade
 
 # Per-animation overrides keyed by Hyprland leaf name (windowsIn, windowsOut, windowsMove,
 # workspaces, workspacesIn, workspacesOut, fade, border, ...). Every field is optional.
@@ -303,7 +328,7 @@ respectReduceMotion = true
 [frame]
 # Radius (pt) of the display's physical rounded corners. The frame's outer edge follows it and
 # its inner corners use it - the band thickness, so the band keeps one width around the corner.
-# Apple does not publish it: tune it by eye with `caelestia frame calibrate` (arrow keys, Tab
+# Apple does not publish it: tune it by eye with `skyrose frame calibrate` (arrow keys, Tab
 # switches top/bottom corners, Return saves per display under [displays."<uuid>"]).
 # A radius larger than the hardware's shows the wallpaper in the corner; a smaller one is hidden.
 # displayCornerRadius: top corners (and bottom ones unless set below). Negative = auto: 10 on a
@@ -315,7 +340,7 @@ displayBottomCornerRadius = -1
 
 # =====================================================================================
 # Per-display overrides keyed by the stable display id (CGDisplayCreateUUIDFromDisplayID).
-# `caelestia query displays` prints the ids. Every field is optional.
+# `skyrose query displays` prints the ids. Every field is optional.
 #
 #   [displays."37D8832A-2D66-02CA-B9F7-8F30A301B230"]
 #   gapsIn = 5
@@ -325,8 +350,8 @@ displayBottomCornerRadius = -1
 #   barEnabled = true
 #   uiScale = 1.0
 #   screenFrame = true
-#   displayCornerRadius = 10.5         # written by `caelestia frame calibrate`
-#   displayBottomCornerRadius = 0.0    # written by `caelestia frame calibrate`
+#   displayCornerRadius = 10.5         # written by `skyrose frame calibrate`
+#   displayBottomCornerRadius = 0.0    # written by `skyrose frame calibrate`
 # =====================================================================================
 [displays]
 
@@ -337,8 +362,8 @@ displayBottomCornerRadius = -1
 #   float = every window floats, centred at its own size
 #   auto  = the built-in defaults, then rules.toml, then the window heuristics
 # Built-in floating apps: System Settings, Calculator, Archive Utility, System Information,
-# Digital Color Meter, Screen Sharing, Installer, Font Book, ... (`caelestia rules apps`).
-# `caelestia rules set <bundle id> <tile|float|auto>` writes this table for you.
+# Digital Color Meter, Screen Sharing, Installer, Font Book, ... (`skyrose rules apps`).
+# `skyrose rules set <bundle id> <tile|float|auto>` writes this table for you.
 #
 #   [appRules]
 #   "com.apple.finder" = "float"

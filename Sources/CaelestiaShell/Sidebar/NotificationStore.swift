@@ -1,6 +1,6 @@
 import Foundation
 
-/// Notification history (our own toasts and `caelestia notify`; macOS offers no public way to read
+/// Notification history (our own toasts and `skyrose notify`; macOS offers no public way to read
 /// other apps' notifications). Newest first. Persisted by ``NotificationHistoryFile``.
 public struct NotificationStore: Equatable, Sendable {
     public private(set) var items: [ShellNotification] = []
@@ -109,7 +109,7 @@ public enum QuickToggles {
         if s.bluetoothAvailable {
             out.append(QuickToggle(id: "bluetooth", label: "Bluetooth (opens Settings)", icon: "dot.radiowaves.left.and.right", active: s.bluetoothOn, kind: .opensSettings))
         }
-        out.append(QuickToggle(id: "dnd", label: "Do not disturb (Caelestia notifications)", icon: dnd ? "bell.slash.fill" : "bell.fill", active: dnd, kind: .toggle))
+        out.append(QuickToggle(id: "dnd", label: "Do not disturb (SkyRose notifications)", icon: dnd ? "bell.slash.fill" : "bell.fill", active: dnd, kind: .toggle))
         out.append(QuickToggle(id: "darkmode", label: "Dark mode (macOS, opens Settings)", icon: darkMode ? "moon.fill" : "sun.max.fill", active: darkMode, kind: .opensSettings))
         return out
     }

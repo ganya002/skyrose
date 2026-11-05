@@ -164,7 +164,7 @@ struct UserCard: View {
                     .offset(x: 6, y: 4)
             }
             VStack(alignment: .leading, spacing: 10) {
-                Chip(icon: "macwindow", text: "macOS \(v.majorVersion).\(v.minorVersion) · CaelestiaWM", fill: theme[.surfaceContainerHighest].opacity(0.8), fg: theme[.onSurface])
+                Chip(icon: "macwindow", text: "macOS \(v.majorVersion).\(v.minorVersion) · SkyRose WM", fill: theme[.surfaceContainerHighest].opacity(0.8), fg: theme[.onSurface])
                 Chip(icon: "clock.arrow.circlepath", text: ShellText.uptimeText(state.performance.uptimeSeconds), fill: theme[.tertiaryContainer].opacity(0.9), fg: theme[.onTertiaryContainer])
             }
             Spacer(minLength: 0)
@@ -369,7 +369,7 @@ private struct MediaTab: View {
                     ProgressView(value: min(1, max(0, m.duration > 0 ? m.position / m.duration : 0))).tint(theme[.primary])
                     Text("Playing in \(m.player)").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
                 } else {
-                    Text("macOS only lets Apple's own processes read the system Now Playing feed, so Caelestia reads Spotify and Music directly. Start one of them to see it here.")
+                    Text("macOS only lets Apple's own processes read the system Now Playing feed, so SkyRose reads Spotify and Music directly. Start one of them to see it here.")
                         .font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
                 }
                 HStack(spacing: 12) {

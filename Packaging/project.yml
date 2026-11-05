@@ -1,29 +1,29 @@
 # XcodeGen project for debugging in Xcode. Not needed to build: scripts/build.sh uses SwiftPM.
 #   brew install xcodegen && xcodegen generate --spec Packaging/project.yml --project .
-name: CaelestiaMac
+name: SkyRose
 options:
-  bundleIdPrefix: com.caelestia.mac
+  bundleIdPrefix: com.skyrose.mac
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
 packages:
-  CaelestiaMac:
+  SkyRose:
     path: ..
 targets:
-  CaelestiaWM:
+  SkyRose:
     type: application
     platform: macOS
     info:
-      path: CaelestiaWM-Info.plist
+      path: SkyRose-Info.plist
     entitlements:
-      path: CaelestiaWM.entitlements
+      path: SkyRose.entitlements
     dependencies:
-      - package: CaelestiaMac
+      - package: SkyRose
         product: CaelestiaWMKit
     sources:
-      - path: ../Sources/CaelestiaWM
+      - path: ../Sources/SkyRoseWM
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.caelestia.mac.wm
+        PRODUCT_BUNDLE_IDENTIFIER: com.skyrose.mac
         CODE_SIGN_IDENTITY: "Caelestia Local Signing"
         ENABLE_HARDENED_RUNTIME: YES

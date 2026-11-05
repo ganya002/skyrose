@@ -21,7 +21,7 @@ import Foundation
 /// are injected so the Riko suite runs headless.
 @MainActor
 public final class WindowManager {
-    /// Debug counters (`caelestia query state`), used by the Riko suite.
+    /// Debug counters (`skyrose query state`), used by the Riko suite.
     public struct Counters: Equatable, Sendable {
         public var layoutPasses = 0
         public var setFrameCalls = 0
@@ -134,6 +134,13 @@ public final class WindowManager {
     public var onUnhandledAction: ((Action) -> Void)?
     /// `config.reload` / `rules.reload` from IPC; return warnings.
     public var onConfigReload: (() -> [String])?
+    /// `keys.pause` (the daemon forwards it to the event tap).
+    public var onPauseHotkeys: ((TimeInterval) -> Void)?
+    /// The user's config.toml (the config API's target; tests point it at a temporary file).
+    public var configFileURL: URL = Paths.configFile
+    /// Simulated missing permissions (`SKYROSE_SIMULATE_MISSING`, tests and screenshots only).
+    public var simulatedMissingPermissions: Set<SkyRosePermission> =
+        PermissionSnapshot.parseSimulated(ProcessInfo.processInfo.environment["SKYROSE_SIMULATE_MISSING"])
     public var onRulesReload: (() -> [String])?
     /// After every applied layout pass (the shell refreshes workspaces / the active window).
     public var onLayoutApplied: (() -> Void)?

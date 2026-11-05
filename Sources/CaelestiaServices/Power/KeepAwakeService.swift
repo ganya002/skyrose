@@ -48,7 +48,7 @@ public final class KeepAwakeService {
     public private(set) var isEnabled = false
     public var onChange: ((Bool) -> Void)?
 
-    private let assertion = PowerAssertion(name: "Caelestia keep awake")
+    private let assertion = PowerAssertion(name: "SkyRose keep awake")
 
     public init() {}
 
@@ -74,7 +74,7 @@ public final class KeepAwakeService {
 @MainActor
 public final class IdleInhibitor {
     public private(set) var isInhibited = false
-    private let assertion = PowerAssertion(name: "Caelestia game mode idle inhibit")
+    private let assertion = PowerAssertion(name: "SkyRose game mode idle inhibit")
 
     public init() {}
 

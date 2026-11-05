@@ -31,7 +31,7 @@ public struct ParkedWindowRecord: Codable, Hashable, Sendable {
 
 /// On-disk journal of parked windows (`Paths.parkedWindowsJournal`, spec 4.4 / 10.10). The record
 /// is written BEFORE a window is moved off-screen and removed only after it is back, so a crash at
-/// any point leaves enough on disk for the next launch (or `caelestia wm restore-all`, or the
+/// any point leaves enough on disk for the next launch (or `skyrose wm restore-all`, or the
 /// uninstaller) to bring every window back. Thread-safe; writes are atomic.
 ///
 /// Format: `{"version": 1, "windows": [ParkedWindowRecord...]}`, ISO-8601 dates, sorted keys.

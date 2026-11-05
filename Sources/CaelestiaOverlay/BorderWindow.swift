@@ -65,7 +65,7 @@ public final class BorderWindow: NSPanel, BorderSurface {
         animationBehavior = .none
         level = .normal
         collectionBehavior = [.ignoresCycle, .fullScreenAuxiliary]
-        title = "Caelestia border"
+        title = "SkyRose border"
 
         let root = NSView(frame: .zero)
         root.wantsLayer = true

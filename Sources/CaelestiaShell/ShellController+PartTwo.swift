@@ -267,7 +267,7 @@ extension ShellController {
                 popout.networks = try await network.availableNetworks()
                 if popout.networks.isEmpty { popout.scanMessage = "No networks found" }
             } catch ServiceError.permissionMissing {
-                popout.scanMessage = "Network names are hidden until Caelestia is allowed to use Location (System Settings > Privacy & Security)."
+                popout.scanMessage = "Network names are hidden until SkyRose is allowed to use Location (System Settings > Privacy & Security)."
             } catch {
                 popout.scanMessage = error.localizedDescription
             }
@@ -315,16 +315,16 @@ extension ShellController {
 
     func recordNotification(kind: ToastKind, title: String, message: String, icon: String) {
         let n = ShellNotification(
-            appName: "caelestia-shell", summary: title, body: message, icon: icon.isEmpty ? kind.defaultIcon : icon,
+            appName: "skyrose-shell", summary: title, body: message, icon: icon.isEmpty ? kind.defaultIcon : icon,
             urgency: kind == .error ? "critical" : "normal")
         notificationStore.add(n)
         notificationsChanged()
     }
 
-    /// `caelestia notify` and test notifications: history entry plus a toast (unless DND).
+    /// `skyrose notify` and test notifications: history entry plus a toast (unless DND).
     @discardableResult
-    public func notify(title: String, body: String = "", app: String = "caelestia-shell", icon: String = "") -> UUID {
-        let n = ShellNotification(appName: app.isEmpty ? "caelestia-shell" : app, summary: title, body: body, icon: icon)
+    public func notify(title: String, body: String = "", app: String = "skyrose-shell", icon: String = "") -> UUID {
+        let n = ShellNotification(appName: app.isEmpty ? "skyrose-shell" : app, summary: title, body: body, icon: icon)
         notificationStore.add(n)
         notificationsChanged()
         toast(.info, title: title, message: body, icon: icon, record: false)

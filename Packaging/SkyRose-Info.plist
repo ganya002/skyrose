@@ -5,17 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>CaelestiaWM</string>
+	<string>SkyRoseWM</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.caelestia.mac.wm</string>
+	<string>com.skyrose.mac</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>CaelestiaWM</string>
+	<string>SkyRose</string>
 	<key>CFBundleIconFile</key>
-	<string>CaelestiaWM</string>
+	<string>SkyRose</string>
 	<key>CFBundleDisplayName</key>
-	<string>Caelestia for Mac</string>
+	<string>SkyRose</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -37,7 +37,7 @@
 	<key>NSSupportsSuddenTermination</key>
 	<false/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Caelestia uses System Events only for Log out / Restart / Shut down from the session menu, and Spotify / Music for the media card. Each action asks you first.</string>
+	<string>SkyRose uses System Events only for Log out / Restart / Shut down from the session menu, and Spotify / Music for the media card. Each action asks you first.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Only used by the screen recorder when you choose "record with sound".</string>
 	<key>NSLocationUsageDescription</key>

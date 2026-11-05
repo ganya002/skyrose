@@ -122,7 +122,7 @@ public struct OverlayStyle: Equatable, Sendable {
     }
 
     /// Gabby's "current" scheme (periwinkle #bac5ee active, #a9aab5 @ 7 % inactive).
-    public static let gabby = OverlayStyle(scheme: SchemeLoader.builtIn(named: "caelestia-dynamic-dark") ?? OverlayStyle.fallbackScheme)
+    public static let gabby = OverlayStyle(scheme: SchemeLoader.builtIn(named: "skyrose-dynamic-dark") ?? OverlayStyle.fallbackScheme)
 
     static let fallbackScheme = Scheme(name: "fallback", colors: [
         "primary": RGBA(hex: "bac5ee")!, "onSurfaceVariant": RGBA(hex: "a9aab5")!, "outline": RGBA(hex: "73757f")!,

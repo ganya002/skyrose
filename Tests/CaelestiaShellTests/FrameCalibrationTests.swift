@@ -3,7 +3,7 @@ import XCTest
 import CaelestiaCore
 @testable import CaelestiaShell
 
-/// `caelestia frame calibrate` against a real ShellController (no services or monitors started;
+/// `skyrose frame calibrate` against a real ShellController (no services or monitors started;
 /// it does create its NSPanels) saving into a temporary config file.
 @MainActor
 final class FrameCalibrationTests: XCTestCase {

@@ -349,7 +349,7 @@ final class Cover {
         window.animationBehavior = .none
         window.level = .floating
         window.collectionBehavior = [.ignoresCycle, .fullScreenAuxiliary, .stationary]
-        window.title = "Caelestia workspace slide"
+        window.title = "SkyRose workspace slide"
         let view = NSView(frame: CGRect(origin: .zero, size: frame.size))
         view.wantsLayer = true
         window.contentView = view

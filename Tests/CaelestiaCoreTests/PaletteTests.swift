@@ -101,7 +101,7 @@ final class PaletteExtractionTests: XCTestCase {
 }
 
 final class DynamicSchemeTests: XCTestCase {
-    private let base = SchemeLoader.builtIn(named: "caelestia-dynamic")!
+    private let base = SchemeLoader.builtIn(named: "skyrose-dynamic")!
 
     func testEveryRoleIsPresentAndReadable() {
         let s = DynamicScheme.make(source: RGBA(r: 0x6a, g: 0x76, b: 0x9b), base: base)

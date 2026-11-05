@@ -1,6 +1,6 @@
 # Native shell (part 1)
 
-Caelestia's shell is drawn natively (SwiftUI + AppKit) inside the WM process, in the
+The SkyRose shell (modelled on the upstream Caelestia shell) is drawn natively (SwiftUI + AppKit) inside the WM process, in the
 `CaelestiaShell` module. Part 1 is: screen frame, left bar, launcher, session menu,
 volume/brightness OSD and toasts. Verified live on a MacBook Air (1470x956) plus an external
 3440x1440 display.
@@ -27,7 +27,7 @@ the radius is no larger than the band, as with the 10 pt default and the 10 pt b
 outer corners keep the theme's 25. Apple does not publish the radii, so they are set by eye:
 auto (`-1`) top = 10 pt on a built-in panel with a notch, 0 elsewhere; auto bottom = 0 on
 built-in panels, else the top value; per display under `[displays."<uuid>"]`.
-`caelestia frame calibrate [display]` draws a thin outline along the display edge at the radii
+`skyrose frame calibrate [display]` draws a thin outline along the display edge at the radii
 being tried (the pair being tuned bright) and redraws the frame live: ↑/↓ ±0.5 pt, ⇧↑/⇧↓
 ±0.1 pt, Tab top/bottom corners, ←/→ other display, Return saves every changed value into
 config.toml (only those keys are written; comments and other settings stay), Esc cancels. When
@@ -72,7 +72,7 @@ Top to bottom:
 
 ## Launcher
 
-Open: tap left Option (`launcher.tap`), or Option+Space, or `caelestia shell launcher`.
+Open: tap left Option (`launcher.tap`), or Option+Space, or `skyrose shell launcher`.
 A bottom-centre drawer whose corners flare into the frame. Sizes were measured from
 `Tests/fixtures/ref/1-launcher.jpg` at 1 px = 1 pt: rows 600x57, pitch 65, 32 pt icons, 20 pt
 title, 16 pt subtitle, 15 pt padding, 48 pt search pill, at most 7 visible rows.
@@ -87,13 +87,13 @@ title, 16 pt subtitle, 15 pt padding, 48 pt search pill, at most 7 visible rows.
 - `=` or plain math is a calculator; Enter copies the result.
 - Keys: Up/Down, Tab, Ctrl+J / Ctrl+K, Enter, Esc. Clicking outside closes it.
 
-The panel is non-activating: typing never activates Caelestia, and closing leaves focus with the
+The panel is non-activating: typing never activates SkyRose, and closing leaves focus with the
 app you were in.
 
 ## Session menu
 
 Open: Ctrl+Option+Backspace (`session.toggle`), the bar's power button, or
-`caelestia shell session`. A pill on the right edge: Log out, Shut down, an image slot, Sleep,
+`skyrose shell session`. A pill on the right edge: Log out, Shut down, an image slot, Sleep,
 Restart (80 pt buttons, radius 22, spacing 15).
 
 Every action needs a second press within 3 s (the button turns red with a check). Esc disarms,
@@ -115,12 +115,12 @@ test setup). The system volume/brightness keys still reach macOS, so Apple's own
 Top-right, up to 4 at once, 5 s each. A duplicate refreshes the existing toast instead of
 stacking.
 
-    caelestia shell toaster error|warn|info|success <title> <message> <icon>
+    skyrose shell toaster error|warn|info|success <title> <message> <icon>
 
 ## Dashboard (part 2)
 
 Top drawer, 860x560 at full size (scaled uniformly to fit smaller screens, never over the notch
-strip). Open: bar clock, `caelestia shell dashboard`, or the `panels.showAll` / `dashboard.toggle`
+strip). Open: bar clock, `skyrose shell dashboard`, or the `panels.showAll` / `dashboard.toggle`
 keybinds; click elsewhere closes it. Tabs Overview / Media / Performance (`dashboard.defaultTab`).
 Data: CPU `host_processor_info`, memory `host_statistics64` (active + wired + compressed), disk
 `volumeAvailableCapacityForImportantUsage`, GPU IOAccelerator, network `NetworkThroughputSampler`,
@@ -131,9 +131,9 @@ desktop Mac. Weather is a placeholder.
 ## Sidebar and popouts (part 2)
 
 Right drawer: notification history, Keep awake, volume/brightness sliders, quick toggles. Real
-toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (Caelestia toasts only), Keep awake (IOPM
+toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (SkyRose toasts only), Keep awake (IOPM
 assertion). Bluetooth and dark mode are read-only tiles that open System Settings. Notifications
-are kept across restarts in `~/Library/Application Support/CaelestiaMac/notifications.json` (the
+are kept across restarts in `~/Library/Application Support/SkyRose/notifications.json` (the
 app's existing support folder; latest 100, rewritten atomically on every change, "Clear all"
 empties it). Bar status icons (audio, network, Bluetooth, battery) open popouts on click;
 `shell drawers toggle popout.audio|network|bluetooth|battery` does the same.
@@ -148,13 +148,13 @@ static. Config reload applies it live.
 
 ## IPC
 
-    caelestia shell launcher | session | kill | restart
-    caelestia shell dashboard | sidebar | clear-notifs
-    caelestia shell drawers toggle <name> | isOpen <name> | list   (launcher, session, osd, dashboard, sidebar, wallpaper, popout.<kind>)
-    caelestia notify <title> [body] [--app NAME] [--icon ICON]
-    caelestia wallpaper set <file> | get | list | random
-    caelestia shell toaster.<level> ...
-    caelestia shell brightness get | set <0..1 | N% | N%+ | N%->
+    skyrose shell launcher | session | kill | restart
+    skyrose shell dashboard | sidebar | clear-notifs
+    skyrose shell drawers toggle <name> | isOpen <name> | list   (launcher, session, osd, dashboard, sidebar, wallpaper, popout.<kind>)
+    skyrose notify <title> [body] [--app NAME] [--icon ICON]
+    skyrose wallpaper set <file> | get | list | random
+    skyrose shell toaster.<level> ...
+    skyrose shell brightness get | set <0..1 | N% | N%+ | N%->
 
 ## Config keys
 
@@ -216,7 +216,7 @@ asked first.
 ## How it is built
 
 - `ShellState` (observable) holds everything the shell draws. `ShellBridge`
-  (`Sources/CaelestiaWMKit/ShellBridge.swift`) mirrors WM state into it after every layout pass
+  (`Sources/SkyRose WMKit/ShellBridge.swift`) mirrors WM state into it after every layout pass
   and forwards shell keybinds and `shell.*` IPC to `ShellController`. The shell calls back into
   the WM only through `ShellHost` / actions, so it can be driven by fake state in tests.
 - `ShellController` owns the panels: `Frame/`, `Bar/`, `Launcher/`, `Session/`, `OSD/`,
@@ -224,7 +224,7 @@ asked first.
   drawer shape with concave fillets, `Theme/` the scheme-to-colour mapping.
 - Window levels: frame and bar at main menu - 1, drawers at pop-up menu, OSD above that.
 - Surfaces are re-asserted (immediately and again after 0.3 s) on display change, wake, Space
-  change, screen-parameter change and shell restart. Live: after `caelestia shell restart` the
+  change, screen-parameter change and shell restart. Live: after `skyrose shell restart` the
   frame and bar windows were back on both displays within 400 ms at the right level.
 - Tests: `Tests/CaelestiaShellTests/` (app index, launcher, bar and geometry, models) and
-  `Tests/CaelestiaWMKitTests/ShellIntegrationTests.swift`.
+  `Tests/SkyRose WMKitTests/ShellIntegrationTests.swift`.

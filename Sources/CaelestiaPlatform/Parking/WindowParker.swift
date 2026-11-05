@@ -47,7 +47,7 @@ public final class WindowParker {
     }
 
     /// Restores every journaled window to a visible frame: on launch after a crash, for the panic
-    /// chord, `caelestia wm restore-all` and uninstall (R6). Windows are found by CGWindowID in
+    /// chord, `skyrose wm restore-all` and uninstall (R6). Windows are found by CGWindowID in
     /// their pid, else by bundle id + title among running apps. Records of windows that no longer
     /// exist are dropped. Returns the number of windows moved back.
     @discardableResult

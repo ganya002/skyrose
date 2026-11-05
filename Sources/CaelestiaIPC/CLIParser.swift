@@ -1,7 +1,7 @@
 import Foundation
 import CaelestiaCore
 
-/// Commands the `caelestia` binary handles in-process (no WM needed).
+/// Commands the `skyrose` binary handles in-process (no WM needed).
 public enum CLILocalCommand: Equatable, Sendable {
     /// `keys check`: conflict checker on the user keymap.
     case keysCheck
@@ -15,6 +15,10 @@ public enum CLILocalCommand: Equatable, Sendable {
     case shellStart
     /// `shell help [target]`: print the Linux shell IPC targets and signatures.
     case shellTargets(String?)
+    /// `migrate`: move a pre-rename Caelestia for Mac install to the SkyRose locations.
+    case migrate
+    /// `settings` / `onboarding`: open SkyRose Settings (at the onboarding).
+    case openSettings(onboarding: Bool)
 }
 
 /// What a parsed command line asks the CLI to do.
@@ -95,10 +99,10 @@ public enum CLIUsageError: Error, Equatable, Sendable, LocalizedError {
     }
 }
 
-/// Parses `caelestia <group> <verb> [args] [options]` (spec 4.8) into a `CLIInvocation`.
+/// Parses `skyrose <group> <verb> [args] [options]` (spec 4.8) into a `CLIInvocation`.
 /// No third-party argument parser: the grammar is small and fixed.
 public enum CLIParser {
-    public static let programName = "caelestia"
+    public static let programName = "skyrose"
 
     /// Options that take a value.
     static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon"]
@@ -203,8 +207,25 @@ public enum CLIParser {
                 inv.kind = .ipc(IPCRequest(.rulesReload))
             }
         case "config":
-            try expectVerb("config", args, ["reload"])
-            inv.kind = .ipc(IPCRequest(.configReload))
+            try expectVerb("config", args, ["reload", "get", "set", "reset"])
+            switch args[0] {
+            case "get":
+                try rejectExtra("config get", Array(args.dropFirst(2)))
+                inv.kind = .ipc(args.count >= 2 ? IPCRequest(.configGet, args: ["path": .string(args[1])]) : IPCRequest(.configGet))
+            case "set":
+                guard args.count >= 2 else { throw CLIUsageError.missingArgument(command: "config set", name: "table.key") }
+                guard args.count >= 3 else { throw CLIUsageError.missingArgument(command: "config set \(args[1])", name: "value") }
+                // The value may contain spaces (a command line for apps.terminal).
+                let value = args.dropFirst(2).joined(separator: " ")
+                inv.kind = .ipc(IPCRequest(.configSet, args: ["path": .string(args[1]), "value": CLIParser.configValue(value)]))
+            case "reset":
+                guard args.count >= 2 else { throw CLIUsageError.missingArgument(command: "config reset", name: "table.key") }
+                try rejectExtra("config reset", Array(args.dropFirst(2)))
+                inv.kind = .ipc(IPCRequest(.configReset, args: ["path": .string(args[1])]))
+            default:
+                try rejectExtra("config reload", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.configReload))
+            }
         case "query", "q":
             inv.kind = try parseQuery(args)
         case "notify":
@@ -216,8 +237,26 @@ public enum CLIParser {
         case "debug":
             inv.kind = try parseDebug(args)
         case "permissions":
-            try expectVerb("permissions", args, ["status"])
-            inv.kind = .ipc(IPCRequest(.permissionsStatus))
+            try expectVerb("permissions", args, ["status", "request"])
+            if args[0] == "request" {
+                let kinds = ["accessibility", "inputMonitoring", "screenRecording"]
+                guard args.count >= 2 else { throw CLIUsageError.missingArgument(command: "permissions request", name: kinds.joined(separator: "|")) }
+                guard kinds.contains(args[1]) else { throw CLIUsageError.unknownVerb(group: "permissions request", verb: args[1], expected: kinds) }
+                try rejectExtra("permissions request", Array(args.dropFirst(2)))
+                inv.kind = .ipc(IPCRequest(.permissionsRequest, args: ["kind": .string(args[1])]))
+            } else {
+                try rejectExtra("permissions status", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.permissionsStatus))
+            }
+        case "migrate":
+            try rejectExtra("migrate", args)
+            inv.kind = .local(.migrate)
+        case "settings":
+            try rejectExtra("settings", args)
+            inv.kind = .local(.openSettings(onboarding: false))
+        case "onboarding":
+            try rejectExtra("onboarding", args)
+            inv.kind = .local(.openSettings(onboarding: true))
         case "doctor":
             try rejectExtra("doctor", args)
             inv.kind = .local(.doctor)
@@ -458,7 +497,7 @@ public enum CLIParser {
     static func parseAction(_ args: [String]) throws -> CLIInvocation.Kind {
         guard let name = args.first else { throw CLIUsageError.missingArgument(command: "action", name: "action") }
         guard let kind = ActionKind(rawValue: name) else {
-            throw CLIUsageError.invalidArgument(command: "action", name: "action", value: name, expected: "an action name, e.g. workspace.next (see `caelestia help action`)")
+            throw CLIUsageError.invalidArgument(command: "action", name: "action", value: name, expected: "an action name, e.g. workspace.next (see `skyrose help action`)")
         }
         var actionArgs: [String: JSONValue] = [:]
         for pair in args.dropFirst() {
@@ -589,7 +628,7 @@ public enum CLIParser {
             ("wallpaper set <file> | random | get | list", "Wallpaper control"),
             ("notify <title> [body] [--app NAME] [--icon ICON]", "Post a notification to the sidebar"),
         ]),
-        HelpSection(title: "Keys and config", topics: ["keys", "rules", "config"], rows: [
+        HelpSection(title: "Keys and config", topics: ["keys", "rules", "config", "settings", "onboarding", "migrate"], rows: [
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),
             ("keys list [--json]", "Table of every bind"),
             ("rules reload", "Re-read rules.toml"),
@@ -597,6 +636,12 @@ public enum CLIParser {
             ("rules set <bundle-id> <tile|float|auto>", "Set an app's window rule (saved to config.toml [appRules])"),
             ("rules focused [--json]", "The rule of the focused window's app"),
             ("config reload", "Re-read config.toml and keymap.toml"),
+            ("config get [table.key] [--json]", "Read the config (or one key) as written in config.toml"),
+            ("config set <table.key> <value>", "Set one key, validated and applied live (e.g. config set wm.gapsIn 8)"),
+            ("config reset <table.key>", "Remove one key from config.toml (back to its default)"),
+            ("settings", "Open SkyRose Settings"),
+            ("onboarding", "Run the first-run onboarding again"),
+            ("migrate", "Move a pre-rename Caelestia for Mac install to the SkyRose folders (runs by itself on first launch)"),
         ]),
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [
             ("query windows|workspaces|monitors|binds|state [--json]", "Inspect WM state (tables, or raw JSON with --json)"),
@@ -605,6 +650,7 @@ public enum CLIParser {
             ("action <name> [key=value ...]", "Run any keymap action, e.g. action workspace.focus index=3"),
             ("wm panic | restore-all | quit", "Restore windows and stop managing / bring parked windows back / quit"),
             ("permissions status", "TCC permissions as the WM sees them"),
+            ("permissions request <accessibility|inputMonitoring|screenRecording>", "Ask for one permission and open its System Settings pane"),
             ("doctor [--json]", "Environment, permissions, versions, SIP status, conflicts"),
             ("uninstall [--yes]", "Run scripts/uninstall.sh (or print the manual steps)"),
             ("version", "CLI and WM versions"),
@@ -626,7 +672,7 @@ public enum CLIParser {
             return out
         }
         out += "Usage: \(programName) <command> [args] [--json] [--socket PATH] [--timeout SECONDS]\n"
-        out += "Caelestia for Mac command line (replaces hyprctl + caelestia).\n"
+        out += "SkyRose command line (replaces hyprctl + the Linux caelestia CLI). `caelestia` still works as a deprecated alias for one release.\n"
         for section in helpSections {
             out += "\n\(section.title)\n"
             out += rows(section)
@@ -648,7 +694,7 @@ public enum CLIParser {
         }.joined()
     }
 
-    /// The Linux-style target listing (`caelestia shell help [target]`).
+    /// The Linux-style target listing (`skyrose shell help [target]`).
     public static func shellTargetsHelp(target name: String? = nil) -> String {
         let targets: [ShellTarget]
         if let name {
@@ -665,5 +711,30 @@ public enum CLIParser {
             for f in t.functions { out += "  function \(f.signature)\n" }
         }
         return out
+    }
+}
+
+/// The pre-rename CLI name, kept as a deprecated alias for one release.
+public enum CLIAlias {
+    public static let deprecatedName = "caelestia"
+    public static let deprecationNotice =
+        "caelestia: this command is now called `skyrose`; `caelestia` keeps working until the next release."
+
+    /// True when the program was started as `caelestia` (argv[0], any directory).
+    public static func isDeprecatedName(_ argv0: String) -> Bool {
+        (argv0 as NSString).lastPathComponent == deprecatedName
+    }
+}
+
+extension CLIParser {
+    /// A `config set` value from the command line: true/false, a number, a TOML array/table
+    /// literal (`[...]` / `{...}`, sent as a string and parsed by the WM), else a string.
+    public static func configValue(_ text: String) -> JSONValue {
+        let t = text.trimmingCharacters(in: .whitespaces)
+        if t == "true" { return .bool(true) }
+        if t == "false" { return .bool(false) }
+        if let d = Double(t), !t.isEmpty { return .number(d) }
+        if t.count >= 2, t.hasPrefix("\""), t.hasSuffix("\"") { return .string(String(t.dropFirst().dropLast())) }
+        return .string(t)
     }
 }

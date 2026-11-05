@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CaelestiaCore
 import CaelestiaIPC
@@ -19,12 +20,16 @@ enum LocalCommands {
         case .shellTargets(let target):
             Console.out(CLIParser.shellTargetsHelp(target: target), terminator: "")
             return ExitCode.ok
+        case .migrate:
+            return migrate(json: invocation.json)
+        case .openSettings(let onboarding):
+            return openSettings(onboarding: onboarding)
         }
     }
 
     // MARK: version
 
-    /// `caelestia version`: CLI version, plus the WM's when it answers.
+    /// `skyrose version`: CLI version, plus the WM's when it answers.
     static func version(client: IPCClient, json: Bool) -> Int32 {
         let hello = try? client.hello(timeout: 1)
         if json {
@@ -39,19 +44,19 @@ enum LocalCommands {
             Console.out(JSONValue.object(o).prettyJSON)
             return ExitCode.ok
         }
-        Console.out("caelestia \(CaelestiaVersion.string) (protocol \(CaelestiaVersion.protocolVersion))")
+        Console.out("skyrose \(CaelestiaVersion.string) (protocol \(CaelestiaVersion.protocolVersion))")
         if let h = hello {
             let match = h.protocolVersion == CaelestiaVersion.protocolVersion ? "" : "  (protocol mismatch: restart the WM)"
-            Console.out("Caelestia WM \(h.version) (protocol \(h.protocolVersion), pid \(h.pid))\(match)")
+            Console.out("SkyRose WM \(h.version) (protocol \(h.protocolVersion), pid \(h.pid))\(match)")
         } else {
-            Console.out("Caelestia WM not running")
+            Console.out("SkyRose WM not running")
         }
         return ExitCode.ok
     }
 
     // MARK: keys check
 
-    /// `caelestia keys check`: the section 3.3 conflict checker on the user keymap. Exit 1 when
+    /// `skyrose keys check`: the section 3.3 conflict checker on the user keymap. Exit 1 when
     /// any error-severity item exists.
     static func keysCheck(json: Bool) -> Int32 {
         let (keymap, warnings) = KeymapLoader.loadUserOrDefault()
@@ -78,7 +83,7 @@ enum LocalCommands {
 
     // MARK: keys list
 
-    /// `caelestia keys list`: every bind in the user keymap with its Mac chord.
+    /// `skyrose keys list`: every bind in the user keymap with its Mac chord.
     static func keysList(json: Bool) -> Int32 {
         let (keymap, warnings) = KeymapLoader.loadUserOrDefault()
         let entries = keymap.binds.map { BindQueryEntry(bind: $0, modifiers: keymap.modifiers) }
@@ -99,23 +104,23 @@ enum LocalCommands {
     }
 }
 
-/// `caelestia shell -d`: start the WM app (which hosts the shell) and wait for its socket.
+/// `skyrose shell -d`: start the WM app (which hosts the shell) and wait for its socket.
 struct ShellStarter {
     let client: IPCClient
     let timeout: TimeInterval
 
     func run() -> Int32 {
         if let h = try? client.hello(timeout: 1) {
-            Console.out("Caelestia WM already running (pid \(h.pid), version \(h.version))")
+            Console.out("SkyRose WM already running (pid \(h.pid), version \(h.version))")
             return ExitCode.ok
         }
         guard let app = Environment.wmAppURL else {
-            Console.error("Caelestia WM is not installed (no app with bundle id \(Environment.wmBundleID)).")
+            Console.error("SkyRose WM is not installed (no app with bundle id \(Environment.wmBundleID)).")
             Console.err("")
             Console.err("Install it from a clone of the repository:")
             Console.err("    ./scripts/install.sh          # builds, copies the apps to ~/Applications, sets up the login item")
             Console.err("or build without installing:")
-            Console.err("    ./scripts/build.sh && open .build/release/CaelestiaWM.app")
+            Console.err("    ./scripts/build.sh && open dist/SkyRose.app")
             return ExitCode.failed
         }
         Console.out("Starting \(Environment.tilde(app)) …")
@@ -128,18 +133,18 @@ struct ShellStarter {
         while Date() < deadline {
             if let h = try? client.hello(timeout: 1) {
                 let mismatch = h.protocolVersion == CaelestiaVersion.protocolVersion ? "" : "  (protocol mismatch: CLI \(CaelestiaVersion.protocolVersion), WM \(h.protocolVersion))"
-                Console.out("Caelestia WM \(h.version) running (pid \(h.pid))\(mismatch)")
+                Console.out("SkyRose WM \(h.version) running (pid \(h.pid))\(mismatch)")
                 return ExitCode.ok
             }
             usleep(200_000)
         }
         Console.error("the app launched but no IPC socket appeared at \(Environment.tilde(client.path)) within \(Int(timeout)) s.")
-        Console.err("Check Console.app for 'com.caelestia.mac' messages, or run `caelestia doctor`.")
+        Console.err("Check Console.app for 'com.skyrose.mac' messages, or run `skyrose doctor`.")
         return ExitCode.failed
     }
 }
 
-/// `caelestia uninstall` (spec 10.5): runs `scripts/uninstall.sh` when it can be found, otherwise
+/// `skyrose uninstall` (spec 10.5): runs `scripts/uninstall.sh` when it can be found, otherwise
 /// prints the manual steps. The script is the single source of truth so it also works when the app
 /// is already gone.
 struct Uninstaller {
@@ -191,13 +196,64 @@ struct Uninstaller {
         Console.error("scripts/uninstall.sh was not found next to the app or in a repository checkout.")
         Console.err("")
         Console.err("Get it from the repository (scripts/uninstall.sh) and run it with /bin/sh, or undo by hand:")
-        Console.err("  1. Quit the WM: `caelestia wm quit` (restores every window first), or Caelestia Settings > Backup & uninstall.")
+        Console.err("  1. Quit the WM: `skyrose wm quit` (restores every window first), or SkyRose Settings > Backup & uninstall.")
         Console.err("  2. Restore backed-up settings from \(Environment.tilde(Paths.backupJournal)) (each entry lists domain, key and old value;")
         Console.err("     `defaults write`/`defaults delete` them back, and copy the saved symbolichotkeys plist over ~/Library/Preferences/).")
         Console.err("  3. Remove key remaps: `hidutil property --set '{\"UserKeyMapping\":[]}'`.")
         Console.err("  4. Remove the login item in System Settings > General > Login Items.")
-        Console.err("  5. Delete ~/Applications/CaelestiaWM.app, ~/Applications/Caelestia Settings.app and the `caelestia` symlink in ~/.local/bin or /usr/local/bin.")
+        Console.err("  5. Delete ~/Applications/SkyRose.app, ~/Applications/SkyRose Settings.app and the `skyrose` symlink in ~/.local/bin or /usr/local/bin.")
         Console.err("  6. Move \(Environment.tilde(Paths.configDir)) and \(Environment.tilde(Paths.appSupport)) to the Trash.")
         Console.err("  7. Enhanced mode only: unload the scripting addition as described in docs/ENHANCED_MODE.md.")
+    }
+}
+
+// MARK: migrate / settings
+
+extension LocalCommands {
+    /// `skyrose migrate`: the one-time move from the pre-rename folders (normally done by the WM
+    /// on its first launch).
+    static func migrate(json: Bool) -> Int32 {
+        let running = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.caelestia.mac.wm" }
+        let report = LegacyMigration().run(legacyWMRunning: running)
+        if json {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            Console.out(String(decoding: (try? encoder.encode(report)) ?? Data(), as: UTF8.self))
+        } else {
+            switch report.outcome {
+            case .nothingToDo: Console.out("Nothing to migrate: no Caelestia for Mac folders found.")
+            case .alreadyDone: Console.out("Already migrated (see \(Environment.tilde(LegacyMigration().markerURL))).")
+            case .skippedLegacyRunning: Console.out("CaelestiaWM is still running. Quit it first (caelestia wm quit), then run skyrose migrate.")
+            case .migrated:
+                Console.out("Migrated to SkyRose:")
+                for m in report.moved { Console.out("  moved  \(m)") }
+                for k in report.keptAside { Console.out("  kept   \(k)") }
+                for n in report.notes { Console.out("  note   \(n)") }
+            }
+        }
+        return report.outcome == .skippedLegacyRunning ? ExitCode.failed : ExitCode.ok
+    }
+
+    /// `skyrose settings` / `skyrose onboarding`.
+    static func openSettings(onboarding: Bool) -> Int32 {
+        guard let url = Environment.settingsAppURL else {
+            Console.error("SkyRose Settings is not installed (no app with bundle id \(Environment.settingsBundleID)).")
+            return ExitCode.failed
+        }
+        let launchArgs = onboarding ? OnboardingRequest.firstRun.arguments : []
+        // Already running: `open --args` would drop the arguments, so ask the running app (the
+        // same notification the WM uses), then bring it forward.
+        if !NSRunningApplication.runningApplications(withBundleIdentifier: Environment.settingsBundleID).isEmpty {
+            DistributedNotificationCenter.default().postNotificationName(
+                Notification.Name("com.skyrose.mac.settings.show"), object: nil,
+                userInfo: ["arguments": launchArgs], deliverImmediately: true)
+            return ExitCode.ok
+        }
+        var args = ["-a", url.path]
+        if onboarding { args += ["--args"] + launchArgs }
+        let r = Environment.run("/usr/bin/open", args, timeout: 10)
+        if r.status != 0 { Console.error(r.stderr.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        return r.status == 0 ? ExitCode.ok : ExitCode.failed
     }
 }

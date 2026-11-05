@@ -58,6 +58,32 @@ extension WindowManager {
 
         case .configReload:
             return ok(.object(["warnings": .array((onConfigReload?() ?? []).map(JSONValue.string))]))
+        case .configGet:
+            let raw = ConfigAPI(file: configFileURL).load()
+            let path = request.string("path") ?? ""
+            guard let value = ConfigAPI.value(at: path, in: raw), let json = try? JSONValue(any: value) else {
+                return refused("no config key \(path)")
+            }
+            return ok(json)
+        case .configSet, .configReset:
+            guard let path = request.string("path"), !path.isEmpty else { return refused("path is required") }
+            do {
+                let api = ConfigAPI(file: configFileURL)
+                if command == .configReset {
+                    try api.reset(path)
+                } else {
+                    guard let v = request.args["value"], let value = Self.configValue(v) else { return refused("value is required") }
+                    try api.set(path, value)
+                }
+            } catch {
+                return refused(String(describing: error))
+            }
+            // Apply now instead of waiting for the file watcher (it sees the same text and skips).
+            return ok(.object(["warnings": .array((onConfigReload?() ?? []).map(JSONValue.string))]))
+        case .keysPause:
+            let seconds = request.args["seconds"]?.doubleValue ?? 10
+            onPauseHotkeys?(seconds)
+            return ok(.object(["paused": .bool(seconds > 0 && onPauseHotkeys != nil)]))
         case .rulesReload:
             return ok(.object(["warnings": .array((onRulesReload?() ?? []).map(JSONValue.string))]))
         case .rulesApps:
@@ -84,8 +110,15 @@ extension WindowManager {
         case .wmRestoreAll:
             restoreAllKeepingManagement()
             return ok()
+        case .permissionsRequest:
+            guard let name = request.string("kind"), let kind = Permissions.Kind(rawValue: name) else {
+                return refused("kind must be accessibility, inputMonitoring or screenRecording")
+            }
+            let granted = Permissions.request(kind)
+            if request.bool("open") ?? true, !granted { Permissions.openSettings(for: kind) }
+            return ok(.object(["granted": .bool(granted)]))
         case .permissionsStatus:
-            let s = Permissions.status()
+            let s = permissionSnapshot()
             return encoded(PermissionsStatusEntry(
                 accessibility: s.accessibility, inputMonitoring: s.inputMonitoring, screenRecording: s.screenRecording
             ))
@@ -108,6 +141,26 @@ extension WindowManager {
                 if perform(Action(kind, args: args)) || isWMAction(kind) { return ok() }
             }
             return refused("\(command.rawValue) is not available yet: the shell is not part of this build")
+        }
+    }
+
+    /// The three permissions as this process has them, minus simulated losses.
+    public func permissionSnapshot() -> PermissionSnapshot {
+        let s = Permissions.status()
+        return PermissionSnapshot(accessibility: s.accessibility, inputMonitoring: s.inputMonitoring, screenRecording: s.screenRecording)
+            .simulatingMissing(simulatedMissingPermissions)
+    }
+
+    /// IPC value → config value: integral numbers are integers (TOML ints are valid floats too,
+    /// not the other way round); a string starting with `[` or `{` is a TOML literal.
+    static func configValue(_ v: JSONValue) -> ConfigValue? {
+        switch v {
+        case .bool(let b): return .bool(b)
+        case .number(let d): return d.isFinite && d == d.rounded() && abs(d) < 1e15 ? .int(Int(d)) : .number(d)
+        case .string(let s):
+            let t = s.trimmingCharacters(in: .whitespaces)
+            return t.hasPrefix("[") || t.hasPrefix("{") ? .literal(t) : .string(s)
+        default: return nil
         }
     }
 

@@ -5,13 +5,13 @@ import ImageIO
 
 /// Wallpaper access: reads the configured folder, makes thumbnails off the main thread (cached on
 /// disk and in memory), and sets the desktop picture on every display. Setting a wallpaper is an
-/// explicit user action (picker click, `caelestia wallpaper set|random`).
+/// explicit user action (picker click, `skyrose wallpaper set|random`).
 @MainActor
 public final class WallpaperService {
     public static let thumbnailSize = 320
     nonisolated static var cacheDir: URL {
         FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("CaelestiaMac/wallpaper-thumbs", isDirectory: true)
+            .appendingPathComponent("SkyRose/wallpaper-thumbs", isDirectory: true)
     }
 
     private let memory = NSCache<NSString, NSImage>()

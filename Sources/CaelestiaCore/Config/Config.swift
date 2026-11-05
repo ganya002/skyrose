@@ -1,9 +1,13 @@
 import Foundation
 
-/// Top-level configuration: built-in defaults < ~/.config/caelestia-mac/config.toml < per-display
+/// Top-level configuration: built-in defaults < ~/.config/skyrose/config.toml < per-display
 /// overrides. Field names follow Caelestia/Hyprland names where one exists so Linux knowledge
 /// carries over (gapsIn, gapsOut, borderSize, windowRounding, ...).
 public struct Config: Codable, Equatable, Sendable {
+    /// Mode and other app-wide switches (`[general]`).
+    public var general: GeneralConfig
+    /// Which shell parts run (`[shell]`); every one can be turned off.
+    public var shell: ShellModulesConfig
     public var wm: WMConfig
     public var appearance: AppearanceConfig
     public var bar: BarConfig
@@ -21,8 +25,11 @@ public struct Config: Codable, Equatable, Sendable {
         wm: WMConfig = WMConfig(), appearance: AppearanceConfig = AppearanceConfig(),
         bar: BarConfig = BarConfig(), input: InputConfig = InputConfig(), apps: AppsConfig = AppsConfig(),
         animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
-        frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:]
+        frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
+        general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig()
     ) {
+        self.general = general
+        self.shell = shell
         self.appRules = appRules
         self.frame = frame
         self.wm = wm
@@ -78,6 +85,8 @@ public struct WMConfig: Codable, Equatable, Sendable {
     public var gapsOutSingle: Double = 20
     /// Horizontal gap between the outgoing and incoming workspace in the slide animation.
     public var gapsWorkspaces: Double = 20
+    /// Window borders on or off (Settings › Windows); `borderSize` is their width.
+    public var bordersEnabled: Bool = true
     public var borderSize: Double = 1
     /// Group (tab) bar: tab height, and the gap between tabs and between the bar and the window
     /// (Hyprland groupbar height 25, gaps_in/gaps_out 3).
@@ -161,14 +170,14 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     public var transparencyBase: Double = 0.75
     /// Inner card alpha over the panel (appearance.transparency.layers).
     public var transparencyLayers: Double = 0.35
-    /// Theme name: "caelestia-dynamic", "caelestia-default", "catppuccin-mocha", "noctalia".
-    public var theme: String = "caelestia-dynamic"
+    /// Theme name: "skyrose-dynamic", "skyrose-default", "catppuccin-mocha", "noctalia".
+    public var theme: String = "skyrose-dynamic"
     public var variant: String = "dark"
     /// Manual accent override, hex RRGGBB, empty for none.
     public var accentOverride: String = ""
     /// Legacy flag from the first config draft; `schemeMode` is what the shell reads.
     public var dynamicColor: Bool = true
-    /// "static": the scheme named by `theme` (periwinkle Caelestia Dynamic by default).
+    /// "static": the scheme named by `theme` (periwinkle SkyRose Dynamic by default).
     /// "dynamic": a Material You palette extracted from the current wallpaper, applied live.
     public var schemeMode: String = "static"
     public var uiScale: Double = 1.0
@@ -194,6 +203,14 @@ public struct DashboardConfig: Codable, Equatable, Sendable {
 
 public struct BarConfig: Codable, Equatable, Sendable {
     public var enabled: Bool = true
+    // Bar modules, top to bottom (Settings › Bar and Shell).
+    public var showLogo: Bool = true
+    public var showWorkspaces: Bool = true
+    public var showActiveWindow: Bool = true
+    public var showTray: Bool = true
+    public var showClock: Bool = true
+    public var showStatusIcons: Bool = true
+    public var showPower: Bool = true
     /// Gabby's Arch shell.json: false (overlays, slides in on hover, reserves 0). true reserves
     /// the bar's width in the usable area.
     public var persistent: Bool = false
@@ -292,6 +309,9 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     public var speed: Double = 1.0
     public var shellDurationScale: Double = 0.8
     public var respectReduceMotion: Bool = true
+    /// SkyRose's own Reduce Motion switch (Settings › Windows): every animation becomes the short
+    /// cross-fade, whatever the macOS setting says.
+    public var reduceMotion: Bool = false
     /// Per-animation overrides keyed by animation name (windowsIn, windowsMove, ...).
     public var overrides: [String: AnimationOverride] = [:]
     public init() {}
@@ -336,7 +356,7 @@ public struct FrameConfig: Codable, Equatable, Sendable {
     /// Radius (pt) of the display's physical rounded *top* corners (and of the bottom corners
     /// unless ``displayBottomCornerRadius`` is set). The frame's outer edge follows it and its
     /// inner corners use this − the band thickness, so the band keeps one width around the
-    /// corner. Apple does not publish the value, so it is tuned by eye (`caelestia frame
+    /// corner. Apple does not publish the value, so it is tuned by eye (`skyrose frame
     /// calibrate`, saved per display under `[displays."<uuid>"]`). Negative = auto:
     /// ``autoBuiltInRadius`` on a built-in panel with a notch, 0 (square) everywhere else.
     public var displayCornerRadius: Double = -1
@@ -368,17 +388,108 @@ public struct FrameConfig: Codable, Equatable, Sendable {
 /// Well-known paths. Never hard-code a username: everything derives from the home directory.
 public enum Paths {
     public static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
-    public static var configDir: URL { home.appendingPathComponent(".config/caelestia-mac", isDirectory: true) }
+    public static var configDir: URL { home.appendingPathComponent(".config/skyrose", isDirectory: true) }
     public static var configFile: URL { configDir.appendingPathComponent("config.toml") }
     public static var keymapFile: URL { configDir.appendingPathComponent("keymap.toml") }
     public static var rulesFile: URL { configDir.appendingPathComponent("rules.toml") }
     public static var appSupport: URL {
-        home.appendingPathComponent("Library/Application Support/CaelestiaMac", isDirectory: true)
+        home.appendingPathComponent("Library/Application Support/SkyRose", isDirectory: true)
     }
     public static var ipcSocket: URL { appSupport.appendingPathComponent("ipc.sock") }
-    public static var backupJournal: URL { appSupport.appendingPathComponent("backup.json") }
+    /// The restore manifest: every system change SkyRose makes (Dock, menu bar, shortcuts, …),
+    /// with the original value, so the uninstaller can put everything back (`RestoreManifest`).
+    public static var restoreManifest: URL { appSupport.appendingPathComponent("restore-manifest.json") }
+    /// The manifest under its older name (the format is the same; kept as the journal API name).
+    public static var backupJournal: URL { restoreManifest }
+    /// Onboarding progress, the chosen mode and the permissions seen granted (`OnboardingState`).
+    public static var onboardingState: URL { appSupport.appendingPathComponent("onboarding.json") }
+    /// The colour scheme the shell is drawing right now (the Settings app follows it).
+    public static var currentScheme: URL { appSupport.appendingPathComponent("current-scheme.toml") }
     public static var parkedWindowsJournal: URL { appSupport.appendingPathComponent("parked-windows.json") }
     public static var workspaceAssignments: URL { appSupport.appendingPathComponent("workspace-assignments.json") }
-    public static var logsDir: URL { home.appendingPathComponent("Library/Logs/CaelestiaMac", isDirectory: true) }
-    public static var kittyThemeFile: URL { home.appendingPathComponent(".config/kitty/caelestia-theme.conf") }
+    public static var logsDir: URL { home.appendingPathComponent("Library/Logs/SkyRose", isDirectory: true) }
+    public static var kittyThemeFile: URL { home.appendingPathComponent(".config/kitty/skyrose-theme.conf") }
+
+    // Pre-rename locations (Caelestia for Mac), read once by `LegacyMigration`.
+    public static var legacyConfigDir: URL { home.appendingPathComponent(".config/caelestia-mac", isDirectory: true) }
+    public static var legacyAppSupport: URL {
+        home.appendingPathComponent("Library/Application Support/CaelestiaMac", isDirectory: true)
+    }
+    public static var legacyLogsDir: URL { home.appendingPathComponent("Library/Logs/CaelestiaMac", isDirectory: true) }
+    public static var legacyKittyThemeFile: URL { home.appendingPathComponent(".config/kitty/caelestia-theme.conf") }
+}
+
+// MARK: - SkyRose modes and modules
+
+/// App-wide switches (`[general]`).
+public struct GeneralConfig: Codable, Equatable, Sendable {
+    public enum Mode: String, Codable, Sendable, CaseIterable {
+        /// Everything: SkyRose WM plus the shell (bar, frame, launcher, dashboard, …).
+        case full
+        /// SkyRose WM only: tiling, keybinds and borders. No bar, no shell, no screen frame.
+        case wm
+    }
+    public var mode: Mode = .full
+    public init() {}
+}
+
+/// Every shell part can be switched off on its own (`[shell]`, Settings › Bar and Shell).
+/// `enabled = false` turns the whole shell off (like WM-only mode, but keeps the screen frame
+/// setting as it is).
+public struct ShellModulesConfig: Codable, Equatable, Sendable {
+    public var enabled: Bool = true
+    public var launcher: Bool = true
+    public var dashboard: Bool = true
+    public var sidebar: Bool = true
+    public var session: Bool = true
+    /// Volume / brightness on-screen display (off: the media keys go back to macOS).
+    public var osd: Bool = true
+    /// Toasts and the notification history.
+    public var notifications: Bool = true
+    public var wallpaperPicker: Bool = true
+    public init() {}
+
+    /// Module ids in Settings order.
+    public static let moduleIDs = ["launcher", "dashboard", "sidebar", "session", "osd", "notifications", "wallpaperPicker"]
+
+    public func isOn(_ id: String) -> Bool {
+        guard enabled else { return false }
+        switch id {
+        case "launcher": return launcher
+        case "dashboard": return dashboard
+        case "sidebar": return sidebar
+        case "session": return session
+        case "osd": return osd
+        case "notifications": return notifications
+        case "wallpaperPicker": return wallpaperPicker
+        default: return true
+        }
+    }
+}
+
+public extension Config {
+    /// True when no shell runs at all (WM-only mode, or the shell switched off).
+    var shellOff: Bool { general.mode == .wm || !shell.enabled }
+
+    /// The config the running parts use: WM-only mode turns the bar, the screen frame, every
+    /// shell module and the media-key interception off (per-display overrides included), and
+    /// keeps tiling, keybinds and borders. In full mode it is the config as written.
+    var effective: Config {
+        var c = self
+        if general.mode == .wm {
+            c.bar.enabled = false
+            c.wm.screenFrame = false
+            c.shell.enabled = false
+            for id in c.displays.keys {
+                c.displays[id]?.barEnabled = false
+                c.displays[id]?.screenFrame = false
+            }
+        }
+        if !c.shell.enabled {
+            c.bar.enabled = false
+            for id in c.displays.keys { c.displays[id]?.barEnabled = false }
+        }
+        if !c.shell.isOn("osd") { c.input.interceptMediaKeys = false }
+        return c
+    }
 }

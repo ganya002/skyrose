@@ -201,7 +201,7 @@ final class SnapshotCover {
         window.animationBehavior = .none
         window.level = .floating
         window.collectionBehavior = [.ignoresCycle, .fullScreenAuxiliary, .stationary, .canJoinAllSpaces]
-        window.title = "Caelestia window animation"
+        window.title = "SkyRose window animation"
         let view = NSView(frame: CGRect(origin: .zero, size: frame.size))
         view.wantsLayer = true
         view.layerContentsRedrawPolicy = .never

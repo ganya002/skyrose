@@ -6,9 +6,9 @@
 	     KeepAlive relaunches the WM after a crash; on relaunch it restores parked windows from
 	     the journal before doing anything else (spec 10.10). Runs as the user, never as root. -->
 	<key>Label</key>
-	<string>com.caelestia.mac.wm</string>
+	<string>com.skyrose.mac</string>
 	<key>BundleProgram</key>
-	<string>Contents/MacOS/CaelestiaWM</string>
+	<string>Contents/MacOS/SkyRoseWM</string>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>
@@ -22,7 +22,7 @@
 	<string>Interactive</string>
 	<key>EnvironmentVariables</key>
 	<dict>
-		<key>CAELESTIA_LAUNCHD</key>
+		<key>SKYROSE_LAUNCHD</key>
 		<string>1</string>
 	</dict>
 </dict>

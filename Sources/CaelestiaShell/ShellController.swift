@@ -29,7 +29,7 @@ public final class ShellController {
     public private(set) var bars: [String: BarSurface] = [:]
     public private(set) var visibility: [String: BarVisibility] = [:]
     var layouts: [String: DisplayLayout] = [:]
-    /// Top corner radii being tried in `caelestia frame calibrate` (display id → pt), drawn
+    /// Top corner radii being tried in `skyrose frame calibrate` (display id → pt), drawn
     /// instead of the configured value until saved or cancelled.
     var cornerRadiusTrials: [String: Double] = [:]
     /// The same for the bottom corners.
@@ -96,6 +96,7 @@ public final class ShellController {
     private var hideTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
     public private(set) var isRunning = false
+    private var servicesStarted = false
     /// Counters for `query shell` and the R5 test.
     public private(set) var reasserts = 0
 
@@ -122,7 +123,12 @@ public final class ShellController {
         guard !isRunning else { return }
         isRunning = true
         rebuildSurfaces()
-        if startServices { startServicesAndMonitors() }
+        // Services and monitors start once per process: a later start() (WM-only mode switched
+        // back off) only rebuilds the surfaces.
+        if startServices, !servicesStarted {
+            servicesStarted = true
+            startServicesAndMonitors()
+        }
         reloadApps()
         refreshColors()
     }
@@ -161,6 +167,7 @@ public final class ShellController {
         let themeChanged = newTheme != theme
         theme = newTheme
         guard isRunning else { return }
+        closeDisabledDrawers()
         if themeChanged { rebuildDrawers() }
         rebuildSurfaces()
     }
@@ -295,12 +302,32 @@ public final class ShellController {
 
     public func isOpen(_ d: Drawer) -> Bool { openDrawers.contains(d) }
 
+    /// Whether the Settings switch for the module behind `d` is on (`[shell]`).
+    public func isModuleOn(_ d: Drawer) -> Bool {
+        let m = state.config.shell
+        switch d {
+        case .launcher: return m.isOn("launcher")
+        case .dashboard: return m.isOn("dashboard")
+        case .sidebar, .utilities: return m.isOn("sidebar")
+        case .session: return m.isOn("session")
+        case .osd: return m.isOn("osd")
+        case .wallpaper: return m.isOn("wallpaperPicker")
+        }
+    }
+
+    /// Closes every open drawer whose module was just switched off.
+    func closeDisabledDrawers() {
+        for d in openDrawers where !isModuleOn(d) {
+            if d == .osd { hideOSD(animated: true) } else { close(d) }
+        }
+    }
+
     public func toggle(_ d: Drawer, display: String? = nil) {
         if openDrawers.contains(d) { close(d) } else { open(d, display: display) }
     }
 
     public func open(_ d: Drawer, display: String? = nil) {
-        guard isRunning else { return }
+        guard isRunning, isModuleOn(d) else { return }
         let id = display ?? pointerDisplayID() ?? state.displays.first?.id
         guard let id, let layout = layouts[id] else { return }
         let reveal = bars[id]?.reveal.target ?? 0
@@ -465,7 +492,7 @@ public final class ShellController {
     // MARK: OSD
 
     public func showOSD(display: String? = nil) {
-        guard isRunning, !openDrawers.contains(.session) else { return }
+        guard isRunning, state.config.shell.isOn("osd"), !openDrawers.contains(.session) else { return }
         let id = display ?? pointerDisplayID() ?? state.displays.first?.id
         guard let id, let layout = layouts[id] else { return }
         let panel = osdPanel ?? makeDrawerPanel(OSDView(model: osd, fillet: theme.frameRounding), name: "osd", key: false)
@@ -513,7 +540,7 @@ public final class ShellController {
     public func toast(_ kind: ToastKind, title: String, message: String, icon: String = "", record: Bool = true) -> UUID {
         let id = toasts.queue.add(Toast(kind: kind, title: title, message: message, icon: icon, createdAt: ProcessInfo.processInfo.systemUptime))
         if record { recordNotification(kind: kind, title: title, message: message, icon: icon) }
-        guard isRunning, !state.doNotDisturb else {
+        guard isRunning, state.config.shell.isOn("notifications"), !state.doNotDisturb else {
             if state.doNotDisturb { toasts.queue.dismiss(id) }
             return id
         }
@@ -555,7 +582,7 @@ public final class ShellController {
         case .sidebarToggle: toggle(.sidebar)
         case .notifsClear: clearNotifications()
         case .notifyTest:
-            notify(title: "Test notification", body: "Sent from the keybind. Notifications from Caelestia appear here.", app: "caelestia-shell", icon: "info")
+            notify(title: "Test notification", body: "Sent from the keybind. Notifications from SkyRose appear here.", app: "skyrose-shell", icon: "info")
         case .shellKill: stop()
         case .shellRestart: restart()
         case .audioVolumeUp, .audioVolumeDown:

@@ -25,7 +25,7 @@ public final class IPCServer: @unchecked Sendable {
     public let validatesRequests: Bool
 
     private let handler: Handler
-    private let queue = DispatchQueue(label: "com.caelestia.mac.ipc.server")
+    private let queue = DispatchQueue(label: "com.skyrose.mac.ipc.server")
     private let queueKey = DispatchSpecificKey<Bool>()
     private var listenFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?

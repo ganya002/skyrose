@@ -21,7 +21,7 @@ public final class OverlayDecorations: WindowDecorations {
     private var screenFrames: [CGRect] = NSScreen.screens.map(\.frame)
     private var config: Config
 
-    public init(config: Config, scheme: Scheme = SchemeLoader.builtIn(named: "caelestia-dynamic-dark") ?? OverlayStyle.gabbyScheme) {
+    public init(config: Config, scheme: Scheme = SchemeLoader.builtIn(named: "skyrose-dynamic-dark") ?? OverlayStyle.gabbyScheme) {
         self.config = config
         self.scheme = scheme
         let style = OverlayStyle(scheme: scheme, wm: config.wm, fonts: [config.appearance.fontMono] + config.appearance.fontMonoFallbacks)
@@ -95,7 +95,7 @@ public final class OverlayDecorations: WindowDecorations {
         return AnimationTable.from(config: config.animations, reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     }
 
-    static func bordersEnabled(_ config: Config) -> Bool { !config.wm.gameMode && config.wm.borderSize > 0 }
+    static func bordersEnabled(_ config: Config) -> Bool { !config.wm.gameMode && config.wm.bordersEnabled && config.wm.borderSize > 0 }
 
     // MARK: WindowDecorations
 
@@ -144,7 +144,7 @@ public final class OverlayDecorations: WindowDecorations {
 extension OverlayStyle {
     /// The built-in "current" scheme, or a minimal copy of its border colors.
     public static var gabbyScheme: Scheme {
-        SchemeLoader.builtIn(named: "caelestia-dynamic-dark") ?? Scheme(name: "fallback", colors: [
+        SchemeLoader.builtIn(named: "skyrose-dynamic-dark") ?? Scheme(name: "fallback", colors: [
             "primary": RGBA(r: 0xBA, g: 0xC5, b: 0xEE), "onSurfaceVariant": RGBA(r: 0xA9, g: 0xAA, b: 0xB5),
             "outline": RGBA(r: 0x73, g: 0x75, b: 0x7F), "secondary": RGBA(r: 0xC1, g: 0xC6, b: 0xDD),
             "onPrimary": RGBA(r: 0x33, g: 0x3F, b: 0x61), "surfaceContainer": RGBA(r: 0x18, g: 0x19, b: 0x20),

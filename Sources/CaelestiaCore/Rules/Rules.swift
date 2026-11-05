@@ -566,7 +566,7 @@ extension RuleSet {
             effects: RuleEffects(tag: "float_70_80")),
         WindowRule(
             id: "tag-70-80-mac-settings",
-            match: RuleMatch(bundleID: "com.apple.systempreferences|com.caelestia.mac.settings"),
+            match: RuleMatch(bundleID: "com.apple.systempreferences|com.skyrose.mac.settings"),
             effects: RuleEffects(tag: "float_70_80")),
         WindowRule(
             id: "tag-70-80-settings-titles",
@@ -793,7 +793,7 @@ public enum RulesLoader {
 
     /// Serializes a rule set as `[[rule]]` blocks (only the fields that are set).
     public static func serialize(_ ruleSet: RuleSet) -> String {
-        var out = "# Caelestia for Mac window rules (written by RulesLoader.serialize)\n"
+        var out = "# SkyRose window rules (written by RulesLoader.serialize)\n"
         if ruleSet.replaceDefaults { out += "\nreplaceDefaults = true\n" }
         for rule in ruleSet.rules {
             out += "\n[[rule]]\n"
@@ -829,7 +829,7 @@ public enum RulesLoader {
         return try parseDetailed(toml: text)
     }
 
-    /// The built-in rules merged with `~/.config/caelestia-mac/rules.toml` when it exists (or replaced
+    /// The built-in rules merged with `~/.config/skyrose/rules.toml` when it exists (or replaced
     /// by it when it sets `replaceDefaults = true`). A broken user file yields the defaults plus a warning.
     public static func loadUserOrDefault(url: URL = Paths.rulesFile) -> (RuleSet, [String]) {
         guard FileManager.default.fileExists(atPath: url.path) else { return (RuleSet.defaults, []) }

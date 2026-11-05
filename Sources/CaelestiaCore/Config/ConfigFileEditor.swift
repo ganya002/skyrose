@@ -1,7 +1,7 @@
 import Foundation
 
 /// Minimal, comment-preserving edits to the user's `config.toml` (a tool such as
-/// `caelestia frame calibrate` saves one key without rewriting the whole file with every default).
+/// `skyrose frame calibrate` saves one key without rewriting the whole file with every default).
 public enum ConfigFileEditor {
     /// Returns `text` with `key = value` set inside `[table]`. An existing `key` line in that
     /// table is replaced (its trailing comment dropped); otherwise the key is added after the

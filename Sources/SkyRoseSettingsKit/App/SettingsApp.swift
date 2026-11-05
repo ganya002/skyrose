@@ -1,0 +1,188 @@
+import AppKit
+import CaelestiaCore
+import SwiftUI
+
+/// Command-line options of SkyRose Settings.
+public struct SettingsLaunchOptions: Equatable, Sendable {
+    public var onboarding: OnboardingRequest?
+    public var page: SettingsPage = .general
+    /// Reported as missing without touching the real grants.
+    public var simulateMissing: Set<SkyRosePermission> = []
+    /// Shows the SIP reminder on launch (uninstaller preview).
+    public var demoSIPPopup = false
+    /// Opens the onboarding at this step (screenshots, tests).
+    public var onboardingStep: OnboardingStep?
+
+    public init() {}
+
+    /// `--onboarding [--repair] [--only a,b]`, `--page <name>`, `--simulate-missing a,b`,
+    /// `--demo-sip-popup`. `SKYROSE_SIMULATE_MISSING` works too. Unknown arguments are ignored
+    /// (macOS adds its own, like -NSDocumentRevisionsDebugMode).
+    public static func parse(_ args: [String], environment: [String: String] = [:]) -> SettingsLaunchOptions {
+        var o = SettingsLaunchOptions()
+        o.onboarding = OnboardingRequest.parse(args)
+        if let i = args.firstIndex(of: "--page"), i + 1 < args.count, let p = SettingsPage(rawValue: args[i + 1]) { o.page = p }
+        var missing = PermissionSnapshot.parseSimulated(environment["SKYROSE_SIMULATE_MISSING"])
+        if let i = args.firstIndex(of: "--simulate-missing"), i + 1 < args.count {
+            missing.formUnion(PermissionSnapshot.parseSimulated(args[i + 1]))
+        }
+        o.simulateMissing = missing
+        o.demoSIPPopup = args.contains("--demo-sip-popup")
+        if let i = args.firstIndex(of: "--step"), i + 1 < args.count { o.onboardingStep = OnboardingStep(rawValue: args[i + 1]) }
+        return o
+    }
+}
+
+/// A borderless window that can take the keyboard (text fields, shortcut recording).
+final class SettingsWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
+@MainActor
+public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    let store: SettingsStore
+    var options: SettingsLaunchOptions
+    private var settingsWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
+
+    public init(options: SettingsLaunchOptions) {
+        self.options = options
+        store = SettingsStore(simulatedMissing: options.simulateMissing)
+    }
+
+    public func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = Self.menu()
+        store.start()
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.skyrose.mac.settings.show"), object: nil, queue: .main
+        ) { [weak self] n in
+            let args = n.userInfo?["arguments"] as? [String] ?? []
+            MainActor.assumeIsolated { self?.handle(arguments: args) }
+        }
+        if let req = options.onboarding {
+            showOnboarding(req)
+        } else {
+            showSettings(page: options.page)
+        }
+        if options.demoSIPPopup {
+            SIPReminderPresenter.show(look: store.look)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showSettings(page: options.page) }
+        return true
+    }
+
+    public func applicationWillTerminate(_ notification: Notification) {
+        store.flush()
+    }
+
+    /// Another launch (the WM or `skyrose settings`) asked for a window.
+    func handle(arguments: [String]) {
+        let o = SettingsLaunchOptions.parse(arguments)
+        if let req = o.onboarding { showOnboarding(req) } else { showSettings(page: o.page) }
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func showSettings(page: SettingsPage) {
+        if let w = settingsWindow {
+            w.makeKeyAndOrderFront(nil)
+            return
+        }
+        let root = SettingsRoot(store: store, page: page,
+                                onClose: { [weak self] in self?.settingsWindow?.close() },
+                                onRunOnboarding: { [weak self] in self?.showOnboarding(.firstRun) })
+        let w = makeWindow(NSHostingView(rootView: root), size: NSSize(width: 980, height: 700), title: "SkyRose Settings")
+        w.minSize = NSSize(width: 860, height: 600)
+        settingsWindow = w
+        w.makeKeyAndOrderFront(nil)
+    }
+
+    func showOnboarding(_ request: OnboardingRequest) {
+        onboardingWindow?.close()
+        let view = OnboardingView(store: store, request: request, startAt: options.onboardingStep) { [weak self] in
+            guard let self else { return }
+            self.onboardingWindow?.close()
+            self.onboardingWindow = nil
+            if request == .firstRun, self.settingsWindow == nil, self.options.onboarding != nil {
+                NSApp.terminate(nil)
+            }
+        }
+        // A normal window: it never floats over Settings (or anything else) and can go behind.
+        let w = makeWindow(NSHostingView(rootView: view), size: NSSize(width: 780, height: 640), title: "Welcome to SkyRose")
+        if let s = settingsWindow { w.setFrameTopLeftPoint(NSPoint(x: s.frame.minX + 40, y: s.frame.maxY - 40)) }
+        onboardingWindow = w
+        w.makeKeyAndOrderFront(nil)
+    }
+
+    private func makeWindow(_ content: NSView, size: NSSize, title: String) -> NSWindow {
+        let w = SettingsWindow(contentRect: NSRect(origin: .zero, size: size),
+                               styleMask: [.borderless, .resizable, .miniaturizable, .fullSizeContentView],
+                               backing: .buffered, defer: false)
+        w.title = title
+        w.isOpaque = false
+        w.backgroundColor = .clear
+        w.hasShadow = true
+        w.isMovableByWindowBackground = true
+        w.isReleasedWhenClosed = false
+        w.delegate = self
+        w.contentView = content
+        w.center()
+        return w
+    }
+
+    public func windowWillClose(_ notification: Notification) {
+        guard let w = notification.object as? NSWindow else { return }
+        if w === settingsWindow { store.flush(); settingsWindow = nil }
+        if w === onboardingWindow { onboardingWindow = nil }
+    }
+
+    static func menu() -> NSMenu {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let app = NSMenu()
+        app.addItem(withTitle: "About SkyRose Settings", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(.separator())
+        app.addItem(withTitle: "Hide SkyRose Settings", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        app.addItem(withTitle: "Quit SkyRose Settings", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = app
+        main.addItem(appItem)
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = edit
+        main.addItem(editItem)
+        let winItem = NSMenuItem()
+        let win = NSMenu(title: "Window")
+        win.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        win.addItem(withTitle: "Minimise", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        winItem.submenu = win
+        main.addItem(winItem)
+        return main
+    }
+}
+
+/// Entry point for the SkyRoseSettings executable.
+@MainActor
+public enum SettingsApp {
+    public static func run() -> Never {
+        let app = NSApplication.shared
+        let options = SettingsLaunchOptions.parse(Array(CommandLine.arguments.dropFirst()), environment: ProcessInfo.processInfo.environment)
+        let delegate = SettingsAppDelegate(options: options)
+        app.delegate = delegate
+        app.setActivationPolicy(.regular)
+        withExtendedLifetime(delegate) { app.run() }
+        exit(0)
+    }
+}

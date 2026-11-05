@@ -151,6 +151,9 @@ public struct BackupEntry: Codable, Sendable, Hashable, Identifiable {
         case font
         /// Any other file we replaced: `key` is the file path, values are copies (see `copyOriginal`).
         case file
+        /// A mode SkyRose ran in that changes the system around it (`key` e.g. "sipOff"). Nothing
+        /// to write back; the uninstaller reads it to explain what the user must undo by hand.
+        case mode
     }
 
     public var domain: String
@@ -198,7 +201,7 @@ public enum BackupError: Error, Equatable, Sendable, LocalizedError, CustomStrin
 // MARK: - Journal
 
 /// Append-only journal of every setting we change, stored as JSON at
-/// `~/Library/Application Support/CaelestiaMac/backup.json` (spec 10.4). Thread-safe. Restoration
+/// `~/Library/Application Support/SkyRose/backup.json` (spec 10.4). Thread-safe. Restoration
 /// (actually writing `defaults` back) is done by the Platform module from ``restorePlan()``.
 ///
 /// File format: `{"version": 1, "entries": [BackupEntry...]}` with ISO-8601 timestamps and sorted keys,

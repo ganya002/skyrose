@@ -12,7 +12,7 @@ extern "C" {
 CF_ASSUME_NONNULL_BEGIN
 
 /*
- * Private symbols used by Caelestia for Mac.
+ * Private symbols used by SkyRose.
  *
  * Every declaration here is weak-linked so that a macOS release that removes a symbol
  * yields a NULL function pointer instead of a dyld abort at launch. Swift code must never

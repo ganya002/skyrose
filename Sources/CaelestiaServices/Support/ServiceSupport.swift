@@ -24,7 +24,7 @@ public enum ServiceError: Error, LocalizedError, Equatable, Sendable {
 }
 
 /// Small JSON persistence helper for the services' state files in
-/// `~/Library/Application Support/CaelestiaMac`. Writes are atomic; a missing or corrupt file
+/// `~/Library/Application Support/SkyRose`. Writes are atomic; a missing or corrupt file
 /// reads as `nil` so a bad file can never stop a service from starting.
 public enum ServiceStorage {
     /// Returns `Paths.appSupport/<name>`, creating the directory on first use.
@@ -63,12 +63,12 @@ public enum ServiceStorage {
 }
 
 /// Locates files under `Sources/CaelestiaServices/Resources` (SwiftPM `.copy("Resources")`, which
-/// lands in the `CaelestiaMac_CaelestiaServices.bundle` next to the executable or inside the app's
+/// lands in the `SkyRose_CaelestiaServices.bundle` next to the executable or inside the app's
 /// `Contents/Resources`). The lookup mirrors SwiftPM's generated `Bundle.module` accessor so the
 /// module compiles with or without the manifest declaring the resources, and falls back to the
 /// source tree for `swift test` runs from a checkout.
 enum ServiceResources {
-    static let bundleName = "CaelestiaMac_CaelestiaServices"
+    static let bundleName = "SkyRose_CaelestiaServices"
 
     private final class Finder {}
 

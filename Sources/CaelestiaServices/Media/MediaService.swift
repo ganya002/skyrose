@@ -418,7 +418,7 @@ final class AppleScriptRunner: @unchecked Sendable {
         case other(code: Int, message: String)
     }
 
-    private let queue = DispatchQueue(label: "com.caelestia.mac.services.applescript", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.skyrose.mac.services.applescript", qos: .userInitiated)
 
     func run(_ source: String) async -> Result<ScriptValue, Failure> {
         await withCheckedContinuation { continuation in

@@ -14,6 +14,8 @@ public enum LaunchChecks {
         "amethyst": "Amethyst",
         "chunkwm": "chunkwm",
         "spacey": "Spacey",
+        // The pre-rename build of SkyRose itself (Caelestia for Mac): quit it with `caelestia wm quit`.
+        "caelestiawm": "CaelestiaWM (the old Caelestia for Mac build)",
     ]
 
     /// Names of known window managers among `processNames` (sorted, without duplicates).
@@ -39,12 +41,12 @@ public enum LaunchChecks {
 
     public static func competingWindowManagerMessage(_ names: [String]) -> String {
         "\(names.joined(separator: ", ")) is running. Two window managers moving the same windows fight "
-            + "each other, so Caelestia will not start. Quit \(names.count == 1 ? "it" : "them") first, then start Caelestia again."
+            + "each other, so SkyRose will not start. Quit \(names.count == 1 ? "it" : "them") first, then start SkyRose again."
     }
 
     public static let accessibilityMessage =
-        "Caelestia needs Accessibility access to move and resize windows.\n\n"
-        + "Turn on Caelestia for Mac in System Settings → Privacy & Security → Accessibility "
+        "SkyRose needs Accessibility access to move and resize windows.\n\n"
+        + "Turn on SkyRose in System Settings → Privacy & Security → Accessibility "
         + "(called “Device Control and Data Access” on newer macOS). "
-        + "Caelestia starts by itself as soon as access is granted."
+        + "SkyRose starts by itself as soon as access is granted."
 }

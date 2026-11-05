@@ -25,7 +25,7 @@ public protocol WindowDecorations: AnyObject {
     func overlayEntries() -> [OverlayQueryEntry]
 }
 
-/// One border window as `caelestia query overlays` reports it.
+/// One border window as `skyrose query overlays` reports it.
 public struct OverlayQueryEntry: Codable, Equatable, Sendable {
     /// The managed window the border belongs to.
     public var target: UInt32
@@ -218,7 +218,7 @@ extension WindowManager {
         }
         let c = counters
         let lines = [
-            "Caelestia debug",
+            "SkyRose debug",
             "managed \(managedWindowIDs.count)  parked \(parked.count)  borders \(borderFrames.count)",
             "layout passes \(c.layoutPasses)  setFrame \(c.setFrameCalls)",
             "park \(c.parkCalls)  raise \(c.raiseCalls)  focus \(c.focusCalls)",

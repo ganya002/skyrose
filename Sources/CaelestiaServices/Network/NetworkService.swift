@@ -89,7 +89,7 @@ public final class NetworkService {
                 self.refresh()
             }
         }
-        monitor.start(queue: DispatchQueue(label: "com.caelestia.mac.services.network", qos: .utility))
+        monitor.start(queue: DispatchQueue(label: "com.skyrose.mac.services.network", qos: .utility))
         pathMonitor = monitor
         refresh()
     }

@@ -88,7 +88,7 @@ extension String {
     }
 }
 
-/// Renders IPC query results as tables for the terminal (`caelestia query ...` without --json).
+/// Renders IPC query results as tables for the terminal (`skyrose query ...` without --json).
 public enum QueryFormatter {
     public static func windows(_ entries: [WindowQueryEntry]) -> String {
         var t = TextTable(columns: [

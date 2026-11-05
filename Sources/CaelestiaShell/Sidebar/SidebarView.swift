@@ -71,7 +71,7 @@ private struct NotificationsSection: View {
                         if groups.isEmpty {
                             VStack(spacing: 8) {
                                 Image(systemName: "bell.slash").font(.system(size: 28, weight: .light))
-                                Text("Notifications from Caelestia and `caelestia notify` appear here")
+                                Text("Notifications from SkyRose and `skyrose notify` appear here")
                                     .font(theme.sans(12)).multilineTextAlignment(.center)
                             }
                             .foregroundStyle(theme[.onSurfaceVariant].opacity(0.7)).padding(.top, 60).padding(.horizontal, 24)

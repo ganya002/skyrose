@@ -7,7 +7,7 @@ Every bind of the Hyprland setup (`Tests/fixtures/binds.json`, 153 entries) is l
 
 - **Linux**: the original Hyprland chord. `SUPER_L` alone is a Super tap; `mouse_up` / `mouse_down` are scroll steps; `mouse:272` / `mouse:273` are left / right drag.
 - **Mac**: the physical chord under the shipped modifier preset (**Option is Super**: SUPER = ⌥L, ALT = ⌘L, CTRL = ⌃, SHIFT = ⇧). Only the LEFT Option / Command keys are window-manager modifiers; the right ones keep typing characters and ⌘ shortcuts. Keys are bound by position: `-` / `=` are the two keys right of `0` (`+` and `´` on the Norwegian layout) and `\` is the key next to Return.
-- **Keymap**: how the chord is written in `keymap.toml` (Linux modifier names, Mac key names). Edit `~/.config/caelestia-mac/keymap.toml` to change a bind; the window manager reloads it within 200 ms.
+- **Keymap**: how the chord is written in `keymap.toml` (Linux modifier names, Mac key names). Edit `~/.config/skyrose/keymap.toml` to change a bind; the window manager reloads it within 200 ms.
 - **Flags**: `release` fires on key-up, `repeat` auto-repeats while held, `locked` also works on the lock screen (media / volume / brightness), `mouse` is a drag bind.
 - `window.resize` deltas are **percent of the window's current size**, not pixels.
 

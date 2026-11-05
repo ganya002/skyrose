@@ -198,9 +198,9 @@ final class AppRuleTests: XCTestCase {
     /// the user's config.toml. The round trip must give the file back unchanged.
     func testSetThenClearLeavesTheFileAsItWas() {
         for original in ["[displays.\"X\"]\ndisplayCornerRadius = 0.0\n", "", "# mine\n[wm]\ngapsIn = 4\n\n[shell]\nx = 1\n"] {
-            let set = ConfigFileEditor.setting("com.caelestia.mac.testwindows", to: "\"float\"", inTable: "appRules", in: original)
+            let set = ConfigFileEditor.setting("com.skyrose.mac.testwindows", to: "\"float\"", inTable: "appRules", in: original)
             XCTAssertTrue(set.contains("[appRules]"))
-            let cleared = ConfigFileEditor.removing("com.caelestia.mac.testwindows", inTable: "appRules", in: set)
+            let cleared = ConfigFileEditor.removing("com.skyrose.mac.testwindows", inTable: "appRules", in: set)
             XCTAssertEqual(cleared, original, "round trip of \(original.debugDescription)")
         }
         // A table with other keys keeps its header.

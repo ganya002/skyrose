@@ -20,7 +20,7 @@ enum Console {
         FileHandle.standardError.write(Data((text + "\n").utf8))
     }
 
-    /// `caelestia: <message>` on stderr.
+    /// `skyrose: <message>` on stderr.
     static func error(_ message: String) {
         err("\(CLIParser.programName): \(message)")
     }

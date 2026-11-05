@@ -1,4 +1,7 @@
-# Caelestia for Mac — design decisions
+# SkyRose — design decisions
+
+> SkyRose was formerly "Caelestia for Mac". Historic decisions below keep the old names where they
+> describe the repository at the time; Swift module names (`CaelestiaCore`, ...) are unchanged.
 
 Every non-obvious decision, with its reason. The spec (`docs/SPEC.txt`) said "ask nothing;
 decide and write it down", so this file is the record. Section numbers refer to the spec.
@@ -22,7 +25,7 @@ the package builds with any Xcode ≥ 16.
 
 ## D3. One process for WM + shell (0.3, 9)
 
-`CaelestiaWM.app` hosts the tiler **and** the shell panels. Reasons:
+`SkyRose.app` hosts the tiler **and** the shell panels. Reasons:
 
 - one event tap, one set of AX observers, one TCC grant each for Accessibility / Input
   Monitoring / Screen Recording instead of two apps to approve;
@@ -89,9 +92,9 @@ hotkeys still work there.
 ## D9. Crash safety (4.4, 10.10)
 
 Before a window is parked off-screen its original frame is appended to
-`~/Library/Application Support/CaelestiaMac/parked-windows.json` (atomic write). On every
+`~/Library/Application Support/SkyRose/parked-windows.json` (atomic write). On every
 launch the journal is replayed *first*, before the tiler starts. The LaunchAgent plist
-(`Packaging/com.caelestia.mac.wm.plist`, registered with `SMAppService.agent`) has
+(`Packaging/com.skyrose.mac.plist`, registered with `SMAppService.agent`) has
 `KeepAlive.SuccessfulExit = false`, so a crash relaunches the WM and a clean quit does not.
 `scripts/uninstall.sh` replays the same journal through System Events when the app is gone.
 The panic chord ⌃⌥⌘⇧Esc is hard-matched in the event tap as well as present in the keymap.
@@ -146,12 +149,12 @@ appeared next to ours, and the brightness keys opened the *volume* OSD, because 
 "unavailable" through public APIs on the built-in panel so the OSD had only its volume slider.
 
 Now the event tap intercepts the aux keys (volume up/down/mute, brightness up/down) and swallows
-one when Caelestia can do it itself: CoreAudio volume settable, or DisplayServices brightness
+one when SkyRose can do it itself: CoreAudio volume settable, or DisplayServices brightness
 controllable (D12). It then applies the change (volume in 1/16 steps, ⌥⇧ quarter steps, unmute on
 volume up; brightness through `BrightnessService`) and shows only its own OSD, so Apple's HUD no
 longer appears. The target display is the one under the pointer if controllable, else the
 built-in. If brightness cannot be controlled the key passes through to macOS (Apple HUD only,
-never Caelestia's volume OSD). The decision is the pure table `MediaKeyRouting.route`, tested
+never SkyRose's volume OSD). The decision is the pure table `MediaKeyRouting.route`, tested
 without the tap. `input.interceptMediaKeys` (default true) set to false restores the old
 pass-through (both HUDs).
 
@@ -265,7 +268,7 @@ backing layer, and setting it there did not stick, so stacked windows swapped pl
 cover was up (live finding in this phase; side-by-side layouts hid it before).
 
 `animations.windows = "off"`, game mode, Reduce Motion or a disabled animation preset make every
-pass instant (`InstantWindowAnimator` behaviour). Debug aid: `CAELESTIA_DUMP_STILLS=<dir>` in the
+pass instant (`InstantWindowAnimator` behaviour). Debug aid: `SKYROSE_DUMP_STILLS=<dir>` in the
 daemon's environment writes every still as PNG plus its size and capture time.
 
 ## D18. Notch-aware frame
@@ -286,7 +289,7 @@ outer + band, which made the band ~1.8× wider on the diagonal) and the theme's 
 elsewhere. Auto radii key off `DisplayInfo.hasNotch` (top safe area > 0): notched MacBook panels
 round only their top corners, and an outer radius larger than the hardware's exposes wallpaper,
 so the bottom pair defaults to square on built-in panels. `FramePath` builds both edges as rounded polygons (even-odd fill). The value
-is calibrated by eye (`caelestia frame calibrate`), never derived from screenshots: a screenshot
+is calibrated by eye (`skyrose frame calibrate`), never derived from screenshots: a screenshot
 contains the pixels the hardware corner hides. `ConfigFileEditor` writes the one key into the
 user's config.toml without rewriting it.
 
@@ -336,5 +339,5 @@ The API for the future Settings app is on `WindowManager`: `appRuleEntries()`,
 `appRuleEntry(for:)`, `focusedAppRule()` and `setAppRule(_:for:)`. `setAppRule` persists through
 `ConfigFileEditor` (quoted keys, comments preserved; clearing the last rule removes the empty
 table, so set then clear leaves the file unchanged) and applies at once to open windows. IPC:
-`rules.apps`, `rules.set`, `rules.focused`; CLI `caelestia rules apps|set <bundle>
+`rules.apps`, `rules.set`, `rules.focused`; CLI `skyrose rules apps|set <bundle>
 <tile|float|auto>|focused`.

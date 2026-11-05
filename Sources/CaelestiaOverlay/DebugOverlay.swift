@@ -39,7 +39,7 @@ public struct DebugSnapshot: Equatable, Sendable {
 }
 
 /// Click-through windows above everything (one per display) that draw a `DebugSnapshot`.
-/// Off by default; `caelestia debug overlay` toggles it. Excluded from workspace-slide stills
+/// Off by default; `skyrose debug overlay` toggles it. Excluded from workspace-slide stills
 /// (it belongs to our process).
 @MainActor
 public final class DebugOverlay {
@@ -74,7 +74,7 @@ public final class DebugOverlay {
         w.hidesOnDeactivate = false
         w.level = .statusBar
         w.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle, .fullScreenAuxiliary, .stationary]
-        w.title = "Caelestia debug overlay"
+        w.title = "SkyRose debug overlay"
         let v = NSView()
         v.wantsLayer = true
         w.contentView = v

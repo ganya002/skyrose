@@ -6,10 +6,10 @@ import IOKit.ps
 
 /// Facts about the machine and the installed app, gathered with read-only calls.
 enum Environment {
-    /// Bundle identifier of the WM agent app (spec section 1: prefix `com.caelestia.mac`).
-    static let wmBundleID = "com.caelestia.mac.wm"
+    /// Bundle identifier of the WM agent app (spec section 1: prefix `com.skyrose.mac`).
+    static let wmBundleID = "com.skyrose.mac"
     /// Bundle identifier of the Settings app.
-    static let settingsBundleID = "com.caelestia.mac.settings"
+    static let settingsBundleID = "com.skyrose.mac.settings"
 
     /// "15.1 (24B83)".
     static var macOSVersion: String {
@@ -66,15 +66,26 @@ enum Environment {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: wmBundleID)
     }
 
+    /// Location of SkyRose Settings: next to the app this CLI runs from, else Launch Services.
+    static var settingsAppURL: URL? {
+        if let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() {
+            // …/SkyRose.app/Contents/MacOS/skyrose → …/SkyRose Settings.app
+            let sibling = exe.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+                .deletingLastPathComponent().appendingPathComponent("SkyRose Settings.app")
+            if FileManager.default.fileExists(atPath: sibling.path) { return sibling }
+        }
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: settingsBundleID)
+    }
+
     /// CFBundleShortVersionString of an app bundle.
     static func bundleVersion(_ url: URL) -> String? {
         Bundle(url: url)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     }
 
     /// The repository root when this binary runs from a SwiftPM build directory, found by walking
-    /// up from the executable to a directory with `Package.swift`. `CAELESTIA_REPO` overrides it.
+    /// up from the executable to a directory with `Package.swift`. `SKYROSE_REPO` overrides it.
     static var repositoryRoot: URL? {
-        if let env = ProcessInfo.processInfo.environment["CAELESTIA_REPO"], !env.isEmpty {
+        if let env = ProcessInfo.processInfo.environment["SKYROSE_REPO"], !env.isEmpty {
             let url = URL(fileURLWithPath: env)
             if FileManager.default.fileExists(atPath: url.appendingPathComponent("Package.swift").path) { return url }
         }
@@ -82,7 +93,7 @@ enum Environment {
         for _ in 0..<8 {
             guard let d = dir else { break }
             if FileManager.default.fileExists(atPath: d.appendingPathComponent("Package.swift").path),
-                FileManager.default.fileExists(atPath: d.appendingPathComponent("Sources/caelestia").path)
+                FileManager.default.fileExists(atPath: d.appendingPathComponent("Sources/skyrose").path)
             {
                 return d
             }

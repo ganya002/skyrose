@@ -92,9 +92,9 @@ public enum SchemeResolver {
     public static let staticMode = "static"
     public static let dynamicMode = "dynamic"
 
-    /// The static scheme named by `appearance.theme` (periwinkle Caelestia Dynamic by default).
+    /// The static scheme named by `appearance.theme` (periwinkle SkyRose Dynamic by default).
     public static func staticScheme(_ a: AppearanceConfig) -> Scheme? {
-        SchemeLoader.builtIn(named: a.theme) ?? SchemeLoader.builtIn(named: "caelestia-dynamic")
+        SchemeLoader.builtIn(named: a.theme) ?? SchemeLoader.builtIn(named: "skyrose-dynamic")
     }
 
     public static func isDynamic(_ a: AppearanceConfig) -> Bool { a.schemeMode.lowercased() == dynamicMode }

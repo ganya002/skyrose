@@ -1,4 +1,6 @@
-# Caelestia for Mac
+# SkyRose
+
+*(formerly "Caelestia for Mac"; the window manager is **SkyRose WM**)*
 
 A native macOS (Apple Silicon, macOS 14+) port of Gabby's Arch Linux desktop: **Hyprland**
 dwindle tiling + the **Caelestia** shell, so her muscle memory carries over — same keybinds
@@ -9,30 +11,64 @@ Swift + AppKit/SwiftUI only. No Electron, no web views, no root, no SIP changes 
 optional and documented, never required).
 
 > **School laptop note:** Standard mode changes nothing at system level without asking you
-> first, and everything it does change is journaled and reversible. Check your school's IT rules
-> before enabling Enhanced mode (it lowers SIP).
+> first, and everything it does change is recorded and meant to be reversible. Check your school's
+> IT rules before enabling Enhanced mode (it lowers SIP).
 
 ## Components
 
 | Component | What it is |
 |---|---|
-| `CaelestiaWM.app` | agent app (no Dock icon): the window manager, the shell (bar, panels, OSDs, frame, launcher), the IPC server |
-| `caelestia` | CLI inside the app bundle (symlinked to `~/.local/bin` on request): `hyprctl` + Linux `caelestia` in one |
+| `SkyRose.app` | agent app (no Dock icon, executable `SkyRoseWM`, bundle id `com.skyrose.mac`): the window manager, the shell (bar, panels, OSDs, frame, launcher) and the IPC server |
+| `skyrose` | CLI inside the app bundle (`SkyRose.app/Contents/MacOS/skyrose`, optionally linked to `~/.local/bin/skyrose`): `hyprctl` + Linux `caelestia` in one. `caelestia` still works as a deprecated alias for one release and prints a notice |
+| `SkyRose Settings.app` | settings app (`com.skyrose.mac.settings`) and first-run onboarding; changes apply live |
 | `TestWindows.app` | harness for the Riko regression suite |
-| Caelestia Settings | Phase 8 — not in this build; edit `~/.config/caelestia-mac/*.toml` (hot reload) |
 | CaelestiaSA | Phase 10 — not in this build (Enhanced mode) |
+
+## Settings, onboarding and WM-only mode
+
+**SkyRose Settings** has pages General, Appearance, Windows, Window rules, Keybinds, Bar and
+Shell, Terminal, Permissions and About. Changes go through the config API (`config.set` over IPC)
+and apply live; when SkyRose is not running, Settings writes `~/.config/skyrose/config.toml`
+directly. You can still edit the TOML files by hand (hot reload).
+
+**Onboarding** runs on first launch (re-run it from Settings > General or with `skyrose onboarding`):
+Welcome, Mode, Permissions (Accessibility, Input Monitoring, Screen Recording, with live status and
+a button that opens the exact System Settings pane), Recommended macOS tweaks (auto-hide Dock and
+menu bar; only on click, undoable, recorded in the restore manifest) and Done with a cheat sheet.
+If a permission is lost later, only that step is shown again.
+
+**Modes.** `[general] mode = "full"` is the whole desktop. `mode = "wm"` is WM-only: tiling, keybinds
+and borders, with no bar, shell or frame. In full mode `[shell]` has an `enabled` switch and
+per-module toggles (launcher, dashboard, sidebar, session, osd, notifications, wallpaperPicker);
+the bar has `bar.show*` module toggles; `wm.bordersEnabled` turns borders off and
+`animations.reduceMotion` swaps animations for short cross-fades.
+
+**Not in this build:** screenshot tool, clamshell handling, kitty/fonts/cursor/Rex setup, an
+installer, SIP-off mode, a module store and the uninstaller.
+
+## Upgrading from Caelestia for Mac
+
+On the first SkyRose start the old data is migrated once, automatically (also available as
+`skyrose migrate`; skipped while the old CaelestiaWM is still running): `~/.config/caelestia-mac`
+to `~/.config/skyrose`, `~/Library/Application Support/CaelestiaMac` to `.../SkyRose` (`backup.json`
+is now `restore-manifest.json`). Env vars `CAELESTIA_*` are now `SKYROSE_*`. The old scheme names
+`caelestia-*` are still accepted (new names: `skyrose-default`, `skyrose-dynamic`,
+`skyrose-dynamic-dark`). The bundle id changed, so **grant the permissions once more** to
+SkyRose.app. A signing certificate named "Caelestia Local Signing" is kept and used; new setups
+create "SkyRose Local Signing".
 
 ## Quick start
 
 ```sh
-git clone <this repo> caelestia-mac && cd caelestia-mac
+git clone <this repo> skyrose && cd skyrose
 scripts/sign-setup.sh      # once: local signing cert so permissions survive rebuilds
-scripts/install.sh         # builds, copies to ~/Applications, opens the first-run wizard
+scripts/install.sh         # builds, copies to ~/Applications, opens the onboarding
 ```
 
-Then grant **Accessibility** and **Input Monitoring** when asked (see
-[docs/PERMISSIONS.md](docs/PERMISSIONS.md)). Press **⌥L** (tap) for the launcher, **⌥L+1…0**
-for workspaces, **⌥L+T** for kitty, **⌥L+Q** to close. Full table: [docs/KEYBINDS.md](docs/KEYBINDS.md).
+Then grant **Accessibility**, **Input Monitoring** and **Screen Recording** when the onboarding
+asks (see [docs/PERMISSIONS.md](docs/PERMISSIONS.md)). Press **⌥L** (tap) for the launcher,
+**⌥L+1…0** for workspaces, **⌥L+T** for your terminal (kitty by default), **⌥L+Q** to close. Full
+table: [docs/KEYBINDS.md](docs/KEYBINDS.md).
 Panic chord (always on): **⌃⌥⌘⇧Esc** stops tiling and brings every window back on screen.
 
 ## Standard vs Enhanced
@@ -66,14 +102,15 @@ Details and the full honest list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 - no `curl | sh`, no piped installers; downloads are pinned + SHA-256 checked or Homebrew;
 - no `sudo` in Standard mode, never passwordless sudo;
 - every `defaults` key, hidutil mapping, wallpaper, kitty config, login item or font we change is
-  recorded first in `~/Library/Application Support/CaelestiaMac/backup.json` and restored by the
-  uninstaller — even if the app is already gone;
+  recorded first in `~/Library/Application Support/SkyRose/restore-manifest.json` for the
+  uninstaller to restore (the uninstaller itself is not built yet; the manifest and the SIP
+  reminder popup component it will use are);
 - no stored secrets; logs redact window titles by default;
 - crash-safe: parked windows are journaled before they are moved and restored on relaunch.
 
 ## Uninstall
 
-`caelestia uninstall` or `scripts/uninstall.sh` — see [docs/UNINSTALL.md](docs/UNINSTALL.md).
+The uninstaller is **not built yet**; see [docs/UNINSTALL.md](docs/UNINSTALL.md) for the plan.
 
 ## Building and testing
 
@@ -87,15 +124,15 @@ Always use the Xcode toolchain (`xcrun swift`), not a swift.org toolchain.
 
 ## Docs
 
-[DESIGN](docs/DESIGN.md) · [ARCH_TO_MAC](docs/ARCH_TO_MAC.md) · [KEYBINDS](docs/KEYBINDS.md) ·
+[DESIGN](docs/DESIGN.md) · [SHELL](docs/SHELL.md) · [KEYBINDS](docs/KEYBINDS.md) ·
 [LIMITATIONS](docs/LIMITATIONS.md) · [PERMISSIONS](docs/PERMISSIONS.md) ·
 [ENHANCED_MODE](docs/ENHANCED_MODE.md) · [UNINSTALL](docs/UNINSTALL.md) ·
-[CURSOR](docs/CURSOR.md) · [TROUBLESHOOTING](docs/TROUBLESHOOTING.md)
+[TROUBLESHOOTING](docs/TROUBLESHOOTING.md) · [IPC schema](Sources/CaelestiaIPC/Schema.md)
 
 ## Credits and license
 
-Re-created from scratch in Swift; the look and behaviour follow
-[Caelestia](https://github.com/caelestia-dots/shell) (GPL-3.0) and
+SkyRose (formerly "Caelestia for Mac") is re-created from scratch in Swift; the look and
+behaviour follow [Caelestia](https://github.com/caelestia-dots/shell) (GPL-3.0) and
 [Hyprland](https://hyprland.org). Ideas from [AeroSpace](https://github.com/nikitabobko/AeroSpace)
 (off-screen workspace parking), [yabai](https://github.com/koekeishiya/yabai) (scripting-addition
 design), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (border overlays),

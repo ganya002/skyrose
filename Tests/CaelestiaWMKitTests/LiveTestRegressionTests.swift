@@ -55,7 +55,9 @@ final class LiveTestRegressionTests: XCTestCase {
     func testCompetingWindowManagersAreDetected() {
         XCTAssertEqual(LaunchChecks.competingWindowManagers(processNames: ["kitty", "CatWM", "Finder"]), ["CatWM"])
         XCTAssertEqual(LaunchChecks.competingWindowManagers(processNames: ["yabai", "AeroSpace", "catwm"]), ["AeroSpace", "CatWM", "yabai"])
-        XCTAssertEqual(LaunchChecks.competingWindowManagers(processNames: ["CaelestiaWM", "caelestia", "TestWindows", "Dock", "WindowManager"]), [])
+        XCTAssertEqual(LaunchChecks.competingWindowManagers(processNames: ["SkyRoseWM", "skyrose", "SkyRoseSettings", "TestWindows", "Dock", "WindowManager"]), [])
+        // The pre-rename build would fight SkyRose over the same windows.
+        XCTAssertEqual(LaunchChecks.competingWindowManagers(processNames: ["CaelestiaWM", "caelestia"]), ["CaelestiaWM (the old Caelestia for Mac build)"])
         XCTAssertTrue(LaunchChecks.competingWindowManagerMessage(["CatWM"]).contains("Quit it first"))
         XCTAssertFalse(LaunchChecks.runningProcessNames().isEmpty, "the process table is readable")
     }

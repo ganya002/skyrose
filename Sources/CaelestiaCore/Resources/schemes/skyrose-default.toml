@@ -1,10 +1,10 @@
-# Caelestia Default (dark) - Caelestia's stock fallback scheme.
+# SkyRose Default (dark) - Caelestia's stock fallback scheme.
 # Source: hypr/scheme/default.lua; every key of that file is present verbatim (lower-cased hex).
 # Only primaryDim / secondaryDim / tertiaryDim / errorDim are not in default.lua (the roles are
 # newer than the file): primaryDim/secondaryDim/tertiaryDim are the role darkened by 5.5%, errorDim
 # applies the error -> errorDim channel ratios of the dynamic scheme (0.79, 0.66, 0.67) to error.
 
-name = "Caelestia Default"
+name = "SkyRose Default"
 flavour = "default"
 mode = "dark"
 variant = "tonalspot"

@@ -2,7 +2,7 @@ import XCTest
 import CaelestiaCore
 @testable import CaelestiaIPC
 
-/// `caelestia frame calibrate [display]`.
+/// `skyrose frame calibrate [display]`.
 final class FrameCalibrateCLITests: XCTestCase {
     private func request(_ args: [String]) throws -> IPCRequest {
         guard case let .ipc(req) = try CLIParser.parse(args).kind else {

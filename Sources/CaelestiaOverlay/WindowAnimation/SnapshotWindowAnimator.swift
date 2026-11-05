@@ -31,7 +31,7 @@ public final class SnapshotWindowAnimator: WindowAnimator {
         didSet { if !isEnabled { cancel() } }
     }
 
-    /// Counters and timings (`caelestia query animations`, the debug overlay, logs).
+    /// Counters and timings (`skyrose query animations`, the debug overlay, logs).
     public private(set) var played = 0
     public private(set) var fallbacks = 0
     public private(set) var lastFallbackReason = ""

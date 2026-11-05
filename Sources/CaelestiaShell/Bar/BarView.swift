@@ -32,28 +32,45 @@ struct BarView: View {
 
     var body: some View {
         let width = theme.barWidth
+        let bar = state.config.bar
         VStack(spacing: 0) {
-            BarIconButton(symbol: "apple.logo", size: 18, color: theme[.primary], action: model.onLogo)
-                .padding(.top, 14)
-                .accessibilityIdentifier("bar.logo")
-            WorkspacesColumn(pills: state.workspaces[model.displayID] ?? [], special: state.openSpecial[model.displayID],
-                             onFocus: model.onWorkspace)
-                .padding(.top, 12)
-                .background(ScrollCatcher(onScroll: model.onScrollWorkspace))
-            ActiveWindowColumn(window: state.activeWindow?.displayID == model.displayID || state.focusedDisplayID == model.displayID ? state.activeWindow : nil)
-                .padding(.top, 14)
+            if bar.showLogo {
+                BarIconButton(symbol: "apple.logo", size: 18, color: theme[.primary], action: model.onLogo)
+                    .padding(.top, 14)
+                    .accessibilityIdentifier("bar.logo")
+            } else {
+                Color.clear.frame(height: 14)
+            }
+            if bar.showWorkspaces {
+                WorkspacesColumn(pills: state.workspaces[model.displayID] ?? [], special: state.openSpecial[model.displayID],
+                                 onFocus: model.onWorkspace)
+                    .padding(.top, 12)
+                    .background(ScrollCatcher(onScroll: model.onScrollWorkspace))
+            }
+            if bar.showActiveWindow {
+                ActiveWindowColumn(window: state.activeWindow?.displayID == model.displayID || state.focusedDisplayID == model.displayID ? state.activeWindow : nil)
+                    .padding(.top, 14)
+            }
             Spacer(minLength: 8)
-            BarIconButton(symbol: "menubar.rectangle", size: 14, color: theme[.onSurfaceVariant], action: model.onTray)
-                .help("Show the macOS menu bar (menu-bar extras)")
-                .accessibilityIdentifier("bar.tray")
-            ClockColumn(now: model.now, onTap: model.onClock)
-                .padding(.top, 12)
-            StatusColumn(state: state, onTap: model.onStatus)
-                .padding(.top, 12)
-            BarIconButton(symbol: "power", size: 16, color: theme[.error], action: model.onPower)
-                .padding(.top, 10)
-                .padding(.bottom, 14)
-                .accessibilityIdentifier("bar.power")
+            if bar.showTray {
+                BarIconButton(symbol: "menubar.rectangle", size: 14, color: theme[.onSurfaceVariant], action: model.onTray)
+                    .help("Show the macOS menu bar (menu-bar extras)")
+                    .accessibilityIdentifier("bar.tray")
+            }
+            if bar.showClock {
+                ClockColumn(now: model.now, onTap: model.onClock)
+                    .padding(.top, 12)
+            }
+            if bar.showStatusIcons {
+                StatusColumn(state: state, onTap: model.onStatus)
+                    .padding(.top, 12)
+            }
+            if bar.showPower {
+                BarIconButton(symbol: "power", size: 16, color: theme[.error], action: model.onPower)
+                    .padding(.top, 10)
+                    .accessibilityIdentifier("bar.power")
+            }
+            Color.clear.frame(height: 14)
         }
         .frame(width: width)
         .frame(maxHeight: .infinity)

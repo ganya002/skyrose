@@ -73,7 +73,7 @@ public struct ConfigParseResult: Equatable, Sendable {
 
 /// Parses, merges, validates and writes `config.toml`.
 ///
-/// Precedence (spec section 9): built-in defaults (`Config()`) < `~/.config/caelestia-mac/config.toml`
+/// Precedence (spec section 9): built-in defaults (`Config()`) < `~/.config/skyrose/config.toml`
 /// < per-display overrides (`[displays."<uuid>"]`, applied by `Config.resolved(forDisplay:)`).
 ///
 /// The TOML layout mirrors the struct nesting: `[wm]`, `[wm.dwindle]`, `[wm.specialWorkspaces.<name>]`,
@@ -135,7 +135,7 @@ public enum ConfigLoader {
             throw ConfigError.internalFailure("encoding Config failed: \(error)")
         }
         return """
-        # Caelestia for Mac configuration (written by ConfigLoader.serialize).
+        # SkyRose configuration (written by ConfigLoader.serialize).
         # Every key is documented in config.default.toml; keys you remove fall back to the defaults.
 
         """ + body
@@ -159,7 +159,7 @@ public enum ConfigLoader {
         return try parseDetailed(toml: text)
     }
 
-    /// Loads `~/.config/caelestia-mac/config.toml` when it exists and parses cleanly; otherwise returns
+    /// Loads `~/.config/skyrose/config.toml` when it exists and parses cleanly; otherwise returns
     /// `Config()` with a warning describing the problem. A missing file is not a warning.
     public static func loadUserOrDefault(url: URL = Paths.configFile) -> (config: Config, warnings: [String]) {
         guard FileManager.default.fileExists(atPath: url.path) else { return (Config(), []) }
@@ -551,7 +551,7 @@ public final class ConfigWatcher: @unchecked Sendable {
     public let debounce: TimeInterval
 
     private let handler: Handler
-    private let queue = DispatchQueue(label: "com.caelestia.mac.config-watcher", qos: .utility)
+    private let queue = DispatchQueue(label: "com.skyrose.mac.config-watcher", qos: .utility)
     private let lock = NSLock()
     private var lastGoodConfig: Config
     private var lastContents: Data?
@@ -632,7 +632,7 @@ public final class ConfigWatcher: @unchecked Sendable {
     }
 
     /// Watches the config's directory, or, while it does not exist yet, the nearest existing
-    /// ancestor: creating `~/.config/caelestia-mac/` and then `config.toml` in it is seen (live
+    /// ancestor: creating `~/.config/skyrose/` and then `config.toml` in it is seen (live
     /// finding: on a fresh Mac the directory is missing and the old watcher never armed).
     private func armDirectorySource() {
         let dir = Self.nearestExistingDirectory(for: url)

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Creates a local self-signed code-signing certificate "Caelestia Local Signing" in the login
-# keychain so every build of Caelestia for Mac has the SAME code signature. macOS ties
+# Creates a local self-signed code-signing certificate "SkyRose Local Signing" in the login
+# keychain so every build of SkyRose has the SAME code signature. macOS ties
 # Accessibility / Input Monitoring / Screen Recording grants to the signing identity; with ad-hoc
 # signatures every rebuild is a "new app" and the grants are lost.
 #
@@ -16,24 +16,31 @@
 # Remove it again with:  scripts/sign-setup.sh --remove
 set -euo pipefail
 
-NAME="Caelestia Local Signing"
+NAME="SkyRose Local Signing"
+# Certificates made before the rename are called "Caelestia Local Signing". That one is kept and
+# used as is: a new certificate would change the code signature, and every grant would be lost.
+LEGACY="Caelestia Local Signing"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 
 if [[ "${1:-}" == "--remove" ]]; then
-  echo "Removing \"$NAME\" from the login keychain..."
-  security delete-identity -c "$NAME" "$KEYCHAIN" 2>/dev/null || true
-  security delete-certificate -c "$NAME" "$KEYCHAIN" 2>/dev/null || true
+  for n in "$NAME" "$LEGACY"; do
+    echo "Removing \"$n\" from the login keychain..."
+    security delete-identity -c "$n" "$KEYCHAIN" 2>/dev/null || true
+    security delete-certificate -c "$n" "$KEYCHAIN" 2>/dev/null || true
+  done
   echo "done."
   exit 0
 fi
 
-if security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "\"$NAME\""; then
-  echo "\"$NAME\" already exists in the login keychain. Nothing to do."
-  exit 0
-fi
+for existing in "$NAME" "$LEGACY"; do
+  if security find-identity -v -p codesigning "$KEYCHAIN" 2>/dev/null | grep -q "\"$existing\""; then
+    echo "\"$existing\" already exists in the login keychain. Nothing to do."
+    exit 0
+  fi
+done
 
 echo "This will create a self-signed code-signing certificate named \"$NAME\" in your login keychain."
-echo "It is only used to sign the Caelestia for Mac apps you build on this machine."
+echo "It is only used to sign the SkyRose apps you build on this machine."
 read -r -p "Continue? [y/N] " answer
 [[ "$answer" =~ ^[Yy]$ ]] || { echo "aborted"; exit 1; }
 
@@ -47,7 +54,7 @@ x509_extensions = ext
 prompt = no
 [dn]
 CN = $NAME
-O = Caelestia for Mac (local)
+O = SkyRose (local)
 [ext]
 keyUsage = critical, digitalSignature
 extendedKeyUsage = critical, codeSigning

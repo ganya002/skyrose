@@ -1,7 +1,7 @@
-# Caelestia for Mac — default keymap (the single source of truth for every bind).
+# SkyRose — default keymap (the single source of truth for every bind).
 #
-# Copied to ~/.config/caelestia-mac/keymap.toml on first run; the WM, the Settings app, the
-# cheat-sheet overlay (SUPER + K), `caelestia keys check` and docs/KEYBINDS.md all read it.
+# Copied to ~/.config/skyrose/keymap.toml on first run; the WM, the Settings app, the
+# cheat-sheet overlay (SUPER + K), `skyrose keys check` and docs/KEYBINDS.md all read it.
 #
 # Chords are written with the Linux modifier names, exactly as in Hyprland:
 #   SUPER, ALT, CTRL, SHIFT + a key name (Left, Page_Up, Equal, F13, ...), a mouse button
