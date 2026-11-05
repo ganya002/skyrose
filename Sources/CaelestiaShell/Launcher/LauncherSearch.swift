@@ -9,6 +9,8 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         /// Opens one of the part-2 drawers (wallpaper picker).
         case drawer(Drawer)
         case randomWallpaper
+        /// Opens SkyRose Settings.
+        case openSettings
     }
 
     public var id: String { name }
@@ -37,7 +39,7 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         LauncherCommand("shutdown", "Shut down the Mac", icon: "power_settings_new", effect: .session(.shutdown)),
         LauncherCommand("reboot", "Restart the Mac", icon: "cached", effect: .session(.reboot)),
         LauncherCommand("logout", "Log out of the current session", icon: "logout", effect: .session(.logout)),
-        LauncherCommand("settings", "Configure the shell", icon: "settings", effect: .later("The Settings app is not built yet")),
+        LauncherCommand("settings", "Open SkyRose Settings", icon: "settings", effect: .openSettings),
     ]
 }
 

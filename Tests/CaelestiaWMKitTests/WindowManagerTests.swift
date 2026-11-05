@@ -198,6 +198,28 @@ final class WindowManagerTests: XCTestCase {
         XCTAssertTrue(h.isOnScreen(a))
     }
 
+    /// Closing the launcher / session menu on an empty workspace: macOS re-activates the previous
+    /// app and focuses its (parked) window. The WM stays put, unless the launcher launched it.
+    func testClosingAKeyDrawerDoesNotFollowTheReactivatedApp() {
+        let h = Harness()
+        let a = h.system.existing("a")
+        h.start()
+        h.press("2", Harness.lopt)
+        h.clock.now.addTimeInterval(5)  // well past the workspace-change guard
+        XCTAssertTrue(h.wm.isParked(a.windowID))
+
+        h.wm.keyDrawerClosed(launched: false)
+        h.system.queue(.focused(a.windowID))
+        h.settle()
+        XCTAssertEqual(h.wm.state.activeNumberedWorkspace(forDisplay: "air"), 2, "stays on the empty workspace")
+
+        h.clock.now.addTimeInterval(5)
+        h.wm.keyDrawerClosed(launched: true)
+        h.system.queue(.focused(a.windowID))
+        h.settle()
+        XCTAssertEqual(h.wm.state.activeNumberedWorkspace(forDisplay: "air"), 1, "a launched app is followed")
+    }
+
     func testMinimizeAndRestoreRetile() {
         let h = Harness()
         let a = h.system.existing("a")

@@ -13,6 +13,9 @@ public protocol ShellHost: AnyObject {
     /// An auto-hidden bar was revealed / hidden on `display`: reserve its width (Caelestia's
     /// exclusive zone follows the bar's visibility).
     func shellBarReservation(display: String, reserved: Bool)
+    /// A key drawer (launcher / session menu) closed. macOS gives focus back to the previously
+    /// active app; unless `launched`, that is not a reason to follow it to another workspace.
+    func shellKeyDrawerClosed(launched: Bool)
 }
 
 /// The native shell, part 1 (spec 5.1, 5.2, 5.3, 5.7, 5.9): screen frame and bar per display,
@@ -40,6 +43,7 @@ public final class ShellController {
 
     // Drawers.
     public let launcher = LauncherModel()
+    public let appWatcher = AppIndexWatcher()
     public let session = SessionModel()
     public let osd = OSDModel()
     public let toasts = ToastModel()
@@ -144,6 +148,10 @@ public final class ShellController {
         if startServices, !servicesStarted {
             servicesStarted = true
             startServicesAndMonitors()
+        }
+        if appWatcher.onChange == nil {
+            appWatcher.onChange = { [weak self] in self?.reloadApps() }
+            appWatcher.start()
         }
         reloadApps()
         refreshColors()
@@ -532,10 +540,12 @@ public final class ShellController {
         case .launcher:
             guard openDrawers.contains(.launcher) else { return }
             launcher.shown = false
+            host?.shellKeyDrawerClosed(launched: false)
             dismiss(launcherPanel)
         case .session:
             guard openDrawers.contains(.session) else { return }
             session.shown = false
+            host?.shellKeyDrawerClosed(launched: false)
             session.disarm()
             dismiss(sessionPanel)
             dimPanel?.fadeOut(duration: theme.drawerCloseSeconds)
@@ -603,11 +613,14 @@ public final class ShellController {
         switch item {
         case .app(let app):
             close(.launcher)
+            host?.shellKeyDrawerClosed(launched: true)
             counts.bump(app.id)
             if let i = state.apps.firstIndex(where: { $0.id == app.id }) { state.apps[i].launchCount += 1 }
+            // SkyRose is already running (it is this process) and has no window: its entry opens Settings.
+            let url = app.bundleID == AppIndex.skyRoseBundleID ? (AppIndex.settingsAppURL() ?? app.url) : app.url
             let config = NSWorkspace.OpenConfiguration()
             config.activates = true
-            NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in
+            NSWorkspace.shared.openApplication(at: url, configuration: config) { _, error in
                 guard let error else { return }
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated { _ = self.toast(.error, title: "Could not open \(app.name)", message: error.localizedDescription) }
@@ -626,6 +639,13 @@ public final class ShellController {
             case .randomWallpaper:
                 close(.launcher)
                 randomWallpaper()
+            case .openSettings:
+                close(.launcher)
+                guard let url = AppIndex.settingsAppURL() else {
+                    toast(.error, title: "SkyRose Settings not found", message: "Put SkyRose Settings.app next to SkyRose.app")
+                    return
+                }
+                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
             case .later(let why):
                 if c.name == "calculator" { launcher.query = "=" ; return }
                 close(.launcher)
@@ -642,8 +662,10 @@ public final class ShellController {
 
     public func reloadApps() {
         let counts = counts.counts
+        let own = AppIndex.ownApps()
+        let extra = appWatcher.spotlightURLs
         DispatchQueue.global(qos: .utility).async {
-            let apps = AppIndex.scan(counts: counts)
+            let apps = AppIndex.scan(own: own, extra: extra, counts: counts)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     self.state.apps = apps

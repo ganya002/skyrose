@@ -1,4 +1,55 @@
-# Phase: terminal, fonts, liquid animations + bug fixes (started 2026-11-05)
+# Phase: launcher + wallpapers, SIP-off mode, then Material icons / screenshots / Clamshell (started 2026-11-05)
+
+Resume here after a context reset. Read `docs/parity-progress.md` and `docs/arch-parity.md` first.
+Strict order (Gabby is low on usage): 1 quick fixes → 2 wallpapers → 3 SIP-off mode → 4 Material
+Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part (not pushed).
+
+## Status
+
+| Part | State | Commit |
+|---|---|---|
+| 1. Launcher index + empty-workspace jump | done, live-checked | see `git log` ("Phase 5 part 1") |
+| 2. Wallpaper subfolders + live wallpapers | not started | |
+| 3. SIP-off mode | not started (verify `csrutil status` + `nvram boot-args` first; no sudo by Claude) | |
+| 4. Material Symbols | not started | |
+| 5. Screenshots, keep-awake, Clamshell | not started | |
+
+## Part 1 — done
+
+- `AppIndex` (Shell/Launcher): own apps first (SkyRose.app from `Bundle.main`, even though it is
+  LSUIElement, and SkyRose Settings next to it or via Launch Services), then the roots
+  (/Applications, ~/Applications, /System/Applications(+Utilities), /Applications/Utilities,
+  /System/Library/CoreServices/Applications) **3 sub-folder levels deep** (never inside a bundle,
+  no symlinked dirs), Finder pinned, then Spotlight hits. First copy of a bundle id wins.
+  `AppIndex.isIndexable(path:)` drops Spotlight hits inside another bundle, in hidden folders
+  (Trash, .build), caches/containers/Application Support/Developer/DerivedData, /Volumes (DMGs),
+  /private, /usr, /opt and /System/Library (except CoreServices/Applications and Finder).
+- `AppIndexWatcher`: live `NSMetadataQuery` (`kMDItemContentTypeTree == 'com.apple.application-bundle'`)
+  + FSEvents on the roots (works with Spotlight off); every change rescans once, debounced 1 s.
+- Launching the SkyRose entry opens SkyRose Settings (SkyRose is this process and has no window);
+  `>settings` now opens SkyRose Settings (was a "not built yet" toast).
+- Bug fix: closing the launcher/session menu calls `ShellHost.shellKeyDrawerClosed(launched:)`;
+  the WM ignores macOS focusing a **parked** window for `focusGuardInterval` (0.5 s) afterwards,
+  so the re-activated previous app no longer drags the display to its workspace. Launching an app
+  from the launcher clears the guard (that app is followed).
+- Live: launcher on the built-in (empty ws1), typed "skyrose" via `CGEvent.postToPid` to SkyRose
+  only: SkyRose, SkyRose Settings, TestWindows listed (`/tmp/cwm/phase5/launcher-skyrose.png`);
+  after closing, the built-in stayed on ws1. The ws 3 → 4 jump itself is unit-tested
+  (`testClosingAKeyDrawerDoesNotFollowTheReactivatedApp`); reproducing it live needs a parked
+  window on the built-in while Gabby's kitty holds focus on the DELL, skipped.
+
+Decisions: DMG apps (/Volumes) are not listed; Bundle's info cache means an app renamed in place
+shows its new name after a WM restart.
+
+## Tests
+
+After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
+
+---
+
+# Previous phase (archive)
+
+## Phase: terminal, fonts, liquid animations + bug fixes (started 2026-11-05)
 
 Resume here after a context reset. Read `docs/parity-progress.md` and `docs/arch-parity.md` first.
 Order: 1 bugs → 2 liquid animations → 3 terminal → 4 fonts. Commit on main after each part

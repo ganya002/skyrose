@@ -85,12 +85,80 @@ final class AppIndexTests: XCTestCase {
         try makeApp(in: deeper, file: "TwoDeep", name: "Two Deep", id: "com.test.two")
         try makeApp(in: folder, file: "TopDup", name: "Top Copy", id: "com.test.top")  // same bundle id
         try makeApp(in: root, file: "UIElement", name: "Hidden", id: "com.test.hidden", extra: ["LSUIElement": true])
-        let apps = AppIndex.scan(roots: [root], counts: ["com.test.one": 7])
-        XCTAssertEqual(Set(apps.map(\.bundleID)), ["com.test.top", "com.test.one"])
-        XCTAssertEqual(apps.count, 2, "deduped by bundle id")
+        let apps = AppIndex.scan(roots: [root], pinned: [], counts: ["com.test.one": 7])
+        XCTAssertEqual(Set(apps.map(\.bundleID)), ["com.test.top", "com.test.one", "com.test.two"])
+        XCTAssertEqual(apps.count, 3, "deduped by bundle id")
         XCTAssertEqual(apps.first { $0.bundleID == "com.test.one" }?.launchCount, 7)
         XCTAssertEqual(apps.first { $0.bundleID == "com.test.top" }?.launchCount, 0)
-        XCTAssertFalse(apps.contains { $0.bundleID == "com.test.two" }, "two levels deep is not scanned")
+        XCTAssertTrue(apps.contains { $0.bundleID == "com.test.two" }, "sub-folders are scanned")
+    }
+
+    func testScanStopsAtMaxDepthAndNeverEntersBundles() throws {
+        var dir = root!
+        for level in 0...AppIndex.maxDepth {
+            try makeApp(in: dir, file: "L\(level)", name: "Level \(level)", id: "com.test.l\(level)")
+            dir = dir.appendingPathComponent("sub\(level)")
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        try makeApp(in: dir, file: "TooDeep", name: "Too Deep", id: "com.test.deep")
+        let host = try makeApp(in: root, file: "Host", name: "Host", id: "com.test.host")
+        try makeApp(in: host.appendingPathComponent("Contents/Applications"), file: "Inner", name: "Inner", id: "com.test.inner")
+        let ids = Set(AppIndex.scan(roots: [root], pinned: []).map(\.bundleID))
+        for level in 0...AppIndex.maxDepth { XCTAssertTrue(ids.contains("com.test.l\(level)")) }
+        XCTAssertFalse(ids.contains("com.test.deep"))
+        XCTAssertFalse(ids.contains("com.test.inner"), "apps inside another app are not listed")
+    }
+
+    func testOwnAppsAreListedEvenAsAgentsAndWinDuplicates() throws {
+        let own = root.appendingPathComponent("own")
+        let apps = root.appendingPathComponent("apps")
+        try FileManager.default.createDirectory(at: own, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: apps, withIntermediateDirectories: true)
+        let sky = try makeApp(in: own, file: "SkyRose", name: "SkyRose", id: AppIndex.skyRoseBundleID, extra: ["LSUIElement": true])
+        let settings = try makeApp(in: own, file: "SkyRose Settings", name: "SkyRose Settings", id: AppIndex.settingsBundleID)
+        try makeApp(in: apps, file: "SkyRose Settings", name: "Old Settings", id: AppIndex.settingsBundleID)
+        XCTAssertEqual(AppIndex.settingsAppURL(near: sky)?.standardizedFileURL, settings.standardizedFileURL)
+        XCTAssertEqual(AppIndex.ownApps(own: sky).map(\.lastPathComponent), ["SkyRose.app", "SkyRose Settings.app"])
+        let list = AppIndex.scan(roots: [apps], pinned: [], own: AppIndex.ownApps(own: sky))
+        XCTAssertEqual(list.map(\.name), ["SkyRose", "SkyRose Settings"])
+        XCTAssertEqual(list.first { $0.bundleID == AppIndex.settingsBundleID }?.url.standardizedFileURL, settings.standardizedFileURL)
+        XCTAssertEqual(list.first?.description, "Tiling window manager and shell")
+        let found = LauncherSearch.results(for: "skyrose set", apps: list)
+        XCTAssertEqual(found.first?.title, "SkyRose Settings")
+    }
+
+    func testSpotlightResultsAreMergedAfterRoots() throws {
+        let apps = root.appendingPathComponent("apps")
+        let elsewhere = root.appendingPathComponent("Projects/dist")
+        try FileManager.default.createDirectory(at: apps, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        try makeApp(in: apps, file: "One", name: "One", id: "com.test.one")
+        let dup = try makeApp(in: elsewhere, file: "One", name: "One elsewhere", id: "com.test.one")
+        let other = try makeApp(in: elsewhere, file: "Other", name: "Other", id: "com.test.other")
+        let hidden = root.appendingPathComponent(".Trash")
+        try FileManager.default.createDirectory(at: hidden, withIntermediateDirectories: true)
+        let trashed = try makeApp(in: hidden, file: "Gone", name: "Gone", id: "com.test.gone")
+        let list = AppIndex.scan(roots: [apps], pinned: [], extra: [dup, other, trashed])
+        XCTAssertEqual(list.map(\.name), ["One", "Other"])
+    }
+
+    func testIndexableFilter() {
+        XCTAssertTrue(AppIndex.isIndexable(path: "/Applications/Safari.app"))
+        XCTAssertTrue(AppIndex.isIndexable(path: "/Users/g/Projects/caelestia-mac/dist/SkyRose.app"))
+        XCTAssertTrue(AppIndex.isIndexable(path: "/System/Library/CoreServices/Finder.app"))
+        XCTAssertTrue(AppIndex.isIndexable(path: "/System/Library/CoreServices/Applications/Archive Utility.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/System/Library/CoreServices/Siri.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Applications/Xcode.app/Contents/Applications/Instruments.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Users/g/.Trash/Old.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Users/g/Projects/x/.build/debug/X.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Users/g/Library/Developer/Xcode/DerivedData/X/Build/X.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Users/g/Library/Application Support/Zoom/Updater.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Volumes/Installer/Thing.app"))
+        XCTAssertFalse(AppIndex.isIndexable(path: "/Applications/NotAnApp"))
+    }
+
+    func testSettingsCommandOpensSettings() {
+        XCTAssertEqual(LauncherCommand.all.first { $0.name == "settings" }?.effect, .openSettings)
     }
 
     func testScanSortedByNameAndMultipleRootsDedupe() throws {
@@ -102,7 +170,7 @@ final class AppIndexTests: XCTestCase {
         try makeApp(in: r1, file: "a", name: "Apple", id: "com.test.a")
         try makeApp(in: r2, file: "a2", name: "Apple again", id: "com.test.a")
         try makeApp(in: r2, file: "c", name: "Cherry", id: "com.test.c")
-        let apps = AppIndex.scan(roots: [r1, r2, root.appendingPathComponent("missing")])
+        let apps = AppIndex.scan(roots: [r1, r2, root.appendingPathComponent("missing")], pinned: [])
         XCTAssertEqual(apps.map(\.name), ["Apple", "banana", "Cherry"])
     }
 

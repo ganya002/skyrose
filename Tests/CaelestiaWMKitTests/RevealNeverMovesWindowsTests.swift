@@ -167,6 +167,7 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
             reservations.append((display, reserved))
             wm?.setBarRevealed(reserved, display: display)
         }
+        func shellKeyDrawerClosed(launched: Bool) { wm?.keyDrawerClosed(launched: launched) }
         var reserved: [String] { reservations.map { "\($0.display):\($0.reserved)" } }
     }
 

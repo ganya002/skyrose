@@ -230,6 +230,10 @@ public final class WindowManager {
     /// Most recently focused first, across workspaces (`focusHistoryID`).
     var focusOrder: [WindowID] = []
     var lastWorkspaceChange = Date.distantPast
+    /// When a key drawer (launcher, session menu) last closed without launching anything: macOS
+    /// then hands focus back to the previously active app, which is not a request to go to its
+    /// workspace (seen: closing the launcher on an empty ws 3 jumped to kitty on ws 4).
+    var lastKeyDrawerClose = Date.distantPast
     var drag: DragState?
     /// The animator shows the current tiled-window drag live.
     var dragIsLive = false
@@ -790,10 +794,16 @@ public final class WindowManager {
         setNeedsLayout()
     }
 
+    /// The shell closed a key drawer; `launched` is true when it opened an app (follow that one).
+    public func keyDrawerClosed(launched: Bool) {
+        lastKeyDrawerClose = launched ? .distantPast : now()
+    }
+
     private func systemFocusChanged(_ id: WindowID?) {
         systemFocus = id
         guard let id, isManaged(id), id != state.focusedWindow else { return }
         if parked[id] != nil, now().timeIntervalSince(lastWorkspaceChange) < Self.focusGuardInterval { return }
+        if parked[id] != nil, now().timeIntervalSince(lastKeyDrawerClose) < Self.focusGuardInterval { return }
         if parked[id] != nil, !config.wm.focusOnActivate { return }
         state.recordFocus(id, unfullscreenOthers: config.wm.unfullscreenOnFocus)
         setNeedsLayout()

@@ -212,4 +212,8 @@ public final class ShellBridge: ShellHost {
     public func shellBarReservation(display: String, reserved: Bool) {
         wm?.setBarRevealed(reserved, display: display)
     }
+
+    public func shellKeyDrawerClosed(launched: Bool) {
+        wm?.keyDrawerClosed(launched: launched)
+    }
 }
