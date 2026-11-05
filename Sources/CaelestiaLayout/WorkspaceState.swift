@@ -139,6 +139,24 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         for key in moved { prune(key) }
     }
 
+    /// This state as a restart sees it: windows not in `alive` are gone (their tree siblings take
+    /// their place, as on close), displays not in `current` hand their workspaces to the first
+    /// current display, and new displays get a workspace. Everything else (trees, split ratios,
+    /// groups, floating frames, the visible workspace per display, focus) is kept.
+    public func restored(keeping alive: Set<WindowID>, displays current: [String]) -> WorkspaceState {
+        var s = self
+        guard let first = current.first else { return s }
+        for w in s.workspaces.values.flatMap(\.windows) where !alive.contains(w) { s.removeWindow(w) }
+        for d in s.displays where !current.contains(d) { s.removeDisplay(d, movingTo: first) }
+        for d in current { s.ensureDisplay(d) }
+        s.displays = current
+        s.lastFloatingFrames = s.lastFloatingFrames.filter { alive.contains($0.key) }
+        s.naturalSizes = s.naturalSizes.filter { alive.contains($0.key) }
+        if let f = s.focusedWindow, !alive.contains(f) { s.focusedWindow = nil }
+        if let d = s.focusedDisplay, !current.contains(d) { s.focusedDisplay = first }
+        return s
+    }
+
     // MARK: Windows
 
     /// Adds a new window. `target` defaults to the visible workspace of the focused display; the

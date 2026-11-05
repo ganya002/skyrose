@@ -420,6 +420,8 @@ public enum Paths {
     /// The colour scheme the shell is drawing right now (the Settings app follows it).
     public static var currentScheme: URL { appSupport.appendingPathComponent("current-scheme.toml") }
     public static var parkedWindowsJournal: URL { appSupport.appendingPathComponent("parked-windows.json") }
+    /// Workspace model at the last WM run, so a restart keeps every window's workspace and side.
+    public static var sessionSnapshot: URL { appSupport.appendingPathComponent("session.json") }
     public static var workspaceAssignments: URL { appSupport.appendingPathComponent("workspace-assignments.json") }
     public static var logsDir: URL { home.appendingPathComponent("Library/Logs/SkyRose", isDirectory: true) }
     public static var kittyThemeFile: URL { home.appendingPathComponent(".config/kitty/skyrose-theme.conf") }

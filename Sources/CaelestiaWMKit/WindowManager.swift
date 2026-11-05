@@ -30,6 +30,7 @@ public final class WindowManager {
         public var raiseCalls = 0
         public var restoredOnLaunch = 0
         public var journalWriteFailures = 0
+        public var restoredFromSession = 0
         /// Re-applies after an app moved/resized a tiled window by itself.
         public var snapBacks = 0
         /// Tiled windows floated because they could not fit or kept fighting their slot.
@@ -44,6 +45,7 @@ public final class WindowManager {
             [
                 "layoutPasses": layoutPasses, "setFrameCalls": setFrameCalls, "parkCalls": parkCalls,
                 "focusCalls": focusCalls, "raiseCalls": raiseCalls, "restoredOnLaunch": restoredOnLaunch,
+                "restoredFromSession": restoredFromSession,
                 "journalWriteFailures": journalWriteFailures, "snapBacks": snapBacks, "autoFloats": autoFloats,
                 "nativeDrops": nativeDrops, "nativeResizes": nativeResizes, "minSizesLearned": minSizesLearned,
             ]
@@ -208,6 +210,14 @@ public final class WindowManager {
     var nextManageSerial = 0
     /// Minimized windows / windows of hidden apps, with the workspace to return to.
     var suspended: [WindowID: WorkspaceID] = [:]
+    /// Session snapshot (`Paths.sessionSnapshot` in the daemon; nil: not saved or restored).
+    public var sessionStore: SessionSnapshotStore?
+    var lastSavedSession: WorkspaceState?
+    var lastSavedSuspended: [WindowID: WorkspaceID] = [:]
+    var sessionSaveScheduled = false
+    static let sessionSaveDelay: TimeInterval = 0.5
+    /// Windows the snapshot placed that were minimized / hidden at start: where they come back.
+    var restoreTargets: [WindowID: WorkspaceID] = [:]
     var snapBacks: [WindowID: Int] = [:]
     var forceApply: Set<WindowID> = []
     /// Parked windows whose parking corner must be recomputed (the display arrangement changed,
@@ -278,8 +288,13 @@ public final class WindowManager {
         isDiscovering = true
         windowSystem.start()
         isDiscovering = false
+        counters.restoredFromSession = restoreSession()
         systemFocus = windowSystem.focusedWindowID
-        if let f = systemFocus, isManaged(f) { state.recordFocus(f) }
+        // A restored session keeps the workspace each display showed; the app focus only counts
+        // when it is on one of those.
+        if let f = systemFocus, isManaged(f), counters.restoredFromSession == 0 || state.workspace(of: f).map(state.isVisible) == true {
+            state.recordFocus(f)
+        }
         setNeedsLayout()
     }
 
@@ -287,6 +302,7 @@ public final class WindowManager {
     /// Used by the panic chord, `wm.quit`/`wm.panic` and SIGTERM.
     @discardableResult
     public func shutdown() -> Int {
+        if isManaging { saveSessionIfChanged(immediately: true) }
         let restored = restoreEverything()
         windowSystem.onEvent = nil
         windowSystem.stop()
@@ -518,6 +534,7 @@ public final class WindowManager {
         }
         raised = visibleRaised
         syncFocus()
+        saveSessionIfChanged()
         onLayoutApplied?()
     }
 
@@ -663,7 +680,8 @@ public final class WindowManager {
             displayID = state.focusedDisplay ?? displays.first?.id
         }
         guard let displayID, let area = display(id: displayID).map(usableArea(of:)) else { return }
-        var target = effects.workspace.flatMap(WorkspaceID.init(parsing:))
+        // A window the session snapshot placed (minimized or hidden at start) goes back there.
+        var target = restoreTargets.removeValue(forKey: id) ?? effects.workspace.flatMap(WorkspaceID.init(parsing:))
         if target == nil { target = state.activeWorkspace(forDisplay: displayID) }
 
         var floating: CGRect?
