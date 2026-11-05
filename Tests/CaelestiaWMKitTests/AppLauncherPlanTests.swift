@@ -48,3 +48,18 @@ final class AppLauncherPlanTests: XCTestCase {
         XCTAssertNil(plan(.wmPanic))
     }
 }
+
+@MainActor
+final class AppLauncherFallbackTests: XCTestCase {
+    func testMissingTerminalFallsBackToMacOSTerminal() {
+        var apps = AppsConfig()
+        apps.terminal = "kitty"
+        let missing = AppLauncher.plan(for: Action(.appTerminal), apps: apps, installed: { _ in false })
+        XCTAssertEqual(missing?.arguments, ["-b", "com.apple.Terminal"])
+        let present = AppLauncher.plan(for: Action(.appTerminal), apps: apps, installed: { _ in true })
+        XCTAssertEqual(present?.arguments, ["-n", "-b", "net.kovidgoyal.kitty"])
+        apps.terminal = "wezterm start"
+        XCTAssertEqual(AppLauncher.plan(for: Action(.appTerminal), apps: apps, installed: { _ in false })?.executable, "/bin/sh",
+                       "commands are run as written")
+    }
+}

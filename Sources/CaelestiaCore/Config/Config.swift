@@ -453,6 +453,7 @@ public enum Paths {
     public static var sessionSnapshot: URL { appSupport.appendingPathComponent("session.json") }
     public static var workspaceAssignments: URL { appSupport.appendingPathComponent("workspace-assignments.json") }
     public static var logsDir: URL { home.appendingPathComponent("Library/Logs/SkyRose", isDirectory: true) }
+    public static var kittyConfigDir: URL { home.appendingPathComponent(".config/kitty", isDirectory: true) }
     public static var kittyThemeFile: URL { home.appendingPathComponent(".config/kitty/skyrose-theme.conf") }
 
     // Pre-rename locations (Caelestia for Mac), read once by `LegacyMigration`.

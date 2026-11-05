@@ -987,7 +987,7 @@ keys        = ["SUPER + T"]
 action      = "app.terminal"
 flags       = []
 linux       = "SUPER + T"
-description = "terminal (kitty)"
+description = "terminal (Settings › Terminal; kitty by default)"
 
 [[bind]]
 id          = "app.browser"

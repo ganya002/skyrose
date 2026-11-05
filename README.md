@@ -43,7 +43,13 @@ per-module toggles (launcher, dashboard, sidebar, session, osd, notifications, w
 the bar has `bar.show*` module toggles; `wm.bordersEnabled` turns borders off and
 `animations.reduceMotion` swaps animations for short cross-fades.
 
-**Not in this build:** screenshot tool, clamshell handling, kitty/fonts/cursor/Rex setup, an
+**Terminal.** ⌥L+T opens the terminal picked in Settings › Terminal: kitty (default), Rex,
+Terminal, iTerm2, Ghostty, WezTerm or any bundle id / command; a missing app falls back to macOS
+Terminal. Settings › Terminal › kitty setup (or `skyrose kitty install`) adds one include line to
+`kitty.conf` for Gabby's Arch kitty settings and colours that follow the SkyRose scheme live.
+SkyRose never installs kitty itself.
+
+**Not in this build:** screenshot tool, clamshell handling, fonts setup, an
 installer, SIP-off mode, a module store and the uninstaller.
 
 ## Upgrading from Caelestia for Mac

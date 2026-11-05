@@ -38,6 +38,7 @@ feature cannot work, the UI says so and the closest substitute is used.
 | Quick toggles | Wi-Fi, Do-not-disturb (SkyRose toasts only) and Keep awake switch. **Bluetooth and macOS dark mode are read-only** and open System Settings; macOS Focus cannot be switched. | No public API; private hacks or silent system changes are not used. |
 | Notification history | Our own toasts and `skyrose notify` only; kept in `~/Library/Application Support/SkyRose/notifications.json`. | See the notifications row above. |
 | Dashboard weather | Open-Meteo (no API key). Nothing shows until a city is picked in Settings › Bar and Shell; "Use my location" (CoreLocation) is off by default. | Needs the network; a failed fetch keeps the last report and says why. |
+| kitty colours | Follow the scheme only once the SkyRose profile is set up (one `include skyrose.conf` line in kitty.conf); kitty reloads on `SIGUSR1`, which also drops per-window changes made at runtime (e.g. ⌘+ font size). Other terminals keep their own colours. | Terminals have no shared theme API; only kitty has a reload signal and include files. |
 | Dynamic colours | Follow the wallpaper macOS reports for the main display (or the one picked here); dynamic/aerial wallpapers fall back to the static scheme. | No public colour feed. |
 | Fonts and icons | Rubik / Inter / CaskaydiaCove / Material Symbols are not installed or bundled yet; the shell uses SF Pro and SF Symbols. The `fontSans` chain uses Rubik/Inter once installed. | Material Symbols bundling is TODO (spec 7.1). |
 | Session menu mascot | A drawn moon glyph placeholder; no character art is shipped. | — |
@@ -51,7 +52,7 @@ feature cannot work, the UI says so and the closest substitute is used.
 | P6 | (shell parts 1 and 2 are built: see SHELL.md; the rest below is not) Screen recorder card; screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`) for some; the UIs are not wired yet |
 | P7 | Wallpaper-driven dynamic colour (Material "tonal spot") | static themes only (SkyRose Dynamic dark snapshot, SkyRose Default, Catppuccin Mocha, Noctalia); accent override is an approximation |
 | P8 | SkyRose Settings is built (General, Appearance, Windows, Window rules, Keybinds, Bar and Shell, Terminal, Permissions, About) but not the Enhanced-mode, Backup & uninstall or installer pages | the uninstaller is not built yet; `skyrose keys check` / `skyrose doctor` cover the checks |
-| P9 | kitty config installer, fonts installer, xcursor2cape | kitty theme file is written from the scheme; the installer/cursor tool are not built |
+| P9 | fonts installer, xcursor2cape, installing kitty itself | the kitty **profile** is built (Settings › Terminal, `skyrose kitty install`); installing the kitty app is left to the installer phase (onboarding will offer it); the cursor tool is not built |
 | P10 | Enhanced mode scripting addition | not built; documented in ENHANCED_MODE.md, capability probe reports Standard |
 | P11 | Fresh-Mac install→uninstall QA pass | not performed |
 

@@ -179,10 +179,12 @@ public final class WMDaemon {
             deco?.apply(scheme: scheme)
             // The Settings app draws itself in the same colours (static or dynamic).
             try? Data(SchemeLoader.serialize(scheme).utf8).write(to: Paths.currentScheme, options: .atomic)
+            KittyLiveSync.apply(scheme)
         }
 
         wm.start()
         shell.start()
+        KittyLiveSync.apply(shell.controller.state.scheme)
         cursors.start(identifier: wm.config.appearance.cursor)
         startEventTap()
         startWatchers()

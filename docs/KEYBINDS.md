@@ -146,7 +146,7 @@ Every bind of the Hyprland setup (`Tests/fixtures/binds.json`, 153 entries) is l
 
 | Linux chord | Mac chord | Action | Flags | Description | Keymap chord | Bind id |
 |---|---|---|---|---|---|---|
-| `SUPER + T` | `⌥L T` | `app.terminal` |  | terminal (kitty) | `SUPER + T` | `app.terminal` |
+| `SUPER + T` | `⌥L T` | `app.terminal` |  | terminal (Settings › Terminal; kitty by default) | `SUPER + T` | `app.terminal` |
 | `SUPER + W` | `⌥L W` | `app.browser` |  | browser (Firefox) | `SUPER + W` | `app.browser` |
 | `SUPER + C` | `⌥L C` | `app.editor` |  | editor (VSCodium) | `SUPER + C` | `app.editor` |
 | `SUPER + E` | `⌥L E` | `app.files` |  | file manager (Finder) | `SUPER + E` | `app.files` |

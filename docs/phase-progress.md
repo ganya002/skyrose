@@ -10,7 +10,7 @@ Order: 1 bugs → 2 liquid animations → 3 terminal → 4 fonts. Commit on main
 |---|---|---|
 | 1. Bugs (SIP reminder, weather, temperatures, edge drags) | done, live-tested | see `git log` ("Part 1") |
 | 2. Liquid animations | done, live-tested | see `git log` ("Part 2") |
-| 3. Terminal | not started | |
+| 3. Terminal | done, live-checked (Settings page, sync no-op) | see `git log` ("Part 3") |
 | 4. Fonts | not started | |
 
 ## Part 1 — done
@@ -62,11 +62,36 @@ overshoot is a constant ~16 pt so small and large drawers bounce alike.
 Found, not fixed (pre-existing, not motion): closing a key drawer (launcher/session) on an empty
 workspace re-activates the previous app and the WM follows it to its workspace (seen ws 3 → 4).
 
+## Part 3 — done
+
+- `CaelestiaCore/Scheme/KittyProfile.swift`: `KittyProfile` renders `~/.config/kitty/skyrose.conf`
+  (Gabby's Arch kitty.conf mapped to macOS: blur 32, titlebar-only, ⌥ as Alt; colours from
+  `include skyrose-theme.conf`). `KittySetup` installs (one `include skyrose.conf` line appended to
+  kitty.conf, original copied + journalled as `kittyConfig`), uninstalls (restores the file
+  byte-for-byte; deletes a kitty.conf it created), refuses to overwrite files it did not write,
+  writes through a symlinked kitty.conf, and `syncTheme` rewrites colours only when kitty includes us.
+- WM: `KittyLiveSync` on every scheme change and at start; `SIGUSR1` to running kittys only when
+  the theme file changed.
+- Terminals: `TerminalChoice.presets` = kitty (default), Rex (`com.superlogical.rex`), Terminal,
+  iTerm2, Ghostty, WezTerm; Other = bundle id or command. ⌥T on a missing app opens macOS Terminal.
+- Settings › Terminal: preset list with install state, Shortcut card (records `app.terminal`
+  like Keybinds), kitty setup card (Set up / Remove, notes), Try it.
+- CLI: `skyrose kitty status | install | uninstall [--json]`.
+- Live: Settings page screenshot `/tmp/cwm/phase/settings-terminal.png`; WM restart left
+  `~/.config/kitty` untouched (Gabby's kitty.conf does not include the profile). The profile was
+  **not** installed into Gabby's kitty.conf (it would restyle the terminal running this session):
+  `skyrose kitty install` or Settings › Terminal › Set up does it when wanted.
+
+Decisions: no new config key; the include line is the opt-in. Terminal/iTerm2/Ghostty/WezTerm
+open or come forward (no new-window scripting); only kitty opens a new window each time. Kitty
+install offer in onboarding is left to the installer phase (brief).
+
 ## Remaining
 
-- Parts 3–4 (see the brief).
+- Part 4 (fonts).
 
 ## Tests
 
 After part 1: 928 tests, 0 failures (`/usr/bin/swift test`).
 After part 2: 942 tests, 0 failures.
+After part 3: 954 tests, 0 failures.

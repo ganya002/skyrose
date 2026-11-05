@@ -14,6 +14,36 @@ public enum TerminalChoice: Equatable, Sendable {
 
     public static let kittyBundleID = "net.kovidgoyal.kitty"
     public static let rexBundleID = "com.superlogical.rex"
+    public static let appleTerminalBundleID = "com.apple.Terminal"
+
+    /// The terminals Settings › Terminal lists (anything else goes in "Other").
+    public struct Preset: Equatable, Sendable, Identifiable {
+        public var name: String
+        public var choice: TerminalChoice
+        public var bundleID: String
+        public var detail: String
+        public var id: String { bundleID }
+    }
+
+    public static let presets: [Preset] = [
+        Preset(name: "kitty", choice: .kitty, bundleID: kittyBundleID,
+               detail: "Default. A new window every time, with Gabby's Arch setup and the SkyRose colours."),
+        Preset(name: "Rex", choice: .rex, bundleID: rexBundleID, detail: "Opens Rex, or brings it to the front."),
+        Preset(name: "Terminal", choice: .app(bundleID: appleTerminalBundleID), bundleID: appleTerminalBundleID,
+               detail: "macOS Terminal: opens it, or brings it to the front."),
+        Preset(name: "iTerm2", choice: .app(bundleID: "com.googlecode.iterm2"), bundleID: "com.googlecode.iterm2",
+               detail: "Opens iTerm2, or brings it to the front."),
+        Preset(name: "Ghostty", choice: .app(bundleID: "com.mitchellh.ghostty"), bundleID: "com.mitchellh.ghostty",
+               detail: "Opens Ghostty, or brings it to the front."),
+        Preset(name: "WezTerm", choice: .app(bundleID: "com.github.wez.wezterm"), bundleID: "com.github.wez.wezterm",
+               detail: "Opens WezTerm, or brings it to the front."),
+    ]
+
+    /// The preset this choice is, if any (bundle ids compare case-insensitively).
+    public var preset: Preset? {
+        guard let id = bundleID?.lowercased() else { return nil }
+        return Self.presets.first { $0.bundleID.lowercased() == id }
+    }
 
     public init(config value: String) {
         let v = value.trimmingCharacters(in: .whitespaces)

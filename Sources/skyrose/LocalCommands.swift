@@ -27,6 +27,52 @@ enum LocalCommands {
             return openSettings(onboarding: onboarding)
         case .cursor(let verb):
             return cursor(verb, json: invocation.json)
+        case .kitty(let verb):
+            return kitty(verb, json: invocation.json)
+        }
+    }
+
+    // MARK: kitty
+
+    /// `skyrose kitty status | install | uninstall`.
+    static func kitty(_ verb: KittyVerb, json: Bool) -> Int32 {
+        let setup = KittySetup()
+        do {
+            var notes: [String] = []
+            switch verb {
+            case .status: break
+            case .install:
+                let scheme = (try? SchemeLoader.load(from: Paths.currentScheme))
+                    ?? SchemeLoader.builtIn(named: "skyrose-dynamic") ?? SchemeLoader.builtIn(named: "skyrose-default")
+                guard let scheme else { Console.error("no colour scheme to write"); return ExitCode.failed }
+                notes = try setup.install(scheme: scheme, journal: BackupJournal())
+            case .uninstall:
+                notes = try setup.uninstall()
+            }
+            if verb != .status, !notes.isEmpty {
+                for app in NSRunningApplication.runningApplications(withBundleIdentifier: TerminalChoice.kittyBundleID) where app.processIdentifier > 0 {
+                    kill(app.processIdentifier, SIGUSR1)
+                }
+            }
+            let s = setup.status()
+            if json {
+                let o: [String: JSONValue] = [
+                    "included": .bool(s.included), "kittyConf": .bool(s.kittyConfExists), "profile": .bool(s.profileWritten),
+                    "theme": .bool(s.themeWritten), "foreignFile": s.foreignFile.map { .string($0) } ?? .null,
+                    "directory": .string(setup.directory.path), "notes": .array(notes.map { .string($0) }),
+                ]
+                Console.out(JSONValue.object(o).prettyJSON)
+            } else {
+                for n in notes { Console.out(n) }
+                Console.out("kitty profile: \(s.included ? "in use (kitty.conf includes \(KittyProfile.fileName))" : "not in use")")
+                Console.out("  \(setup.profileFile.path): \(s.profileWritten ? "written by SkyRose" : "missing")")
+                Console.out("  \(setup.themeFile.path): \(s.themeWritten ? "written by SkyRose (follows the scheme)" : "missing")")
+                if let f = s.foreignFile { Console.out("  \(f) was not written by SkyRose: install refuses to overwrite it") }
+            }
+            return ExitCode.ok
+        } catch {
+            Console.err((error as? LocalizedError)?.errorDescription ?? String(describing: error))
+            return ExitCode.failed
         }
     }
 
@@ -218,6 +264,7 @@ struct Uninstaller {
         Console.err("     `defaults write`/`defaults delete` them back, and copy the saved symbolichotkeys plist over ~/Library/Preferences/).")
         Console.err("  4. Remove key remaps: `hidutil property --set '{\"UserKeyMapping\":[]}'`.")
         Console.err("  5. Remove the login item in System Settings > General > Login Items.")
+        Console.err("     Remove the kitty profile (the include line in kitty.conf and our two files): `skyrose kitty uninstall`.")
         Console.err("  6. Delete ~/Applications/SkyRose.app, ~/Applications/SkyRose Settings.app and the `skyrose` symlink in ~/.local/bin or /usr/local/bin.")
         Console.err("  7. Move \(Environment.tilde(Paths.configDir)) and \(Environment.tilde(Paths.appSupport)) to the Trash.")
         Console.err("  8. Enhanced mode only: unload the scripting addition as described in docs/ENHANCED_MODE.md.")

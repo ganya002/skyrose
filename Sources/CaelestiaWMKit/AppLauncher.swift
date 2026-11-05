@@ -9,7 +9,10 @@ import Foundation
 @MainActor
 public enum AppLauncher {
     /// What an action will run: the executable and its arguments. Pure, for tests.
-    public static func plan(for action: Action, apps: AppsConfig) -> (executable: String, arguments: [String])? {
+    /// `installed` answers whether an app bundle id exists; a chosen terminal app that is not
+    /// installed falls back to macOS Terminal so ⌥ + T never does nothing.
+    public static func plan(for action: Action, apps: AppsConfig,
+                            installed: (String) -> Bool = { _ in true }) -> (executable: String, arguments: [String])? {
         func open(_ target: String) -> (String, [String]) {
             if let url = URL(string: target), url.scheme != nil, !TerminalChoice.looksLikeBundleID(target) {
                 return ("/usr/bin/open", [url.absoluteString])
@@ -19,6 +22,9 @@ public enum AppLauncher {
         switch action.kind {
         case .appTerminal:
             let choice = TerminalChoice(config: apps.terminal)
+            if let id = choice.bundleID, !installed(id) {
+                return ("/usr/bin/open", ["-b", TerminalChoice.appleTerminalBundleID])
+            }
             if let args = choice.openArguments { return ("/usr/bin/open", args) }
             return ("/bin/sh", ["-c", choice.configValue])
         case .appBrowser: return open(apps.browser)
@@ -35,7 +41,11 @@ public enum AppLauncher {
     /// Runs `action` when it is one of ours. True when it was handled.
     @discardableResult
     public static func handle(_ action: Action, apps: AppsConfig) -> Bool {
-        guard let (exe, args) = plan(for: action, apps: apps) else { return false }
+        let installed: (String) -> Bool = { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil }
+        guard let (exe, args) = plan(for: action, apps: apps, installed: installed) else { return false }
+        if action.kind == .appTerminal, let id = TerminalChoice(config: apps.terminal).bundleID, !installed(id) {
+            Log.wm.notice("terminal \(id, privacy: .public) is not installed; opening Terminal instead")
+        }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: exe)
         p.arguments = args

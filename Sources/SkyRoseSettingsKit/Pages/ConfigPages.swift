@@ -581,78 +581,156 @@ struct ShellPage: View {
 
 struct TerminalPage: View {
     @ObservedObject var store: SettingsStore
+    @StateObject private var keymap = KeymapModel()
     @Environment(\.look) var look
     @State private var custom = ""
+    @State private var recording = false
+    @State private var kitty = KittySetup().status()
+    @State private var kittyNote: String?
 
+    static let bindID = "app.terminal"
     var choice: TerminalChoice { TerminalChoice(config: store.config.apps.terminal) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            PageHeader(title: "Terminal", subtitle: "What ⌥ + T opens.")
+            PageHeader(title: "Terminal", subtitle: "What \(shortcutText) opens.")
             Card {
-                option(.kitty, title: "kitty", detail: "A new kitty window every time.", bundle: TerminalChoice.kittyBundleID)
-                option(.rex, title: "Rex", detail: "Opens Rex, or brings it to the front.", bundle: TerminalChoice.rexBundleID)
+                ForEach(TerminalChoice.presets) { preset in option(preset) }
                 otherOption
             }
+            shortcutCard
+            kittyCard
             Card {
-                SettingRow(title: "Try it", detail: store.wmRunning ? "Opens the terminal the way ⌥ + T does." : "Start SkyRose to try it.", icon: "play.circle") {
+                SettingRow(title: "Try it", detail: store.wmRunning ? "Opens the terminal the way \(shortcutText) does." : "Start SkyRose to try it.", icon: "play.circle") {
                     PillButton(title: "Open terminal", icon: "terminal", kind: .tonal) { store.runAction("app.terminal") }
                         .disabled(!store.wmRunning).opacity(store.wmRunning ? 1 : 0.5)
                 }
             }
         }
         .onAppear {
-            if case .command(let c) = choice { custom = c } else if case .app(let id) = choice { custom = id }
+            if case .command(let c) = choice { custom = c } else if case .app(let id) = choice, choice.preset == nil { custom = id }
+            kitty = KittySetup().status()
+        }
+        .onChange(of: recording) { _, r in if !r { store.pauseHotkeys(0) } }
+        .onDisappear { if recording { store.pauseHotkeys(0) } }
+    }
+
+    // MARK: Shortcut
+
+    var terminalBind: Bind? { keymap.keymap?.binds.first { $0.id == Self.bindID } }
+
+    var shortcutText: String {
+        guard let b = terminalBind, let km = keymap.keymap, b.enabled, let first = b.chords.first else { return "⌥ + T" }
+        return ChordParser.format(first, modifierMap: km.modifiers)
+    }
+
+    @ViewBuilder var shortcutCard: some View {
+        if let b = terminalBind, let km = keymap.keymap {
+            Card {
+                SectionLabel(text: "Shortcut")
+                BindRow(bind: b, modifiers: km.modifiers, conflicts: keymap.conflicts[b.id] ?? [], recording: recording,
+                        onRecord: { store.pauseHotkeys(10); withAnimation(look.motion.quick) { recording = true } },
+                        onRecorded: { keys in recording = false; keymap.edit(store) { try keymap.editor.setKeys([keys], forBind: b.id) } },
+                        onCancel: { recording = false },
+                        onToggle: { on in keymap.edit(store) { try keymap.editor.setEnabled(on, forBind: b.id) } },
+                        onReset: { keymap.edit(store) { try keymap.editor.resetBind(b.id) } })
+                Text("Also under Keybinds › Apps. Saved to keymap.toml and applied at once.")
+                    .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+            }
         }
     }
 
-    func isSelected(_ c: TerminalChoice) -> Bool {
-        switch (c, choice) {
-        case (.kitty, .kitty), (.rex, .rex): return true
-        case (.command, .command), (.command, .app): return true
-        default: return false
+    // MARK: kitty
+
+    var kittyInstalled: Bool { NSWorkspace.shared.urlForApplication(withBundleIdentifier: TerminalChoice.kittyBundleID) != nil }
+
+    var kittyCard: some View {
+        Card {
+            SectionLabel(text: "kitty setup")
+            if !kittyInstalled {
+                SettingRow(title: "kitty is not installed",
+                           detail: "SkyRose does not install it for you. Get it from sw.kovidgoyal.net/kitty (or `brew install --cask kitty`); until then \(shortcutText) opens macOS Terminal.",
+                           icon: "exclamationmark.circle") { EmptyView() }
+            }
+            SettingRow(title: kitty.included ? "SkyRose profile in use" : "Use the SkyRose profile",
+                       detail: kitty.included
+                           ? "kitty.conf includes skyrose.conf: Gabby's Arch settings (JetBrainsMono Nerd Font 13, glass 0.62, beam cursor with trail, powerline tabs) and colours that follow the scheme live."
+                           : "Adds one `include skyrose.conf` line to the end of ~/.config/kitty/kitty.conf (a copy of it is kept for the uninstaller). Your own settings stay; ours win where both set a value.",
+                       icon: "terminal") {
+                if kitty.included {
+                    PillButton(title: "Remove", kind: .outline) { runKitty { try KittySetup().uninstall() } }
+                } else {
+                    PillButton(title: "Set up", icon: "wand.and.stars", kind: .filled) {
+                        runKitty { try KittySetup().install(scheme: store.scheme, journal: BackupJournal()) }
+                    }
+                    .disabled(kitty.foreignFile != nil).opacity(kitty.foreignFile == nil ? 1 : 0.5)
+                }
+            }
+            if let f = kitty.foreignFile {
+                Text("\(f) was not written by SkyRose; move it away to use the profile.").font(look.font(12)).foregroundStyle(look[.error])
+            }
+            if let kittyNote {
+                Text(kittyNote).font(look.mono(11.5)).foregroundStyle(look[.onSurfaceVariant]).textSelection(.enabled)
+            }
         }
     }
+
+    func runKitty(_ body: () throws -> [String]) {
+        do {
+            let notes = try body()
+            kittyNote = notes.isEmpty ? "Nothing to change." : notes.joined(separator: "\n") + "\nOpen kitty windows pick it up on their next reload (⌃⌘, in kitty) or new window."
+        } catch {
+            kittyNote = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+        }
+        kitty = KittySetup().status()
+    }
+
+    // MARK: Choices
+
+    func isSelected(_ p: TerminalChoice.Preset) -> Bool { choice.preset == p }
+    var otherSelected: Bool { choice.preset == nil }
 
     func select(_ value: String) {
         store.set("apps.terminal", .string(value), update: { $0.apps.terminal = value })
     }
 
-    func option(_ c: TerminalChoice, title: String, detail: String, bundle: String) -> some View {
-        let installed = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle)
-        return Button { withAnimation(look.motion.quick) { select(c.configValue) } } label: {
+    func option(_ p: TerminalChoice.Preset) -> some View {
+        let installed = NSWorkspace.shared.urlForApplication(withBundleIdentifier: p.bundleID)
+        let selected = isSelected(p)
+        return Button { withAnimation(look.motion.quick) { select(p.choice.configValue) } } label: {
             HStack(spacing: 12) {
                 if let installed {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: installed.path)).resizable().frame(width: 36, height: 36)
                 } else {
-                    Image(systemName: "terminal").frame(width: 36, height: 36)
+                    Image(systemName: "terminal").frame(width: 36, height: 36).foregroundStyle(look[.outline])
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(look.font(14, .medium)).foregroundStyle(look[.onSurface])
-                    Text(installed == nil ? "Not installed" : detail).font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+                    Text(p.name).font(look.font(14, .medium)).foregroundStyle(look[.onSurface].opacity(installed == nil ? 0.6 : 1))
+                    Text(installed == nil ? "Not installed\(selected ? ": \(shortcutText) opens macOS Terminal instead" : "")" : p.detail)
+                        .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
                 }
                 Spacer()
-                Image(systemName: isSelected(c) ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 18)).foregroundStyle(isSelected(c) ? look[.primary] : look[.outline])
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 18)).foregroundStyle(selected ? look[.primary] : look[.outline])
             }
             .padding(10)
             .background(RoundedRectangle(cornerRadius: SettingsLook.rowRadius, style: .continuous)
-                .fill(isSelected(c) ? look[.primaryContainer].opacity(0.45) : .clear))
+                .fill(selected ? look[.primaryContainer].opacity(0.45) : .clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("terminal.\(c.configValue)")
+        .accessibilityIdentifier("terminal.\(p.name.lowercased())")
     }
 
     var otherOption: some View {
-        let selected = isSelected(.command(""))
+        let selected = otherSelected
         return VStack(alignment: .leading, spacing: 8) {
             Button { withAnimation(look.motion.quick) { if !custom.isEmpty { select(custom) } else { select("open -a Terminal") } } } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "ellipsis.rectangle").font(.system(size: 20)).foregroundStyle(look[.primary]).frame(width: 36, height: 36)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Other").font(look.font(14, .medium)).foregroundStyle(look[.onSurface])
-                        Text("A bundle id (com.apple.Terminal) or a command (open -a iTerm).").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+                        Text("A bundle id (dev.warp.Warp-Stable) or a command (wezterm start).").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
                     }
                     Spacer()
                     Image(systemName: selected ? "largecircle.fill.circle" : "circle")
