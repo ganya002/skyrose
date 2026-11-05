@@ -88,6 +88,8 @@ final class CloseQuitsAppTests: XCTestCase {
         redClose(h, settings)
         XCTAssertTrue(t.terminated.isEmpty)
         XCTAssertTrue(CaelestiaWMKit.WindowManager.neverQuits("COM.APPLE.FINDER", exceptions: ["com.apple.finder"]))
+        XCTAssertTrue(CaelestiaWMKit.WindowManager.neverQuits("com.skyrose.mac", exceptions: []))
+        XCTAssertFalse(CaelestiaWMKit.WindowManager.neverQuits("com.skyrose.mac.testwindows", exceptions: []), "stands in for any app")
     }
 
     func testMenuBarAndBackgroundAppsNeverQuit() {

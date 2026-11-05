@@ -959,8 +959,11 @@ public final class WindowManager {
 
     /// SkyRose's own apps and the user's exceptions are never quit.
     static func neverQuits(_ bundleID: String, exceptions: [String]) -> Bool {
-        bundleID.isEmpty || bundleID.hasPrefix("com.skyrose.") || exceptions.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
+        bundleID.isEmpty || ownApps.contains(bundleID) || exceptions.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
     }
+
+    /// The WM and Settings. TestWindows is deliberately not here: it stands in for any app.
+    static let ownApps: Set<String> = ["com.skyrose.mac", "com.skyrose.mac.settings"]
 
     /// Quits the app (normally) once it has no window left: none tracked (minimized and parked
     /// ones count) and none in its own AX list. Background / menu-bar apps are never quit.

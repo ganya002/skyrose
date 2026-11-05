@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased: Arch parity
+
+### Added
+- **Hyprland-exact dwindle geometry** (gaps_out partition, then gaps_in on interior sides only),
+  `gapsOutSingle` 20, split on the longer side, preserve_split, pseudo, togglesplit, swapsplit,
+  float centring, a minimum tile size (windows that do not fit float centred).
+- **Edge and corner hover reveals** as captured (Caelestia `Interactions.qml`): dashboard from the
+  top band, utilities from the bottom-right corner (now its own drawer), OSD from the right edge,
+  100 ms dwell; the session menu dims the screen.
+- **Red button quits the app** (Settings › Windows, off by default, per-app exceptions, Finder by
+  default).
+- **Appearance › Cursor**: Bibata Modern Classic (Mousecape cape) for the login session; the wait
+  cursor stays macOS's; `skyrose cursor list|status|set|reset`; reset on every WM quit path.
+- **WM restarts keep every window on its workspace and side** (`session.json`).
+
+### Changed
+- Opacity 0.95, bar 60 pt, border colour fade 480 ms (Arch), close 240 ms, popin 80 %.
+- Settings: window corners match the WM rounding (15), the sidebar is an inset concentric panel;
+  "SkyRose is running" is live; a second WM instance waits for the first and then exits.
+
+### Fixed
+- Corner calibration: the Auto/Manual control was squeezed into a column next to the slider.
+
 ## 0.2.0 "SkyRose" (2026-11-04)
 
 The project is renamed from "Caelestia for Mac" / CaelestiaWM to **SkyRose** (brand) and

@@ -286,6 +286,7 @@ struct CornerRow: View {
                             store.set(path, .number(start), update: { c in var o = c.displays[display.id] ?? DisplayOverride(); apply(&o, start); c.displays[display.id] = o })
                         }
                     }))
+                    .fixedSize()  // the slider beside it must not squeeze the labels into a column
                 if !auto {
                     PillSlider(value: Binding(get: { value }, set: { v in
                         store.set(path, .number(v), update: { c in var o = c.displays[display.id] ?? DisplayOverride(); apply(&o, v); c.displays[display.id] = o }, coalesce: true)
@@ -431,7 +432,7 @@ struct CursorCard: View {
         Card {
             SectionLabel(text: "Cursor")
             SettingRow(title: "Pointer theme",
-                       detail: "For this login session only: nothing on disk changes, and quitting SkyRose or logging out brings the macOS cursors back. Same size and hotspots as on Arch (24 pt).",
+                       detail: "For this login session only: nothing on disk changes, and quitting SkyRose or logging out brings the macOS cursors back. Same size and hotspots as on Arch (24 pt). The pointer switches the next time it changes shape.",
                        icon: "cursorarrow") {
                 PillSegmented(options: [("", "macOS", nil)] + capes.map { ($0.identifier, $0.name, nil) },
                               selection: Binding(get: { current }, set: { choose($0) }))

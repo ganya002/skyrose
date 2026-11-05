@@ -74,7 +74,7 @@ cp "$BIN/skyrose" "$APP/Contents/MacOS/skyrose"
 # Deprecated alias for one release: `caelestia …` still works and prints a notice.
 ln -s skyrose "$APP/Contents/MacOS/caelestia"
 copy_resource_bundles "$APP"
-cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"
+[[ -d "$ROOT/Resources" ]] && cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"   # optional extra resources (untracked)
 cp "$ROOT/Packaging/SkyRose.icns" "$ROOT/Packaging/SkyRoseWM.icns" "$APP/Contents/Resources/"   # scripts/make-icons.swift
 sed "s/__VERSION__/$VERSION/g" "$ROOT/Packaging/SkyRose-Info.plist" > "$APP/Contents/Info.plist"
 sed "s|__APP_PATH__|$HOME/Applications/SkyRose.app|g" "$ROOT/Packaging/com.skyrose.mac.plist" \

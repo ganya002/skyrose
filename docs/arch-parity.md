@@ -130,10 +130,17 @@ Caelestia/Hyprland upstream source and docs:
 - **done** Settings: window radius 15 (= WM rounding), blur masked, sidebar an inset panel
   with concentric corners; the WM waits for / refuses a second instance, rebinds a lost
   socket, and the running status is live.
-- **done (live test pending)** Windows › "Red button quits the app" (opt-in, exceptions,
-  Finder by default; Dock apps only, normal quit).
-- **in research** Cursor: Appearance › Cursor (Bibata Modern Classic). See
-  docs/parity-progress.md for the findings so far; not shipped.
+- **done, live-tested** Windows › "Red button quits the app" (opt-in, default off; exceptions,
+  Finder by default; Dock apps only; normal quit). TestWindows: with 2 windows only the clicked
+  one closed; the last one quit the app; with the option off the app kept running.
+- **done, live-tested** A WM restart keeps every window on its workspace and side
+  (`session.json`; see docs/parity-progress.md).
+- **done, live-tested** Appearance › Cursor: Bibata Modern Classic for the login session, at the
+  cape's 24 pt size and hotspots (Arch `cursorSize = 24`; left_ptr hotspot 55,17 of 256 → 5.16,1.59).
+  Every cursor except the spinning wait cursor, which macOS cannot restore once replaced, so it
+  stays macOS's (said in Settings). Reset, WM quit and `skyrose cursor reset` put back the exact
+  originals (registry diff identical). Note: the capture's `hypr/variables.lua` names
+  `cursorTheme = "sweet-cursors"`; Bibata is what Gabby asked for and what the Mousecape cape is.
 
 ## Questions answered before the big changes
 

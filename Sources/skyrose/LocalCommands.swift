@@ -200,13 +200,14 @@ struct Uninstaller {
         Console.err("")
         Console.err("Get it from the repository (scripts/uninstall.sh) and run it with /bin/sh, or undo by hand:")
         Console.err("  1. Quit the WM: `skyrose wm quit` (restores every window first), or SkyRose Settings > Backup & uninstall.")
-        Console.err("  2. Restore backed-up settings from \(Environment.tilde(Paths.backupJournal)) (each entry lists domain, key and old value;")
+        Console.err("  2. Put back the macOS cursors: `skyrose cursor reset` (logging out also does it).")
+        Console.err("  3. Restore backed-up settings from \(Environment.tilde(Paths.backupJournal)) (each entry lists domain, key and old value;")
         Console.err("     `defaults write`/`defaults delete` them back, and copy the saved symbolichotkeys plist over ~/Library/Preferences/).")
-        Console.err("  3. Remove key remaps: `hidutil property --set '{\"UserKeyMapping\":[]}'`.")
-        Console.err("  4. Remove the login item in System Settings > General > Login Items.")
-        Console.err("  5. Delete ~/Applications/SkyRose.app, ~/Applications/SkyRose Settings.app and the `skyrose` symlink in ~/.local/bin or /usr/local/bin.")
-        Console.err("  6. Move \(Environment.tilde(Paths.configDir)) and \(Environment.tilde(Paths.appSupport)) to the Trash.")
-        Console.err("  7. Enhanced mode only: unload the scripting addition as described in docs/ENHANCED_MODE.md.")
+        Console.err("  4. Remove key remaps: `hidutil property --set '{\"UserKeyMapping\":[]}'`.")
+        Console.err("  5. Remove the login item in System Settings > General > Login Items.")
+        Console.err("  6. Delete ~/Applications/SkyRose.app, ~/Applications/SkyRose Settings.app and the `skyrose` symlink in ~/.local/bin or /usr/local/bin.")
+        Console.err("  7. Move \(Environment.tilde(Paths.configDir)) and \(Environment.tilde(Paths.appSupport)) to the Trash.")
+        Console.err("  8. Enhanced mode only: unload the scripting addition as described in docs/ENHANCED_MODE.md.")
     }
 }
 
