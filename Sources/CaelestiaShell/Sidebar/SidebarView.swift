@@ -142,7 +142,7 @@ private struct GroupCard: View {
     }
 }
 
-private struct UtilitiesSection: View {
+struct UtilitiesSection: View {
     @ObservedObject var model: SidebarModel
     @ObservedObject var state: ShellState
     @Environment(\.shellTheme) var theme

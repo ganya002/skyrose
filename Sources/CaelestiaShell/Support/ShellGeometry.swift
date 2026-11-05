@@ -49,6 +49,42 @@ public enum DrawerPath {
     }
 }
 
+/// A drawer in the bottom-right corner (Caelestia utilities): the body's free top-left corner is
+/// rounded, a concave fillet joins the bottom band at its left end and another joins the right
+/// band at its top end; the right and bottom sides lie on the bands. y-down, `rect` includes the
+/// fillets (`fillet` on the left and on the top).
+public enum CornerDrawerPath {
+    public static func bottomRight(in rect: CGRect, radius: Double, fillet: Double) -> CGPath {
+        let w = rect.width, h = rect.height
+        let f = max(0, min(fillet, w / 2, h / 2))
+        let r = max(0, min(radius, w - 2 * f, h - 2 * f))
+        func p(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: rect.minX + x, y: rect.minY + y) }
+        let path = CGMutablePath()
+        path.move(to: p(0, h))
+        if f > 0 { path.addArc(tangent1End: p(f, h), tangent2End: p(f, 0), radius: f) } else { path.addLine(to: p(0, 0)) }
+        if r > 0 { path.addArc(tangent1End: p(f, f), tangent2End: p(w, f), radius: r) } else { path.addLine(to: p(f, f)) }
+        if f > 0 { path.addArc(tangent1End: p(w, f), tangent2End: p(w, 0), radius: f) } else { path.addLine(to: p(w, f)) }
+        path.addLine(to: p(w, h))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// SwiftUI wrapper of `CornerDrawerPath.bottomRight`.
+public struct CornerDrawerShape: Shape {
+    public var radius: Double
+    public var fillet: Double
+
+    public init(radius: Double = 25, fillet: Double = 25) {
+        self.radius = radius
+        self.fillet = fillet
+    }
+
+    public func path(in rect: CGRect) -> Path {
+        Path(CornerDrawerPath.bottomRight(in: rect, radius: radius, fillet: fillet))
+    }
+}
+
 /// SwiftUI wrapper of `DrawerPath`.
 public struct DrawerShape: Shape {
     public var edge: ShellEdge
@@ -335,6 +371,12 @@ public struct DisplayLayout: Equatable, Sendable {
     /// The hover strip that reveals an auto-hidden bar: the left band.
     public func barHotZone(contains p: CGPoint) -> Bool {
         p.x >= area.minX - 1 && p.x <= area.minX + max(2, thickness) && p.y >= area.minY && p.y <= area.maxY
+    }
+
+    /// A bottom-right corner drawer of `size` (fillets included), sitting on both bands.
+    public func cornerDrawerFrame(size: CGSize, barReveal: Double) -> CGRect {
+        let inner = inner(barReveal: barReveal)
+        return CGRect(x: inner.maxX - size.width, y: inner.minY, width: size.width, height: size.height)
     }
 
     /// A drawer of `size` (fillets included) attached to `edge`, centred along it.

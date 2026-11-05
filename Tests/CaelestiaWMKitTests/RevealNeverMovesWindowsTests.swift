@@ -305,6 +305,86 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
         assertUntouched(r, before, "persistent")
     }
 
+    func testEdgeAndCornerHoverRevealsOpenAfterTheDwellAndCloseOnLeave() throws {
+        let r = rig()
+        defer { r.shell.stop() }
+        let before = snapshot(r.h, r.windows)
+        let layout = try XCTUnwrap(r.shell.layouts["air"])
+        let inner = layout.inner(barReveal: 0)
+        let topBand = CGPoint(x: inner.midX, y: inner.maxY + 4)
+        let middle = CGPoint(x: inner.midX, y: inner.midY)
+
+        // Passing through the top band (on the way to the menu bar) opens nothing.
+        r.shell.hoverReveal(topBand, at: 100)
+        r.shell.hoverReveal(middle, at: 100.05)
+        r.shell.hoverReveal(topBand, at: 100.12)
+        XCTAssertFalse(r.shell.isOpen(.dashboard), "no dwell yet")
+        // Resting there opens the dashboard; moving onto it keeps it; leaving closes it.
+        r.shell.hoverReveal(topBand, at: 100.25)
+        XCTAssertTrue(r.shell.isOpen(.dashboard))
+        XCTAssertEqual(r.shell.hoverOpened, [.dashboard])
+        r.shell.hoverReveal(CGPoint(x: inner.midX, y: inner.maxY - 60), at: 101)
+        XCTAssertTrue(r.shell.isOpen(.dashboard), "on the drawer")
+        r.shell.hoverReveal(CGPoint(x: inner.minX + 5, y: inner.minY + 200), at: 102)
+        XCTAssertFalse(r.shell.isOpen(.dashboard), "left it")
+        XCTAssertTrue(r.shell.hoverOpened.isEmpty)
+        assertUntouched(r, before, "dashboard hover")
+
+        // The bottom-right corner opens the standalone utilities drawer (not the sidebar).
+        let corner = CGPoint(x: layout.area.maxX - 1, y: layout.area.minY + 1)
+        r.shell.hoverReveal(corner, at: 110)
+        r.shell.hoverReveal(corner, at: 110.2)
+        XCTAssertTrue(r.shell.isOpen(.utilities))
+        XCTAssertFalse(r.shell.isOpen(.sidebar))
+        XCTAssertTrue(r.shell.utilities.shown)
+        r.shell.hoverReveal(middle, at: 111)
+        XCTAssertFalse(r.shell.isOpen(.utilities))
+        XCTAssertFalse(r.shell.utilities.shown)
+        assertUntouched(r, before, "utilities hover")
+
+        // The right band over the OSD's height shows the OSD and keeps it while there.
+        let right = CGPoint(x: layout.area.maxX - 2, y: inner.midY)
+        r.shell.hoverReveal(right, at: 120)
+        r.shell.hoverReveal(right, at: 120.2)
+        XCTAssertTrue(r.shell.isOpen(.osd))
+        XCTAssertEqual(r.shell.hoverOpened, [.osd])
+        r.shell.hoverReveal(middle, at: 121)
+        XCTAssertTrue(r.shell.hoverOpened.isEmpty, "the OSD then hides after its usual delay")
+        assertUntouched(r, before, "osd hover")
+    }
+
+    func testAKeybindOpenedDrawerIgnoresHoverLeave() throws {
+        let r = rig()
+        defer { r.shell.stop() }
+        let layout = try XCTUnwrap(r.shell.layouts["air"])
+        r.shell.open(.dashboard, display: "air")
+        r.shell.hoverReveal(CGPoint(x: layout.area.midX, y: layout.area.maxY - 2), at: 10)
+        r.shell.hoverReveal(CGPoint(x: layout.area.minX + 30, y: layout.area.minY + 30), at: 11)
+        XCTAssertTrue(r.shell.isOpen(.dashboard), "opened on purpose: stays")
+        // With the sidebar open, the corner does not open a second utilities drawer.
+        r.shell.open(.sidebar, display: "air")
+        let corner = CGPoint(x: layout.area.maxX - 1, y: layout.area.minY + 1)
+        r.shell.hoverReveal(corner, at: 20)
+        r.shell.hoverReveal(corner, at: 20.2)
+        XCTAssertFalse(r.shell.utilities.shown)
+        XCTAssertTrue(r.shell.hoverOpened.isEmpty)
+    }
+
+    func testSessionDimsTheScreenAndClearsOnClose() throws {
+        let r = rig()
+        defer { r.shell.stop() }
+        r.shell.open(.session, display: "air")
+        let dim = try XCTUnwrap(r.shell.dimPanel)
+        XCTAssertTrue(dim.isVisible)
+        XCTAssertTrue(dim.ignoresMouseEvents, "click-through")
+        XCTAssertLessThan(dim.level.rawValue, ShellLevel.drawer.rawValue, "under the session drawer")
+        r.shell.close(.session)
+        let gone = expectation(description: "dim fades out")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { gone.fulfill() }
+        wait(for: [gone], timeout: 2)
+        XCTAssertFalse(dim.isVisible)
+    }
+
     func testEveryDrawerOpensAndClosesWithoutMovingWindows() throws {
         let r = rig()
         defer { r.shell.stop() }

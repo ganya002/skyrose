@@ -54,6 +54,17 @@ public final class ShellController {
     public let wallpaperPicker = WallpaperModel()
     var dashboardPanel: ShellPanel?
     var sidebarPanel: ShellPanel?
+    public let utilities = UtilitiesDrawerModel()
+    var utilitiesPanel: ShellPanel?
+    /// Drawers opened by hovering their edge or corner: they close when the pointer leaves
+    /// (keybind-opened ones stay until toggled).
+    public internal(set) var hoverOpened: Set<Drawer> = []
+    /// A closed hover zone the pointer entered, and when (opens after `HoverReveal.dwell`).
+    var hoverPending: (target: HoverReveal.Target, display: String, since: TimeInterval)?
+    var utilitiesSizeCache: [String: CGSize] = [:]
+    var lastHoverPointer: CGPoint?
+    /// The scrim behind the session menu (Caelestia dims the screen while it is open).
+    var dimPanel: ShellPanel?
     var popoutPanel: ShellPanel?
     var wallpaperPanel: ShellPanel?
     public internal(set) var popoutKind: PopoutKind?
@@ -252,6 +263,89 @@ public final class ShellController {
             visibility[id] = vis
         }
         scheduleHideTick()
+        hoverReveal(p, at: now)
+    }
+
+    // MARK: Hover reveals (Caelestia Interactions.qml)
+
+    static func drawer(for t: HoverReveal.Target) -> Drawer {
+        switch t {
+        case .dashboard: return .dashboard
+        case .utilities: return .utilities
+        case .osd: return .osd
+        }
+    }
+
+    static func target(for d: Drawer) -> HoverReveal.Target? {
+        switch d {
+        case .dashboard: return .dashboard
+        case .utilities: return .utilities
+        case .osd: return .osd
+        default: return nil
+        }
+    }
+
+    func hoverSizes(_ layout: DisplayLayout, reveal: Double) -> HoverReveal.Sizes {
+        let body = OSDModel.maxBodySize
+        return HoverReveal.Sizes(
+            dashboard: dashboardFit(layout: layout, reveal: reveal).size,
+            utilities: utilitiesSize(layout: layout, reveal: reveal),
+            osd: CGSize(width: body.width, height: body.height + 2 * theme.frameRounding))
+    }
+
+    /// Whether hovering may open `t` now: never over a drawer the user opened on purpose.
+    private func hoverMayOpen(_ t: HoverReveal.Target) -> Bool {
+        let d = Self.drawer(for: t)
+        guard isModuleOn(d), !openDrawers.contains(d), !openDrawers.contains(.session) else { return false }
+        switch t {
+        case .dashboard: return !openDrawers.contains(.launcher) && !openDrawers.contains(.wallpaper)
+        case .utilities: return !openDrawers.contains(.sidebar) && !openDrawers.contains(.launcher)
+        case .osd: return true
+        }
+    }
+
+    /// One pointer position: closes hover-opened drawers the pointer left, and opens the drawer
+    /// whose closed zone it has rested in for `HoverReveal.dwell`.
+    func hoverReveal(_ p: CGPoint, at now: TimeInterval) {
+        guard isRunning else { return }
+        lastHoverPointer = p
+        let here = layouts.first { $0.value.area.insetBy(dx: -2, dy: -2).contains(p) }
+        let r = theme.frameRounding
+        let sizes = here.map { hoverSizes($0.value, reveal: bars[$0.key]?.reveal.target ?? 0) }
+
+        for d in hoverOpened {
+            guard let t = Self.target(for: d) else { continue }
+            var inside = false
+            if let here, let sizes, launcherDisplay == here.key || d == .osd {
+                inside = HoverReveal.contains(p, target: t, layout: here.value, barReveal: bars[here.key]?.reveal.target ?? 0,
+                                              sizes: sizes, rounding: r, open: true)
+            }
+            if inside { continue }
+            hoverOpened.remove(d)
+            if d == .osd { pokeOSD() } else { close(d) }
+        }
+
+        guard let here, let sizes else { hoverPending = nil; return }
+        let reveal = bars[here.key]?.reveal.target ?? 0
+        let target = HoverReveal.Target.allCases.first { t in
+            hoverMayOpen(t) && HoverReveal.contains(p, target: t, layout: here.value, barReveal: reveal, sizes: sizes, rounding: r, open: false)
+        }
+        guard let target else { hoverPending = nil; return }
+        if let pending = hoverPending, pending.target == target, pending.display == here.key {
+            guard now - pending.since >= HoverReveal.dwell else { return }
+            hoverPending = nil
+            let d = Self.drawer(for: target)
+            Log.shell.debug("hover reveal \(d.rawValue, privacy: .public)")
+            open(d, display: here.key)
+            if openDrawers.contains(d) { hoverOpened.insert(d) }
+        } else {
+            hoverPending = (target, here.key, now)
+            // The pointer may rest there without moving again.
+            DispatchQueue.main.asyncAfter(deadline: .now() + HoverReveal.dwell + 0.01) { [weak self] in
+                guard let self, let p = self.lastHoverPointer, self.hoverPending != nil else { return }
+                self.hoverReveal(p, at: ProcessInfo.processInfo.systemUptime)
+            }
+        }
     }
 
     private func scheduleHideTick() {
@@ -354,18 +448,24 @@ public final class ShellController {
             panel.setFrame(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), display: false)
             session.reset()
             hideOSD(animated: true)
+            showSessionDim(id)
             present(panel)
             session.shown = true
         case .osd:
             showOSD(display: id)
             return
         case .dashboard: openDashboard(id, layout: layout, reveal: reveal)
-        case .sidebar, .utilities:
+        case .sidebar:
+            // The sidebar carries the utilities at its bottom (upstream shows both together).
+            if utilities.shown { closeUtilities() }
             openSidebar(id, layout: layout, reveal: reveal)
             openDrawers.insert(.utilities)
             launcherDisplay = id
             openDrawers.insert(.sidebar)
             return
+        case .utilities:
+            guard !openDrawers.contains(.sidebar) else { return }
+            openUtilities(id, layout: layout, reveal: reveal)
         case .wallpaper: openWallpaper(id, layout: layout, reveal: reveal)
         }
         launcherDisplay = id
@@ -383,13 +483,22 @@ public final class ShellController {
             session.shown = false
             session.disarm()
             dismiss(sessionPanel)
+            dimPanel?.fadeOut(duration: theme.drawerCloseSeconds)
         case .osd:
             hideOSD(animated: true)
         case .dashboard: closeDashboard()
-        case .sidebar, .utilities: closeSidebar()
+        case .sidebar: closeSidebar()
+        case .utilities:
+            if sidebar.shown {
+                closeSidebar()
+                openDrawers.remove(.sidebar)
+            } else {
+                closeUtilities()
+            }
         case .wallpaper: closeWallpaper()
         }
         openDrawers.remove(d)
+        hoverOpened.remove(d)
     }
 
     public func closeAll() {
@@ -513,9 +622,10 @@ public final class ShellController {
         osdTimer.changed(at: ProcessInfo.processInfo.systemUptime)
         DispatchQueue.main.asyncAfter(deadline: .now() + OSDModel.hideDelay + 0.02) { [weak self] in
             guard let self else { return }
-            if self.osdTimer.shouldHide(at: ProcessInfo.processInfo.systemUptime, hovered: self.osd.hovered) {
+            let hovered = self.osd.hovered || self.hoverOpened.contains(.osd)
+            if self.osdTimer.shouldHide(at: ProcessInfo.processInfo.systemUptime, hovered: hovered) {
                 self.hideOSD(animated: true)
-            } else if self.osd.shown, self.osd.hovered {
+            } else if self.osd.shown, hovered {
                 self.pokeOSD()
             }
         }

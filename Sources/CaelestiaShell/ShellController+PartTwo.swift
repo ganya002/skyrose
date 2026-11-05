@@ -6,11 +6,13 @@ import SwiftUI
 /// Shell part 2: dashboard, sidebar (notifications + utilities), bar popouts, wallpaper picker and
 /// dynamic colours.
 extension ShellController {
-    var partTwoPanels: [ShellPanel?] { [dashboardPanel, sidebarPanel, popoutPanel, wallpaperPanel] }
+    var partTwoPanels: [ShellPanel?] { [dashboardPanel, sidebarPanel, utilitiesPanel, popoutPanel, wallpaperPanel, dimPanel] }
 
     func dropPartTwoPanels() {
-        dashboardPanel = nil; sidebarPanel = nil; popoutPanel = nil; wallpaperPanel = nil
-        dashboard.shown = false; sidebar.shown = false; popout.shown = false; wallpaperPicker.shown = false
+        dashboardPanel = nil; sidebarPanel = nil; utilitiesPanel = nil; popoutPanel = nil; wallpaperPanel = nil; dimPanel = nil
+        dashboard.shown = false; sidebar.shown = false; utilities.shown = false; popout.shown = false; wallpaperPicker.shown = false
+        hoverOpened.removeAll()
+        hoverPending = nil
         popoutKind = nil
         stopStatsTimer()
         media.isObserved = false
@@ -101,6 +103,23 @@ extension ShellController {
         let fillet = theme.frameRounding
         let panel = dashboardPanel ?? makeDrawerPanel(DashboardView(model: dashboard, state: state, fillet: fillet), name: "dashboard", key: false)
         dashboardPanel = panel
+        let (fit, clearance, size) = dashboardFit(layout: layout, reveal: reveal)
+        dashboard.scale = fit.scale
+        dashboard.topInset = clearance
+        dashboard.now = Date()
+        dashboard.monthOffset = 0
+        dashboard.tab = DashboardTab(config: state.config.dashboard.defaultTab)
+        panel.setFrame(layout.drawerFrame(size: size, edge: .top, barReveal: reveal), display: false)
+        hideOSD(animated: true)
+        present(panel)
+        dashboard.shown = true
+        media.isObserved = true
+        startStatsTimer()
+    }
+
+    /// The dashboard's fit on `layout`: scale, notch clearance and panel size (fillets included).
+    func dashboardFit(layout: DisplayLayout, reveal: Double) -> (fit: (scale: Double, body: CGSize), clearance: Double, size: CGSize) {
+        let fillet = theme.frameRounding
         let inner = layout.inner(barReveal: reveal)
         // A notch under the drawer: the drawer still grows out of the top band and covers the
         // band's dip, but its content starts below it.
@@ -108,18 +127,63 @@ extension ShellController {
         var room = inner
         room.size.height -= clearance
         let fit = ShellSizing.dashboard(inner: room, fillet: fillet)
-        dashboard.scale = fit.scale
-        dashboard.topInset = clearance
-        dashboard.now = Date()
-        dashboard.monthOffset = 0
-        dashboard.tab = DashboardTab(config: state.config.dashboard.defaultTab)
-        let size = CGSize(width: fit.body.width + 2 * fillet, height: fit.body.height + clearance)
-        panel.setFrame(layout.drawerFrame(size: size, edge: .top, barReveal: reveal), display: false)
-        hideOSD(animated: true)
+        return (fit, clearance, CGSize(width: fit.body.width + 2 * fillet, height: fit.body.height + clearance))
+    }
+
+    // MARK: Session dim
+
+    /// How dark the scrim behind the session menu is: the capture's wallpaper drops to ~55 %
+    /// brightness while the menu is open (session_open frames 1 → 9).
+    static let sessionDimAlpha: Double = 0.45
+
+    /// Fades a click-through black scrim over the whole display under the session drawer.
+    func showSessionDim(_ id: String) {
+        guard let layout = layouts[id] else { return }
+        let centre = CGPoint(x: layout.area.midX, y: layout.area.midY)
+        let frame = NSScreen.screens.first { $0.frame.contains(centre) }?.frame ?? layout.area
+        let panel = dimPanel ?? {
+            let p = ShellPanel(frame: frame, level: NSWindow.Level(rawValue: ShellLevel.drawer.rawValue - 1), clickThrough: true, name: "session-dim")
+            let v = NSView(frame: CGRect(origin: .zero, size: frame.size))
+            v.wantsLayer = true
+            v.layer?.backgroundColor = NSColor.black.withAlphaComponent(Self.sessionDimAlpha).cgColor
+            v.autoresizingMask = [.width, .height]
+            p.contentView = v
+            return p
+        }()
+        dimPanel = panel
+        panel.setFrame(frame, display: false)
+        panel.fadeIn(duration: theme.drawerOpenSeconds)
+    }
+
+    // MARK: Utilities (bottom-right corner)
+
+    /// The standalone utilities drawer's size on `layout` (fillets included): the sidebar's
+    /// column width, the controls' height. Cached per width (the probe lays out SwiftUI).
+    func utilitiesSize(layout: DisplayLayout, reveal: Double) -> CGSize {
+        let width = ShellSizing.sidebarWidth(inner: layout.inner(barReveal: reveal))
+        let key = "\(width)|\(sidebar.brightnessAvailable)"
+        if let cached = utilitiesSizeCache[key] { return cached }
+        let size = UtilitiesDrawerView.size(bodyWidth: width, fillet: theme.frameRounding, sidebar: sidebar, state: state, theme: theme)
+        utilitiesSizeCache = [key: size]
+        return size
+    }
+
+    func openUtilities(_ id: String, layout: DisplayLayout, reveal: Double) {
+        let fillet = theme.frameRounding
+        let panel = utilitiesPanel ?? makeDrawerPanel(UtilitiesDrawerView(model: utilities, sidebar: sidebar, state: state, fillet: fillet),
+                                                      name: "utilities", key: false)
+        utilitiesPanel = panel
+        sidebar.brightnessAvailable = brightness.state.unavailableReason == nil
+        panel.setFrame(layout.cornerDrawerFrame(size: utilitiesSize(layout: layout, reveal: reveal), barReveal: reveal), display: false)
         present(panel)
-        dashboard.shown = true
-        media.isObserved = true
-        startStatsTimer()
+        utilities.shown = true
+        launcherDisplay = id
+    }
+
+    func closeUtilities() {
+        guard utilities.shown else { return }
+        utilities.shown = false
+        dismissAfter(utilitiesPanel) { [weak self] in self?.utilities.shown == false }
     }
 
     func closeDashboard() {
