@@ -77,6 +77,11 @@ focusFollowsMouse = true
 focusFollowsMouseDelayMs = 100
 # input.lua focus_on_close = 1: focus the window under the cursor after a close.
 focusOnCloseUnderCursor = true
+# SkyRose: the red close button on an app's last window quits the app (opt-in). A normal quit
+# (apps can still ask to save), never a force quit. Only Dock apps; menu-bar apps never quit.
+closeQuitsApp = false
+# Apps the red button never quits (bundle ids).
+closeQuitsAppExceptions = ["com.apple.finder"]
 # functions.lua wsaction: workspace id = 10 * (group - 1) + slot.
 workspacesPerGroup = 10
 workspaceGroups = 5

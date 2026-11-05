@@ -189,6 +189,17 @@ public final class WindowManager {
     /// Last left-button press (from the event tap): a frame change only counts as the user's drag
     /// when the press was on that window.
     var lastPointerPress: CGPoint?
+    /// `wm.closeQuitsApp`: windows whose red close button was just pressed, and when. A window
+    /// destroyed within `closeClickWindow` of that press was closed by the red button (a
+    /// "save changes?" sheet may sit in between).
+    var closeButtonPresses: [WindowID: Date] = [:]
+    static let closeClickWindow: TimeInterval = 60
+    /// How long after the last window goes before the app's own window list is checked (the
+    /// closed window can still be listed for a moment).
+    static let closeQuitCheckDelay: TimeInterval = 0.3
+    public var appTerminator: AppTerminator = SystemAppTerminator()
+    /// Apps the red button quit (pid → bundle id), for `query state` and tests.
+    public private(set) var closeQuitApps: [String] = []
     var pointerPoll: Timer?
     /// Floated by the WM itself (no room for the min size, or the app kept fighting its slot).
     public internal(set) var autoFloated: [WindowID: String] = [:]
@@ -609,7 +620,9 @@ public final class WindowManager {
         case .created(let handle):
             manage(handle)
         case .destroyed(let id):
+            let quit = closeQuitCandidate(id)
             unmanage(id)
+            if let quit { quitIfLastWindow(pid: quit.pid, bundleID: quit.bundleID) }
         case .focused(let id):
             systemFocusChanged(id)
         case .frameChanged(let id, let frame, let isEcho):
@@ -898,6 +911,55 @@ public final class WindowManager {
     /// The left button went down at `location` (event tap, main thread).
     public func pointerPressed(at location: CGPoint?) {
         lastPointerPress = location
+        if config.wm.closeQuitsApp, let location { noteCloseButtonPress(at: location) }
+    }
+
+    // MARK: Red close button quits the app (wm.closeQuitsApp)
+
+    /// Records a press on a window's red close button. Only the top strip of the window under
+    /// the pointer costs an AX read (the button's frame); everything else returns at once.
+    func noteCloseButtonPress(at p: CGPoint) {
+        let cutoff = now().addingTimeInterval(-Self.closeClickWindow)
+        closeButtonPresses = closeButtonPresses.filter { $0.value > cutoff && handles[$0.key] != nil }
+        let under = windowSystem.windowUnderCursor().flatMap { handles[$0] != nil ? $0 : nil }
+            ?? handles.first { $0.value.frame.contains(p) }?.key
+        guard let id = under, let handle = handles[id] else { return }
+        let f = handle.frame
+        guard !f.isNull, f.contains(p), p.y - f.minY <= 60 else { return }
+        guard let button = handle.closeButtonFrame(), button.insetBy(dx: -2, dy: -2).contains(p) else { return }
+        closeButtonPresses[id] = now()
+    }
+
+    /// The app of a window closed by its red button, when `closeQuitsApp` may quit it.
+    func closeQuitCandidate(_ id: WindowID) -> (pid: pid_t, bundleID: String)? {
+        guard config.wm.closeQuitsApp, let pressed = closeButtonPresses.removeValue(forKey: id),
+              now().timeIntervalSince(pressed) <= Self.closeClickWindow, let h = handles[id] else { return nil }
+        let bundle = descriptors[id]?.bundleID ?? h.bundleID
+        guard !Self.neverQuits(bundle, exceptions: config.wm.closeQuitsAppExceptions) else { return nil }
+        return (h.pid, bundle)
+    }
+
+    /// SkyRose's own apps and the user's exceptions are never quit.
+    static func neverQuits(_ bundleID: String, exceptions: [String]) -> Bool {
+        bundleID.isEmpty || bundleID.hasPrefix("com.skyrose.") || exceptions.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
+    }
+
+    /// Quits the app (normally) once it has no window left: none tracked (minimized and parked
+    /// ones count) and none in its own AX list. Background / menu-bar apps are never quit.
+    func quitIfLastWindow(pid: pid_t, bundleID: String) {
+        let check: @MainActor () -> Void = { [weak self] in
+            guard let self, self.config.wm.closeQuitsApp else { return }
+            guard !self.handles.values.contains(where: { $0.pid == pid }) else { return }
+            if let listed = self.windowSystem.appWindowCount(pid: pid), listed > 0 { return }
+            guard self.appTerminator.isRegularApp(pid: pid) else { return }
+            Log.wm.notice("red close button on the last window: quitting \(bundleID, privacy: .public)")
+            if self.appTerminator.terminate(pid: pid) { self.closeQuitApps.append(bundleID) }
+        }
+        if scheduling == .mainQueue {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.closeQuitCheckDelay) { MainActor.assumeIsolated { check() } }
+        } else {
+            check()
+        }
     }
 
     /// The left button was released: every native drag of a tiled window ends.

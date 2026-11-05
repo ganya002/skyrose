@@ -35,6 +35,10 @@ public final class AXWindowSystem: WindowSystem {
         cursorLocation.flatMap { discovery.windowUnder(point: $0) }?.windowID
     }
 
+    public func appWindowCount(pid: pid_t) -> Int? {
+        AXApplication(pid: pid).map { $0.windows().count }
+    }
+
     public func findWindow(for record: ParkedWindowRecord) -> (any WindowHandle)? {
         if let w = discovery.window(for: record.windowID) { return w }
         if let w = AXApplication(pid: record.pid)?.windows().first(where: { $0.windowID == record.windowID }) { return w }

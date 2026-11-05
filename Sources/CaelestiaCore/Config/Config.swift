@@ -114,6 +114,11 @@ public struct WMConfig: Codable, Equatable, Sendable {
     public var focusFollowsMouseDelayMs: Int = 100
     /// Hyprland input.focus_on_close = 1: focus the window under the cursor after a close.
     public var focusOnCloseUnderCursor: Bool = true
+    /// Clicking the red close button on an app's last window quits the app (a normal quit, so
+    /// it can still ask to save). Off by default; yellow/green and ⌘W are never affected.
+    public var closeQuitsApp: Bool = false
+    /// Bundle ids the red button never quits.
+    public var closeQuitsAppExceptions: [String] = ["com.apple.finder"]
     public var workspacesPerGroup: Int = 10
     public var workspaceGroups: Int = 5
     /// Caelestia bar default: always show workspaces 1..N.

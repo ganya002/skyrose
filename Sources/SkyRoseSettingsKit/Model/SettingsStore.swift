@@ -206,6 +206,14 @@ public final class SettingsStore: ObservableObject {
         binding(keyPath, path, coalesce: true) { .number($0) }
     }
 
+    /// Sets `wm.closeQuitsAppExceptions` (the apps the red button never quits), de-duplicated.
+    public func setCloseQuitExceptions(_ ids: [String]) {
+        var unique: [String] = []
+        for id in ids where !id.isEmpty && !unique.contains(where: { $0.caseInsensitiveCompare(id) == .orderedSame }) { unique.append(id) }
+        let literal = "[" + unique.map { ConfigValue.string($0).toml }.joined(separator: ", ") + "]"
+        set("wm.closeQuitsAppExceptions", .literal(literal), update: { $0.wm.closeQuitsAppExceptions = unique })
+    }
+
     /// Writes everything pending now (also called when a slider is released).
     public func flush() {
         flushTimer?.invalidate()

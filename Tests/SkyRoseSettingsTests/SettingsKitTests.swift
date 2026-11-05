@@ -97,6 +97,21 @@ final class SettingsStoreOfflineTests: XCTestCase {
         XCTAssertNil(store.message)
     }
 
+    func testCloseQuitExceptionsAreWrittenAsATomlArray() {
+        let file = tempFile()
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+        let store = SettingsStore(api: ConfigAPI(file: file))
+        store.offline = true
+        store.set("wm.closeQuitsApp", .bool(true), update: { $0.wm.closeQuitsApp = true })
+        store.setCloseQuitExceptions(["com.apple.finder", "com.apple.Safari", "COM.APPLE.FINDER", ""])
+        XCTAssertEqual(store.config.wm.closeQuitsAppExceptions, ["com.apple.finder", "com.apple.Safari"])
+        let saved = ConfigLoader.loadUserOrDefault(url: file).config.wm
+        XCTAssertTrue(saved.closeQuitsApp)
+        XCTAssertEqual(saved.closeQuitsAppExceptions, ["com.apple.finder", "com.apple.Safari"])
+        store.setCloseQuitExceptions([])
+        XCTAssertEqual(ConfigLoader.loadUserOrDefault(url: file).config.wm.closeQuitsAppExceptions, [], "an empty list stays empty")
+    }
+
     func testRejectedValueSetsMessageAndRollsBack() {
         let file = tempFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }

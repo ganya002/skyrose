@@ -27,7 +27,13 @@ final class FakeWindow: WindowHandle {
     var setPositionCount = 0
     var focusCount = 0
     var raiseCount = 0
+    /// The red close button, relative to the window's top-left (nil = no close button).
+    var closeButtonOffset: CGRect? = CGRect(x: 8, y: 6, width: 14, height: 14)
     weak var system: FakeWindowSystem?
+
+    func closeButtonFrame() -> CGRect? {
+        closeButtonOffset.map { $0.offsetBy(dx: frame.minX, dy: frame.minY) }
+    }
 
     init(id: WindowID, pid: pid_t, bundleID: String, title: String, frame: CGRect) {
         windowID = id
@@ -97,6 +103,9 @@ final class FakeWindowSystem: WindowSystem {
     var underCursor: WindowID?
     var isLeftMouseDown = false
     var started = false
+    /// What an app's own AX window list says (nil = unreadable).
+    var appWindowCounts: [pid_t: Int] = [:]
+    func appWindowCount(pid: pid_t) -> Int? { appWindowCounts[pid] }
     private var pending: [WindowSystemEvent] = []
     private var nextID: WindowID = 100
 
@@ -270,4 +279,13 @@ final class Harness {
     func isOnScreen(_ w: FakeWindow) -> Bool {
         !ParkingPlanner.isOffScreen(w.frame, displays: screens.displays.map(\.frame))
     }
+}
+
+/// Records quits instead of quitting.
+@MainActor
+final class FakeAppTerminator: AppTerminator {
+    var regular: Set<pid_t> = []
+    var terminated: [pid_t] = []
+    func isRegularApp(pid: pid_t) -> Bool { regular.contains(pid) }
+    func terminate(pid: pid_t) -> Bool { terminated.append(pid); return true }
 }

@@ -330,6 +330,7 @@ struct WindowsPage: View {
                 }
             }
             .animation(look.motion.page, value: store.config.wm.bordersEnabled)
+            CloseQuitsCard(store: store)
             Card {
                 SectionLabel(text: "Motion")
                 SettingRow(title: "Window animations", detail: "Windows glide into place (needs Screen Recording). Off: they move at once.", icon: "wand.and.rays") {
@@ -348,6 +349,69 @@ struct WindowsPage: View {
                 }
             }
         }
+    }
+}
+
+/// Windows › Closing: the red button quits an app on its last window (opt-in) + exceptions.
+struct CloseQuitsCard: View {
+    @ObservedObject var store: SettingsStore
+    @Environment(\.look) var look
+
+    var body: some View {
+        let exceptions = store.config.wm.closeQuitsAppExceptions
+        Card {
+            SectionLabel(text: "Closing")
+            SettingRow(title: "Red button quits the app",
+                       detail: "Closing an app's last window with the red button quits it. A normal quit: apps still ask to save. With other windows open only that window closes; ⌘W, yellow and green work as usual.",
+                       icon: "xmark.circle") {
+                PillToggle(isOn: store.bool(\.wm.closeQuitsApp, "wm.closeQuitsApp"), accessibilityLabel: "Red button quits the app")
+            }
+            if store.config.wm.closeQuitsApp {
+                SettingRow(title: "Never quit these", detail: "They keep running when their last window closes. Menu-bar apps are never quit.", icon: "hand.raised") {
+                    if let app = store.lastOtherApp, !exceptions.contains(where: { $0.caseInsensitiveCompare(app.bundleID) == .orderedSame }) {
+                        PillButton(title: "Add \(app.name)", icon: "plus", kind: .tonal) {
+                            withAnimation(look.motion.page) { store.setCloseQuitExceptions(exceptions + [app.bundleID]) }
+                        }
+                        .accessibilityIdentifier("windows.closeQuits.addFocused")
+                        .help("The app you used last before Settings: \(app.bundleID)")
+                    }
+                }
+                if exceptions.isEmpty {
+                    Text("No exceptions: every Dock app quits with its last window.").font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
+                }
+                ForEach(exceptions, id: \.self) { id in
+                    HStack(spacing: 10) {
+                        Image(nsImage: Self.icon(for: id)).resizable().frame(width: 22, height: 22)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(Self.name(for: id)).font(look.font(13.5, .medium)).foregroundStyle(look[.onSurface])
+                            Text(id).font(look.font(11)).foregroundStyle(look[.onSurfaceVariant])
+                        }
+                        Spacer()
+                        Button {
+                            withAnimation(look.motion.page) { store.setCloseQuitExceptions(exceptions.filter { $0 != id }) }
+                        } label: {
+                            Image(systemName: "xmark").font(.system(size: 11, weight: .bold)).foregroundStyle(look[.onSurfaceVariant])
+                                .frame(width: 26, height: 26).background(Circle().fill(look[.onSurface].opacity(0.08)))
+                        }
+                        .buttonStyle(.plain).help("Remove \(Self.name(for: id))").accessibilityIdentifier("windows.closeQuits.remove.\(id)")
+                    }
+                    .padding(.leading, 34)
+                }
+            }
+        }
+        .animation(look.motion.page, value: store.config.wm.closeQuitsApp)
+    }
+
+    static func appURL(_ id: String) -> URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) }
+
+    static func name(for id: String) -> String {
+        guard let url = appURL(id) else { return id }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+
+    static func icon(for id: String) -> NSImage {
+        guard let url = appURL(id) else { return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage() }
+        return NSWorkspace.shared.icon(forFile: url.path)
     }
 }
 

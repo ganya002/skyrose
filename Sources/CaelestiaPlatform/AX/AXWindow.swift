@@ -236,6 +236,13 @@ public final class AXWindow: Hashable, Identifiable, CustomStringConvertible {
         return ok
     }
 
+    /// The close button's frame in top-left global space (one AX read per attribute).
+    public func closeButtonFrame() -> CGRect? {
+        guard let button = element.element(kAXCloseButtonAttribute),
+              let origin = button.point(kAXPositionAttribute), let size = button.size(kAXSizeAttribute) else { return nil }
+        return CGRect(origin: origin, size: size)
+    }
+
     /// Presses the window's close button (the app may show "save changes?" and keep the window).
     @discardableResult
     public func close() -> Bool {

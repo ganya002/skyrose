@@ -1,3 +1,4 @@
+import AppKit
 import CaelestiaCore
 import CaelestiaLayout
 import CaelestiaPlatform
@@ -22,6 +23,12 @@ public protocol WindowHandle: AnyObject {
     @discardableResult func raise() -> Bool
     @discardableResult func close() -> Bool
     func descriptor() -> WindowDescriptor
+    /// The red close button's frame (top-left space), nil without one.
+    func closeButtonFrame() -> CGRect?
+}
+
+extension WindowHandle {
+    public func closeButtonFrame() -> CGRect? { nil }
 }
 
 /// What the window system reports to the manager (main thread).
@@ -58,6 +65,35 @@ public protocol WindowSystem: AnyObject {
     /// Finds a journaled window after a WM crash: by window id in its pid, else by bundle id and
     /// title among running apps. Works before `start()`.
     func findWindow(for record: ParkedWindowRecord) -> (any WindowHandle)?
+    /// How many windows the app itself lists (AX `kAXWindows`, minimized ones included); nil
+    /// when it cannot be read.
+    func appWindowCount(pid: pid_t) -> Int?
+}
+
+extension WindowSystem {
+    public func appWindowCount(pid: pid_t) -> Int? { nil }
+}
+
+/// Quits apps for `wm.closeQuitsApp`. Never force-quits.
+@MainActor
+public protocol AppTerminator: AnyObject {
+    /// A running regular (Dock) app: menu-bar / background apps are never quit by the red button.
+    func isRegularApp(pid: pid_t) -> Bool
+    /// A normal quit (`NSRunningApplication.terminate()`): the app may ask to save or refuse.
+    @discardableResult func terminate(pid: pid_t) -> Bool
+}
+
+/// The real `AppTerminator`.
+@MainActor
+public final class SystemAppTerminator: AppTerminator {
+    public init() {}
+    public func isRegularApp(pid: pid_t) -> Bool {
+        guard let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated else { return false }
+        return app.activationPolicy == .regular
+    }
+    public func terminate(pid: pid_t) -> Bool {
+        NSRunningApplication(processIdentifier: pid)?.terminate() ?? false
+    }
 }
 
 /// The live display list.
