@@ -30,6 +30,7 @@ struct SidebarView: View {
             Spacer(minLength: 0)
             ZStack {
                 FrostedShape(shape: DrawerShape(edge: .right, radius: theme.frameRounding, fillet: fillet), theme: theme)
+                    .liquidBody(edge: .right, shown: model.shown, depth: model.width, theme: theme, neck: false)
                 VStack(spacing: 10) {
                     NotificationsSection(model: model, state: state)
                     UtilitiesSection(model: model, state: state)
@@ -38,10 +39,9 @@ struct SidebarView: View {
                 .padding(.top, fillet + 6)
                 .padding(.bottom, fillet + 6)
                 .padding(.leading, 4)
+                .liquidContent(edge: .right, shown: model.shown, depth: model.width, theme: theme)
             }
             .frame(width: model.width)
-            .offset(x: model.shown ? 0 : theme.slide(model.width + 4))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
     }

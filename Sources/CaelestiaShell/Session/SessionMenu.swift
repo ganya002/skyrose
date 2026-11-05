@@ -97,6 +97,7 @@ struct SessionView: View {
             Spacer(minLength: 0)
             ZStack {
                 FrostedShape(shape: DrawerShape(edge: .right, radius: theme.frameRounding, fillet: fillet), theme: theme)
+                    .liquidBody(edge: .right, shown: model.shown, depth: size.width, theme: theme)
                 VStack(spacing: SessionModel.spacing) {
                     button(.logout)
                     button(.shutdown)
@@ -105,10 +106,9 @@ struct SessionView: View {
                     button(.sleep)
                     button(.reboot)
                 }
+                .liquidContent(edge: .right, shown: model.shown, depth: size.width, theme: theme)
             }
             .frame(width: size.width, height: size.height + 2 * fillet)
-            .offset(x: model.shown ? 0 : theme.slide(size.width + 4))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
         .focusable()

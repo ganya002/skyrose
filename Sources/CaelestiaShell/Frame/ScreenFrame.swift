@@ -42,7 +42,7 @@ public final class ScreenFrameWindow {
     }
 
     private func configureShape() {
-        let insets = layout.frameInsets(barReveal: barReveal)
+        let insets = layout.frameInsets(barReveal: barReveal, swell: true)
         let r = theme.frameRounding
         let cutouts = layout.localCutouts
         let thickness = layout.thickness

@@ -370,14 +370,17 @@ public struct AnimationTable: Sendable, Equatable, Codable {
     /// The riko spring is still available as `curve = "riko"` in an override.
     public static func gabbySpringy(shellScale: Double = 0.8) -> AnimationTable {
         var t = caelestiaStock(shellScale: shellScale)
-        t[.windowsIn] = .spring(.snappy, style: .popin(scale: 0.8))
-        t[.windowsMove] = .spring(.snappy)
+        // Liquid pass (2026-11-05): pop-in swells past 100 % and settles; moves swing slightly
+        // past their slot. Both settle in 300 ms (`LiquidMotion`).
+        t[.windowsIn] = .spring(LiquidMotion.windowPop, style: .popin(scale: 0.8))
+        t[.windowsMove] = .spring(LiquidMotion.windowMove)
         t[.windowsOut] = .bezier(.emphasizedAccel, milliseconds: 240, style: .popin(scale: 0.8))
-        // Springs, not the front-loaded "snappy" Bézier: that one covers 62 % of a slide in its
-        // first 7 % of time, so a full-screen slide moved ~900 pt in one frame (live, round 4).
-        t[.workspaces] = .spring(.snappy, style: .slide)
-        t[.workspacesIn] = .spring(.snappy, style: .slide)
-        t[.workspacesOut] = .spring(.snappy, style: .slide)
+        // Arch's own `snappy` (.05, .9, .1, 1.05) at Arch's 320 ms: front-loaded (55 % of the
+        // slide in the first 60 Hz frame, like Hyprland) with a 0.85 % overshoot. Gabby asked for
+        // it back in the liquid pass; round 4 had swapped it for the snappy spring.
+        t[.workspaces] = .bezier(.snappy, milliseconds: 320, style: .slide)
+        t[.workspacesIn] = .bezier(.snappy, milliseconds: 320, style: .slide)
+        t[.workspacesOut] = .bezier(.snappy, milliseconds: 320, style: .slide)
         t[.specialWorkspace] = .spring(.snappy, style: .slideFadeVert(percent: 0.15))
         t[.fade] = .bezier(.standard, speed: 2)
         t[.fadeDim] = .bezier(.standard, speed: 2)

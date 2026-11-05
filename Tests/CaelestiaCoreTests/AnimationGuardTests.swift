@@ -30,7 +30,7 @@ final class AnimationGuardTests: XCTestCase {
         let t = AnimationTable.gabbySpringy
         for name in [AnimationName.windowsIn, .windowsMove] {
             guard case .spring(let s) = t[name].curve else { return XCTFail("\(name) must be a spring") }
-            XCTAssertEqual(s, .snappy)
+            XCTAssertEqual(s, name == .windowsIn ? LiquidMotion.windowPop : LiquidMotion.windowMove)
             XCTAssertLessThan(abs(s.position(at: t[name].duration) - 1), 0.0011, "\(name)")
         }
     }
@@ -47,7 +47,7 @@ final class AnimationGuardTests: XCTestCase {
             XCTAssertEqual(fast[name].style, base[name].style, "\(name)")
         }
         guard case .spring(let s) = fast[.windowsMove].curve else { return XCTFail("windowsMove stays a spring") }
-        XCTAssertEqual(s.dampingRatio, Spring.snappy.dampingRatio, accuracy: 1e-12)
+        XCTAssertEqual(s.dampingRatio, LiquidMotion.windowMove.dampingRatio, accuracy: 1e-12)
         XCTAssertEqual(s.settlingTime() * 1000, fast[.windowsMove].durationMs, accuracy: 1)
     }
 

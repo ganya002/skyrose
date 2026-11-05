@@ -40,12 +40,16 @@ public struct FrameSampler: Sendable, Equatable {
 
     /// Eased progress at `now`: 0 before the start, exactly 1 from `endTime` on.
     public func value(at now: TimeInterval) -> Double {
-        spec.progress(at: elapsed(at: now))
+        // Compare clock readings, not `now - startTime` against the duration: that difference can
+        // round a hair below the duration exactly at `endTime`.
+        if spec.enabled, spec.durationMs > 0, now >= endTime { return 1 }
+        return spec.progress(at: elapsed(at: now))
     }
 
     /// True from `endTime` on (immediately for disabled animations).
     public func isDone(at now: TimeInterval) -> Bool {
-        spec.isFinished(at: elapsed(at: now))
+        if spec.enabled, spec.durationMs > 0, now >= endTime { return true }
+        return spec.isFinished(at: elapsed(at: now))
     }
 
     /// `from` → `to` eased at `now`.

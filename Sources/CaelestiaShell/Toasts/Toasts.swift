@@ -80,7 +80,9 @@ struct ToastsView: View {
         VStack(alignment: .trailing, spacing: 8) {
             ForEach(model.queue.toasts) { toast in
                 ToastCard(toast: toast)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .transition(theme.reduceMotion ? .opacity : .asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .scale(scale: 0.8, anchor: .trailing)).combined(with: .opacity),
+                        removal: .scale(scale: 0.8, anchor: .trailing).combined(with: .opacity)))
             }
             Spacer(minLength: 0)
         }

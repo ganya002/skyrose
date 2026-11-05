@@ -438,7 +438,7 @@ public final class ShellController {
         guard let bar = bars[id] else { return }
         let shown = vis.isShown
         if shown {
-            bar.setReveal(1, animated: true, curve: .expressiveDefaultSpatial, ms: 400, theme: theme)
+            bar.setReveal(1, animated: true, curve: .expressiveDefaultSpatial, ms: 400, theme: theme, liquid: true)
         } else {
             bar.setReveal(0, animated: true, curve: .emphasizedAccel, ms: 250, theme: theme)
         }
@@ -486,7 +486,8 @@ public final class ShellController {
             launcherPanel = panel
             let body = LauncherModel.maxBodySize
             let size = CGSize(width: body.width + 2 * theme.frameRounding, height: body.height)
-            panel.setFrame(layout.drawerFrame(size: size, edge: .bottom, barReveal: reveal), display: false)
+            panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .bottom, barReveal: reveal), edge: .bottom,
+                                                  room: theme.overshootRoom(depth: body.height)), display: false)
             launcher.reset()
             launcher.apps = state.apps
             present(panel)
@@ -498,7 +499,8 @@ public final class ShellController {
             sessionPanel = panel
             let body = SessionModel.bodySize
             let size = CGSize(width: body.width, height: body.height + 2 * theme.frameRounding)
-            panel.setFrame(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), display: false)
+            panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), edge: .right,
+                                                  room: theme.overshootRoom(depth: body.width)), display: false)
             session.reset()
             hideOSD(animated: true)
             showSessionDim(id)
@@ -578,7 +580,7 @@ public final class ShellController {
     /// the panel is ordered in and fades in while the caller's `shown = true` slides the content.
     func present(_ panel: ShellPanel) {
         panel.contentView?.layoutSubtreeIfNeeded()
-        panel.fadeIn(duration: theme.drawerOpenSeconds * 0.6)
+        panel.fadeIn(duration: theme.panelFadeInSeconds)
     }
 
     /// Hides a drawer panel: it slides (SwiftUI, `shown = false` set by the caller) and fades out
@@ -664,7 +666,8 @@ public final class ShellController {
         let body = OSDModel.maxBodySize
         let size = CGSize(width: body.width, height: body.height + 2 * theme.frameRounding)
         let reveal = bars[id]?.reveal.target ?? 0
-        panel.setFrame(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), display: false)
+        panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), edge: .right,
+                                              room: theme.overshootRoom(depth: body.width)), display: false)
         if !panel.isVisible || !osd.shown { present(panel) }
         osd.shown = true
         openDrawers.insert(.osd)
@@ -996,8 +999,12 @@ public final class BarSurface {
         host.rootView = AnyView(BarView(state: state, model: model).environment(\.shellTheme, theme))
     }
 
-    func setReveal(_ value: Double, animated: Bool, curve: ShellCurve = .standard, ms: Double = 0, theme: ShellTheme? = nil) {
-        if animated, let theme, theme.seconds(ms) > 0 {
+    /// `liquid`: the reveal springs (overshoots ~8 %, the band swells and settles) unless Reduce
+    /// Motion is on, where the Bézier `curve` is kept.
+    func setReveal(_ value: Double, animated: Bool, curve: ShellCurve = .standard, ms: Double = 0, theme: ShellTheme? = nil, liquid: Bool = false) {
+        if animated, let theme, liquid, let s = theme.barRevealSpring {
+            reveal.animate(to: value, spring: s)
+        } else if animated, let theme, theme.seconds(ms) > 0 {
             reveal.animate(to: value, duration: theme.seconds(ms), curve: curve)
         } else if reveal.target != value || reveal.value != value {
             reveal.set(value)

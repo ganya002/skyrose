@@ -74,7 +74,7 @@ struct BarView: View {
         }
         .frame(width: width)
         .frame(maxHeight: .infinity)
-        .offset(x: -(1 - model.reveal) * width)
+        .offset(x: BarMotion.contentOffset(reveal: model.reveal, width: width))
         .opacity(model.reveal <= 0.001 ? 0 : 1)
     }
 }
@@ -335,5 +335,14 @@ struct StatusIconButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+    }
+}
+
+/// Where the bar's content sits for a reveal: slid out to the left below 1; past 1 (the reveal
+/// spring's swing) it moves right by half the band's swell so it stays centred in the band.
+enum BarMotion {
+    static func contentOffset(reveal: Double, width: Double) -> Double {
+        if reveal <= 1 { return -(1 - reveal) * width }
+        return (min(reveal, LiquidMotion.barSwellCap) - 1) * width / 2
     }
 }

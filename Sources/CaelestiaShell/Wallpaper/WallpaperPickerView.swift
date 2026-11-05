@@ -27,11 +27,11 @@ struct WallpaperPickerView: View {
             Spacer(minLength: 0)
             ZStack {
                 FrostedShape(shape: DrawerShape(edge: .bottom, radius: theme.frameRounding, fillet: fillet), theme: theme)
+                    .liquidBody(edge: .bottom, shown: model.shown, depth: bodySize.height, theme: theme)
                 content.padding(.horizontal, fillet + 4).padding(.top, 14).padding(.bottom, 12)
+                    .liquidContent(edge: .bottom, shown: model.shown, depth: bodySize.height, theme: theme)
             }
             .frame(width: bodySize.width + 2 * fillet, height: bodySize.height)
-            .offset(y: model.shown ? 0 : theme.slide(bodySize.height + 4))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }

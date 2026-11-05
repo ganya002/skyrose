@@ -347,8 +347,11 @@ public struct DisplayLayout: Equatable, Sendable {
     }
 
     /// Band thicknesses with the bar `reveal`ed by 0...1 (the bar widens the left band).
-    public func frameInsets(barReveal: Double) -> Insets {
-        let left = thickness + (max(barWidth, thickness) - thickness) * min(1, max(0, barReveal))
+    /// `swell`: the screen frame lets a springing reveal past 1 widen the band a little
+    /// (capped at `LiquidMotion.barSwellCap`); everything else lays out at most at 1.
+    public func frameInsets(barReveal: Double, swell: Bool = false) -> Insets {
+        let cap = swell ? LiquidMotion.barSwellCap : 1
+        let left = thickness + (max(barWidth, thickness) - thickness) * min(cap, max(0, barReveal))
         return Insets(top: thickness + topExtra, left: left, bottom: thickness, right: thickness)
     }
 
@@ -377,6 +380,20 @@ public struct DisplayLayout: Equatable, Sendable {
     public func cornerDrawerFrame(size: CGSize, barReveal: Double) -> CGRect {
         let inner = inner(barReveal: barReveal)
         return CGRect(x: inner.maxX - size.width, y: inner.minY, width: size.width, height: size.height)
+    }
+
+    /// `frame` (a drawer attached to `edge`) grown by `room` points away from that edge: the
+    /// transparent slack the liquid spring swings into (`ShellTheme.overshootRoom`).
+    public static func withRoom(_ frame: CGRect, edge: ShellEdge, room: Double) -> CGRect {
+        guard room > 0 else { return frame }
+        var f = frame
+        switch edge {
+        case .bottom: f.size.height += room
+        case .top: f.origin.y -= room; f.size.height += room
+        case .left: f.size.width += room
+        case .right: f.origin.x -= room; f.size.width += room
+        }
+        return f
     }
 
     /// A drawer of `size` (fillets included) attached to `edge`, centred along it.

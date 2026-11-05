@@ -84,9 +84,9 @@ Legend for "Action": **fixed** = changed in this phase; **kept** = already match
 
 | Feature | Arch value | SkyRose before | Action |
 |---|---|---|---|
-| Open | popin 80 %, riko spring, 320 ms nominal (≈600 ms visible) | popin 85 %, snappy spring ≈ 300 ms (opens mostly show live, see LIMITATIONS) | **fixed**: popin 80 %; duration kept (decision) |
+| Open | popin 80 %, riko spring, 320 ms nominal (≈600 ms visible) | popin 85 %, snappy spring ≈ 300 ms (opens mostly show live, see LIMITATIONS) | **fixed**: popin 80 %; liquid phase: ζ 0.58 spring, swells to ≈ 102 %, 300 ms |
 | Close | `emphasizedAccel` 240 ms + fade | 180 ms | **fixed**: 240 ms (inside the 150–300 range) |
-| Move / resize / retile | riko spring 320 ms nominal (≈700 ms) | snappy spring ≈ 300 ms | kept (decision) |
+| Move / resize / retile | riko spring 320 ms nominal (≈700 ms) | snappy spring ≈ 300 ms | liquid phase: ζ 0.72 spring (≈ 3.9 % swing), 300 ms |
 | Mouse drag/resize | not animated | snapshot follows the pointer, no spring | kept |
 | fade / fadeDim | 480 ms `standard` | 200 ms | kept (decision: capped) |
 | Float on | ≈220 ms | spring ≈ 300 ms | kept |
@@ -146,3 +146,18 @@ Caelestia/Hyprland upstream source and docs:
 
 - Border colour fade: **480 ms like Arch** (exception to the 350 ms cap).
 - New window side: **follow the cursor** (force_split 0); cursor outside the tile → right/bottom.
+
+## Liquid motion pass (2026-11-05)
+
+Measured from `screencapture -v` clips (60 Hz) in `/tmp/cwm/liquid/` against
+`~/caelestia-ref/full-2026-11-05/04-caelestia/*_frames`:
+
+| Motion | Arch | SkyRose before | SkyRose after |
+|---|---|---|---|
+| Sidebar open | full height at once, grows out in ≈ 190 ms, ≈ 1 % swing | slides, full in ≈ 130 ms, no swing, 180 ms panel fade | grows out of the edge, 96 % at 100 ms, peaks +4.6 % (≈ 18 pt) at 133 ms, settled at 233 ms |
+| Launcher open | grows from the bottom band | slides up, full at ≈ 100 ms, ≈ 1 % swing | narrow neck widens while it grows; peaks +3 % (≈ 16 pt) at 183 ms, settled ≈ 300 ms |
+| Dashboard open | drops from the top band | slides down, ≈ 1.7 % swing | neck widens, bottom swings ≈ 16 pt past, settled ≈ 220 ms |
+| Drawer close | shrinks into the frame | slide + fade 170 ms | shrink + fade, 167–183 ms |
+| Window retile | riko spring, ≈ 700 ms | snappy spring, ≈ 1 % | ζ 0.72, visible swing, ≈ 250 ms |
+| Window close (WM) | shrink + fade | same | same; neighbour springs to full width by ≈ 317 ms |
+| Workspace slide | snappy Bézier 320 ms | snappy spring | snappy Bézier 320 ms (brief) |

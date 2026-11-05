@@ -110,7 +110,8 @@ extension ShellController {
         dashboard.now = Date()
         dashboard.monthOffset = 0
         dashboard.tab = DashboardTab(config: state.config.dashboard.defaultTab)
-        panel.setFrame(layout.drawerFrame(size: size, edge: .top, barReveal: reveal), display: false)
+        panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .top, barReveal: reveal), edge: .top,
+                                              room: theme.overshootRoom(depth: size.height)), display: false)
         hideOSD(animated: true)
         present(panel)
         dashboard.shown = true
@@ -176,7 +177,10 @@ extension ShellController {
                                                       name: "utilities", key: false)
         utilitiesPanel = panel
         sidebar.brightnessAvailable = brightness.state.unavailableReason == nil
-        panel.setFrame(layout.cornerDrawerFrame(size: utilitiesSize(layout: layout, reveal: reveal), barReveal: reveal), display: false)
+        let size = utilitiesSize(layout: layout, reveal: reveal)
+        utilities.bodyHeight = size.height
+        panel.setFrame(DisplayLayout.withRoom(layout.cornerDrawerFrame(size: size, barReveal: reveal), edge: .bottom,
+                                              room: theme.overshootRoom(depth: size.height)), display: false)
         present(panel)
         utilities.shown = true
         launcherDisplay = id
@@ -208,7 +212,7 @@ extension ShellController {
         let clear = layout.topClearance(minX: inner.maxX - width, maxX: inner.maxX)
         var frame = layout.drawerFrame(size: CGSize(width: width, height: inner.height - clear), edge: .right, barReveal: reveal)
         frame.origin.y = inner.minY
-        panel.setFrame(frame, display: false)
+        panel.setFrame(DisplayLayout.withRoom(frame, edge: .right, room: theme.overshootRoom(depth: width)), display: false)
         hideOSD(animated: true)
         present(panel)
         sidebar.shown = true
@@ -230,7 +234,8 @@ extension ShellController {
         let body = ShellSizing.wallpaperBody(inner: inner)
         let panel = wallpaperPanel ?? makeDrawerPanel(WallpaperPickerView(model: wallpaperPicker, fillet: fillet, bodySize: body), name: "wallpaper", key: false)
         wallpaperPanel = panel
-        panel.setFrame(layout.drawerFrame(size: CGSize(width: body.width + 2 * fillet, height: body.height), edge: .bottom, barReveal: reveal), display: false)
+        panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: CGSize(width: body.width + 2 * fillet, height: body.height), edge: .bottom, barReveal: reveal),
+                                              edge: .bottom, room: theme.overshootRoom(depth: body.height)), display: false)
         wallpaperPicker.current = wallpaper.current()
         wallpaperPicker.loading = true
         wallpaper.scan(folder: state.config.appearance.wallpaperFolder) { [weak self] result in
@@ -291,7 +296,8 @@ extension ShellController {
         let reveal = bars[display]?.reveal.target ?? 0
         let inner = layout.inner(barReveal: max(reveal, 1))
         let size = CGSize(width: ShellSizing.popoutWidth, height: popout.bodyHeight(for: kind) + 2 * fillet)
-        panel.setFrame(ShellSizing.popoutFrame(size: size, anchorMidY: anchorMidY, inner: inner), display: false)
+        panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: anchorMidY, inner: inner), edge: .left,
+                                              room: theme.overshootRoom(depth: ShellSizing.popoutWidth)), display: false)
         present(panel)
         popout.shown = true
         popoutKind = kind
@@ -342,7 +348,8 @@ extension ShellController {
                 let fillet = theme.frameRounding
                 let inner = layout.inner(barReveal: 1)
                 let size = CGSize(width: ShellSizing.popoutWidth, height: popout.bodyHeight(for: kind) + 2 * fillet)
-                panel.setFrame(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), display: true)
+                panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), edge: .left,
+                                                      room: theme.overshootRoom(depth: ShellSizing.popoutWidth)), display: true)
             }
         }
     }

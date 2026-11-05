@@ -59,9 +59,9 @@ final class SnapshotCoverSyncTests: XCTestCase {
         XCTAssertNotNil(tile.ring.animation(forKey: "h.bounds.size.height"))
 
         let x = try XCTUnwrap(tile.container.animation(forKey: "x.position.x") as? CASpringAnimation)
-        XCTAssertEqual(x.mass, Spring.snappy.mass)
-        XCTAssertEqual(x.stiffness, Spring.snappy.stiffness)
-        XCTAssertEqual(x.damping, Spring.snappy.damping)
+        XCTAssertEqual(x.mass, LiquidMotion.windowMove.mass)
+        XCTAssertEqual(x.stiffness, LiquidMotion.windowMove.stiffness, accuracy: 1e-9)
+        XCTAssertEqual(x.damping, LiquidMotion.windowMove.damping, accuracy: 1e-9)
         XCTAssertEqual(x.beginTime, tile.container.convertTime(t0, from: nil), accuracy: 1e-6)
         XCTAssertEqual(x.beginTime, t0, accuracy: 1e-3, "on the media clock the model uses")
         XCTAssertTrue(x.isAdditive, "position parts are offsets from the final value")

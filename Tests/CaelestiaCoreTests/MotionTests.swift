@@ -268,13 +268,13 @@ final class MotionTests: XCTestCase {
         XCTAssertEqual(t[.windowsOut].durationMs, 240)
         XCTAssertEqual(t[.windowsOut].curve, .bezier(.emphasizedAccel))
         XCTAssertEqual(t[.windowsOut].style, .popin(scale: 0.8))
-        XCTAssertEqual(t[.windowsIn].curve, .spring(.snappy))
+        XCTAssertEqual(t[.windowsIn].curve, .spring(LiquidMotion.windowPop))
         XCTAssertEqual(t[.windowsIn].style, .popin(scale: 0.8))
-        XCTAssertEqual(t[.windowsIn].durationMs, Spring.snappy.settlingTime() * 1000, accuracy: 1e-9)
-        XCTAssertEqual(t[.windowsIn].durationMs, 303, accuracy: 1)
-        XCTAssertEqual(t[.windowsMove], .spring(.snappy))
+        XCTAssertEqual(t[.windowsIn].durationMs, 300, accuracy: 1)
+        XCTAssertEqual(t[.windowsMove], .spring(LiquidMotion.windowMove))
+        XCTAssertEqual(t[.windowsMove].durationMs, 300, accuracy: 1)
         for name in [AnimationName.workspaces, .workspacesIn, .workspacesOut] {
-            XCTAssertEqual(t[name], .spring(.snappy, style: .slide), "\(name)")
+            XCTAssertEqual(t[name], .bezier(.snappy, milliseconds: 320, style: .slide), "\(name)")
         }
         XCTAssertEqual(t[.specialWorkspace], .spring(.snappy, style: .slideFadeVert(percent: 0.15)))
         XCTAssertEqual(t[.layersIn], .bezier(.emphasizedDecel, milliseconds: 400, style: .slide))
@@ -338,7 +338,7 @@ final class MotionTests: XCTestCase {
             XCTAssertEqual(halved[name].enabled, base[name].enabled, "\(name)")
         }
         guard case .spring(let fast) = halved[.windowsMove].curve else { return XCTFail("windowsMove must stay a spring") }
-        XCTAssertEqual(fast.dampingRatio, Spring.snappy.dampingRatio, accuracy: 1e-12)
+        XCTAssertEqual(fast.dampingRatio, LiquidMotion.windowMove.dampingRatio, accuracy: 1e-12)
         XCTAssertLessThan(abs(fast.position(at: halved[.windowsMove].duration) - 1), 0.0011)
         XCTAssertEqual(fast.settlingTime() * 1000, halved[.windowsMove].durationMs, accuracy: 1)
     }
@@ -381,7 +381,7 @@ final class MotionTests: XCTestCase {
         XCTAssertEqual(windowsIn.durationMs, 400, accuracy: 1e-9)
         XCTAssertEqual(windowsIn.style, .popin(scale: 0.8))
         guard case .spring(let spring) = windowsIn.curve else { return XCTFail("windowsIn must stay a spring") }
-        XCTAssertEqual(spring.dampingRatio, Spring.snappy.dampingRatio, accuracy: 1e-12)
+        XCTAssertEqual(spring.dampingRatio, LiquidMotion.windowPop.dampingRatio, accuracy: 1e-12)
         XCTAssertLessThan(abs(spring.position(at: 0.4) - 1), 0.0011)
         XCTAssertGreaterThanOrEqual(abs(spring.position(at: 0.39) - 1), 0.0009)
 
@@ -562,7 +562,7 @@ final class MotionTests: XCTestCase {
         let spring = FrameSampler(spec: AnimationTable.gabbySpringy[.windowsMove], startTime: 100)
         XCTAssertEqual(spring.value(at: 100), 0)
         XCTAssertFalse(spring.isDone(at: 100))
-        XCTAssertEqual(spring.value(at: 100.2), Spring.snappy.position(at: 0.2), accuracy: 1e-12)
+        XCTAssertEqual(spring.value(at: 100.2), LiquidMotion.windowMove.position(at: 0.2), accuracy: 1e-9)
         let end = spring.endTime
         XCTAssertFalse(spring.isDone(at: end - 1e-6))
         XCTAssertLessThan(abs(spring.value(at: end - 1e-6) - 1), 0.0011)

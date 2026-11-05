@@ -9,7 +9,7 @@ Order: 1 bugs → 2 liquid animations → 3 terminal → 4 fonts. Commit on main
 | Part | State | Commit |
 |---|---|---|
 | 1. Bugs (SIP reminder, weather, temperatures, edge drags) | done, live-tested | see `git log` ("Part 1") |
-| 2. Liquid animations | not started | |
+| 2. Liquid animations | done, live-tested | see `git log` ("Part 2") |
 | 3. Terminal | not started | |
 | 4. Fonts | not started | |
 
@@ -37,10 +37,36 @@ Order: 1 bugs → 2 liquid animations → 3 terminal → 4 fonts. Commit on main
 
 Decisions: lat/lon are stored with 2 decimals by ConfigFileEditor (≈1 km, fine for weather).
 
+## Part 2 — done
+
+- `CaelestiaCore/Motion/LiquidMotion.swift`: every spring from (damping ratio, settling time).
+  Windows: pop ζ 0.58 from 80 %, move ζ 0.72, both 300 ms; close unchanged. Workspaces: Arch
+  snappy Bézier 320 ms. `FrameSampler` returns exactly 1 at its end time (FP fix).
+- Shell: `Support/LiquidDrawer.swift` (`liquidBody` / `liquidContent`) on every drawer
+  (sidebar without neck, launcher, dashboard, session, OSD, wallpaper, popouts, utilities with
+  a corner neck). `ShellTheme.drawerSpring(depth:)`, `neckSpring`, `contentFadeIn`,
+  `panelFadeInSeconds` (50 ms), `overshootRoom(depth:)` + `DisplayLayout.withRoom` on every
+  drawer panel frame; Utilities got an explicit `bodyHeight` so its GeometryReader layout is
+  unchanged. Bar: `ShellTween.animate(to:spring:)` (velocity kept on retarget),
+  `ShellTheme.barRevealSpring`, frame band swell (`frameInsets(swell:)`, cap 1.12),
+  `BarMotion.contentOffset`. Toasts: asymmetric scale/slide/fade transitions.
+- Live (built-in, ws 3 empty, TestWindows only): see the table at the end of
+  `docs/arch-parity.md`. Clips + contact sheets in `/tmp/cwm/liquid/` (`before_*`, `after_*`,
+  `NOTES.md`). Not live-tested: bar reveal (warped pointers do not trigger hover), toasts (would
+  write to Gabby's notification history), OSD (needs a volume key), popouts, wallpaper.
+
+Decisions: no anisotropic window squash (unsafe to compose with the cover's scale animation);
+workspace slide uses the Arch Bézier despite its front-loading because the brief names it;
+overshoot is a constant ~16 pt so small and large drawers bounce alike.
+
+Found, not fixed (pre-existing, not motion): closing a key drawer (launcher/session) on an empty
+workspace re-activates the previous app and the WM follows it to its workspace (seen ws 3 → 4).
+
 ## Remaining
 
-- Part 2–4 (see the brief). Clips for part 2 go to `/tmp/cwm/liquid/`.
+- Parts 3–4 (see the brief).
 
 ## Tests
 
 After part 1: 928 tests, 0 failures (`/usr/bin/swift test`).
+After part 2: 942 tests, 0 failures.

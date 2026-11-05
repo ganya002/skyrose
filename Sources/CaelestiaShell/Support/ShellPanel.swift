@@ -214,6 +214,9 @@ public final class ShellTween {
     private var start: CFTimeInterval = 0
     private var duration: Double = 0
     private var curve = ShellCurve.standard.bezier
+    /// Set while a spring (not a Bézier) drives the tween; it keeps its velocity when retargeted.
+    private var spring: CaelestiaCore.Spring?
+    private var initialVelocity: Double = 0
     private var timer: Timer?
     public var onChange: ((Double) -> Void)?
     public var onFinish: ((Double) -> Void)?
@@ -235,6 +238,32 @@ public final class ShellTween {
         start = CACurrentMediaTime()
         self.duration = duration
         self.curve = curve.bezier
+        spring = nil
+        startTimer()
+    }
+
+    /// Animates to `target` on `spring`, starting with the current velocity (so a reversal in
+    /// mid-flight bends instead of jumping). Ends when the spring settles.
+    public func animate(to target: Double, spring s: CaelestiaCore.Spring) {
+        guard target != to || isRunning else { return }
+        let now = CACurrentMediaTime()
+        let v = currentVelocity(at: now)
+        from = value
+        to = target
+        start = now
+        spring = s
+        initialVelocity = v
+        duration = s.settlingTime(epsilon: AnimationSpec.springSettlingEpsilon) + (v == 0 ? 0 : 0.05)
+        startTimer()
+    }
+
+    /// Velocity (units/s) of the running spring; 0 for Bézier tweens or when idle.
+    private func currentVelocity(at now: CFTimeInterval) -> Double {
+        guard isRunning, let s = spring else { return 0 }
+        return s.velocity(at: now - start, from: from, to: to, initialVelocity: initialVelocity)
+    }
+
+    private func startTimer() {
         if timer == nil {
             let t = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.step() }
@@ -248,6 +277,7 @@ public final class ShellTween {
     public func set(_ target: Double) {
         timer?.invalidate()
         timer = nil
+        spring = nil
         from = target
         to = target
         value = target
@@ -256,8 +286,13 @@ public final class ShellTween {
     }
 
     private func step() {
-        let t = min(1, (CACurrentMediaTime() - start) / duration)
-        value = from + (to - from) * curve.value(at: t)
+        let elapsed = CACurrentMediaTime() - start
+        let t = min(1, elapsed / duration)
+        if let s = spring {
+            value = s.position(at: elapsed, from: from, to: to, initialVelocity: initialVelocity)
+        } else {
+            value = from + (to - from) * curve.value(at: t)
+        }
         onChange?(value)
         if t >= 1 {
             value = to

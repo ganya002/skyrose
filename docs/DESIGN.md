@@ -232,6 +232,36 @@ the window table into 120 ms fades and the shell into fades of at most 120 ms wi
 Every shell panel also fades in and out (`ShellPanel.fadeIn`/`fadeOut`, window-server alpha)
 together with its slide; a fresh panel renders its hidden state first.
 
+### Liquid motion (2026-11-05)
+
+Caelestia feels liquid because things overshoot and squash, not because they are slow.
+`CaelestiaCore/Motion/LiquidMotion.swift` holds every number; each spring is built from a damping
+ratio and a settling time (|x − 1| < 0.001), so nothing runs over ~350 ms:
+
+- Windows: `windowsIn` = ζ 0.58 spring from popin 80 % (swells to ≈ 102 %, settles in 300 ms);
+  `windowsMove` = ζ 0.72 (≈ 3.9 % swing past the slot), 300 ms; `windowsOut` unchanged (240 ms
+  accelerating shrink + fade). No anisotropic squash on the cover (composing a second
+  `transform.scale.y` animation on the snapshot layers was not safe enough).
+- Workspaces: back to Arch's snappy Bézier (.05, .9, .1, 1.05), 320 ms, as the phase brief asks.
+  It front-loads (≈ 55 % of the travel in the first 60 Hz frame) and overshoots 0.85 %; the
+  spring it replaced was smoother but not Arch's curve.
+- Shell drawers (`Support/LiquidDrawer.swift`): the frosted body scales out of its edge on a
+  spring tuned to swing ~16 pt past full size whatever the drawer's depth (overshoot 2.5–8 %),
+  settling in 380 ms × 0.8 = 304 ms. Its "neck" along the edge starts at 84 % and widens on a
+  critically damped spring 10 % slower, so the joint to the frame stretches and settles. Drawers
+  spanning a whole edge (the sidebar) have no neck, as in Caelestia. Content rides the same
+  spring as an offset and fades in 30 ms after the body starts. Panels are `overshootRoom` points
+  bigger on the far side (transparent, click-through) so the swing is not clipped; the panel alpha
+  comes in over 50 ms instead of a 180 ms cross-fade. Closing keeps `emphasizedAccel` (shrinks
+  back into the frame) with the panel fade.
+- Bar: `ShellTween` gained a spring mode that keeps its velocity when retargeted. The reveal is
+  ζ 0.62 (≈ 8 %), 304 ms; the screen frame's band may swell up to reveal 1.12 while springing,
+  and the bar content moves by half the swell so it stays centred. Hiding keeps the Bézier.
+- Toasts: insert = slide from the trailing edge + scale 80 % + fade on the drawer spring; removal
+  shrinks and fades.
+- Reduce Motion: no scale, no offset, no swell; the panels cross-fade (≤ 120 ms) and the window
+  table is the 120 ms fade table, as before.
+
 Stills come from `SnapshotCache` (ScreenCaptureKit `SCScreenshotManager`, one
 `desktopIndependentWindow` filter per window at its own display's backing scale, 4 Mpx cap,
 opaque-bounds crop for windows captured mid-resize). Captures never sit on the animation path:

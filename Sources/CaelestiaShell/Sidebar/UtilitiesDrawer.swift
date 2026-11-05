@@ -7,6 +7,8 @@ import SwiftUI
 @MainActor
 public final class UtilitiesDrawerModel: ObservableObject {
     @Published public var shown = false
+    /// The drawer's own height (fillets included); its panel is taller by the overshoot room.
+    @Published public var bodyHeight: Double = 0
     public init() {}
 }
 
@@ -22,15 +24,20 @@ struct UtilitiesDrawerView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .bottomTrailing) {
-                FrostedShape(shape: CornerDrawerShape(radius: theme.frameRounding, fillet: fillet), theme: theme)
-                UtilitiesSection(model: sidebar, state: state)
-                    .padding(.leading, fillet + Self.padding).padding(.top, fillet + Self.padding)
-                    .padding(.trailing, Self.padding).padding(.bottom, Self.padding)
+            let h = model.bodyHeight > 0 ? min(model.bodyHeight, proxy.size.height) : proxy.size.height
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                // Grows up out of the bottom band, like the launcher; the neck widens from the corner.
+                ZStack(alignment: .bottomTrailing) {
+                    FrostedShape(shape: CornerDrawerShape(radius: theme.frameRounding, fillet: fillet), theme: theme)
+                        .liquidBody(edge: .bottom, shown: model.shown, depth: h, theme: theme, neckAnchor: .bottomTrailing)
+                    UtilitiesSection(model: sidebar, state: state)
+                        .padding(.leading, fillet + Self.padding).padding(.top, fillet + Self.padding)
+                        .padding(.trailing, Self.padding).padding(.bottom, Self.padding)
+                        .liquidContent(edge: .bottom, shown: model.shown, depth: h, theme: theme)
+                }
+                .frame(width: proxy.size.width, height: h)
             }
-            // Grows up out of the bottom band, like the launcher.
-            .offset(y: model.shown ? 0 : theme.slide(proxy.size.height + 4))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
         }
     }
 

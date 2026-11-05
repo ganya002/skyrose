@@ -57,6 +57,7 @@ struct PopoutView: View {
         HStack(spacing: 0) {
             ZStack {
                 FrostedShape(shape: DrawerShape(edge: .left, radius: theme.frameRounding, fillet: fillet), theme: theme)
+                    .liquidBody(edge: .left, shown: model.shown, depth: ShellSizing.popoutWidth, theme: theme)
                 Group {
                     switch model.kind {
                     case .audio: AudioPopout(model: model, state: state)
@@ -66,10 +67,9 @@ struct PopoutView: View {
                     }
                 }
                 .padding(.leading, 6).padding(.trailing, 10).padding(.vertical, fillet + 4)
+                .liquidContent(edge: .left, shown: model.shown, depth: ShellSizing.popoutWidth, theme: theme)
             }
             .frame(width: ShellSizing.popoutWidth)
-            .offset(x: model.shown ? 0 : theme.slide(-(ShellSizing.popoutWidth + 4)))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

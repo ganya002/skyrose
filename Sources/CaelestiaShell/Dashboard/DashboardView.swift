@@ -33,14 +33,14 @@ struct DashboardView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .bottom) {
                 FrostedShape(shape: DrawerShape(edge: .top, radius: theme.frameRounding, fillet: fillet), theme: theme)
+                    .liquidBody(edge: .top, shown: model.shown, depth: body.height + top, theme: theme)
                 content
                     .frame(width: design.width, height: design.height)
                     .scaleEffect(s, anchor: .center)
                     .frame(width: body.width, height: body.height)
+                    .liquidContent(edge: .top, shown: model.shown, depth: body.height + top, theme: theme)
             }
             .frame(width: body.width + 2 * fillet, height: body.height + top)
-            .offset(y: model.shown ? 0 : theme.slide(-(body.height + top + 4)))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

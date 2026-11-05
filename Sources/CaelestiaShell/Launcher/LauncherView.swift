@@ -79,16 +79,16 @@ struct LauncherView: View {
             Spacer(minLength: 0)
             ZStack(alignment: .bottom) {
                 FrostedShape(shape: DrawerShape(edge: .bottom, radius: theme.frameRounding, fillet: fillet), theme: theme)
+                    .liquidBody(edge: .bottom, shown: model.shown, depth: size.height, theme: theme)
                 VStack(spacing: LauncherModel.gap) {
                     list
                     search
                 }
                 .padding(LauncherModel.padding)
                 .frame(width: size.width)
+                .liquidContent(edge: .bottom, shown: model.shown, depth: size.height, theme: theme)
             }
             .frame(width: size.width + 2 * fillet, height: size.height)
-            .offset(y: model.shown ? 0 : theme.slide(size.height + 4))
-            .animation(model.shown ? theme.drawerOpen : theme.drawerClose, value: model.shown)
             .animation(theme.small, value: model.visibleRows)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)

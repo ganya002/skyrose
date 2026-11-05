@@ -107,8 +107,43 @@ public struct ShellTheme: Equatable, Sendable {
     /// scale), like macOS itself does.
     public static let reducedFadeMs: Double = 120
 
-    /// Drawer open: expressiveDefaultSpatial (overshoots slightly), 380 ms × scale.
-    public var drawerOpen: Animation { curve(.expressiveDefaultSpatial, ms: Self.drawerOpenMs) }
+    /// Drawer open (toasts and anything without a known depth): the liquid spring for a
+    /// 300 pt drawer, settling in 380 ms × scale (304 ms at 0.8).
+    public var drawerOpen: Animation { drawerSpring(depth: 300) }
+
+    /// The liquid growth spring of a drawer `depth` points deep: it swings ~16 pt past full size
+    /// (`LiquidMotion.bouncePoints`) and settles in 380 ms × scale. Interruptible: SwiftUI springs
+    /// keep their velocity when retargeted.
+    public func drawerSpring(depth: Double) -> Animation {
+        if reduceMotion { return .easeInOut(duration: seconds(Self.drawerOpenMs)) }
+        let s = LiquidMotion.drawerSpring(depth: depth, settle: seconds(Self.drawerOpenMs))
+        return .interpolatingSpring(mass: s.mass, stiffness: s.stiffness, damping: s.damping, initialVelocity: 0)
+    }
+
+    /// The neck along the edge: critically damped, a little slower than the growth.
+    public var neckSpring: Animation {
+        if reduceMotion { return .easeInOut(duration: seconds(Self.drawerOpenMs)) }
+        let s = LiquidMotion.neckSpring(settle: seconds(Self.drawerOpenMs))
+        return .interpolatingSpring(mass: s.mass, stiffness: s.stiffness, damping: s.damping, initialVelocity: 0)
+    }
+
+    /// Drawer content fades in just after its body starts growing.
+    public var contentFadeIn: Animation { .easeOut(duration: seconds(110)).delay(reduceMotion ? 0 : seconds(30)) }
+
+    /// How long a drawer panel's own alpha takes to come in: the blob must look solid as it
+    /// grows, so only a few frames; Reduce Motion keeps the cross-fade.
+    public var panelFadeInSeconds: Double { reduceMotion ? drawerOpenSeconds * 0.6 : 0.05 }
+
+    /// The bar reveal spring settling in 380 ms × scale; nil under Reduce Motion or at speed 0.
+    public var barRevealSpring: CaelestiaCore.Spring? {
+        let settle = seconds(Self.drawerOpenMs)
+        guard !reduceMotion, settle > 0 else { return nil }
+        let natural = LiquidMotion.barReveal.settlingTime(epsilon: AnimationSpec.springSettlingEpsilon)
+        return LiquidMotion.barReveal.timeScaled(by: settle / natural)
+    }
+
+    /// Extra room on a drawer panel's far side for the swing (0 under Reduce Motion).
+    public func overshootRoom(depth: Double) -> Double { reduceMotion ? 0 : LiquidMotion.overshootRoom(depth: depth) }
     /// Drawer close: emphasizedAccel, 220 ms × scale.
     public var drawerClose: Animation { curve(.emphasizedAccel, ms: Self.drawerCloseMs) }
     /// Small state changes (selection, hover): standard, 200 ms × scale.
