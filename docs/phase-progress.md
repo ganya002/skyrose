@@ -10,7 +10,7 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 |---|---|---|
 | 1. Launcher index + empty-workspace jump | done, live-checked | see `git log` ("Phase 5 part 1") |
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
-| 3. SIP-off mode | built + tested without the Dock; **waiting for Gabby to run the sudo loader**, then live test | "Phase 5 part 3a" |
+| 3. SIP-off mode | 3a built; 3a-fix loader (thread_create_running); **waiting for Gabby to run the sudo loader**, then live test 3b | "Phase 5 part 3a", "3a-fix" |
 | 4. Material Symbols | not started | |
 | 5. Screenshots, keep-awake, Clamshell | not started | |
 
@@ -103,11 +103,31 @@ and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS
   rule): pop-in, move, close, pin on top, alpha via the socket; `skyrose wm panic` → everything
   restored; then flip the macOS-limit rows in arch-parity.md that work, commit "part 3b".
 
+### Part 3b — loader debugging (macOS 26 / Darwin 27)
+
+- Live symptom: `sudo skyrose-sa-loader` printed nothing and exited. Added a `-v` trace, unbuffered
+  output, always-on crash handlers and distinct exit codes to `Packaging/sa/loader.c`.
+- Verbose trace showed every step succeed through `thread_convert_thread_state`, then exit 137.
+  Kernel log: `EXC_GUARD type=0x1 (GUARD_TYPE_MACH_PORT) … THREAD_SET_STATE on mach port … signal 9`.
+  So **`thread_set_state` on a thread's mach port is killed by a Mach-port guard on macOS 26** —
+  not a ptrauth fault (SIGKILL is why the handler stayed silent). Confirmed by Frida issue #3757
+  (same guard on 26.4; `tss_should_crash=0` is ignored on 26.x). SIP/boot-args were fine
+  (Debugging Restrictions off, `-arm64e_preview_abi` set), so readiness was never the problem.
+- **Fix (mirrors yabai's 14.4+/15+ path):** on macOS ≥ 14.4 don't call `thread_set_state`; throw
+  the conversion thread away (`thread_terminate`) and start the real one atomically with
+  `thread_create_running(task, ARM_THREAD_STATE64, converted_state, …)`. Older macOS keeps the
+  classic `set_state` + `resume`. Our ptrauth signing (IA key, ctx 0) and convert direction
+  (`FROM_SELF`) already matched yabai. Gated by `macos_at_least()` (`kern.osproductversion`).
+- Also reverted (via Gabby) `sipOff.enabled` in his config.toml — my live Settings test had left
+  the toggle on after the showcase unlocked it; inert with no SA loaded, now back to the default.
+- **Awaiting:** Gabby's `sudo …/skyrose-sa-loader -v; echo "exit=$?"` with the new binary.
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
 After part 2: 976 tests, 0 failures.
 After part 3a: 987 tests, 0 failures.
+After 3a-fix (loader): 987 tests, 0 failures.
 
 ---
 
@@ -231,39 +251,6 @@ is installed without the explicit button; icons stay SF Symbols for now.
 - Closing a key drawer on an empty workspace follows the re-activated app to its workspace.
 - Not live-tested this phase: bar spring reveal, toasts, OSD, popouts, wallpaper drawer; the
   kitty profile against a real kitty (Gabby's kitty.conf was deliberately not changed).
-
-## Part 3 — SIP-off mode (3a committed; live test pending)
-
-Verified first (2026-11-05): `csrutil status` = Custom Configuration with Filesystem, Debugging
-and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS 27.2 (26B123), arm64.
-
-- `Packaging/sa/`: `trampoline.s`, `loader.c` (`skyrose-sa-loader`, no arguments, sudo, invoking
-  user's Dock only), `payload.c` (`SkyRoseSA.dylib`). `scripts/build-sa.sh` (arm64e), called by
-  build.sh into `SkyRose.app/Contents/Resources/sa/` (ad-hoc signed before the bundle seal).
-  Protocol and safety: docs/ENHANCED_MODE.md › How it works.
-- Swift: `CaelestiaPlatform/Enhanced/ScriptingAddition.swift` (`SAClient`, `SAProtocol`),
-  `CaelestiaWMKit/EnhancedMode.swift` (`EnhancedMode`, `EnhancedWindowAnimator`), hooks in the
-  layout pass (instant switch hide/restore, `layoutApplied`), the slide gate, the close action,
-  `shutdown()` (reset), daemon wiring (animator swap on `onChange`), `query state` mode.
-- `[sipOff]` config: enabled=false, animations, opacity, shadows, instantWorkspaces, pinOnTop.
-- `SIPOffReadiness` (Core): parses csrutil + boot-args. CLI `skyrose sa status | load-command |
-  reset`; `skyrose wm panic` also sends `reset` + `stop` straight to the SA socket.
-- Settings › SIP-off mode (`SIPOffPage`): warning, status, sudo line + Copy, switch locked until
-  the showcase's "I understand the risks" (`@AppStorage sipOffShowcaseSeen`), per-feature
-  switches, how to turn SIP back on. `SIPOffShowcase`: live side-by-side demos (animations,
-  opacity/shadows, instant workspaces, pinning) + risks. `--sip-off-showcase` opens it.
-- SIP reminder flag: `EnhancedMode.probe()` calls `RestoreManifest.recordModeUsed(.sipOff)` the
-  first time the SA answers.
-- Tested without the Dock: payload loaded into a throwaway arm64e host process with its own
-  window (`SKYROSE_SA_SOCKET` override): hello listed all 5 capabilities on macOS 27.2; info
-  read the window server transform convention translate(-x,-y); `visual` drew the 400×332
-  window at 200×166 at (700,360) with alpha 0.9 (`/tmp/cwm/phase5/sa-visual.png`); alpha/level
-  went back when the client disconnected; freeze/thaw ok. Settings page + showcase shots:
-  `/tmp/cwm/phase5/settings-sipoff.png`, `showcase.png`.
-- **Next (after Gabby loads the SA):** `skyrose sa status`; `skyrose config set sipOff.enabled
-  true` with `sipOff.opacity false` (opacity would touch Gabby's kitty); TestWindows only (float
-  rule): pop-in, move, close, pin on top, alpha via the socket; `skyrose wm panic` → everything
-  restored; then flip the macOS-limit rows in arch-parity.md that work, commit "part 3b".
 
 ## Tests
 
