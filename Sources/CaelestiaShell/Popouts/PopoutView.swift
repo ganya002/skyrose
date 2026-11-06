@@ -56,8 +56,7 @@ struct PopoutView: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
-                FrostedShape(shape: DrawerShape(edge: .left, radius: theme.frameRounding, fillet: fillet), theme: theme)
-                    .liquidBody(edge: .left, shown: model.shown, depth: ShellSizing.popoutWidth, theme: theme)
+                DrawerBackground(edge: .left, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: ShellSizing.popoutWidth)
                 Group {
                     switch model.kind {
                     case .audio: AudioPopout(model: model, state: state)

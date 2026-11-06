@@ -168,7 +168,10 @@ extension ShellController {
         let centre = CGPoint(x: layout.area.midX, y: layout.area.midY)
         let frame = NSScreen.screens.first { $0.frame.contains(centre) }?.frame ?? layout.area
         let panel = dimPanel ?? {
-            let p = ShellPanel(frame: frame, level: NSWindow.Level(rawValue: ShellLevel.drawer.rawValue - 1), clickThrough: true, name: "session-dim")
+            // Under the frame: drawer backgrounds live in the frame's liquid surface, so a scrim above
+            // it would dim the session menu's own background.
+            let level = theme.liquidSurface ? NSWindow.Level(rawValue: ShellLevel.frame.rawValue - 1) : NSWindow.Level(rawValue: ShellLevel.drawer.rawValue - 1)
+            let p = ShellPanel(frame: frame, level: level, clickThrough: true, name: "session-dim")
             let v = NSView(frame: CGRect(origin: .zero, size: frame.size))
             v.wantsLayer = true
             v.layer?.backgroundColor = NSColor.black.withAlphaComponent(Self.sessionDimAlpha).cgColor
@@ -283,7 +286,7 @@ extension ShellController {
         guard let panel else { return }
         if panel.isKeyWindow { panel.resignKey() }
         let duration = theme.drawerCloseSeconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { if stillClosed() { panel.fadeOut(duration: duration) } }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in if stillClosed() { self?.retract(panel, duration: duration) } }
     }
 
     // MARK: Popouts

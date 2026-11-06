@@ -96,8 +96,7 @@ struct SessionView: View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
             ZStack {
-                FrostedShape(shape: DrawerShape(edge: .right, radius: theme.frameRounding, fillet: fillet), theme: theme)
-                    .liquidBody(edge: .right, shown: model.shown, depth: size.width, theme: theme)
+                DrawerBackground(edge: .right, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: size.width)
                 VStack(spacing: SessionModel.spacing) {
                     button(.logout)
                     button(.shutdown)

@@ -29,8 +29,9 @@ struct UtilitiesDrawerView: View {
                 Spacer(minLength: 0)
                 // Grows up out of the bottom band, like the launcher; the neck widens from the corner.
                 ZStack(alignment: .bottomTrailing) {
-                    FrostedShape(shape: CornerDrawerShape(radius: theme.frameRounding, fillet: fillet), theme: theme)
-                        .liquidBody(edge: .bottom, shown: model.shown, depth: h, theme: theme, neckAnchor: .bottomTrailing)
+                    DrawerBackground(shape: CornerDrawerShape(radius: theme.frameRounding, fillet: fillet), edge: .bottom,
+                                     inset: EdgeInsets(top: fillet, leading: fillet, bottom: 0, trailing: 0),
+                                     shown: model.shown, depth: h, neckAnchor: .bottomTrailing)
                     UtilitiesSection(model: sidebar, state: state)
                         .padding(.leading, fillet + Self.padding).padding(.top, fillet + Self.padding)
                         .padding(.trailing, Self.padding).padding(.bottom, Self.padding)

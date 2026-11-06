@@ -18,6 +18,12 @@ public enum ShellLevel {
 /// back to the previous window.
 public final class ShellPanel: NSPanel {
     public var acceptsKey = false
+    /// Liquid surface: the drawer body (panel-local, y-down) SwiftUI last reported, the edge it
+    /// slides from and its jelly amount (Caelestia `deformAmount`). Set by the controller.
+    public var blobBody: CGRect? { didSet { if blobBody != oldValue { onBlobBodyChange?() } } }
+    public var blobEdge: ShellEdge = .bottom
+    public var blobDeformAmount: Double = 0.15
+    public var onBlobBodyChange: (() -> Void)?
     /// Escape / arrows while key (launcher and session menu install one).
     public var onKeyDown: ((NSEvent) -> Bool)?
 
@@ -38,6 +44,12 @@ public final class ShellPanel: NSPanel {
         title = name
         setAccessibilityIdentifier("caelestia.\(name)")
     }
+
+    /// Shell surfaces are laid out exactly (the frame covers an auto-hidden menu bar's strip and
+    /// dips around the notch): AppKit must not push them below the menu bar. Live finding: the
+    /// frame window was moved 32 pt down on the notched built-in while its drawers were not, so
+    /// every drawer sat 32 pt off its band.
+    public override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 
     public override var canBecomeKey: Bool { acceptsKey }
     public override var canBecomeMain: Bool { false }
@@ -98,6 +110,20 @@ public final class ShellPanel: NSPanel {
     public override func cancelOperation(_ sender: Any?) {
         if let e = NSApp.currentEvent, onKeyDown?(e) == true { return }
     }
+}
+
+/// A drawer panel's content view: a transparent layer the liquid surface slides, squashes and
+/// fades (its `sublayerTransform` / `opacity`), with the SwiftUI host inside.
+public final class DrawerContentView: NSView {
+    public override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = .clear
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+    public override var isOpaque: Bool { false }
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
 /// Transparent hosting view (no SwiftUI window background). Clicks outside `hitRegion` (view-local

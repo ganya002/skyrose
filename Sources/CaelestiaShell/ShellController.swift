@@ -130,7 +130,7 @@ public final class ShellController {
     public init(state: ShellState, host: ShellHost?) {
         self.state = state
         self.host = host
-        theme = ShellTheme(scheme: state.scheme, config: state.config, reduceMotion: state.reduceMotion)
+        theme = Self.makeTheme(state)
         launcher.onActivate = { [weak self] in self?.activate($0) }
         launcher.onClose = { [weak self] in self?.close(.launcher) }
         session.onRun = { [weak self] action in
@@ -196,7 +196,7 @@ public final class ShellController {
 
     /// Config / scheme / display changes from the WM.
     public func stateChanged() {
-        let newTheme = ShellTheme(scheme: state.scheme, config: state.config, reduceMotion: state.reduceMotion)
+        let newTheme = Self.makeTheme(state)
         let themeChanged = newTheme != theme
         theme = newTheme
         guard isRunning else { return }
@@ -582,16 +582,76 @@ public final class ShellController {
         for d in openDrawers { close(d) }
     }
 
+    /// The shell theme for `state`; drawers go on the liquid surface when Metal is available
+    /// (`SKYROSE_LIQUID=0` turns it off for debugging).
+    static func makeTheme(_ state: ShellState) -> ShellTheme {
+        var t = ShellTheme(scheme: state.scheme, config: state.config, reduceMotion: state.reduceMotion)
+        t.liquidSurface = ProcessInfo.processInfo.environment["SKYROSE_LIQUID"] != "0" && LiquidSurface.isSupported
+        return t
+    }
+
+    /// Which edge each drawer slides from and its jelly (Caelestia ContentWindow.qml PanelBg).
+    static func blobStyle(_ name: String) -> (edge: ShellEdge, deform: Double) {
+        let a = CaelestiaTokens.DeformAmount.self
+        switch name {
+        case "launcher": return (.bottom, a.launcher)
+        case "wallpaper": return (.bottom, a.launcher)
+        case "dashboard": return (.top, a.dashboard)
+        case "session": return (.right, a.session)
+        case "osd": return (.right, a.osd)
+        case "sidebar": return (.right, a.sidebar)
+        case "utilities": return (.bottom, a.utilities)
+        case "popout": return (.left, a.popoutOpen)
+        default: return (.bottom, a.notifications)
+        }
+    }
+
     func makeDrawerPanel<V: View>(_ view: V, name: String, key: Bool, clickThrough: Bool = false) -> ShellPanel {
         let panel = ShellPanel(frame: .zero, level: ShellLevel.drawer, clickThrough: clickThrough, name: name)
         panel.acceptsKey = key
-        let host = ShellHostingView(rootView: AnyView(view.environment(\.shellTheme, theme)))
-        panel.contentView = host
+        let style = Self.blobStyle(name)
+        panel.blobEdge = style.edge
+        panel.blobDeformAmount = style.deform
+        // Reports made before the host has its size (the first layout runs at .zero) are noise.
+        weak var weakHost: NSView?
+        let report: @MainActor (CGRect) -> Void = { [weak panel] r in
+            guard let h = weakHost, h.bounds.width > 0, h.bounds.height > 0 else { return }
+            panel?.blobBody = r
+        }
+        let host = ShellHostingView(rootView: AnyView(view.environment(\.shellTheme, theme).environment(\.blobReporter, report)))
+        weakHost = host
+        let container = DrawerContentView(frame: .zero)
+        host.autoresizingMask = [.width, .height]
+        container.addSubview(host)
+        panel.contentView = container
+        host.frame = container.bounds
+        panel.onBlobBodyChange = { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            self.surface(for: panel)?.bodyChanged(panel)
+        }
         return panel
+    }
+
+    /// The liquid surface of the display `panel` is on (nil: frosted panels, the old path).
+    func surface(for panel: ShellPanel) -> LiquidSurface? {
+        guard theme.liquidSurface else { return nil }
+        let c = CGPoint(x: panel.frame.midX, y: panel.frame.midY)
+        if let f = frames.values.first(where: { $0.surface?.contains(panel) == true }) { return f.surface }
+        return frames.values.first { $0.layout.area.contains(c) }?.surface ?? frames.values.first?.surface
+    }
+
+    /// Hides a drawer panel: back into its edge on the liquid surface, else the panel fade.
+    func retract(_ panel: ShellPanel, duration: Double, completion: (() -> Void)? = nil) {
+        if let s = surface(for: panel), s.contains(panel) {
+            s.close(panel, completion: completion)
+        } else {
+            panel.fadeOut(duration: duration, completion: completion)
+        }
     }
 
     private func rebuildDrawers() {
         closeAll()
+        for f in frames.values { f.surface?.removeAll() }
         for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
         launcherPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
         dropPartTwoPanels()
@@ -602,7 +662,14 @@ public final class ShellController {
     /// the panel is ordered in and fades in while the caller's `shown = true` slides the content.
     func present(_ panel: ShellPanel) {
         panel.contentView?.layoutSubtreeIfNeeded()
-        panel.fadeIn(duration: theme.panelFadeInSeconds)
+        if let s = surface(for: panel) {
+            // The panel may have moved displays: leave the old surface first.
+            for f in frames.values where f.surface !== s { f.surface?.remove(panel) }
+            s.open(panel, edge: panel.blobEdge, deformAmount: panel.blobDeformAmount)
+            s.bodyChanged(panel)
+        } else {
+            panel.fadeIn(duration: theme.panelFadeInSeconds)
+        }
     }
 
     /// Hides a drawer panel: it slides (SwiftUI, `shown = false` set by the caller) and fades out
@@ -617,7 +684,7 @@ public final class ShellController {
             return false
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            if !reopened() { panel.fadeOut(duration: self.theme.drawerCloseSeconds) }
+            if !reopened() { self.retract(panel, duration: self.theme.drawerCloseSeconds) }
         }
     }
 
@@ -730,7 +797,7 @@ public final class ShellController {
         // Always animated out (slide + fade); `animated: false` only shortens it.
         let duration = animated ? theme.drawerCloseSeconds : theme.seconds(ShellTheme.reducedFadeMs)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
-            if self?.osd.shown == false { panel.fadeOut(duration: duration) }
+            if self?.osd.shown == false { self?.retract(panel, duration: duration) }
         }
     }
 

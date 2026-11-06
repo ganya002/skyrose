@@ -1,4 +1,63 @@
-# Phase: launcher + wallpapers, SIP-off mode, then Material icons / screenshots / Clamshell (started 2026-11-05)
+# Phase 6: Caelestia 1:1 visual polish (started 2026-11-06)
+
+Resume here after a context reset. Spec: `docs/caelestia-reference/PHASE-PROMPT.md` and
+`docs/caelestia-reference/docs/caelestia-research.md`. Public repo: https://github.com/ganya002/skyrose
+(created 2026-11-06; push `main` after every part, never force-push).
+
+| Part | State | Commit |
+|---|---|---|
+| 6a. Blob overlay (one SDF surface) | done, live-tested on the built-in | "Phase 6 part 6a" |
+| 6b. Panel motion tokens | next | |
+| 6c. Left-bar dock popouts | | |
+| 6d. Wallpaper carousel | | |
+
+## Part 6a — blob overlay (done)
+
+- `CaelestiaCore/Motion/Blob.swift`: pure port of Caelestia's Blobs plugin (@ bcbb5d5):
+  `BlobRect` / `BlobFrame` / `BlobScene`, `BlobSDF` (CPU line-by-line port of `blob.frag`: circular
+  smin, smaxSharpA frame edge, border compression, border sinks, `effectiveRadii` = corner fill) and
+  `Jelly` (`BlobRect::updatePhysics`: stretch along velocity, cap 35 %, spring k 200 / c 16, implicit
+  damping, rest snapping). `CaelestiaTokens.swift`: M3 Expressive curves + durations, per-panel
+  `deformAmount`.
+- `CaelestiaShell/Blob/BlobShader.swift`: the MSL port (compiled at runtime), plus display corner
+  radii, a 15 pt shadow and a mask mode. `LiquidSurface.swift`: one per display, it is the frame
+  window's content (replaces the frame `FrostedView`): Metal fill layer + behind-window blur masked by a
+  second CAMetalLayer rendered from the same SDF. It draws the band, the notch dips and every open
+  drawer's background as ONE group, and its display link is the drawers' clock: offsetScale 0↔1 on
+  expressiveDefaultSpatial (500 ms × 0.8), slide out through the edge, jelly, and the same
+  slide/squash/fade applied to the drawer's content panel (`DrawerContentView.sublayerTransform` /
+  opacity). Renders only while something moves.
+- Drawer views: `DrawerBackground` replaces `FrostedShape + liquidBody` (launcher, dashboard, session,
+  OSD, sidebar, utilities, popout, wallpaper); on the surface it draws nothing and reports the body rect
+  (fillets excluded) through `\.blobReporter`. `liquidBody` / `liquidContent` are no-ops on the surface.
+  The old frosted path stays as the fallback (no Metal, or `SKYROSE_LIQUID=0`).
+- Controller: `makeTheme` sets `theme.liquidSurface`; `makeDrawerPanel` wraps the host in a
+  `DrawerContentView` and sets edge + deformAmount (`blobStyle`); `present` → `surface.open`;
+  `dismiss` / `dismissAfter` / `hideOSD` → `retract` → `surface.close` (orders out when hidden).
+  Session dim moved under the frame (it would dim the session's own background otherwise).
+- **Bug fixed on the way:** AppKit constrained the full-display frame window below the menu-bar/notch
+  strip (32 pt) on the built-in while drawers were laid out from the unconstrained layout, so every
+  drawer sat 32 pt off its band. `ShellPanel.constrainFrameRect` now returns the rect unchanged; the
+  frame reaches the top again and dips around the notch as designed.
+- Live (built-in, kitty behind): dashboard, launcher, session, OSD, sidebar, utilities, audio popout all
+  grow out of the band with concave fillets; the notch dip is part of the surface; utilities + OSD fuse
+  into one shape. Dashboard open ≈ 400 ms with a small overshoot, close ≈ 100 ms. Shots in the session
+  scratchpad (`live/d2.png`, `l2.png`, `s2.png`, `sb3.png`, `u4.png`, `m1.png`).
+
+Still separate from the surface: toasts (own frosted pill, as upstream: not a PanelBg) and the bar's
+content
+(the bar band itself is the frame's left edge). Jelly amounts are upstream's (dashboard 0.1 → ≈ 4 %
+stretch at full speed): subtle by design.
+
+## Tests (phase 6)
+
+After part 6a: 1045 tests, 0 failures (`/usr/bin/swift test`).
+
+---
+
+# Previous phase: launcher + wallpapers, SIP-off mode, Material icons / screenshots / Clamshell
+
+(started 2026-11-05)
 
 Resume here after a context reset. Read `docs/parity-progress.md` and `docs/arch-parity.md` first.
 Strict order (Gabby is low on usage): 1 quick fixes → 2 wallpapers → 3 SIP-off mode → 4 Material

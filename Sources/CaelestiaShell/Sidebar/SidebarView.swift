@@ -33,8 +33,7 @@ struct SidebarView: View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
             ZStack {
-                FrostedShape(shape: DrawerShape(edge: .right, radius: theme.frameRounding, fillet: fillet), theme: theme)
-                    .liquidBody(edge: .right, shown: model.shown, depth: model.width, theme: theme, neck: false)
+                DrawerBackground(edge: .right, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: model.width, neck: false)
                 VStack(spacing: 10) {
                     NotificationsSection(model: model, state: state)
                     UtilitiesSection(model: model, state: state)

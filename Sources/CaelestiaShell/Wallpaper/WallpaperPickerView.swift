@@ -36,8 +36,7 @@ struct WallpaperPickerView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             ZStack {
-                FrostedShape(shape: DrawerShape(edge: .bottom, radius: theme.frameRounding, fillet: fillet), theme: theme)
-                    .liquidBody(edge: .bottom, shown: model.shown, depth: bodySize.height, theme: theme)
+                DrawerBackground(edge: .bottom, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: bodySize.height)
                 content.padding(.horizontal, fillet + 4).padding(.top, 14).padding(.bottom, 12)
                     .liquidContent(edge: .bottom, shown: model.shown, depth: bodySize.height, theme: theme)
             }

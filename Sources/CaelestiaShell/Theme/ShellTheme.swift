@@ -27,6 +27,9 @@ public struct ShellTheme: Equatable, Sendable {
     /// Inner radius of the screen frame (window rounding 15 + gaps_out 10 → concentric 25).
     public var frameRounding: Double
     public var barWidth: Double
+    /// Drawer backgrounds are drawn by the frame's `LiquidSurface` (one SDF blob group) instead
+    /// of per-panel frosted shapes; set by the controller when Metal is available.
+    public var liquidSurface = false
 
     public init(scheme: Scheme, config: Config = Config(), reduceMotion: Bool = false) {
         self.scheme = scheme
@@ -184,6 +187,17 @@ public struct ShellTheme: Equatable, Sendable {
     public func seconds(_ ms: Double) -> Double {
         let scale = max(0, durationScale)
         return (reduceMotion ? min(ms, Self.reducedFadeMs) : ms) * scale / 1000
+    }
+
+    /// Caelestia token `ms` scaled (`appearance.anim.durations.scale`), Reduce Motion aside.
+    public func tokenSeconds(_ ms: Double) -> Double { ms * max(0, durationScale) / 1000 }
+    /// A Caelestia token curve as a SwiftUI animation; Spatial curves fall back to standard under
+    /// Reduce Motion, which also caps the duration at the short cross-fade.
+    public func token(_ c: CaelestiaTokens.Curve, ms: Double? = nil) -> Animation {
+        let ms = ms ?? c.milliseconds
+        if reduceMotion { return .easeInOut(duration: seconds(ms)) }
+        let b = c.bezier
+        return .timingCurve(b.x1, b.y1, b.x2, b.y2, duration: tokenSeconds(ms))
     }
 
     /// A slide distance: 0 under Reduce Motion (drawers then only fade, through their panel).

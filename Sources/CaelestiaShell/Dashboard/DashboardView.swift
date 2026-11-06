@@ -32,8 +32,7 @@ struct DashboardView: View {
         let top = model.topInset
         VStack(spacing: 0) {
             ZStack(alignment: .bottom) {
-                FrostedShape(shape: DrawerShape(edge: .top, radius: theme.frameRounding, fillet: fillet), theme: theme)
-                    .liquidBody(edge: .top, shown: model.shown, depth: body.height + top, theme: theme)
+                DrawerBackground(edge: .top, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: body.height + top)
                 content
                     .frame(width: design.width, height: design.height)
                     .scaleEffect(s, anchor: .center)

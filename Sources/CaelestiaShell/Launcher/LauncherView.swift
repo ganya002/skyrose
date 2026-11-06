@@ -78,8 +78,7 @@ struct LauncherView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             ZStack(alignment: .bottom) {
-                FrostedShape(shape: DrawerShape(edge: .bottom, radius: theme.frameRounding, fillet: fillet), theme: theme)
-                    .liquidBody(edge: .bottom, shown: model.shown, depth: size.height, theme: theme)
+                DrawerBackground(edge: .bottom, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: size.height)
                 VStack(spacing: LauncherModel.gap) {
                     list
                     search
