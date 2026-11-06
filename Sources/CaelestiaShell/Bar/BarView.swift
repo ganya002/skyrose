@@ -17,6 +17,12 @@ public final class BarModel: ObservableObject {
     public var onClock: () -> Void = {}
     /// A status icon was clicked: its id and the vertical centre in the bar window (top-left space).
     public var onStatus: (String, Double) -> Void = { _, _ in }
+    /// Where the bar items with a hover popout sit in the bar window (top-left space). The
+    /// controller hit-tests its pointer monitor against these: SwiftUI hover does not reach a
+    /// non-activating panel while another app is active.
+    public var itemFrames: [String: CGRect] = [:]
+
+    func setItemFrame(_ id: String, _ frame: CGRect?) { itemFrames[id] = frame }
 
     public init(displayID: String) {
         self.displayID = displayID
@@ -48,7 +54,8 @@ struct BarView: View {
                     .background(ScrollCatcher(onScroll: model.onScrollWorkspace))
             }
             if bar.showActiveWindow {
-                ActiveWindowColumn(window: state.activeWindow?.displayID == model.displayID || state.focusedDisplayID == model.displayID ? state.activeWindow : nil)
+                ActiveWindowColumn(window: state.activeWindow?.displayID == model.displayID || state.focusedDisplayID == model.displayID ? state.activeWindow : nil,
+                                   report: { model.setItemFrame("activeWindow", $0) })
                     .padding(.top, 14)
             }
             Spacer(minLength: 8)
@@ -62,7 +69,7 @@ struct BarView: View {
                     .padding(.top, 12)
             }
             if bar.showStatusIcons {
-                StatusColumn(state: state, onTap: model.onStatus)
+                StatusColumn(state: state, onTap: model.onStatus, report: model.setItemFrame)
                     .padding(.top, 12)
             }
             if bar.showPower {
@@ -100,57 +107,133 @@ struct BarIconButton: View {
     }
 }
 
-/// Workspace pills (spec 5.2): active = primary pill that stretches, occupied = dot, empty = a
-/// faint dot. The indicator slides between slots on the fast spatial curve.
+/// Workspace pills (spec 5.2, Caelestia Workspace.qml): each workspace is a shape (active: a
+/// large dot, occupied: a small square, empty: a faint dot) followed by its windows' app icons
+/// (at most `WorkspacePill.maxWindowIcons`). The active indicator is a primary capsule behind the
+/// active workspace whose two ends move separately (Caelestia ActiveIndicator.qml with
+/// `activeTrail`): the leading end on the default spatial token, the trailing end 1.5× slower,
+/// so it stretches towards the new workspace and then catches up.
 struct WorkspacesColumn: View {
     var pills: [WorkspacePill]
     var special: String?
     var onFocus: (Int) -> Void
     @Environment(\.shellTheme) var theme
-    @Namespace private var ns
+    @State private var start: Double = 0
+    @State private var end: Double = 0
+    @State private var placed = false
 
-    static let slot: Double = 22
-    static let activeSlot: Double = 40
+    static let shape: Double = 22
+    static let icon: Double = 16
+    static let iconGap: Double = 2
+    static let spacing: Double = 2
+    static let padding: Double = 6
+
+    /// Height of one workspace: the shape plus its icons (Caelestia: + extraSmall padding).
+    static func height(of pill: WorkspacePill) -> Double {
+        pill.apps.isEmpty ? shape : shape + Double(pill.apps.count) * (icon + iconGap) + 4
+    }
+
+    /// Top and bottom of the active workspace inside the column (nil: none is active).
+    static func activeSpan(_ pills: [WorkspacePill]) -> (start: Double, end: Double)? {
+        var y = padding
+        for p in pills {
+            let h = height(of: p)
+            if p.active { return (y, y + h) }
+            y += h + spacing
+        }
+        return nil
+    }
+
+    /// Leading and trailing durations for a move from `old` to `new` (Caelestia: the edge in the
+    /// direction of travel leads).
+    static func trailDurations(goingUp: Bool, leading: Double) -> (start: Double, end: Double) {
+        let trailing = leading * 1.5
+        return goingUp ? (leading, trailing) : (trailing, leading)
+    }
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: Self.spacing) {
             ForEach(pills) { pill in
-                Button { onFocus(pill.id) } label: {
-                    ZStack {
-                        if pill.active {
-                            Capsule().fill(theme[.primary])
-                                .matchedGeometryEffect(id: "active", in: ns)
-                                .frame(width: 14, height: Self.activeSlot - 8)
-                        } else {
-                            Circle()
-                                .fill(pill.occupied ? theme[.onSurface] : theme[.onSurfaceVariant].opacity(0.35))
-                                .frame(width: pill.occupied ? 6 : 4, height: pill.occupied ? 6 : 4)
-                        }
-                    }
-                    .frame(width: 30, height: pill.active ? Self.activeSlot : Self.slot)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("bar.workspace.\(pill.id)")
-                .help("Workspace \(pill.name)")
+                Button { onFocus(pill.id) } label: { item(pill) }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("bar.workspace.\(pill.id)")
+                    .help("Workspace \(pill.name)")
             }
             if let special {
                 MaterialIcon("sparkles", size: 11, weight: .semibold)
                     .foregroundStyle(theme[.tertiary])
-                    .frame(width: 30, height: Self.slot)
+                    .frame(width: 30, height: Self.shape)
                     .help("Special workspace \(special)")
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, Self.padding)
         .frame(width: 34)
+        .background(alignment: .top) {
+            if end > start {
+                Capsule().fill(theme[.primary])
+                    .frame(width: 30, height: end - start)
+                    .offset(y: start)
+            }
+        }
         .background(Capsule().fill(theme[.surfaceContainer].opacity(theme.layerAlpha + 0.4)))
-        .animation(theme.fastSpatial, value: pills)
+        .animation(theme.spatial, value: pills)
+        .onAppear { moveIndicator(animated: false) }
+        .onChange(of: pills) { _, _ in moveIndicator(animated: true) }
+    }
+
+    @ViewBuilder func item(_ pill: WorkspacePill) -> some View {
+        let fg = pill.active ? theme[.onPrimary] : (pill.occupied ? theme[.onSurface] : theme[.onSurfaceVariant].opacity(0.4))
+        VStack(spacing: Self.iconGap) {
+            ZStack {
+                if pill.active {
+                    Circle().fill(fg).frame(width: 10, height: 10)
+                } else if pill.occupied {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous).fill(fg).frame(width: 6, height: 6)
+                } else {
+                    Circle().fill(fg).frame(width: 5, height: 5)
+                }
+            }
+            .frame(height: Self.shape)
+            ForEach(Array(pill.apps.enumerated()), id: \.offset) { _, bundleID in
+                Group {
+                    if let image = AppIconCache.icon(bundleID: bundleID) {
+                        Image(nsImage: image).resizable().interpolation(.high)
+                    } else {
+                        MaterialIcon("macwindow", size: 11).foregroundStyle(fg)
+                    }
+                }
+                .frame(width: Self.icon, height: Self.icon)
+                .saturation(pill.active || pill.occupied ? 1 : 0.4)
+                .transition(.opacity.combined(with: .scale(scale: 0.6)))
+            }
+            if !pill.apps.isEmpty { Color.clear.frame(height: 4 - Self.iconGap) }
+        }
+        .frame(width: 30, height: Self.height(of: pill), alignment: .top)
+        .contentShape(Rectangle())
+    }
+
+    private func moveIndicator(animated: Bool) {
+        guard let span = Self.activeSpan(pills) else {
+            withAnimation(theme.small) { end = start }
+            return
+        }
+        guard animated, placed, !theme.reduceMotion else {
+            var t = Transaction()
+            t.animation = theme.reduceMotion && placed ? theme.small : nil
+            withTransaction(t) { start = span.start; end = span.end }
+            placed = true
+            return
+        }
+        let d = Self.trailDurations(goingUp: span.start < start, leading: CaelestiaTokens.Duration.defaultSpatial)
+        withAnimation(theme.token(.defaultSpatial, ms: d.start)) { start = span.start }
+        withAnimation(theme.token(.defaultSpatial, ms: d.end)) { end = span.end }
     }
 }
 
 /// App icon + the window title as rotated vertical text.
 struct ActiveWindowColumn: View {
     var window: ActiveWindowInfo?
+    var report: (CGRect?) -> Void = { _ in }
     @Environment(\.shellTheme) var theme
 
     var body: some View {
@@ -173,6 +256,9 @@ struct ActiveWindowColumn: View {
             }
         }
         .frame(width: 34)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { report(window == nil ? nil : $0) }
+        .onChange(of: window == nil) { _, none in if none { report(nil) } }
+        .onDisappear { report(nil) }
     }
 }
 
@@ -205,6 +291,7 @@ struct ClockColumn: View {
 struct StatusColumn: View {
     @ObservedObject var state: ShellState
     var onTap: (String, Double) -> Void = { _, _ in }
+    var report: (String, CGRect?) -> Void = { _, _ in }
     @Environment(\.shellTheme) var theme
 
     var body: some View {
@@ -212,7 +299,8 @@ struct StatusColumn: View {
         VStack(spacing: 10) {
             ForEach(enabled, id: \.self) { id in
                 if let symbol = symbol(for: id) {
-                    StatusIconButton(symbol: symbol, hasPopout: PopoutKind.forStatusIcon(id) != nil) { midY in onTap(id, midY) }
+                    StatusIconButton(symbol: symbol, hasPopout: PopoutKind.forStatusIcon(id) != nil,
+                                     report: { report(id, $0) }) { midY in onTap(id, midY) }
                         .accessibilityIdentifier("bar.status.\(id)")
                         .help(help(for: id))
                 }
@@ -312,6 +400,7 @@ enum AppIconCache {
 struct StatusIconButton: View {
     var symbol: String
     var hasPopout: Bool
+    var report: (CGRect?) -> Void = { _ in }
     var onTap: (Double) -> Void
     @State private var midY: Double = 0
     @State private var hover = false
@@ -331,6 +420,8 @@ struct StatusIconButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { if hasPopout { report($0) } }
+        .onDisappear { report(nil) }
     }
 }
 

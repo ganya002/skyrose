@@ -8,8 +8,8 @@ Resume here after a context reset. Spec: `docs/caelestia-reference/PHASE-PROMPT.
 |---|---|---|
 | 6a. Blob overlay (one SDF surface) | done, live-tested on the built-in | "Phase 6 part 6a" |
 | 6b. Panel motion tokens | done, live-checked (launcher, dashboard clips) | "Phase 6 part 6b" |
-| 6c. Left-bar dock popouts | next | |
-| 6d. Wallpaper carousel | | |
+| 6c. Left-bar dock popouts | done, live-tested on the built-in (hover, morph, trail) | "Phase 6 part 6c" |
+| 6d. Wallpaper carousel | next | |
 
 ## Part 6a — blob overlay (done)
 
@@ -70,10 +70,44 @@ stretch at full speed): subtle by design.
   (reference: open ≈ 380 / close ≈ 130 measured to rest); dashboard likewise. Not live-tested:
   bar reveal (warped pointers do not trigger hover; no IPC), toasts (would write the notification history).
 
+## Part 6c — left-bar dock popouts (done)
+
+- Workspace pills (Caelestia Workspace.qml): shape per workspace (active: dot, occupied: small
+  square, empty: faint dot) followed by up to 5 app icons of its windows (`WorkspacePill.apps`,
+  filled by `ShellBridge.pills(… bundleID:)` from the WM's window handles). The column grows with them.
+- Active trail (ActiveIndicator.qml, `activeTrail`): one primary capsule behind the active workspace
+  whose top and bottom move separately; the edge in the direction of travel leads on
+  expressiveDefaultSpatial (500 × 0.8 = 400 ms), the other trails 1.5× (600 ms), so it stretches and
+  catches up. Contents of the active workspace turn onPrimary. Reduce Motion: 120 ms, no trail.
+- Hover popouts: hovering the active-window column or a status icon (audio, network, Bluetooth,
+  battery) opens its popout; moving to another item morphs the one popout to it (the blob tweens
+  body size + position on the spatial token and the content panel rides the drawn body,
+  `LiquidSurface.applyContent` now offsets against the morph target); content cross-fades
+  (`.id(kind)` + opacity). Leaving the bar and the popout closes it (120 ms pointer check);
+  click-opened popouts stay until clicked away; hover does not open popouts over the launcher,
+  dashboard, session or wallpaper drawers.
+- Hover is hit-tested in the controller's global pointer monitor against item frames the bar
+  reports (`BarModel.itemFrames`): SwiftUI `.onHover` never fires in the non-activating bar panel
+  while another app is active (live finding).
+- New active-window popout (400 pt): app icon, title, app name and a ScreenCaptureKit still of the
+  focused window (only when Screen Recording is already granted; no prompt from a hover).
+  Popout widths follow Caelestia: active window 400, audio / network 320, Bluetooth 300, battery 250.
+- An IPC / keybind popout on an auto-hidden bar now reveals and holds the bar (a popout always grows
+  out of it); closing re-checks the pointer so the bar hides again. `shell drawers toggle
+  popout.activewindow` (names are case-insensitive).
+- Right sidebar unchanged.
+- Live (built-in, kitty on ws1): hover audio → popout; up to the window column → morph to the
+  preview popout (≈ 400 ms, jelly settles); leave → close + bar hides. Trail clip ws1 → ws4 → ws1:
+  leading edge arrives first both directions. Shots: scratchpad `live6c/hover3.png`,
+  `live6c/sheet.png` (morph), `live6c/trailsheet.png`.
+- Note: during this run macOS showed "SkyRose would like to record this computer's screen and audio"
+  although `permissions status` reports Screen Recording granted (left for Gabby; nothing clicked).
+
 ## Tests (phase 6)
 
 After part 6a: 1045 tests, 0 failures (`/usr/bin/swift test`).
 After part 6b: 1048 tests, 0 failures.
+After part 6c: 1055 tests, 0 failures.
 
 ---
 

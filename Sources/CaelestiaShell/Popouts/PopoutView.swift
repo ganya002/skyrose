@@ -6,6 +6,23 @@ import SwiftUI
 
 public enum PopoutKind: String, CaseIterable, Sendable {
     case audio, network, bluetooth, battery
+    /// Hovering the bar's active-window column: the window's preview (Caelestia ActiveWindow popout).
+    case activeWindow
+
+    /// Body width (Caelestia popout sizes: active window 400, audio / network 320, battery 250).
+    public var width: Double {
+        switch self {
+        case .activeWindow: return 400
+        case .audio, .network: return 320
+        case .bluetooth: return 300
+        case .battery: return 250
+        }
+    }
+
+    /// What hovering a bar item shows (nil: nothing). Ids as `BarModel.onHover` reports them.
+    public static func forBarItem(_ id: String) -> PopoutKind? {
+        id == "activeWindow" ? .activeWindow : forStatusIcon(id)
+    }
 
     /// Which popout a bar status icon opens (nil: the icon has none).
     public static func forStatusIcon(_ id: String) -> PopoutKind? {
@@ -27,6 +44,10 @@ public final class PopoutModel: ObservableObject {
     @Published public var networks: [WiFiNetwork] = []
     @Published public var scanning = false
     @Published public var scanMessage: String?
+    /// The window the active-window popout shows, and its captured preview.
+    @Published public var window: ActiveWindowInfo?
+    @Published public var preview: CGImage?
+    public var previewWindowID: UInt32 = 0
     public var onSetOutput: (AudioDeviceID) -> Void = { _ in }
     public var onVolume: (Double) -> Void = { _ in }
     public var onMute: () -> Void = {}
@@ -43,8 +64,12 @@ public final class PopoutModel: ObservableObject {
         case .network: return 190 + Double(min(networks.count, 6)) * 38 + (scanMessage == nil ? 0 : 40)
         case .bluetooth: return 150
         case .battery: return 170
+        case .activeWindow: return 74 + Self.previewHeight
         }
     }
+
+    /// The preview's height inside a 400 pt popout (16:10 of the content width).
+    public static let previewHeight: Double = ((PopoutKind.activeWindow.width - 16) * 10 / 16).rounded()
 }
 
 struct PopoutView: View {
@@ -56,19 +81,24 @@ struct PopoutView: View {
     var body: some View {
         HStack(spacing: 0) {
             ZStack {
-                DrawerBackground(edge: .left, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: ShellSizing.popoutWidth)
+                DrawerBackground(edge: .left, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: model.kind.width)
                 Group {
                     switch model.kind {
                     case .audio: AudioPopout(model: model, state: state)
                     case .network: NetworkPopout(model: model, state: state)
                     case .bluetooth: BluetoothPopout(model: model, state: state)
                     case .battery: BatteryPopout(model: model, state: state)
+                    case .activeWindow: ActiveWindowPopout(model: model)
                     }
                 }
+                // Moving between bar items morphs the one popout; its content cross-fades.
+                .id(model.kind)
+                .transition(.opacity)
                 .padding(.leading, 6).padding(.trailing, 10).padding(.vertical, fillet + 4)
-                .liquidContent(edge: .left, shown: model.shown, depth: ShellSizing.popoutWidth, theme: theme)
+                .liquidContent(edge: .left, shown: model.shown, depth: model.kind.width, theme: theme)
             }
-            .frame(width: ShellSizing.popoutWidth)
+            .frame(width: model.kind.width)
+            .animation(theme.small, value: model.kind)
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -104,6 +134,46 @@ private struct SettingsLink: View {
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
         }.buttonStyle(.plain)
+    }
+}
+
+/// The focused window: app icon, title, app name and a live capture of the window.
+private struct ActiveWindowPopout: View {
+    @ObservedObject var model: PopoutModel
+    @Environment(\.shellTheme) var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                if let w = model.window, let icon = AppIconCache.icon(bundleID: w.bundleID) {
+                    Image(nsImage: icon).resizable().interpolation(.high).frame(width: 38, height: 38)
+                } else {
+                    MaterialIcon("macwindow", size: 16).foregroundStyle(theme[.onPrimaryContainer])
+                        .frame(width: 38, height: 38).background(Circle().fill(theme[.primaryContainer]))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(model.window.map { $0.title.isEmpty ? $0.appName : $0.title } ?? "No window")
+                        .font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                    Text(model.window?.appName ?? "Nothing is focused").font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            ZStack {
+                RoundedRectangle(cornerRadius: 17, style: .continuous).fill(theme[.surfaceContainer].opacity(theme.layerAlpha + 0.3))
+                if let image = model.preview {
+                    Image(decorative: image, scale: 1).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(6)
+                        .transition(.opacity)
+                } else {
+                    MaterialIcon("macwindow", size: 28).foregroundStyle(theme[.onSurfaceVariant].opacity(0.6))
+                }
+            }
+            .frame(height: PopoutModel.previewHeight)
+            .animation(theme.small, value: model.preview != nil)
+            Spacer(minLength: 0)
+        }
+        .accessibilityIdentifier("popout.activeWindow")
     }
 }
 

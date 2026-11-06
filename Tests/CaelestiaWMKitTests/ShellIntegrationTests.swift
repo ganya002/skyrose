@@ -114,6 +114,20 @@ final class ShellIntegrationTests: XCTestCase {
         XCTAssertEqual(pills.reduce(0) { $0 + $1.windowCount }, 2)
     }
 
+    func testPillsCarryTheirWindowsAppsCappedAtFive() {
+        let h = Harness()
+        for i in 0..<7 { h.system.existing("w\(i)") }
+        h.start()
+        h.settle()
+        let pills = ShellBridge.pills(state: h.wm.state, display: "air", shown: 5) { "app.\($0)" }
+        let one = pills.first { $0.id == 1 }
+        XCTAssertEqual(one?.windowCount, 7)
+        XCTAssertEqual(one?.apps.count, 5, "WorkspacePill.maxWindowIcons")
+        XCTAssertTrue(one?.apps.allSatisfy { $0.hasPrefix("app.") } ?? false)
+        XCTAssertEqual(pills.first { $0.id == 2 }?.apps, [])
+        XCTAssertEqual(ShellBridge.pills(state: h.wm.state, display: "air", shown: 5).first?.apps, [], "no lookup: no icons")
+    }
+
     func testPillsBoundaryAndDegenerateShownCount() {
         let h = Harness()
         h.start()

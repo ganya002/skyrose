@@ -78,6 +78,13 @@ public final class ShellController {
     var wallpaperPanel: ShellPanel?
     public internal(set) var popoutKind: PopoutKind?
     var popoutDisplay: String?
+    /// The popout was opened by hovering a bar item (it closes when the pointer leaves the bar
+    /// and the popout); a click-opened popout stays until clicked away.
+    var popoutByHover = false
+    var popoutLeaveTimer: Timer?
+    var previewTask: Task<Void, Never>?
+    /// "display/item" under the pointer (bar hover popouts).
+    var hoveredBarItem: String?
     public var notificationStore = NotificationStore()
     /// Where the history is persisted (set by the daemon; nil in tests: memory only).
     public internal(set) var notificationHistory: NotificationHistoryFile?
@@ -290,6 +297,28 @@ public final class ShellController {
         }
         scheduleHideTick()
         hoverReveal(p, at: now)
+        barHover(p)
+    }
+
+    /// Hit-tests the pointer against the shown bars' popout items (`BarModel.itemFrames`).
+    func barHover(_ p: CGPoint) {
+        var hit: (item: String, display: String, midY: Double)?
+        for (id, bar) in bars where bar.model.reveal > 0.5 {
+            let f = bar.panel.frame
+            guard f.contains(p) else { continue }
+            let local = CGPoint(x: p.x - f.minX, y: f.maxY - p.y)
+            if let item = bar.model.itemFrames.first(where: { $0.value.insetBy(dx: -3, dy: -3).contains(local) }) {
+                hit = (item.key, id, item.value.midY)
+            }
+        }
+        let key = hit.map { "\($0.display)/\($0.item)" }
+        guard key != hoveredBarItem else { return }
+        hoveredBarItem = key
+        if let hit {
+            barItemHovered(hit.item, display: hit.display, windowMidY: hit.midY)
+        } else {
+            barItemHovered(nil, display: popoutDisplay ?? "", windowMidY: 0)
+        }
     }
 
     // MARK: Edge drags (Caelestia Interactions.qml)
@@ -452,6 +481,15 @@ public final class ShellController {
         vis.set(shown: shown)
         visibility[display] = vis
         if before != vis.isShown { applyVisibility(display, vis) }
+    }
+
+    /// Shows an auto-hidden bar and holds it (a popout opened without hovering the bar).
+    func revealBar(_ id: String) {
+        guard var vis = visibility[id], !vis.isShown else { return }
+        vis.set(shown: true)
+        vis.pinned = true
+        visibility[id] = vis
+        applyVisibility(id, vis)
     }
 
     private func applyVisibility(_ id: String, _ vis: BarVisibility) {

@@ -295,18 +295,71 @@ extension ShellController {
     func statusIconClicked(_ icon: String, display: String, windowMidY: Double) {
         Log.shell.debug("status icon \(icon, privacy: .public) clicked at y=\(windowMidY, privacy: .public)")
         guard let kind = PopoutKind.forStatusIcon(icon), let bar = bars[display], let layout = layouts[display] else { return }
-        if popoutKind == kind, popoutDisplay == display { closePopout(); return }
+        if popoutKind == kind, popoutDisplay == display, !popoutByHover { closePopout(); return }
         let midY = bar.panel.frame.maxY - windowMidY
         openPopout(kind, display: display, layout: layout, anchorMidY: midY)
+        popoutByHover = false
     }
 
     /// `shell drawers toggle popout.audio|network|bluetooth|battery`: toggles a bar popout without a click.
+    /// Hovering a bar item (Caelestia bar popouts): opens its popout, or morphs the open one to
+    /// it; leaving starts the close check. Drawers that own the screen (launcher, dashboard,
+    /// session, wallpaper) are left alone.
+    func barItemHovered(_ item: String?, display: String, windowMidY: Double) {
+        guard let item else {
+            if popoutByHover { scheduleHoverClose() }
+            return
+        }
+        guard let kind = PopoutKind.forBarItem(item), let bar = bars[display], let layout = layouts[display] else { return }
+        if popoutKind != nil, !popoutByHover { return }
+        if [.launcher, .session, .dashboard, .wallpaper].contains(where: openDrawers.contains) { return }
+        popoutLeaveTimer?.invalidate()
+        popoutLeaveTimer = nil
+        if popoutKind == kind, popoutDisplay == display { return }
+        openPopout(kind, display: display, layout: layout, anchorMidY: bar.panel.frame.maxY - windowMidY)
+        popoutByHover = true
+    }
+
+    /// Where a hover-opened popout may be without closing: the bar and the popout's body
+    /// (screen space), with a little slack for the seam between them.
+    func popoutHoverZone() -> [CGRect] {
+        var zone: [CGRect] = []
+        if let d = popoutDisplay, let bar = bars[d] { zone.append(bar.panel.frame.insetBy(dx: -4, dy: -4)) }
+        if let panel = popoutPanel {
+            if let body = panel.blobBody {
+                let f = panel.frame
+                zone.append(CGRect(x: f.minX + body.minX, y: f.maxY - body.maxY, width: body.width, height: body.height).insetBy(dx: -8, dy: -8))
+            } else {
+                zone.append(panel.frame)
+            }
+        }
+        return zone
+    }
+
+    private func scheduleHoverClose() {
+        guard popoutLeaveTimer == nil else { return }
+        popoutLeaveTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                guard self.popoutByHover, self.popoutKind != nil else {
+                    self.popoutLeaveTimer?.invalidate()
+                    self.popoutLeaveTimer = nil
+                    return
+                }
+                let p = NSEvent.mouseLocation
+                if !self.popoutHoverZone().contains(where: { $0.contains(p) }) { self.closePopout() }
+            }
+        }
+    }
+
     public func togglePopout(_ kind: PopoutKind, display: String? = nil) {
         if popoutKind == kind { closePopout(); return }
         guard let id = display ?? pointerDisplayID() ?? state.displays.first?.id, let layout = layouts[id] else { return }
         let bar = bars[id]?.panel.frame
-        let anchor = bar.map { $0.minY + $0.height * 0.2 } ?? layout.inner(barReveal: 1).midY
+        // Roughly where the item sits: the active window high up, the status icons near the bottom.
+        let anchor = bar.map { $0.minY + $0.height * (kind == .activeWindow ? 0.7 : 0.2) } ?? layout.inner(barReveal: 1).midY
         openPopout(kind, display: id, layout: layout, anchorMidY: anchor)
+        popoutByHover = false
     }
 
     public func openPopout(_ kind: PopoutKind, display: String, layout: DisplayLayout, anchorMidY: Double) {
@@ -318,27 +371,53 @@ extension ShellController {
         let panel = popoutPanel ?? makeDrawerPanel(PopoutView(model: popout, state: state, fillet: fillet), name: "popout", key: false)
         popoutPanel = panel
         popout.kind = kind
+        if kind == .activeWindow { capturePreview() }
         if kind == .audio { popout.devices = audio.outputDevices() }
         if kind == .bluetooth { bluetooth.refresh() }
         if kind == .network { popout.networks = []; popout.scanMessage = nil }
         let reveal = bars[display]?.reveal.target ?? 0
         let inner = layout.inner(barReveal: max(reveal, 1))
-        let size = CGSize(width: ShellSizing.popoutWidth, height: popout.bodyHeight(for: kind) + 2 * fillet)
+        let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
         panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: anchorMidY, inner: inner), edge: .left,
-                                              room: theme.overshootRoom(depth: ShellSizing.popoutWidth)), display: false)
+                                              room: theme.overshootRoom(depth: kind.width)), display: false)
         present(panel)
         popout.shown = true
         popoutKind = kind
         popoutDisplay = display
+        // A popout grows out of the bar (Caelestia only opens them from it): show the bar if it is
+        // auto-hidden (IPC / keybind opens), and hold it while the popout is open.
+        revealBar(display)
         launcherDisplay = display
+    }
+
+    /// Captures the focused window for the active-window popout (needs Screen Recording; without
+    /// it the popout shows the icon and title only).
+    func capturePreview() {
+        previewTask?.cancel()
+        popout.window = state.activeWindow
+        // Never ask for Screen Recording from a hover: without it the popout shows icon + title.
+        guard let id = state.activeWindow?.windowID, id != 0, CGPreflightScreenCaptureAccess() else { popout.preview = nil; return }
+        if popout.preview != nil, popout.previewWindowID != id { popout.preview = nil }
+        previewTask = Task { @MainActor [weak self] in
+            let image = try? await ScreenshotController.captureWindow(CGWindowID(id))
+            guard let self, !Task.isCancelled, self.popoutKind == .activeWindow else { return }
+            self.popout.preview = image
+            self.popout.previewWindowID = id
+        }
     }
 
     public func closePopout() {
         guard popoutKind != nil else { return }
+        popoutByHover = false
+        popoutLeaveTimer?.invalidate()
+        popoutLeaveTimer = nil
+        previewTask?.cancel()
         popout.shown = false
         popoutKind = nil
         popoutDisplay = nil
         dismissAfter(popoutPanel) { [weak self] in self?.popout.shown == false }
+        // Re-check the pointer: a bar shown only for this popout hides once it is away.
+        pointerMoved(NSEvent.mouseLocation)
     }
 
     private func openSettings(for kind: PopoutKind) {
@@ -348,6 +427,7 @@ extension ShellController {
         case .bluetooth: pane = "x-apple.systempreferences:com.apple.BluetoothSettings"
         case .battery: pane = "x-apple.systempreferences:com.apple.Battery-Settings.extension"
         case .audio: pane = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
+        case .activeWindow: closePopout(); return
         }
         closePopout()
         if let url = URL(string: pane) { openURL(url) }
@@ -375,9 +455,9 @@ extension ShellController {
             if let kind = popoutKind, let d = popoutDisplay, let layout = layouts[d], let panel = popoutPanel {
                 let fillet = theme.frameRounding
                 let inner = layout.inner(barReveal: 1)
-                let size = CGSize(width: ShellSizing.popoutWidth, height: popout.bodyHeight(for: kind) + 2 * fillet)
+                let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
                 panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), edge: .left,
-                                                      room: theme.overshootRoom(depth: ShellSizing.popoutWidth)), display: true)
+                                                      room: theme.overshootRoom(depth: kind.width)), display: true)
             }
         }
     }

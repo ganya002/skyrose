@@ -70,7 +70,7 @@ public final class ShellBridge: ShellHost {
         var pills: [String: [WorkspacePill]] = [:]
         var special: [String: String] = [:]
         for d in wm.displays {
-            pills[d.id] = Self.pills(state: wm.state, display: d.id, shown: wm.config.wm.workspacesShown)
+            pills[d.id] = Self.pills(state: wm.state, display: d.id, shown: wm.config.wm.workspacesShown) { wm.handle(for: $0)?.bundleID }
             if let s = wm.state.openSpecial(onDisplay: d.id) { special[d.id] = s }
         }
         if pills != state.workspaces { state.workspaces = pills }
@@ -88,14 +88,17 @@ public final class ShellBridge: ShellHost {
 
     /// The bar's workspace pills: the `shown` workspaces of the group the active one is in
     /// (Caelestia `workspaces.shown`), occupied = has windows.
-    public static func pills(state: WorkspaceState, display: String, shown: Int) -> [WorkspacePill] {
+    /// `bundleID` names each window's app (nil: unknown, skipped) for the pill's window icons.
+    public static func pills(state: WorkspaceState, display: String, shown: Int,
+                             bundleID: (WindowID) -> String? = { _ in nil }) -> [WorkspacePill] {
         let n = max(1, shown)
         let active = state.activeNumberedWorkspace(forDisplay: display) ?? 1
         let group = (active - 1) / n
         return (1...n).map { i in
             let id = group * n + i
-            let count = state[.numbered(id)]?.windows.count ?? 0
-            return WorkspacePill(id: id, name: String(id), occupied: count > 0, active: id == active, windowCount: count)
+            let windows = state[.numbered(id)]?.windows ?? []
+            let apps = windows.prefix(WorkspacePill.maxWindowIcons).compactMap(bundleID)
+            return WorkspacePill(id: id, name: String(id), occupied: !windows.isEmpty, active: id == active, windowCount: windows.count, apps: apps)
         }
     }
 
@@ -153,7 +156,9 @@ public final class ShellBridge: ShellHost {
             return ok(.string(controller.isOpen(d) ? "true" : "false"))
         case .shellDrawersToggle where (request.string("drawer") ?? "").lowercased().hasPrefix("popout."):
             let name = String((request.string("drawer") ?? "").lowercased().dropFirst("popout.".count))
-            guard let kind = PopoutKind(rawValue: name) else { return fail("unknown popout \(name); use audio, network, bluetooth or battery") }
+            guard let kind = PopoutKind.allCases.first(where: { $0.rawValue.lowercased() == name }) else {
+                return fail("unknown popout \(name); use audio, network, bluetooth, battery or activeWindow")
+            }
             controller.togglePopout(kind)
             return ok()
         case .shellDrawersToggle:

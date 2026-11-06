@@ -334,18 +334,22 @@ public final class LiquidSurface: NSView {
     /// Slides, squashes and fades the drawer's content window with its blob.
     private func applyContent(_ d: Drawer) {
         guard let panel = d.panel, let host = panel.contentView, let layer = host.layer else { return }
+        // `actual` is where the content really sits; `rest` is where the blob is drawn (it lags
+        // behind while morphing between bodies, e.g. a popout moving from item to item), so the
+        // content is carried along with the drawn body.
         let rest = d.rect ?? bodyRect(of: panel)
+        let actual = d.rectRunning ? (d.rectTo == .zero ? rest : d.rectTo) : rest
         let opacity = Float(min(1, max(0, 1 - d.offset)))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer.opacity = opacity
-        if let rest, let body = panel.blobBody {
+        if let rest, let actual, let body = panel.blobBody {
             let shown = slid(rest, edge: d.edge, offset: d.offset)
             // Panel-local, y-up (AppKit layer space): slide + jelly about the body's centre.
             let h = host.bounds.height
             let centre = CGPoint(x: body.midX, y: h - body.midY)
-            let dx = shown.midX - rest.midX
-            let dy = -(shown.midY - rest.midY)
+            let dx = shown.midX - actual.midX
+            let dy = -(shown.midY - actual.midY)
             let m = d.jelly.deform
             // y-up of a y-down symmetric matrix flips the off-diagonal term.
             var jm = CATransform3DIdentity

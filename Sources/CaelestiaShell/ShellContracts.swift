@@ -89,12 +89,18 @@ public struct WorkspacePill: Hashable, Sendable, Identifiable {
     public var occupied: Bool
     public var active: Bool
     public var windowCount: Int
-    public init(id: Int, name: String, occupied: Bool, active: Bool, windowCount: Int) {
+    /// Bundle ids of the workspace's windows, in tiling order, at most `maxWindowIcons`
+    /// (Caelestia `bar.workspaces.showWindows`): the bar draws their app icons in the pill.
+    public var apps: [String]
+    /// Caelestia `bar.workspaces.maxWindowIcons`.
+    public static let maxWindowIcons = 5
+    public init(id: Int, name: String, occupied: Bool, active: Bool, windowCount: Int, apps: [String] = []) {
         self.id = id
         self.name = name
         self.occupied = occupied
         self.active = active
         self.windowCount = windowCount
+        self.apps = Array(apps.prefix(Self.maxWindowIcons))
     }
 }
 
