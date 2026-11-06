@@ -175,6 +175,18 @@ public final class ShellBridge: ShellHost {
             var o: [String: JSONValue] = ["enabled": .bool(ka.isEnabled), "status": .string(ka.statusText)]
             if let u = ka.until { o["until"] = .string(ISO8601DateFormatter().string(from: u)) }
             return ok(.object(o))
+        case .clamshell:
+            let cm = controller.clamshell
+            cm.refresh()
+            let f = cm.facts
+            var o: [String: JSONValue] = [
+                "hasLid": .bool(f.hasLid), "lidClosed": .bool(f.lidClosed), "onAC": .bool(f.onAC),
+                "externalDisplays": .number(Double(f.externalDisplays)), "mode": .string(Clamshell.mode(f).rawValue),
+                "summary": .string(Clamshell.summary(f)), "keepAwake": .bool(cm.keepAwakeWhenClosed),
+                "holdingKeepAwake": .bool(cm.isHoldingKeepAwake),
+            ]
+            if let s = f.closingCausesSleep { o["closingCausesSleep"] = .bool(s) }
+            return ok(.object(o))
         // Keep awake (Caelestia's idle inhibitor): the sidebar toggle's power assertion.
         case .shellIdleInhibitorToggle: controller.keepAwake.toggle(); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))
         case .shellIdleInhibitorEnable: controller.keepAwake.set(on: true); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))

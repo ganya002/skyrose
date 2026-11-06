@@ -21,6 +21,8 @@ public struct Config: Codable, Equatable, Sendable {
     public var sipOff: SIPOffConfig
     /// Screenshot tool (`[capture]`).
     public var capture: CaptureConfig
+    /// Lid-closed behaviour (`[clamshell]`).
+    public var clamshell: ClamshellConfig
     public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
@@ -34,9 +36,10 @@ public struct Config: Codable, Equatable, Sendable {
         frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
         general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig(),
         weather: WeatherConfig = WeatherConfig(), sipOff: SIPOffConfig = SIPOffConfig(),
-        capture: CaptureConfig = CaptureConfig()
+        capture: CaptureConfig = CaptureConfig(), clamshell: ClamshellConfig = ClamshellConfig()
     ) {
         self.capture = capture
+        self.clamshell = clamshell
         self.general = general
         self.weather = weather
         self.sipOff = sipOff
@@ -261,6 +264,13 @@ public struct CaptureConfig: Codable, Equatable, Sendable {
     /// Also bind macOS's own ⇧⌘3 (full), ⇧⌘4 (region) and ⇧⌘5 (freeze) to SkyRose's tool.
     /// Off by default: macOS's shortcuts stay untouched.
     public var overrideSystemShortcuts: Bool = false
+    public init() {}
+}
+
+/// Lid closed (native clamshell mode: power adapter + external display; nothing needs root).
+public struct ClamshellConfig: Codable, Equatable, Sendable {
+    /// Hold a keep-awake (idle display sleep off) while the lid is closed in clamshell mode.
+    public var keepAwake: Bool = false
     public init() {}
 }
 

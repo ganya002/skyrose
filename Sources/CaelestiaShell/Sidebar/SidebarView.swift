@@ -189,6 +189,17 @@ struct UtilitiesSection: View {
                 }
             }
             .accessibilityIdentifier("sidebar.keepAwake.timers")
+            if state.clamshell.hasLid {
+                // What closing the lid does now (native clamshell: power adapter + external display).
+                HStack(spacing: 6) {
+                    MaterialIcon("laptopcomputer", size: 13).foregroundStyle(theme[.onSurfaceVariant])
+                    Text(Clamshell.summary(state.clamshell)).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.leading, 2)
+                .help("macOS keeps running with the lid closed only on a power adapter with an external display. SkyRose does not override that.")
+                .accessibilityIdentifier("sidebar.clamshell")
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 10).shellCard(radius: 20)
     }

@@ -42,3 +42,15 @@ final class KeepAwakeCLITests: XCTestCase {
         XCTAssertEqual(IPCCommand.keepAwake.spec.arguments.map(\.name), ["state", "seconds"])
     }
 }
+
+/// `skyrose clamshell [status]` (alias lid).
+final class ClamshellCLITests: XCTestCase {
+    func testStatusIsTheOnlyVerb() throws {
+        for args in [["clamshell"], ["clamshell", "status"], ["lid"]] {
+            guard case let .ipc(req) = try CLIParser.parse(args).kind else { return XCTFail("\(args)") }
+            XCTAssertEqual(req.knownCommand, .clamshell)
+        }
+        XCTAssertThrowsError(try CLIParser.parse(["clamshell", "on"]), "nothing to switch: macOS decides")
+        XCTAssertThrowsError(try CLIParser.parse(["clamshell", "status", "x"]))
+    }
+}

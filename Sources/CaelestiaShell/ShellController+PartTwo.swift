@@ -67,6 +67,10 @@ extension ShellController {
         }
         bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b) }
         bluetooth.start()
+        clamshell.onChange = { [weak self] f in self?.state.clamshell = f }
+        clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
+        clamshell.start()
+        state.clamshell = clamshell.facts
         weatherController.configure(state.config.weather)
         state.systemDarkMode = Self.readDarkMode()
         observers.append(DistributedNotificationCenter.default().addObserver(

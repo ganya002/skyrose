@@ -95,6 +95,7 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 | `shell.kill`, `shell.restart` |                                           | null   |
 | `screenshot`         | `mode?: region\|freeze\|window\|full`              | `{mode, folder}` (result: toast) |
 | `keepawake`          | `state: on\|off\|status, seconds?`                  | `{enabled, until?, status}` |
+| `clamshell`          |                                                    | `{hasLid, lidClosed, onAC, externalDisplays, mode, summary, closingCausesSleep?, keepAwake, holdingKeepAwake}` |
 | `record`             | `sound?: bool`, `region?: bool`                    | `{recording: bool, path?}` |
 | `clipboard`          | `delete?: bool`                                    | null   |
 | `emoji`              |                                                    | null   |

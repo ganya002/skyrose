@@ -231,6 +231,13 @@ thumbnail = true                 # toast with a thumbnail after each shot
 overrideSystemShortcuts = false  # true also binds macOS's ⇧⌘3 / ⇧⌘4 / ⇧⌘5 to SkyRose
 
 # =====================================================================================
+# Lid closed (skyrose clamshell). macOS runs lid-closed only on a power adapter with an
+# external display; SkyRose never overrides that (no pmset / root).
+# =====================================================================================
+[clamshell]
+keepAwake = false          # true: no idle display sleep while running lid-closed
+
+# =====================================================================================
 # Bar (shell.json bar.*)
 # =====================================================================================
 [bar]

@@ -30,6 +30,12 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     /// The size each window had when it was first managed (Hyprland's initial `m_lastFloatingSize`
     /// / pseudo size): used by float and pseudo for windows that never floated.
     public private(set) var naturalSizes: [WindowID: CGSize] = [:]
+    /// Numbered workspaces that moved off a display that went away (lid closed, unplugged) → that
+    /// display; they go back when it returns (Hyprland's last-monitor rule). Optional, like
+    /// `homeActive`, so session snapshots written before it still decode.
+    public private(set) var displayHomes: [Int: String]?
+    /// The workspace each gone display was showing, shown again when it returns.
+    public private(set) var homeActive: [String: Int]?
 
     public init() {
         workspaces = [:]
@@ -117,6 +123,7 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     public mutating func ensureDisplay(_ id: String) -> Int {
         if let n = activeNumbered[id] { return n }
         if !displays.contains(id) { displays.append(id) }
+        if let n = returnHomeWorkspaces(to: id) { return n }
         var n = 1
         while workspaces[.numbered(n)] != nil { n += 1 }
         workspaces[.numbered(n)] = Workspace(id: .numbered(n), displayID: id)
@@ -131,12 +138,58 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         guard id != other else { return }
         ensureDisplay(other)
         let moved = workspaces.keys.filter { workspaces[$0]!.displayID == id }
+        let wasActive = activeNumbered[id]
         for key in moved { workspaces[key]!.displayID = other }
         openSpecials[id] = nil
         activeNumbered[id] = nil
         displays.removeAll { $0 == id }
         if focusedDisplay == id { focusedDisplay = other }
         for key in moved { prune(key) }
+        // Remember where the survivors came from. A workspace that already has a home (moved
+        // twice) keeps its first one.
+        var homes = displayHomes ?? [:]
+        for key in moved { if let n = key.number, workspaces[key] != nil, homes[n] == nil { homes[n] = id } }
+        displayHomes = homes.isEmpty ? nil : homes
+        if let wasActive, workspaces[.numbered(wasActive)] != nil {
+            var active = homeActive ?? [:]
+            active[id] = wasActive
+            homeActive = active
+        }
+    }
+
+    /// A display came back: its remembered workspaces move back to it and it shows the one it
+    /// showed before. A display that was showing one of them shows another of its own (lowest
+    /// number) or a new one. Returns the returning display's active workspace, nil when nothing
+    /// came back.
+    private mutating func returnHomeWorkspaces(to id: String) -> Int? {
+        guard var homes = displayHomes else { return nil }
+        let returning = homes.filter { $0.value == id }.map(\.key).filter { workspaces[.numbered($0)] != nil }.sorted()
+        for n in homes.keys where homes[n] == id { homes[n] = nil }
+        displayHomes = homes.isEmpty ? nil : homes
+        let wanted = homeActive?[id]
+        homeActive?[id] = nil
+        if homeActive?.isEmpty == true { homeActive = nil }
+        guard let first = returning.first else { return nil }
+        var hosts = Set<String>()
+        for n in returning {
+            hosts.insert(workspaces[.numbered(n)]!.displayID)
+            workspaces[.numbered(n)]!.displayID = id
+        }
+        let active = wanted.flatMap { returning.contains($0) ? $0 : nil } ?? first
+        activeNumbered[id] = active
+        for host in hosts.sorted() where activeNumbered[host].map(returning.contains) == true {
+            if let own = workspaces.values.filter({ $0.displayID == host }).compactMap(\.id.number).min() {
+                activeNumbered[host] = own
+            } else {
+                var m = 1
+                while workspaces[.numbered(m)] != nil { m += 1 }
+                workspaces[.numbered(m)] = Workspace(id: .numbered(m), displayID: host)
+                activeNumbered[host] = m
+            }
+        }
+        if let f = focusedWindow, let w = workspace(of: f), workspaces[w]?.displayID == id { focusedDisplay = id }
+        for n in returning where n != active { prune(.numbered(n)) }
+        return active
     }
 
     /// This state as a restart sees it: windows not in `alive` are gone (their tree siblings take
@@ -684,7 +737,11 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         guard let ws = workspaces[id], ws.isEmpty else { return }
         switch id {
         case .numbered(let n):
-            if activeNumbered[ws.displayID] != n { workspaces[id] = nil }
+            if activeNumbered[ws.displayID] != n {
+                workspaces[id] = nil
+                // A recreated workspace with this number starts without a home.
+                if displayHomes?[n] != nil { displayHomes![n] = nil; if displayHomes!.isEmpty { displayHomes = nil } }
+            }
         case .special(let name):
             if openSpecials[ws.displayID] == name { openSpecials[ws.displayID] = nil }
             workspaces[id] = nil

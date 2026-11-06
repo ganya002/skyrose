@@ -272,7 +272,7 @@ public enum ShellIcon {
         "cpu": ("memory", false), "memorychip": ("memory_alt", false), "internaldrive": ("hard_drive", false),
         "display": ("developer_board", false), "macwindow": ("desktop_mac", false), "menubar.rectangle": ("toolbar", false),
         "gauge.with.dots.needle.33percent": ("speed", false), "gearshape": ("settings", false),
-        "cup.and.saucer.fill": ("coffee", true), "dot.radiowaves.left.and.right": ("bluetooth", false),
+        "cup.and.saucer.fill": ("coffee", true), "laptopcomputer": ("laptop_mac", false), "dot.radiowaves.left.and.right": ("bluetooth", false),
         "drop.halffull": ("opacity", false), "equal.circle": ("calculate", false),
         "exclamationmark.circle.fill": ("error", true), "exclamationmark.triangle.fill": ("warning", true),
         "info": ("info", false), "info.circle.fill": ("info", true),

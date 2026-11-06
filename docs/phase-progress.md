@@ -12,16 +12,11 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
 | 3. SIP-off mode | done, live-tested in the Dock (3b) | "Phase 5 part 3a", "3a-fix", "3b" |
 | 4. Material Symbols | done, live-checked (dashboard + sidebar) | "Phase 5 part 4" |
-| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers done, live-tested; **5c Clamshell next** (plan below) | "Phase 5 part 5a", "5b" |
+| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers done, live-tested; 5c Clamshell done (lid-closed path unit-tested only, needs a dock) | "Phase 5 part 5a", "5b", "5c" |
 
-### Part 5c — Clamshell (plan)
-
-No sudo/pmset. macOS keeps running with the lid closed only with power + an external display (native
-clamshell). Plan: read `AppleClamshellState` (IOPMrootDomain), external display count, AC power; show what
-closing the lid will do (Settings/sidebar); optional "keep awake while the lid is closed" = hold the keep-awake
-assertion in native clamshell; WM: built-in's workspaces move to the external on close and back on open
-(check existing display-removal code first). Document that lid-closed on battery / without a display needs
-root (`pmset disablesleep`) and is not done.
+**Phase 5 is complete.** Next: whatever Gabby picks; candidates are in "Remaining (next phases)" in the
+archive section below and in `docs/arch-parity.md`. Open item for 5c: live-test lid closed with a power
+adapter + external display (see "Part 5c" below).
 
 ## Part 1 — done
 
@@ -225,6 +220,34 @@ the display was back on ws1 before the first picker (picker/drag/Esc on ws2 kept
 - Not live-clicked: the chips themselves (the same `set(on:duration:)` path as the CLI). The switch
   looks grey while on because the sidebar panel is never key (macOS inactive look; it was like that before).
 
+## Part 5c — Clamshell (done)
+
+No sudo, no pmset, no power-setting changes. macOS runs lid-closed only on a power adapter AND with an
+external display (native clamshell); SkyRose reports that and does not override it (LIMITATIONS.md
+"Lid closed").
+- Core `Power/Clamshell.swift`: `ClamshellFacts` (hasLid, lidClosed, closingCausesSleep?, onAC,
+  externalDisplays) → `ClamshellMode` (no-lid, open-will-sleep, open-will-stay-awake, closed-running);
+  the kernel's `AppleClamshellCausesSleep` wins when published; summary line names what is missing;
+  `holdsKeepAwake` only while closed-running and opted in.
+- `[clamshell] keepAwake = false` (Config + config.default.toml).
+- Services `Power/ClamshellMonitor.swift`: reads IOPMrootDomain `AppleClamshellState` /
+  `AppleClamshellCausesSleep`, `IOPSGetProvidingPowerSourceType`, online non-built-in displays;
+  refreshes on root-domain interest messages, IOPS notifications and screen-parameter changes (no
+  polling). Own assertion "SkyRose clamshell keep awake" (PreventUserIdleDisplaySleep) while
+  closed-running with the option on.
+- Shell: `ShellState.clamshell`; sidebar keep-awake card shows the summary line (laptop_mac icon) on
+  Macs with a lid. IPC/CLI `skyrose clamshell [status]` (alias `lid`) → `{hasLid, lidClosed, onAC,
+  externalDisplays, mode, summary, closingCausesSleep?, keepAwake, holdingKeepAwake}`.
+- WM (`WorkspaceState`): `removeDisplay` remembers each surviving workspace's home display and what
+  it showed (`displayHomes`, `homeActive`, Optional so old session.json decodes); `ensureDisplay` of a
+  returning display moves them back and shows the old one; a display that was showing one falls back
+  to its lowest own workspace or a new one; a workspace closed while away loses its home. Works across
+  a WM restart with the lid closed (`restored` → snapshot → open). `DisplayReturnTests` (7).
+- Live (battery, no external display): `skyrose clamshell` → open-will-sleep, closingCausesSleep true,
+  matches read-only `ioreg -r -n IOPMrootDomain`; `clamshell on` → exit 3 + help; sidebar shot
+  `/tmp/cwm/phase5/clamshell-sidebar.png`. **Not live-tested**: lid closed with power + display
+  (closed-running, the assertion, workspaces returning on open); needs a dock.
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
@@ -235,6 +258,7 @@ After part 3b: 988 tests, 0 failures.
 After part 4: 993 tests, 0 failures.
 After part 5a: 1002 tests, 0 failures.
 After part 5b: 1011 tests, 0 failures.
+After part 5c: 1024 tests, 0 failures.
 
 ---
 

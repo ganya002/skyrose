@@ -29,6 +29,8 @@ public final class ShellState: ObservableObject {
     @Published public var keepAwakeUntil: Date?
     /// The length the timed keep-awake was started with, for the sidebar chip highlight.
     @Published public var keepAwakeDuration: TimeInterval?
+    /// Lid / power / external-display facts (sidebar clamshell line).
+    @Published public var clamshell: ClamshellFacts
     @Published public var gameMode: Bool
     @Published public var recorder: RecorderInfo
     @Published public var media: MediaInfo
@@ -61,6 +63,7 @@ public final class ShellState: ObservableObject {
         self.keepAwake = false
         self.keepAwakeUntil = nil
         self.keepAwakeDuration = nil
+        self.clamshell = ClamshellFacts(hasLid: false, lidClosed: false, onAC: true, externalDisplays: 0)
         self.gameMode = false
         self.recorder = RecorderInfo()
         self.media = MediaInfo()

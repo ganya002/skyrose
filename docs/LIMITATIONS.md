@@ -66,3 +66,13 @@ See the end-of-build report in README.md for what was verified.
 | Full-screen shot | The display under the pointer. | Linux grim joins every output; mixed-scale stitching is not done. |
 | Editor (swappy) | None; the file opens in Preview. | Not built. |
 
+
+## Lid closed (Clamshell)
+
+| Item | What SkyRose does | Why |
+|---|---|---|
+| Lid closed and running | Only in macOS's native clamshell mode: **power adapter AND an external display**. `skyrose clamshell` and the sidebar's keep-awake card say what closing the lid will do now and what is missing. | macOS decides; nothing else is possible without root. |
+| Lid closed on battery, or without an external display | The Mac sleeps, as macOS decides. Not overridden. | Needs root (`pmset disablesleep 1` / a system-sleep-disabling assertion). SkyRose never runs sudo or pmset and never changes power settings. |
+| `clamshell.keepAwake = true` | While running lid-closed, holds a `PreventUserIdleDisplaySleep` assertion (same kind as Keep awake, no root) so the external does not idle-sleep. Released when the lid opens or clamshell mode ends. | User-level assertion only. |
+| Workspaces | Closing the lid moves the built-in's workspaces to the external; opening it moves them back and the built-in shows what it showed (Hyprland's last-monitor rule). | — |
+| Live test | Status, CLI and sidebar line checked on battery without a display. The lid-closed path (mode `closed-running`, the assertion, workspaces returning) is unit-tested only; it needs a power adapter and an external display to try. | No dock attached during the build. |

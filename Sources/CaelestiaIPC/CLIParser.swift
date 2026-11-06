@@ -259,6 +259,12 @@ public enum CLIParser {
             inv.kind = try parseNotify(args, tokens)
         case "keepawake", "keep-awake", "caffeinate":
             inv.kind = try parseKeepAwake(args)
+        case "clamshell", "lid":
+            if let verb = args.first, verb != "status" {
+                throw CLIUsageError.invalidArgument(command: "clamshell", name: "verb", value: verb, expected: "status")
+            }
+            try rejectExtra("clamshell", Array(args.dropFirst()))
+            inv.kind = .ipc(IPCRequest(.clamshell))
         case "action", "dispatch":
             inv.kind = try parseAction(args)
         case "wm":
@@ -704,7 +710,7 @@ public enum CLIParser {
             ("shell help [target]", "List the IPC targets and their signatures"),
             ("frame calibrate [display]", "Tune the frame's corner radii by eye (↑↓ ±0.5, ⇧ ±0.1, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
         ]),
-        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake"], rows: [
+        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell"], rows: [
             ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
             ("record [-s] [-r]", "Start/stop the screen recorder (-s: system sound, -r: region)"),
             ("clipboard [-d]", "Open clipboard history (-d: delete mode)"),
@@ -714,6 +720,7 @@ public enum CLIParser {
             ("wallpaper set <file> | random | get | list", "Wallpaper control"),
             ("notify <title> [body] [--app NAME] [--icon ICON]", "Post a notification to the sidebar"),
             ("keepawake on [30m|1h|forever] | off | status", "Keep the Mac awake, optionally for a time"),
+            ("clamshell [status]", "Lid state and what closing the lid does (needs power + an external display)"),
         ]),
         HelpSection(title: "Keys and config", topics: ["keys", "rules", "config", "settings", "onboarding", "migrate"], rows: [
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),

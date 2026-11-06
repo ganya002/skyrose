@@ -87,6 +87,8 @@ public final class ShellController {
     public let media = MediaService()
     public let bluetooth = BluetoothService()
     public let keepAwake = KeepAwakeService()
+    /// Lid state + the optional lid-closed keep-awake (`[clamshell]`).
+    public let clamshell = ClamshellMonitor()
     /// Open-Meteo weather for the dashboard (`[weather]`).
     public private(set) lazy var weatherController = WeatherController(state: state)
     let sampler = SystemStatsSampler()
@@ -196,7 +198,10 @@ public final class ShellController {
         let themeChanged = newTheme != theme
         theme = newTheme
         guard isRunning else { return }
-        if servicesStarted { weatherController.configure(state.config.weather) }
+        if servicesStarted {
+            weatherController.configure(state.config.weather)
+            clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
+        }
         closeDisabledDrawers()
         if themeChanged { rebuildDrawers() }
         rebuildSurfaces()
@@ -999,7 +1004,7 @@ public final class ShellController {
         for t in timers { t.invalidate() }
         timers.removeAll()
         audio.stop(); brightness.stop(); network.stop(); battery.stop(); keyboard.stop()
-        media.stop(); bluetooth.stop()
+        media.stop(); bluetooth.stop(); clamshell.stop()
         stopStatsTimer()
     }
 }

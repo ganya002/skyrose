@@ -280,6 +280,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case wallpaperRandom = "wallpaper.random"
     case notify
     case keepAwake = "keepawake"
+    case clamshell
     case frameCalibrate = "frame.calibrate"
 
     // MARK: Shell targets (ipc-commands.txt, 1:1)
@@ -483,6 +484,9 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.misc, "Keep the Mac awake (idle display sleep off), optionally for a time.",
                                   arguments: [IPCArgument("state", .string), .optional("seconds", .double, help: "how long; omitted = until turned off")],
                                   returns: "{enabled, until?, status}")
+        case .clamshell:
+            return IPCCommandSpec(.misc, "Lid state and what closing the lid does (native clamshell: power adapter + external display; read-only, no pmset).",
+                                  returns: "{hasLid, lidClosed, onAC, externalDisplays, mode, summary, closingCausesSleep?, keepAwake, holdingKeepAwake}")
         case .notify:
             return IPCCommandSpec(.misc, "Post a notification to the sidebar.", arguments: [IPCArgument("title", .string), .optional("body", .string), .optional("app", .string, help: "app name shown as the sender"), .optional("icon", .string, help: "SF Symbol or Material icon name")], returns: "{id}")
 
