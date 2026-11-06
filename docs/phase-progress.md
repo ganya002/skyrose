@@ -1,3 +1,43 @@
+# Phase 7: first ship, installer and uninstaller (started 2026-11-06)
+
+Spec: `docs/PHASE-PROMPT-7-ship.md`. Commit on `main` after each part, `git push origin main`.
+
+| Part | State | Commit |
+|---|---|---|
+| 7a. Launcher black flash | done, live-tested on the built-in | "Phase 7 part 7a" |
+| 7b. Uninstaller | | |
+| 7c. Release installer + GUIs | | |
+| 7d. GitHub Release v0.2.0 | | |
+
+## Part 7a — launcher black flash (done)
+
+Gabby's still (`docs/bugs/launcher-black-flash.png`) shows two 1 px dark vertical lines ~30 pt
+left and right of the launcher and a frame above it. Two causes, both fixed:
+
+- **Shader culling box (the lines and the rectangle).** `blob.frag` skips each rect outside a box
+  at half + 1.5 k (k = 20, so 30 pt out) by setting its distance to 1e10. `fwidth()` across that
+  jump is ~1e10, so `smoothstep(-fw, fw, d)` painted ~50 % fill along the box edges whenever the
+  box fell inside a 2×2 pixel quad, which happens on most frames while a drawer slides. Fix:
+  `fw = clamp(fwidth(d), 0.5/scale, 4/scale)` (also for the display-corner mask). Regression test
+  `LiquidSurfaceTests.testNothingIsDrawnOutsideTheBlobWhileADrawerAnimates` renders the launcher
+  blob on the GPU at slid / squashed / fractional positions (fill and blur mask) and asserts zero
+  alpha beyond the blob + shadow reach. It failed before the fix (a = 45 at d = 49 pt) and passes after.
+- **First open after a launch (rows beside the body).** The drawer panel is made at `.zero` and
+  resized in the same update as the launcher's model changes, so the `bodySize` animations carried
+  the content from its zero-width layout (the panel's left edge) to the centre while the blob was
+  already centred. That showed as dark rows sliding in ~100 pt left of / above the body.
+  `ShellPanel.setFrame` now lays the SwiftUI content out right away whenever the size changes.
+- Also fixed: `ShellPanel.fadeOut` now ends on a timer if AppKit never calls the animation
+  completion back (the session dim stayed ordered in at alpha 0; the unit test
+  `testSessionDimsTheScreenAndClearsOnClose` had been failing on `main`).
+- Live (built-in, a floated TestWindow as a bright backdrop, 60 fps clips): before, the first
+  open slid the rows in beside the body (`docs/bugs/launcher-open-before.png`). After:
+  `launcher-first-open-after.png`, `launcher-open-state-after.png` and `launcher-close-after.png`
+  show only the blob: no outline, no rectangle, content inside the body (these captures are local
+  and not committed, because they show the terminal). Debugging also ruled out the content's
+  sublayerTransform: its pivot and jelly match the blob, and dx stays 0 on screen.
+- Tests: 1066 passed, 0 failed (`/usr/bin/swift test`).
+
 # Phase 6: Caelestia 1:1 visual polish (started 2026-11-06)
 
 Resume here after a context reset. Spec: `docs/caelestia-reference/PHASE-PROMPT.md` and

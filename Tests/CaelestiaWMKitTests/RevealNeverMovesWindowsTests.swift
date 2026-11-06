@@ -380,9 +380,10 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
         XCTAssertTrue(dim.ignoresMouseEvents, "click-through")
         XCTAssertLessThan(dim.level.rawValue, ShellLevel.drawer.rawValue, "under the session drawer")
         r.shell.close(.session)
-        let gone = expectation(description: "dim fades out")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { gone.fulfill() }
-        wait(for: [gone], timeout: 2)
+        // The fade-out ends on the window server's animation completion; poll rather than
+        // guessing its latency on a loaded machine.
+        let deadline = Date().addingTimeInterval(3)
+        while dim.isVisible, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
         XCTAssertFalse(dim.isVisible)
     }
 

@@ -51,6 +51,18 @@ public final class ShellPanel: NSPanel {
     /// every drawer sat 32 pt off its band.
     public override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 
+    /// A resize lays the SwiftUI content out at the new size right away, outside any model
+    /// change. Otherwise the first layout at the new size lands in the same update as the
+    /// drawer's own changes (launcher rows, body size) and their `.animation`s carried the content
+    /// from its old layout (a panel starts at `.zero`, so: from the left edge) to the centre while
+    /// the blob already sat centred (Part 7a: the launcher's rows slid in beside its body on the
+    /// first open after a launch).
+    public override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        let resized = frameRect.size != frame.size
+        super.setFrame(frameRect, display: flag)
+        if resized { contentView?.layoutSubtreeIfNeeded() }
+    }
+
     public override var canBecomeKey: Bool { acceptsKey }
     public override var canBecomeMain: Bool { false }
 
@@ -88,18 +100,26 @@ public final class ShellPanel: NSPanel {
             completion?()
             return
         }
+        // Ends once, on the animation's completion or, if AppKit never calls it back (seen in
+        // tests: alpha reached 0 and the panel stayed ordered in), on a timer just after it.
+        var done = false
+        let finish: @MainActor () -> Void = { [weak self] in
+            guard !done, let self, self.fadeGeneration == generation else { return }
+            done = true
+            self.orderOut(nil)
+            self.alphaValue = 1
+            completion?()
+        }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = duration
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self, self.fadeGeneration == generation else { return }
-                self.orderOut(nil)
-                self.alphaValue = 1
-                completion?()
-            }
+        }, completionHandler: {
+            MainActor.assumeIsolated { finish() }
         })
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.1) {
+            MainActor.assumeIsolated { finish() }
+        }
     }
 
     public override func keyDown(with event: NSEvent) {

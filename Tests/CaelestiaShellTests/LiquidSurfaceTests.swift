@@ -37,6 +37,50 @@ final class LiquidSurfaceTests: XCTestCase {
         XCTAssertTrue(wrong.isEmpty, wrong.prefix(10).joined(separator: "; "))
     }
 
+    /// Part 7a regression (launcher black flash): while a drawer slides and squashes, nothing may
+    /// be drawn outside the blob and its soft shadow. The shader culls each rect outside a box at
+    /// half + 1.5 k; `fwidth` across that 1e10 jump used to turn the box edge into a 1–2 px line of
+    /// half-opaque fill (dark outline + rectangle above the launcher) whenever the box landed on an
+    /// odd pixel, i.e. on most frames of the open / close animation.
+    func testNothingIsDrawnOutsideTheBlobWhileADrawerAnimates() throws {
+        guard LiquidSurface.isSupported else { throw XCTSkip("no Metal") }
+        let w = 900, h = 700
+        let size = CGSize(width: w, height: h)
+        let surface = LiquidSurface(frame: CGRect(origin: .zero, size: size))
+        let b = CGRect(origin: .zero, size: size)
+        let frame = BlobFrame(outer: b.insetBy(dx: -50, dy: -50), inner: b.insetBy(dx: 10, dy: 10), radius: 25)
+        let rest = CGRect(x: 135, y: 147, width: 630, height: 543)
+        let reach = surface.shadowBlur + 3
+        var bad: [String] = []
+        // Offsets and squashes like the open / close animation, at odd and fractional positions.
+        let steps: [(Double, BlobDeform)] = [
+            (0.93, BlobDeform(m00: 1.0, m01: 0, m11: 1.0)),
+            (0.71, BlobDeform(m00: 0.93, m01: 0, m11: 1.08)),
+            (0.437, BlobDeform(m00: 0.88, m01: 0.01, m11: 1.14)),
+            (0.2113, BlobDeform(m00: 1.05, m01: 0, m11: 0.95)),
+            (0.0571, BlobDeform(m00: 1.01, m01: 0, m11: 0.99)),
+        ]
+        for (step, (offset, deform)) in steps.enumerated() {
+            for dx in [0.5, 1.37] {
+                let r = surface.slid(rest, edge: .bottom, offset: offset).offsetBy(dx: dx, dy: 0)
+                let scene = BlobScene(rects: [BlobRect(rect: r, radii: .uniform(28), deform: deform)], frame: frame)
+                let radii = BlobSDF.effectiveRadii(scene)
+                for mask in [false, true] {
+                    let bytes = try XCTUnwrap(surface.renderOffscreen(scene, size: size, mask: mask))
+                    for y in stride(from: 12, to: h - 12, by: 1) {
+                        for x in stride(from: 12, to: w - 12, by: 1) {
+                            let a = bytes[(y * w + x) * 4 + 3]
+                            guard a > 2 else { continue }
+                            let d = BlobSDF.distance(at: CGPoint(x: Double(x) + 0.5, y: Double(y) + 0.5), scene: scene, radii: radii)
+                            if d > reach, bad.count < 12 { bad.append("step \(step) dx \(dx) mask \(mask) (\(x),\(y)) a=\(a) d=\(Int(d))") }
+                        }
+                    }
+                }
+            }
+        }
+        XCTAssertTrue(bad.isEmpty, bad.joined(separator: "; "))
+    }
+
     func testFilletIsDrawnOnTheGPU() throws {
         guard LiquidSurface.isSupported else { throw XCTSkip("no Metal") }
         let size = CGSize(width: 400, height: 300)

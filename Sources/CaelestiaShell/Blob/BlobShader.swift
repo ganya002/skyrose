@@ -159,13 +159,18 @@ enum BlobShader {
             mergedSdf = smin(mergedSdf, dFrame, smoothFactor);
         }
 
-        float fw = max(fwidth(mergedSdf), 0.5 / scale);
+        // Anti-aliasing width. Clamped: a rect is culled to 1e10 outside its box (half + 1.5 k),
+        // and fwidth across that jump is ~1e10, which made smoothstep paint half-opaque fill
+        // along the box edges (Part 7a: the black outline / rectangle around the launcher while
+        // it opened and closed). A real edge changes by at most a few points per pixel even under
+        // border compression (×4) and jelly, so 4 px is plenty.
+        float fw = clamp(fwidth(mergedSdf), 0.5 / scale, 4.0 / scale);
         float alpha = 1.0 - smoothstep(-fw, fw, mergedSdf);
 
         // The display's own rounded corners (built-in panels): nothing outside them.
         float2 view = u[0].xy;
         float dScreen = sdRoundedBox4(pixel, view * 0.5, view * 0.5, u[6]);
-        float sfw = max(fwidth(dScreen), 0.5 / scale);
+        float sfw = clamp(fwidth(dScreen), 0.5 / scale, 4.0 / scale);
         float screenCover = 1.0 - smoothstep(-sfw, sfw, dScreen);
 
         if (mask) {
