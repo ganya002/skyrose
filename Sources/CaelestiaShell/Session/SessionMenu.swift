@@ -128,8 +128,7 @@ struct SessionView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: SessionModel.rounding, style: .continuous)
                     .fill(armed ? theme[.error] : theme[.onSurface].opacity(focused ? 0.18 : 0.11))
-                Image(systemName: armed ? "checkmark" : ShellIcon.sf(SessionModel.icon(action)))
-                    .font(.system(size: 26, weight: .regular))
+                MaterialIcon(armed ? "checkmark" : SessionModel.icon(action), size: 26, weight: .regular)
                     .foregroundStyle(armed ? theme[.onError] : theme[.onSurface])
             }
             .frame(width: SessionModel.button, height: SessionModel.button)
@@ -150,10 +149,9 @@ struct SessionMascot: View {
     @State private var bob = false
 
     var body: some View {
-        Image(systemName: "moon.stars.fill")
+        MaterialIcon("bedtime", size: 34, fill: true)
             .symbolRenderingMode(.palette)
             .foregroundStyle(theme[.tertiary], theme[.primary])
-            .font(.system(size: 34))
             .offset(y: bob ? -4 : 4)
             .animation(theme.reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: bob)
             .onAppear { bob = true }

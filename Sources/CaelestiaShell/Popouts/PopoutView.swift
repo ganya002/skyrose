@@ -83,7 +83,7 @@ private struct PopHeader: View {
     @Environment(\.shellTheme) var theme
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 16)).foregroundStyle(theme[.onPrimaryContainer])
+            MaterialIcon(icon, size: 16).foregroundStyle(theme[.onPrimaryContainer])
                 .frame(width: 38, height: 38).background(Circle().fill(theme[.primaryContainer]))
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface])
@@ -100,7 +100,7 @@ private struct SettingsLink: View {
     @Environment(\.shellTheme) var theme
     var body: some View {
         Button(action: action) {
-            HStack { Text(title); Spacer(); Image(systemName: "arrow.up.right") }
+            HStack { Text(title); Spacer(); MaterialIcon("arrow_outward", size: 12, weight: .medium) }
                 .font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.primary])
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
@@ -127,7 +127,7 @@ private struct AudioPopout: View {
             ForEach(model.devices.prefix(6)) { d in
                 Button { model.onSetOutput(d.id) } label: {
                     HStack {
-                        Image(systemName: d.isDefault ? "checkmark.circle.fill" : "circle").foregroundStyle(d.isDefault ? theme[.primary] : theme[.onSurfaceVariant])
+                        MaterialIcon(d.isDefault ? "checkmark.circle.fill" : "circle", size: 13).foregroundStyle(d.isDefault ? theme[.primary] : theme[.onSurfaceVariant])
                         Text(d.name).font(theme.sans(13, weight: d.isDefault ? .semibold : .regular)).foregroundStyle(theme[.onSurface]).lineLimit(1)
                         Spacer()
                     }
@@ -159,7 +159,7 @@ private struct NetworkPopout: View {
                     Toggle("", isOn: Binding(get: { s.wifiEnabled }, set: { model.onWifi($0) })).toggleStyle(.switch).labelsHidden().tint(theme[.primary])
                 }
                 Button(action: model.onScan) {
-                    HStack { Text(model.scanning ? "Scanning..." : "Scan for networks"); Spacer(); Image(systemName: "arrow.clockwise") }
+                    HStack { Text(model.scanning ? "Scanning..." : "Scan for networks"); Spacer(); MaterialIcon("refresh", size: 12, weight: .medium) }
                         .font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.primary])
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
@@ -169,10 +169,10 @@ private struct NetworkPopout: View {
                 }
                 ForEach(model.networks.prefix(6)) { n in
                     HStack {
-                        Image(systemName: "wifi").foregroundStyle(n.isCurrent ? theme[.primary] : theme[.onSurfaceVariant])
+                        MaterialIcon("wifi", size: 13).foregroundStyle(n.isCurrent ? theme[.primary] : theme[.onSurfaceVariant])
                         Text(n.ssid).font(theme.sans(13, weight: n.isCurrent ? .semibold : .regular)).foregroundStyle(theme[.onSurface]).lineLimit(1)
                         Spacer()
-                        if n.secured { Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(theme[.onSurfaceVariant]) }
+                        if n.secured { MaterialIcon("lock.fill", size: 10).foregroundStyle(theme[.onSurfaceVariant]) }
                     }.frame(height: 30).padding(.horizontal, 6)
                 }
             }
@@ -197,7 +197,7 @@ private struct BluetoothPopout: View {
                 Text(s.bluetoothOn ? "No connected devices" : "Turn Bluetooth on in System Settings").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
             }
             ForEach(s.bluetoothDevices.prefix(5), id: \.self) { d in
-                HStack { Image(systemName: "checkmark.circle.fill").foregroundStyle(theme[.primary]); Text(d).font(theme.sans(13)).foregroundStyle(theme[.onSurface]).lineLimit(1); Spacer() }
+                HStack { MaterialIcon("checkmark.circle.fill", size: 13).foregroundStyle(theme[.primary]); Text(d).font(theme.sans(13)).foregroundStyle(theme[.onSurface]).lineLimit(1); Spacer() }
             }
             Spacer(minLength: 0)
             SettingsLink(title: "Open Bluetooth settings") { model.onOpenSettings(.bluetooth) }

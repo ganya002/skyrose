@@ -70,7 +70,7 @@ private struct NotificationsSection: View {
                     VStack(spacing: 8) {
                         if groups.isEmpty {
                             VStack(spacing: 8) {
-                                Image(systemName: "bell.slash").font(.system(size: 28, weight: .light))
+                                MaterialIcon("bell.slash", size: 28, weight: .light)
                                 Text("Notifications from SkyRose and `skyrose notify` appear here")
                                     .font(theme.sans(12)).multilineTextAlignment(.center)
                             }
@@ -82,7 +82,7 @@ private struct NotificationsSection: View {
                 }
                 if !groups.isEmpty {
                     Button(action: model.onClear) {
-                        HStack(spacing: 6) { Image(systemName: "trash"); Text("Clear all") }
+                        HStack(spacing: 6) { MaterialIcon("delete", size: 12, weight: .semibold); Text("Clear all") }
                             .font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onPrimaryContainer])
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(Capsule().fill(theme[.primaryContainer]))
@@ -106,7 +106,7 @@ private struct GroupCard: View {
         let shown = open ? group.items : Array(group.items.prefix(1))
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: ShellIcon.sf(group.icon.isEmpty ? "info" : group.icon)).font(.system(size: 12))
+                MaterialIcon(group.icon.isEmpty ? "info" : group.icon, size: 12)
                     .foregroundStyle(theme[.onSecondaryContainer]).frame(width: 22, height: 22)
                     .background(Circle().fill(theme[.secondaryContainer]))
                 Text(group.appName).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
@@ -129,7 +129,7 @@ private struct GroupCard: View {
                     }
                     Spacer(minLength: 4)
                     Button { model.onDismiss(n.id) } label: {
-                        Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(theme[.onSurfaceVariant])
+                        MaterialIcon("xmark", size: 9, weight: .bold).foregroundStyle(theme[.onSurfaceVariant])
                             .frame(width: 20, height: 20)
                     }.buttonStyle(.plain)
                 }
@@ -157,7 +157,7 @@ struct UtilitiesSection: View {
 
     private var keepAwake: some View {
         HStack(spacing: 12) {
-            Image(systemName: "cup.and.saucer.fill").font(.system(size: 16))
+            MaterialIcon("cup.and.saucer.fill", size: 16)
                 .foregroundStyle(theme[.onSurface]).frame(width: 40, height: 40)
                 .background(Circle().fill(theme[.onSurface].opacity(0.08)))
             VStack(alignment: .leading, spacing: 1) {
@@ -182,7 +182,7 @@ struct UtilitiesSection: View {
             }
             if model.brightnessAvailable {
                 HStack(spacing: 8) {
-                    HSlider(value: state.status.brightness, icon: "sun.max.fill", onSet: model.onBrightness).accessibilityIdentifier("sidebar.brightness")
+                    HSlider(value: state.status.brightness, icon: "brightness_high", onSet: model.onBrightness).accessibilityIdentifier("sidebar.brightness")
                     Text("\(Int((state.status.brightness * 100).rounded()))%")
                         .font(theme.sans(11, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant]).monospacedDigit().frame(width: 34, alignment: .trailing)
                 }
@@ -198,13 +198,13 @@ struct UtilitiesSection: View {
                 Text("Quick toggles").font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface])
                 Spacer()
                 Button(action: model.onWallpaper) {
-                    Image(systemName: "photo.on.rectangle").font(.system(size: 12)).foregroundStyle(theme[.onSurfaceVariant])
+                    MaterialIcon("photo.on.rectangle", size: 12).foregroundStyle(theme[.onSurfaceVariant])
                 }.buttonStyle(.plain).help("Wallpaper picker").accessibilityIdentifier("sidebar.wallpaper")
             }
             HStack(spacing: 8) {
                 ForEach(items) { t in
                     Button { model.onToggle(t.id) } label: {
-                        Image(systemName: t.icon).font(.system(size: 15, weight: .medium))
+                        MaterialIcon(t.icon, size: 15, weight: .medium)
                             .foregroundStyle(t.active ? theme[.onPrimary] : theme[.onSurface])
                             .frame(maxWidth: .infinity).frame(height: 44)
                             .background(RoundedRectangle(cornerRadius: t.active ? 14 : 22, style: .continuous)

@@ -49,7 +49,7 @@ struct WallpaperPickerView: View {
     @ViewBuilder private var content: some View {
         if let message = model.message, model.items.isEmpty {
             VStack(spacing: 8) {
-                Image(systemName: "photo.on.rectangle.angled").font(.system(size: 30, weight: .light))
+                MaterialIcon("photo.on.rectangle.angled", size: 30, weight: .light)
                 Text(message).font(theme.sans(13)).multilineTextAlignment(.center)
                 Text("Set `appearance.wallpaperFolder` in config.toml").font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant].opacity(0.8))
             }
@@ -77,7 +77,7 @@ struct WallpaperPickerView: View {
                                     theme[.surfaceContainerHigh]
                                     if let img = model.thumbs[url] { Image(nsImage: img).resizable().scaledToFill() }
                                     if WallpaperLibrary.isLive(url) {
-                                        Image(systemName: "play.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                                        MaterialIcon("play.fill", size: 10, weight: .bold).foregroundStyle(.white)
                                             .padding(6).background(Circle().fill(.black.opacity(0.45))).padding(7)
                                     }
                                 }

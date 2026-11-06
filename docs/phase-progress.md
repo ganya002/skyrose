@@ -11,7 +11,7 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 | 1. Launcher index + empty-workspace jump | done, live-checked | see `git log` ("Phase 5 part 1") |
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
 | 3. SIP-off mode | done, live-tested in the Dock (3b) | "Phase 5 part 3a", "3a-fix", "3b" |
-| 4. Material Symbols | not started | |
+| 4. Material Symbols | done, live-checked (dashboard + sidebar) | "Phase 5 part 4" |
 | 5. Screenshots, keep-awake, Clamshell | not started | |
 
 ## Part 1 — done
@@ -144,6 +144,26 @@ and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS
 Decisions: blur and rounding of other apps stay limits (no SkyLight call for them); a rebuild while the
 Dock has the dylib loaded was harmless (Dock kept running, helper kept answering).
 
+## Part 4 — Material Symbols (done)
+
+- `ShellIcon` (Shell/Theme/ShellTheme.swift): `fromSF` maps every SF name the shell uses to a
+  Material Symbols Rounded name + fill; `glyph(_:)` resolves SF or Material names (dotted unknown
+  names stay SF only, e.g. `apple.logo`; plain unknown names are Material); `materialFont(size:
+  weight:fill:)` builds the variable font with FILL / wght / opsz / GRAD axes (cached);
+  `materialScale` 1.25 so a Material glyph matches the SF size it replaces.
+- `MaterialIcon` view (Shell/Support/MaterialIcon.swift): ligature text when the family is
+  registered (FontStore, already done at WM start once `skyrose fonts download` ran), else the SF
+  Symbol. Every `Image(systemName:)` in the shell (47 sites) now goes through it; brightness slider
+  uses `brightness_high`, the session moon `bedtime` (filled).
+- Tests: SF names in the map exist, every Material name's SF fallback exists, resolver cases,
+  weight axis, and every Material name is a single ligature glyph in the pinned font (skipped
+  where the font is not downloaded).
+- Live: dashboard (tabs, weather, chips, gauges) and sidebar (empty notifications, keep awake,
+  sliders, quick toggles) render Material: `/tmp/cwm/phase5/icons/dashboard.png`, `sidebar.png`.
+
+Decisions: no config switch (Material whenever the font is present, SF otherwise); Settings
+(SkyRoseSettingsKit) keeps SF Symbols (macOS settings look); `apple.logo` stays SF.
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
@@ -151,6 +171,7 @@ After part 2: 976 tests, 0 failures.
 After part 3a: 987 tests, 0 failures.
 After 3a-fix (loader): 987 tests, 0 failures.
 After part 3b: 988 tests, 0 failures.
+After part 4: 993 tests, 0 failures.
 
 ---
 

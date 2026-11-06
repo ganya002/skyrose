@@ -229,9 +229,119 @@ public extension EnvironmentValues {
     }
 }
 
-/// Material Symbols names used by Caelestia → SF Symbols (Material Symbols Rounded is not
-/// installed and not bundled yet; spec 7.1).
+/// Shell icons: Material Symbols Rounded (Caelestia's icon font) when it is registered (Settings ›
+/// Appearance › Fonts, `skyrose fonts download`), else SF Symbols. Call sites may pass either a
+/// Material name (Caelestia IPC, toasts, session) or an SF name (older code paths).
 public enum ShellIcon {
+    /// What to draw for one icon name: the Material ligature (nil = no Material equivalent, SF
+    /// only), whether it is the filled variant, and the SF Symbol fallback.
+    public struct Glyph: Equatable, Sendable {
+        public var material: String?
+        public var fill: Bool
+        public var sf: String
+    }
+
+    public static let materialFamily = "Material Symbols Rounded"
+
+    /// SF Symbol names used in the shell → (Material name, filled).
+    public static let fromSF: [String: (String, Bool)] = [
+        "arrow.clockwise": ("refresh", false), "arrow.down.circle.dotted": ("downloading", false),
+        "arrow.triangle.2.circlepath": ("cached", false), "arrow.up.right": ("arrow_outward", false),
+        "backward.fill": ("skip_previous", true), "forward.fill": ("skip_next", true),
+        "play.fill": ("play_arrow", true), "pause.fill": ("pause", true), "shuffle": ("shuffle", false),
+        "battery.0percent": ("battery_0_bar", false), "battery.25percent": ("battery_2_bar", false),
+        "battery.50percent": ("battery_4_bar", false), "battery.75percent": ("battery_6_bar", false),
+        "battery.100percent": ("battery_full", false), "battery.100percent.bolt": ("battery_charging_full", false),
+        "bell.fill": ("notifications", true), "bell.slash": ("notifications_off", false), "bell.slash.fill": ("notifications_off", true),
+        "cable.connector": ("lan", false), "network": ("lan", false), "calendar": ("calendar_month", false),
+        "capslock.fill": ("keyboard_capslock", false), "keyboard": ("keyboard", false),
+        "checkmark": ("check", false), "checkmark.circle": ("check_circle", false), "checkmark.circle.fill": ("check_circle", true),
+        "circle": ("radio_button_unchecked", false), "circle.lefthalf.filled": ("contrast", false),
+        "chevron.left": ("chevron_left", false), "chevron.right": ("chevron_right", false),
+        "clock.arrow.circlepath": ("history", false), "xmark": ("close", false), "trash": ("delete", false),
+        "cloud": ("cloud", false), "cloud.fill": ("cloud", true), "cloud.fog.fill": ("foggy", true),
+        "cloud.drizzle.fill": ("rainy_light", true), "cloud.heavyrain.fill": ("rainy_heavy", true),
+        "cloud.sun.rain.fill": ("rainy", true), "cloud.moon.rain.fill": ("rainy", true),
+        "cloud.sun.fill": ("partly_cloudy_day", true), "cloud.moon.fill": ("partly_cloudy_night", true),
+        "cloud.snow.fill": ("weather_snowy", true), "cloud.bolt.fill": ("thunderstorm", true),
+        "cloud.bolt.rain.fill": ("thunderstorm", true), "exclamationmark.icloud": ("cloud_off", false),
+        "sun.max.fill": ("clear_day", true), "moon.stars.fill": ("clear_night", true), "moon.fill": ("dark_mode", true),
+        "moon": ("bedtime", false), "sleep": ("bedtime", false), "sunrise.fill": ("wb_twilight", true), "sunset.fill": ("nights_stay", true),
+        "sun.min.fill": ("brightness_low", true), "humidity.fill": ("humidity_percentage", true), "wind": ("air", false),
+        "thermometer.medium": ("thermostat", false), "thermometer.variable": ("thermostat", false),
+        "cpu": ("memory", false), "memorychip": ("memory_alt", false), "internaldrive": ("hard_drive", false),
+        "display": ("developer_board", false), "macwindow": ("desktop_mac", false), "menubar.rectangle": ("toolbar", false),
+        "gauge.with.dots.needle.33percent": ("speed", false), "gearshape": ("settings", false),
+        "cup.and.saucer.fill": ("coffee", true), "dot.radiowaves.left.and.right": ("bluetooth", false),
+        "drop.halffull": ("opacity", false), "equal.circle": ("calculate", false),
+        "exclamationmark.circle.fill": ("error", true), "exclamationmark.triangle.fill": ("warning", true),
+        "info": ("info", false), "info.circle.fill": ("info", true),
+        "location.fill": ("location_on", true), "location.magnifyingglass": ("location_searching", false),
+        "mappin.and.ellipse": ("location_on", false), "lock": ("lock", false), "lock.fill": ("lock", true),
+        "magnifyingglass": ("search", false), "mic": ("mic", false), "microphone": ("mic", false), "mic.fill": ("mic", true),
+        "mic.slash.fill": ("mic_off", true), "music.note": ("music_note", false), "music.note.list": ("queue_music", false),
+        "paintpalette": ("palette", false), "photo": ("image", false), "photo.on.rectangle": ("wallpaper", false),
+        "photo.on.rectangle.angled": ("wallpaper", false), "power": ("power_settings_new", false),
+        "rectangle.portrait.and.arrow.right": ("logout", false), "sparkles": ("auto_awesome", true),
+        "speaker.fill": ("volume_mute", true), "speaker.slash.fill": ("volume_off", true),
+        "speaker.wave.1.fill": ("volume_down", true), "speaker.wave.2.fill": ("volume_up", true), "speaker.wave.3.fill": ("volume_up", true),
+        "square.grid.2x2": ("apps", false), "square.grid.2x2.fill": ("apps", true), "terminal": ("terminal", false),
+        "wifi": ("wifi", false), "wifi.slash": ("wifi_off", false), "wifi.exclamationmark": ("signal_wifi_bad", false),
+    ]
+
+    /// Resolves an SF or Material name. Unknown dotted names are SF only (e.g. `apple.logo`, which
+    /// has no Material equivalent); unknown plain names are taken as Material names.
+    public static func glyph(_ name: String) -> Glyph {
+        if let (m, fill) = fromSF[name] { return Glyph(material: m, fill: fill, sf: name) }
+        if name.contains(".") || name.isEmpty { return Glyph(material: nil, fill: false, sf: name.isEmpty ? "questionmark" : name) }
+        return Glyph(material: name, fill: false, sf: sf(name))
+    }
+
+    /// Material wght axis (100–700) for a SwiftUI weight.
+    public static func materialWeight(_ w: Font.Weight) -> Double {
+        switch w {
+        case .ultraLight: return 100
+        case .thin: return 200
+        case .light: return 300
+        case .medium: return 500
+        case .semibold: return 600
+        case .bold, .heavy, .black: return 700
+        default: return 400
+        }
+    }
+
+    /// SF Symbols sit on a larger box than Material glyphs (20 of 24 units): a Material icon in
+    /// place of an SF one at font size `s` is drawn at `s × materialScale` to look the same size.
+    public static let materialScale = 1.25
+
+    public static var materialAvailable: Bool { ShellTheme.isInstalled(materialFamily) }
+
+    nonisolated(unsafe) private static var fontCache: [String: CTFont] = [:]
+    private static let fontLock = NSLock()
+
+    /// The variable font at `size` with FILL and wght set (opsz follows the size, GRAD 0), cached.
+    public static func materialFont(size: Double, weight: Double, fill: Bool) -> CTFont {
+        let key = "\(size)-\(weight)-\(fill)"
+        fontLock.lock()
+        defer { fontLock.unlock() }
+        if let f = fontCache[key] { return f }
+        let tag: (String) -> Int = { $0.unicodeScalars.reduce(0) { ($0 << 8) | Int($1.value) } }
+        let variation: [NSNumber: NSNumber] = [
+            NSNumber(value: tag("FILL")): NSNumber(value: fill ? 1 : 0),
+            NSNumber(value: tag("wght")): NSNumber(value: weight),
+            NSNumber(value: tag("opsz")): NSNumber(value: min(48, max(20, size))),
+            NSNumber(value: tag("GRAD")): 0,
+        ]
+        let desc = CTFontDescriptorCreateWithAttributes([
+            kCTFontFamilyNameAttribute: materialFamily,
+            kCTFontVariationAttribute: variation,
+        ] as CFDictionary)
+        let f = CTFontCreateWithFontDescriptor(desc, size, nil)
+        fontCache[key] = f
+        return f
+    }
+
+    /// Material Symbols names used by Caelestia → SF Symbols (the fallback without the font).
     public static func sf(_ material: String) -> String {
         switch material {
         case "logout": return "rectangle.portrait.and.arrow.right"
@@ -268,7 +378,22 @@ public enum ShellIcon {
         case "opacity": return "drop.halffull"
         case "shuffle": return "shuffle"
         case "apps": return "square.grid.2x2"
-        default: return material
+        case "bedtime", "dark_mode": return "moon"
+        case "clear_day", "light_mode": return "sun.max.fill"
+        case "clear_night": return "moon.stars.fill"
+        case "notifications": return "bell.fill"
+        case "notifications_off": return "bell.slash"
+        case "delete": return "trash"
+        case "close": return "xmark"
+        case "check": return "checkmark"
+        case "refresh": return "arrow.clockwise"
+        case "wallpaper": return "photo.on.rectangle"
+        case "auto_awesome": return "sparkles"
+        case "thermostat": return "thermometer.medium"
+        case "coffee": return "cup.and.saucer.fill"
+        default:
+            if let hit = fromSF.first(where: { $0.value.0 == material })?.key { return hit }
+            return material
         }
     }
 }

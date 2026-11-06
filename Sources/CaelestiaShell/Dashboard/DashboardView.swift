@@ -83,7 +83,7 @@ private struct TabButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
-                Image(systemName: tab.icon).font(.system(size: 15, weight: .medium))
+                MaterialIcon(tab.icon, size: 15, weight: .medium)
                 Text(tab.title).font(theme.sans(13, weight: .medium))
                 Rectangle().fill(selected ? theme[.primary] : .clear).frame(height: 2).padding(.horizontal, 22)
             }
@@ -130,8 +130,7 @@ struct WeatherCard: View {
         Group {
             if let w = state.weather {
                 HStack(spacing: 20) {
-                    Image(systemName: ShellIcon.sf(w.icon))
-                        .font(.system(size: 54, weight: .light))
+                    MaterialIcon(w.icon, size: 54, weight: .light)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(theme[.onSurface])
                     VStack(spacing: 4) {
@@ -168,7 +167,7 @@ struct WeatherPlaceholderText: View {
             }
         }()
         VStack(spacing: compact ? 4 : 8) {
-            Image(systemName: icon).font(.system(size: compact ? 28 : 40, weight: .light)).foregroundStyle(theme[.onSurfaceVariant])
+            MaterialIcon(icon, size: compact ? 28 : 40, weight: .light).foregroundStyle(theme[.onSurfaceVariant])
             Text(title).font(theme.sans(compact ? 14 : 17, weight: .semibold)).foregroundStyle(theme[.onSurface])
             if !detail.isEmpty {
                 Text(detail).font(theme.sans(compact ? 11 : 13)).foregroundStyle(theme[.onSurfaceVariant])
@@ -209,7 +208,7 @@ private struct WeatherTab: View {
 
     func current(_ w: WeatherInfo) -> some View {
         HStack(spacing: 18) {
-            Image(systemName: ShellIcon.sf(w.icon)).font(.system(size: 64, weight: .light))
+            MaterialIcon(w.icon, size: 64, weight: .light)
                 .symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface])
             VStack(alignment: .leading, spacing: 4) {
                 Text(WeatherText.temperature(w.temperatureC, fahrenheit: f)).font(theme.sans(40, weight: .semibold)).foregroundStyle(theme[.primary])
@@ -237,7 +236,7 @@ private struct WeatherTab: View {
         return LazyVGrid(columns: cols, spacing: 10) {
             ForEach(items, id: \.1) { item in
                 HStack(spacing: 8) {
-                    Image(systemName: item.0).font(.system(size: 15)).foregroundStyle(theme[.primary]).frame(width: 20)
+                    MaterialIcon(item.0, size: 15).foregroundStyle(theme[.primary]).frame(width: 20)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(item.1).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
                         Text(item.2).font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface]).monospacedDigit()
@@ -255,7 +254,7 @@ private struct WeatherTab: View {
             ForEach(Array(w.hourly.prefix(12).enumerated()), id: \.offset) { i, h in
                 VStack(spacing: 5) {
                     Text(i == 0 ? "Now" : h.time.formatted(.dateTime.hour())).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
-                    Image(systemName: ShellIcon.sf(h.icon)).font(.system(size: 17)).symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface]).frame(height: 22)
+                    MaterialIcon(h.icon, size: 17).symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface]).frame(height: 22)
                     Text(WeatherText.temperature(h.temperatureC, fahrenheit: f, unit: false)).font(theme.sans(13, weight: .semibold)).foregroundStyle(theme[.onSurface])
                     Text(h.precipitationChance.map { $0 >= 10 ? "\($0)%" : " " } ?? " ").font(theme.sans(10)).foregroundStyle(theme[.primary])
                 }
@@ -272,7 +271,7 @@ private struct WeatherTab: View {
             ForEach(Array(w.daily.prefix(7).enumerated()), id: \.offset) { i, d in
                 VStack(spacing: 6) {
                     Text(i == 0 ? "Today" : d.date.formatted(.dateTime.weekday(.abbreviated))).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurface])
-                    Image(systemName: ShellIcon.sf(d.icon)).font(.system(size: 20)).symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface]).frame(height: 26)
+                    MaterialIcon(d.icon, size: 20).symbolRenderingMode(.hierarchical).foregroundStyle(theme[.onSurface]).frame(height: 26)
                     Text(WeatherText.temperature(d.maxC, fahrenheit: f, unit: false)).font(theme.sans(13, weight: .semibold)).foregroundStyle(theme[.primary])
                     Text(WeatherText.temperature(d.minC, fahrenheit: f, unit: false)).font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
                 }
@@ -298,7 +297,7 @@ struct UserCard: View {
                         .font(theme.sans(36, weight: .semibold)).foregroundStyle(theme[.onPrimaryContainer])
                 }
                 .frame(width: 84, height: 84)
-                Image(systemName: "apple.logo").font(.system(size: 13))
+                MaterialIcon("apple.logo", size: 13)
                     .foregroundStyle(theme[.onSecondaryContainer])
                     .frame(width: 28, height: 28)
                     .background(Circle().fill(theme[.secondaryContainer]))
@@ -326,7 +325,7 @@ struct Chip: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 11, weight: .medium))
+            MaterialIcon(icon, size: 11, weight: .medium)
             Text(text).font(theme.sans(12, weight: .medium)).lineLimit(1)
         }
         .foregroundStyle(fg)
@@ -409,7 +408,7 @@ struct CalendarCard: View {
 
     private func arrow(_ symbol: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 28, height: 24)
+            MaterialIcon(symbol, size: 12, weight: .semibold).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 28, height: 24)
         }.buttonStyle(.plain)
     }
 }
@@ -437,7 +436,7 @@ struct GaugesCard: View {
         ZStack {
             ProgressArc(value: value, sweep: 300, lineWidth: 5)
             VStack(spacing: 1) {
-                Image(systemName: icon).font(.system(size: 15)).foregroundStyle(theme[.onSurface])
+                MaterialIcon(icon, size: 15).foregroundStyle(theme[.onSurface])
                 Text("\(Int((value * 100).rounded()))%").font(theme.sans(10, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
             }
         }
@@ -574,7 +573,7 @@ private struct StatCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Image(systemName: icon).font(.system(size: 14)).foregroundStyle(theme[.primary])
+                MaterialIcon(icon, size: 14).foregroundStyle(theme[.primary])
                 Text(title).font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface])
                 Spacer()
                 Text(value).font(theme.sans(20, weight: .bold)).foregroundStyle(theme[.primary])
@@ -607,12 +606,12 @@ private struct TempsCard: View {
         ].compactMap { $0 }
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: "thermometer.variable").font(.system(size: 14)).foregroundStyle(theme[.primary])
+                MaterialIcon("thermometer.variable", size: 14).foregroundStyle(theme[.primary])
                 Text("Temperatures").font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface])
             }
             ForEach(rows, id: \.1) { r in
                 HStack(spacing: 8) {
-                    Image(systemName: r.0).font(.system(size: 12)).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 18)
+                    MaterialIcon(r.0, size: 12).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 18)
                     Text(r.1).font(theme.sans(13)).foregroundStyle(theme[.onSurface])
                     Spacer()
                     Text(ShellText.celsius(r.2)).font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.primary]).monospacedDigit()
@@ -631,7 +630,7 @@ private struct NetCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Image(systemName: "network").font(.system(size: 14)).foregroundStyle(theme[.primary])
+                MaterialIcon("network", size: 14).foregroundStyle(theme[.primary])
                 Text("Network").font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface])
             }
             Text("↓ \(ShellText.rateText(p.networkDownBytesPerSec))   ↑ \(ShellText.rateText(p.networkUpBytesPerSec))")
@@ -650,7 +649,7 @@ private struct BatteryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Image(systemName: status.batteryCharging ? "battery.100percent.bolt" : "battery.75percent").font(.system(size: 14)).foregroundStyle(theme[.primary])
+                MaterialIcon(status.batteryCharging ? "battery.100percent.bolt" : "battery.75percent", size: 14).foregroundStyle(theme[.primary])
                 Text("Battery").font(theme.sans(14, weight: .semibold)).foregroundStyle(theme[.onSurface])
                 Spacer()
                 Text("\(status.batteryPercent)%").font(theme.sans(20, weight: .bold)).foregroundStyle(theme[.primary])

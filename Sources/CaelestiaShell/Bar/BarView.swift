@@ -89,8 +89,7 @@ struct BarIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: size * theme.uiScale, weight: .medium))
+            MaterialIcon(symbol, size: size * theme.uiScale, weight: .medium)
                 .foregroundStyle(color)
                 .frame(width: 32, height: 32)
                 .background(Circle().fill(theme[.onSurface].opacity(hover ? 0.08 : 0)))
@@ -136,8 +135,7 @@ struct WorkspacesColumn: View {
                 .help("Workspace \(pill.name)")
             }
             if let special {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 11, weight: .semibold))
+                MaterialIcon("sparkles", size: 11, weight: .semibold)
                     .foregroundStyle(theme[.tertiary])
                     .frame(width: 30, height: Self.slot)
                     .help("Special workspace \(special)")
@@ -186,8 +184,7 @@ struct ClockColumn: View {
     var body: some View {
         let c = Calendar.current.dateComponents([.hour, .minute], from: now)
         VStack(spacing: 2) {
-            Image(systemName: "calendar")
-                .font(.system(size: 14, weight: .medium))
+            MaterialIcon("calendar", size: 14, weight: .medium)
                 .foregroundStyle(theme[.tertiary])
                 .padding(.bottom, 4)
             Text(String(format: "%02d", c.hour ?? 0))
@@ -322,8 +319,7 @@ struct StatusIconButton: View {
 
     var body: some View {
         Button { if hasPopout { onTap(midY) } } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 14, weight: .medium))
+            MaterialIcon(symbol, size: 14, weight: .medium)
                 .foregroundStyle(theme[.onSurface])
                 .frame(width: 28, height: 22)
                 .background(Capsule().fill(theme[.onSurface].opacity(hover && hasPopout ? 0.1 : 0)))

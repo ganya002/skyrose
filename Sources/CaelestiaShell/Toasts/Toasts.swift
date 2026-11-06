@@ -100,8 +100,7 @@ struct ToastCard: View {
     var body: some View {
         let (bg, fg, accent) = colors
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: ShellIcon.sf(toast.icon.isEmpty ? toast.kind.defaultIcon : toast.icon))
-                .font(.system(size: 18, weight: .semibold))
+            MaterialIcon(toast.icon.isEmpty ? toast.kind.defaultIcon : toast.icon, size: 18, weight: .semibold)
                 .foregroundStyle(accent)
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 2) {

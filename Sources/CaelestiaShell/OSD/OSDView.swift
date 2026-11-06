@@ -98,8 +98,7 @@ struct OSDSlider: View {
             ZStack(alignment: .bottom) {
                 Capsule().fill(theme[.onSurface].opacity(0.1))
                 Capsule().fill(theme[.primary]).frame(height: fillH)
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                MaterialIcon(icon, size: 13, weight: .semibold)
                     .foregroundStyle(theme[.onPrimary])
                     .frame(width: w, height: w)
             }

@@ -125,8 +125,7 @@ struct LauncherView: View {
 
     private var search: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 15, weight: .medium))
+            MaterialIcon("magnifyingglass", size: 15, weight: .medium)
                 .foregroundStyle(theme[.onSurfaceVariant])
             TextField("", text: $model.query, prompt: Text("Type \">\" for commands").foregroundColor(theme[.onSurfaceVariant]))
                 .textFieldStyle(.plain)
@@ -186,12 +185,10 @@ struct LauncherRow: View {
         case .app(let app):
             Image(nsImage: AppIconCache.icon(url: app.url)).resizable().interpolation(.high)
         case .command(let c):
-            Image(systemName: ShellIcon.sf(c.icon))
-                .font(.system(size: 20, weight: .medium))
+            MaterialIcon(c.icon, size: 20, weight: .medium)
                 .foregroundStyle(theme[.onSurfaceVariant])
         case .calc:
-            Image(systemName: "equal.circle")
-                .font(.system(size: 22, weight: .medium))
+            MaterialIcon("equal.circle", size: 22, weight: .medium)
                 .foregroundStyle(theme[.primary])
         }
     }

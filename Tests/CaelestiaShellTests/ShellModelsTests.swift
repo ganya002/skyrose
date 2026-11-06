@@ -330,4 +330,60 @@ final class ShellIconTests: XCTestCase {
     func testUnknownPassesThrough() {
         XCTAssertEqual(ShellIcon.sf("star.fill"), "star.fill")
     }
+
+    // MARK: Material Symbols (part 4)
+
+    func testEverySFNameInTheMapIsARealSymbol() {
+        for (sf, _) in ShellIcon.fromSF {
+            XCTAssertNotNil(NSImage(systemSymbolName: sf, accessibilityDescription: nil), sf)
+        }
+    }
+
+    func testGlyphResolvesSFAndMaterialNames() {
+        XCTAssertEqual(ShellIcon.glyph("wifi.slash"), .init(material: "wifi_off", fill: false, sf: "wifi.slash"))
+        XCTAssertEqual(ShellIcon.glyph("speaker.wave.2.fill"), .init(material: "volume_up", fill: true, sf: "speaker.wave.2.fill"))
+        // A Material name from Caelestia IPC keeps its SF fallback.
+        XCTAssertEqual(ShellIcon.glyph("power_settings_new"), .init(material: "power_settings_new", fill: false, sf: "power"))
+        XCTAssertEqual(ShellIcon.glyph("notifications").sf, "bell.fill")
+        // No Material equivalent: SF only.
+        XCTAssertNil(ShellIcon.glyph("apple.logo").material)
+        XCTAssertEqual(ShellIcon.glyph("").sf, "questionmark")
+    }
+
+    func testEveryMaterialFallbackIsARealSymbol() {
+        let materials = Set(ShellIcon.fromSF.values.map(\.0))
+        for m in materials {
+            let sf = ShellIcon.glyph(m).sf
+            XCTAssertNotNil(NSImage(systemSymbolName: sf, accessibilityDescription: nil), "\(m) -> \(sf)")
+        }
+    }
+
+    func testMaterialWeightAxis() {
+        XCTAssertEqual(ShellIcon.materialWeight(.regular), 400)
+        XCTAssertEqual(ShellIcon.materialWeight(.light), 300)
+        XCTAssertEqual(ShellIcon.materialWeight(.semibold), 600)
+        XCTAssertEqual(ShellIcon.materialWeight(.black), 700)
+    }
+
+    /// Every Material name the shell uses is one ligature glyph in the pinned font (a typo would
+    /// draw the word). Needs the downloaded font; skipped on a Mac without it.
+    func testEveryMaterialNameIsALigatureInTheFont() throws {
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/SkyRose/Fonts")
+        let url = dir.appendingPathComponent("MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf")
+        guard FileManager.default.fileExists(atPath: url.path) else { throw XCTSkip("Material Symbols not downloaded") }
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        ShellTheme.fontsChanged()
+        XCTAssertTrue(ShellIcon.materialAvailable)
+        var names = Set(ShellIcon.fromSF.values.map(\.0))
+        names.formUnion(LauncherCommand.all.map(\.icon))
+        names.formUnion(["brightness_high", "bedtime", "lock", "logout", "restart_alt", "cached", "downloading"])
+        for fill in [false, true] {
+            let font = ShellIcon.materialFont(size: 24, weight: 400, fill: fill)
+            XCTAssertEqual(CTFontCopyFamilyName(font) as String, ShellIcon.materialFamily)
+            for n in names where !n.contains(".") {
+                let line = CTLineCreateWithAttributedString(NSAttributedString(string: n, attributes: [.font: font]))
+                XCTAssertEqual(CTLineGetGlyphCount(line), 1, n)
+            }
+        }
+    }
 }

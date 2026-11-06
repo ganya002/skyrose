@@ -115,8 +115,7 @@ struct RoundIconButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.42, weight: .semibold))
+            MaterialIcon(symbol, size: size * 0.42, weight: .semibold)
                 .foregroundStyle(filled ? theme[.onPrimary] : theme[.onSurface])
                 .frame(width: size, height: size)
                 .background(Circle().fill(filled ? theme[.primary] : theme[.onSurface].opacity(hover ? 0.2 : 0.12)))
@@ -139,8 +138,7 @@ struct HSlider: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(theme[.onSurface].opacity(0.1))
                 Capsule().fill(theme[.primary]).frame(width: max(h, w * min(1, max(0, value))))
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                MaterialIcon(icon, size: 12, weight: .semibold)
                     .foregroundStyle(theme[.onPrimary])
                     .frame(width: h, height: h)
             }
@@ -172,6 +170,6 @@ struct ArtworkView: View {
     }
 
     private var icon: some View {
-        Image(systemName: placeholder).font(.system(size: 30)).foregroundStyle(theme[.onSurfaceVariant])
+        MaterialIcon(placeholder, size: 30).foregroundStyle(theme[.onSurfaceVariant])
     }
 }

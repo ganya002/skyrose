@@ -99,7 +99,7 @@ Legend for "Action": **fixed** = changed in this phase; **kept** = already match
 | Shell duration scale | 0.8 | 0.8 | kept |
 | Bar | left, ~60 px, hidden, reveals at x = 0, hides on leave | left, 48 pt, reveals on the left band | **fixed**: 60 pt |
 | Bar reveal pushes tiles | yes | no (overlay) | kept (decision) |
-| Bar content | logo, workspace column (dots / pills with app icons), vertical active title, clock HH/MM/am, status pill (audio, network), red power | same modules (logo is the Apple logo; SF Symbols for Material icons) | kept |
+| Bar content | logo, workspace column (dots / pills with app icons), vertical active title, clock HH/MM/am, status pill (audio, network), red power | same modules (logo is the Apple logo; SF Symbols for Material icons) | kept; **fixed (part 4)**: Material Symbols Rounded (FILL/wght axes) once the font pack is downloaded, SF fallback |
 | Bar timing | in ≈ 420 ms, out ≈ 420 ms measured (bar_open / bar_close clips) | 400 ms × 0.8 in, 250 ms × 0.8 out | kept (decision) |
 | Drawer shape | rounded blobs joined to the frame by concave fillets | `DrawerPath` blobs with fillets | kept |
 | Dashboard | top centre; **revealed by hovering the top band over its width**; tabs Dashboard, Media, Performance, Weather | top centre; keybind/IPC only; no Weather tab | **fixed**: top-band hover (Caelestia `inTopPanel`; the notch dip counts as band; 100 ms dwell so crossing to the menu bar does not flash it). On a display whose menu bar auto-hides, the same edge also reveals the macOS menu bar (limit). **fixed (this phase)**: Weather tab + Overview card from Open-Meteo, city picked in Settings |
