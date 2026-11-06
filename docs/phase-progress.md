@@ -10,7 +10,7 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 |---|---|---|
 | 1. Launcher index + empty-workspace jump | done, live-checked | see `git log` ("Phase 5 part 1") |
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
-| 3. SIP-off mode | 3a built; 3a-fix loader (thread_create_running); **waiting for Gabby to run the sudo loader**, then live test 3b | "Phase 5 part 3a", "3a-fix" |
+| 3. SIP-off mode | done, live-tested in the Dock (3b) | "Phase 5 part 3a", "3a-fix", "3b" |
 | 4. Material Symbols | not started | |
 | 5. Screenshots, keep-awake, Clamshell | not started | |
 
@@ -70,7 +70,7 @@ shows its new name after a WM restart.
 Decisions: no config key for "play on battery" (the brief says pause); the first occlusion
 report can log one "paused (covered by windows)" before the windows are on screen.
 
-## Part 3 — SIP-off mode (3a committed; live test pending)
+## Part 3 — SIP-off mode (done)
 
 Verified first (2026-11-05): `csrutil status` = Custom Configuration with Filesystem, Debugging
 and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS 27.2 (26B123), arm64.
@@ -120,7 +120,29 @@ and NVRAM protections disabled; `nvram boot-args` = `-arm64e_preview_abi`; macOS
   (`FROM_SELF`) already matched yabai. Gated by `macos_at_least()` (`kern.osproductversion`).
 - Also reverted (via Gabby) `sipOff.enabled` in his config.toml — my live Settings test had left
   the toggle on after the showcase unlocked it; inert with no SA loaded, now back to the default.
-- **Awaiting:** Gabby's `sudo …/skyrose-sa-loader -v; echo "exit=$?"` with the new binary.
+- Gabby's run (2026-11-06): every step ok, "thread_create_running ok", exit 0, Dock pid 664.
+
+### Part 3b — live test (done)
+
+- `skyrose sa status`: loaded (v1: alpha, shadow, level, transform, space); `query state` mode enhanced;
+  `sipOff-mode-used` flag written.
+- Raw socket on Gabby's idle kitty "~" (0x314): alpha 0.4, shadow off, half-size transform, level 3,
+  all read back; all undone on disconnect.
+- WM path (TestWindows on empty ws2 + kitty on ws1): open pop + fade, retile spring, WM close shrink+fade,
+  instant workspace switch, pin on top, opacity on/off (0.95 on kitty too), shadows off/on. Numbers in
+  arch-parity.md › SIP-off mode live test. Files: `/tmp/cwm/phase5/3b/`.
+- **Bug found + fixed:** pinning starts a float-move animation, and `layoutApplied` skipped windows the
+  animator covered, so the level (and shadow) was never sent. Now only alpha waits for the animation
+  (`testPinDuringAnAnimationRaisesAtOnceButAlphaWaits`). Live after the fix: level 3, stays above a
+  focused tile; unpin → level 0.
+- `skyrose wm panic`: every change undone, socket closed, WM quit. TestWindows quit, no leftovers;
+  WM started again (standard mode, since the helper's socket is closed). Config left as found
+  (`sipOff.enabled = true`, opacity false).
+- To use SIP-off mode again after a panic or a reboot: run the loader again (`stop` resets the payload's
+  running flag, so a second load restarts it).
+
+Decisions: blur and rounding of other apps stay limits (no SkyLight call for them); a rebuild while the
+Dock has the dylib loaded was harmless (Dock kept running, helper kept answering).
 
 ## Tests
 
@@ -128,6 +150,7 @@ After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
 After part 2: 976 tests, 0 failures.
 After part 3a: 987 tests, 0 failures.
 After 3a-fix (loader): 987 tests, 0 failures.
+After part 3b: 988 tests, 0 failures.
 
 ---
 

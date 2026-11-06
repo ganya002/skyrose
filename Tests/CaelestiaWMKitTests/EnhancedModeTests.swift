@@ -206,6 +206,23 @@ final class EnhancedModeTests: XCTestCase {
         XCTAssertTrue(server.log.contains("level-reset 12"))
     }
 
+    func testPinDuringAnAnimationRaisesAtOnceButAlphaWaits() {
+        server.start()
+        let (mode, _) = makeMode()
+        mode.apply(config: config { $0.shadows = false })
+        // Pinning floats the window, which starts a move animation (live 3b: level stayed 0).
+        mode.animator.animate(.init(changes: [.init(id: 7, kind: .move, from: CGRect(x: 0, y: 0, width: 300, height: 300),
+                                                    to: CGRect(x: 50, y: 50, width: 200, height: 200))],
+                                    windows: [], displays: [:])) {}
+        XCTAssertTrue(mode.animator.isCovering(7))
+        mode.layoutApplied([.init(id: 7, fullscreen: false, pinned: true)])
+        let log = server.log
+        XCTAssertTrue(log.contains("level 7 \(Int(CGWindowLevelForKey(.floatingWindow)))"))
+        XCTAssertTrue(log.contains("shadow 7 0"))
+        XCTAssertFalse(log.contains { $0.hasPrefix("alpha 7") }, "the animation's last frame sets alpha")
+        mode.animator.cancel()
+    }
+
     func testShadowSwitchAndInstantSwitchHiding() async throws {
         server.start()
         let (mode, _) = makeMode()

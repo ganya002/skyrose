@@ -37,7 +37,7 @@ Legend for "Action": **fixed** = changed in this phase; **kept** = already match
 | pseudo | keeps the client's own size centred in its slot, scaled down to fit (ops08: slot 1263×1398 → 1248×1388 centred) | missing | **fixed**: `window.pseudo`; size = last floating size, else the size the window had when it was first tiled; Hyprland's fit-and-centre maths |
 | Float toggle | remembered float size centred on the slot's centre (ops10: 1280×1410 centred on a 1263×1398 slot; ops21: 2530×1380) | last float frame, else 60 %×70 % centred on the screen | **fixed**: last float size, else the tile's size, centred on the tile's centre, clamped on-screen |
 | Center | `centerwindow` on floats | same | kept |
-| Pin | float + pin (shows on every workspace) | same; true always-on-top impossible | kept / limit |
+| Pin | float + pin (shows on every workspace) | same; true always-on-top impossible | kept / limit with SIP on; **SIP-off mode: real always-on-top** (floating level 3 via the Dock helper, live 2026-11-06) |
 | Maximize | gaps 20 (31,31 5058×1378) | `gapsOutSingle` + border | kept |
 | Fullscreen | whole monitor, no border/rounding | whole display, no border | kept |
 | Focus follows mouse | on, needs real motion | on, 100 ms delay | kept |
@@ -54,10 +54,10 @@ Legend for "Action": **fixed** = changed in this phase; **kept** = already match
 | gaps_workspaces | 20 | 20 | kept |
 | Border | 1 px, active `primary` @ 0xe6, inactive `onSurfaceVariant` @ 0x11 | same | kept |
 | Border colour fade | 480 ms `standard` (.2,0,0,1) | 240 ms | **fixed**: 480 ms (Gabby's pick, the one exception to the 350 ms cap) |
-| Rounding | 15, power 2 (circular) | 15 (overlay stroke; real window keeps the macOS corner) | kept / limit |
-| Opacity | 0.95 when not fullscreen | 0.94 (Enhanced mode only) | **fixed**: default 0.95 (still Enhanced only) |
-| Blur | size 10, 3 passes; off on special workspaces | 10/3 on our own panels; other apps: limit | kept / limit |
-| Shadow | 15 px, power 4, `inversePrimary` @ 0x10 | panels only | kept / limit |
+| Rounding | 15, power 2 (circular) | 15 (overlay stroke; real window keeps the macOS corner) | kept / limit (also with SIP off: the window server has no corner-radius call for another app's window) |
+| Opacity | 0.95 when not fullscreen | 0.94 (Enhanced mode only) | **fixed**: default 0.95; **works on every app in SIP-off mode** (`sipOff.opacity`, off by default; live: kitty + TestWindows 1.0 → 0.95 → 1.0) |
+| Blur | size 10, 3 passes; off on special workspaces | 10/3 on our own panels; other apps: limit | kept / limit (also with SIP off: no per-window background blur for other apps' windows) |
+| Shadow | 15 px, power 4, `inversePrimary` @ 0x10 | panels only | kept / limit with SIP on; **SIP-off mode: other apps' shadows can be turned off** (`sipOff.shadows = false`, live); a tinted 15 px shadow is still a limit |
 
 ## Groups (tab bar)
 
@@ -161,3 +161,21 @@ Measured from `screencapture -v` clips (60 Hz) in `/tmp/cwm/liquid/` against
 | Window retile | riko spring, ≈ 700 ms | snappy spring, ≈ 1 % | ζ 0.72, visible swing, ≈ 250 ms |
 | Window close (WM) | shrink + fade | same | same; neighbour springs to full width by ≈ 317 ms |
 | Workspace slide | snappy Bézier 320 ms | snappy spring | snappy Bézier 320 ms (brief) |
+
+## SIP-off mode live test (2026-11-06)
+
+Dock helper loaded with `sudo …/skyrose-sa-loader -v` (exit 0, macOS 27.2). Values read back from the
+window server through the helper's `info` command while the WM drove the windows; clips and crops in
+`/tmp/cwm/phase5/3b/`. Tested on TestWindows and on Gabby's kitty windows (nothing closed).
+
+| Feature | SIP on | SIP-off mode (live) |
+|---|---|---|
+| Window open | snapshot cover, opens mostly live | real window pops from ≈ 80 % (transform 1.1 → 0.98 → 1.0) while fading 0 → 1, ≈ 300 ms, live content |
+| Retile / move | snapshot cover | real window springs (scale 0.65 → 1.04 → 1.0, ≈ 300 ms), no stills |
+| Close (WM action) | still shrinks + fades | real window shrinks to ≈ 79 % + fades in 180 ms, then closes |
+| Workspace switch | slide | `instantWorkspaces`: alpha 0 → park/unpark → alpha back ≈ 60–80 ms later, no slide (kitty too) |
+| Pin | float + every workspace | + floating level 3: stays above a focused tile |
+| Opacity | own panels only | every managed window (kitty, TestWindows); fullscreen stays opaque |
+| Shadows | macOS's | off per window and back |
+| Blur / rounding of other apps | limit | still a limit (no window server call) |
+| Panic | | `skyrose wm panic`: every change undone, helper socket closed, WM quit |

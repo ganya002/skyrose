@@ -53,9 +53,9 @@ Tests: **903 pass, 0 failures** (`/usr/bin/swift test`).
 ## Remaining / still different (see arch-parity.md)
 
 - Limits (macOS):
-  - Other apps' window opacity, blur, rounding and shadow (Enhanced mode only for
-    opacity).
-  - Real always-on-top for pin.
+  - Other apps' window blur and rounding (even with SIP off).
+  - Other apps' opacity, shadow on/off and real always-on-top for pin: SIP-off mode only
+    (live-tested 2026-11-06, see arch-parity.md › SIP-off mode live test).
   - The top edge also reveals an auto-hidden macOS menu bar.
 - Decisions:
   - Bar/drawers overlay and do not push tiles.

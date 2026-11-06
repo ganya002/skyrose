@@ -151,9 +151,11 @@ public final class EnhancedMode {
         guard active else { return }
         fullscreen = Set(windows.filter(\.fullscreen).map(\.id))
         let ids = Set(windows.map(\.id))
-        for w in windows where !switchHidden.contains(w.id) && !animator.isCovering(w.id) {
+        for w in windows where !switchHidden.contains(w.id) {
+            // Alpha waits for a running animation (its last frame sets the target alpha); shadow
+            // and level do not, or a window pinned mid-animation never got its level (live 3b).
             let a = targetAlpha(w.id)
-            if capabilities.contains(.alpha), alphaSent[w.id] != a, (alphaSent[w.id] != nil || a != 1) {
+            if capabilities.contains(.alpha), !animator.isCovering(w.id), alphaSent[w.id] != a, (alphaSent[w.id] != nil || a != 1) {
                 if client.setAlpha(w.id, a) { alphaSent[w.id] = a }
             }
             if capabilities.contains(.shadow) {
