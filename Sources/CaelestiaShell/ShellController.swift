@@ -457,7 +457,11 @@ public final class ShellController {
     private func applyVisibility(_ id: String, _ vis: BarVisibility) {
         guard let bar = bars[id] else { return }
         let shown = vis.isShown
-        if shown {
+        if theme.liquidSurface {
+            // Caelestia BarWrapper: both ways on expressiveDefaultSpatial (500 ms × scale); the
+            // swing past 1 swells the band a little, past 0 it is clamped.
+            bar.setReveal(shown ? 1 : 0, animated: true, curve: .expressiveDefaultSpatial, ms: CaelestiaTokens.Duration.defaultSpatial, theme: theme, token: true)
+        } else if shown {
             bar.setReveal(1, animated: true, curve: .expressiveDefaultSpatial, ms: 400, theme: theme, liquid: true)
         } else {
             bar.setReveal(0, animated: true, curve: .emphasizedAccel, ms: 250, theme: theme)
@@ -560,7 +564,7 @@ public final class ShellController {
             host?.shellKeyDrawerClosed(launched: false)
             session.disarm()
             dismiss(sessionPanel)
-            dimPanel?.fadeOut(duration: theme.drawerCloseSeconds)
+            dimPanel?.fadeOut(duration: theme.liquidSurface ? theme.tokenSeconds(CaelestiaTokens.Duration.defaultEffects) : theme.drawerCloseSeconds)
         case .osd:
             hideOSD(animated: true)
         case .dashboard: closeDashboard()
@@ -1109,8 +1113,16 @@ public final class BarSurface {
 
     /// `liquid`: the reveal springs (overshoots ~8 %, the band swells and settles) unless Reduce
     /// Motion is on, where the Bézier `curve` is kept.
-    func setReveal(_ value: Double, animated: Bool, curve: ShellCurve = .standard, ms: Double = 0, theme: ShellTheme? = nil, liquid: Bool = false) {
-        if animated, let theme, liquid, let s = theme.barRevealSpring {
+    func setReveal(_ value: Double, animated: Bool, curve: ShellCurve = .standard, ms: Double = 0, theme: ShellTheme? = nil, liquid: Bool = false,
+                   token: Bool = false) {
+        if animated, let theme, token {
+            // Reduce Motion: the short standard fade instead of the overshooting curve.
+            if theme.reduceMotion {
+                reveal.animate(to: value, duration: theme.seconds(ms), curve: .standard)
+            } else {
+                reveal.animate(to: value, duration: theme.tokenSeconds(ms), curve: curve)
+            }
+        } else if animated, let theme, liquid, let s = theme.barRevealSpring {
             reveal.animate(to: value, spring: s)
         } else if animated, let theme, theme.seconds(ms) > 0 {
             reveal.animate(to: value, duration: theme.seconds(ms), curve: curve)

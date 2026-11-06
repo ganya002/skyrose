@@ -107,6 +107,6 @@ struct OSDSlider: View {
             })
         }
         .frame(width: OSDModel.sliderWidth, height: OSDModel.sliderHeight)
-        .animation(theme.small, value: value)
+        .animation(theme.spatial, value: value)
     }
 }

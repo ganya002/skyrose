@@ -117,7 +117,7 @@ private struct GroupCard: View {
                 Text(NotificationGrouper.relativeTime(group.latest)).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
                 if group.items.count > 1 {
                     Button {
-                        withAnimation(theme.small) { if open { model.expanded.remove(group.appName) } else { model.expanded.insert(group.appName) } }
+                        withAnimation(theme.spatial) { if open { model.expanded.remove(group.appName) } else { model.expanded.insert(group.appName) } }
                     } label: {
                         Text("\(group.items.count)").font(theme.sans(11, weight: .bold)).foregroundStyle(theme[.onPrimaryContainer])
                             .frame(minWidth: 20, minHeight: 20).background(Capsule().fill(theme[.primaryContainer]))

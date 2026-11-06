@@ -51,7 +51,7 @@ struct ProgressArc: View {
             Arc(start: start, sweep: max(0.5, sweep * min(1, max(0, value))))
                 .stroke(theme[.primary], style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         }
-        .animation(theme.small, value: value)
+        .animation(theme.spatial, value: value)
     }
 
     struct Arc: Shape {
@@ -146,7 +146,7 @@ struct HSlider: View {
             .gesture(DragGesture(minimumDistance: 0).onChanged { g in onSet(min(1, max(0, g.location.x / w))) })
         }
         .frame(height: 30)
-        .animation(theme.small, value: value)
+        .animation(theme.spatial, value: value)
     }
 }
 

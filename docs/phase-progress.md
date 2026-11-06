@@ -7,8 +7,8 @@ Resume here after a context reset. Spec: `docs/caelestia-reference/PHASE-PROMPT.
 | Part | State | Commit |
 |---|---|---|
 | 6a. Blob overlay (one SDF surface) | done, live-tested on the built-in | "Phase 6 part 6a" |
-| 6b. Panel motion tokens | next | |
-| 6c. Left-bar dock popouts | | |
+| 6b. Panel motion tokens | done, live-checked (launcher, dashboard clips) | "Phase 6 part 6b" |
+| 6c. Left-bar dock popouts | next | |
 | 6d. Wallpaper carousel | | |
 
 ## Part 6a — blob overlay (done)
@@ -49,9 +49,31 @@ content
 (the bar band itself is the frame's left edge). Jelly amounts are upstream's (dashboard 0.1 → ≈ 4 %
 stretch at full speed): subtle by design.
 
+## Part 6b — panel motion tokens (done)
+
+- Drawers (launcher, dashboard, session, OSD, sidebar, utilities, popouts, wallpaper): offsetScale on
+  expressiveDefaultSpatial, 500 ms × 0.8 = 400 ms both ways (Caelestia Wrapper Behavior); content fades
+  1 − offsetScale with the slide; open size changes morph on the same curve (`LiquidSurface.bodyChanged`).
+  Interruptible: a reopen/close mid-flight starts from the current offsetScale.
+- `ShellTheme`: `small` = expressiveDefaultEffects (colour/opacity, 160 ms), new `spatial` =
+  expressiveDefaultSpatial (size/position, 400 ms), `fastSpatial` = token (280 ms), `token(_:)` /
+  `tokenSeconds(_:)`. Size-like animations moved to `spatial`: launcher rows + scroll, dashboard tab
+  height, sidebar group expand, OSD slider fill, gauges/arcs, toast list.
+- Bar reveal (liquid surface): expressiveDefaultSpatial 400 ms both ways (was spring in /
+  emphasizedAccel out); the swing past 1 swells the band (cap unchanged), past 0 is clamped.
+- Toasts: scale 0.7 → 1 (Caelestia), list on the spatial token. Session scrim: slowEffects in /
+  defaultEffects out.
+- Reduce Motion: drawers slide in 120 ms on `standard` with no jelly; every token falls back to the
+  120 ms ease (`ShellTheme.token`); the bar reveal uses `standard`.
+- WM window animations (popin 80 %, workspace slide) untouched.
+- Live: launcher open ≈ 70 ms to the band, overshoot settles by ≈ 400 ms, close < 100 ms
+  (reference: open ≈ 380 / close ≈ 130 measured to rest); dashboard likewise. Not live-tested:
+  bar reveal (warped pointers do not trigger hover; no IPC), toasts (would write the notification history).
+
 ## Tests (phase 6)
 
 After part 6a: 1045 tests, 0 failures (`/usr/bin/swift test`).
+After part 6b: 1048 tests, 0 failures.
 
 ---
 

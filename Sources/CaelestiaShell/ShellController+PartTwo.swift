@@ -181,7 +181,8 @@ extension ShellController {
         }()
         dimPanel = panel
         panel.setFrame(frame, display: false)
-        panel.fadeIn(duration: theme.drawerOpenSeconds)
+        // Opacity: an Effects token (slowEffects, 240 ms at 0.8) on the liquid surface.
+        panel.fadeIn(duration: theme.liquidSurface ? theme.tokenSeconds(CaelestiaTokens.Duration.slowEffects) : theme.drawerOpenSeconds)
     }
 
     // MARK: Utilities (bottom-right corner)

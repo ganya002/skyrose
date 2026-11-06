@@ -49,7 +49,7 @@ struct DashboardView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ForEach(DashboardTab.allCases, id: \.self) { tab in
-                    TabButton(tab: tab, selected: model.tab == tab) { withAnimation(theme.small) { model.tab = tab } }
+                    TabButton(tab: tab, selected: model.tab == tab) { withAnimation(theme.spatial) { model.tab = tab } }
                 }
             }
             .frame(height: 62)
@@ -107,7 +107,7 @@ private struct OverviewTab: View {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
                     WeatherCard(state: state).frame(width: 275, height: 130)
-                        .onTapGesture { withAnimation(theme.small) { model.tab = .weather } }
+                        .onTapGesture { withAnimation(theme.spatial) { model.tab = .weather } }
                     UserCard(state: state).frame(width: 339, height: 130)
                 }
                 HStack(spacing: 12) {

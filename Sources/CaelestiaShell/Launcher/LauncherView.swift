@@ -88,7 +88,7 @@ struct LauncherView: View {
                 .liquidContent(edge: .bottom, shown: model.shown, depth: size.height, theme: theme)
             }
             .frame(width: size.width + 2 * fillet, height: size.height)
-            .animation(theme.small, value: model.visibleRows)
+            .animation(theme.spatial, value: model.visibleRows)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .onChange(of: model.shown) { _, shown in if shown { focused = true } }
@@ -114,7 +114,7 @@ struct LauncherView: View {
             .frame(height: model.listHeight)
             .onChange(of: model.selected) { _, new in
                 guard model.items.indices.contains(new) else { return }
-                withAnimation(theme.small) { proxy.scrollTo(model.items[new].id) }
+                withAnimation(theme.spatial) { proxy.scrollTo(model.items[new].id) }
             }
             .onChange(of: model.query) { _, _ in
                 if let first = model.items.first { proxy.scrollTo(first.id, anchor: .top) }

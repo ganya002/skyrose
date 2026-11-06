@@ -131,7 +131,7 @@ public struct ShellTheme: Equatable, Sendable {
 
     /// Drawer open (toasts and anything without a known depth): the liquid spring for a
     /// 300 pt drawer, settling in 380 ms × scale (304 ms at 0.8).
-    public var drawerOpen: Animation { drawerSpring(depth: 300) }
+    public var drawerOpen: Animation { liquidSurface ? spatial : drawerSpring(depth: 300) }
 
     /// The liquid growth spring of a drawer `depth` points deep: it swings ~16 pt past full size
     /// (`LiquidMotion.bouncePoints`) and settles in 380 ms × scale. Interruptible: SwiftUI springs
@@ -168,10 +168,14 @@ public struct ShellTheme: Equatable, Sendable {
     public func overshootRoom(depth: Double) -> Double { reduceMotion ? 0 : LiquidMotion.overshootRoom(depth: depth) }
     /// Drawer close: emphasizedAccel, 220 ms × scale.
     public var drawerClose: Animation { curve(.emphasizedAccel, ms: Self.drawerCloseMs) }
-    /// Small state changes (selection, hover): standard, 200 ms × scale.
-    public var small: Animation { curve(.standard, ms: 200) }
-    /// Workspace indicator: expressiveFastSpatial, 300 ms × scale.
-    public var fastSpatial: Animation { curve(.expressiveFastSpatial, ms: 300) }
+    /// Colour / opacity changes (hover, selection, toggles): Caelestia expressiveDefaultEffects,
+    /// 200 ms × scale (160 ms at 0.8). No overshoot.
+    public var small: Animation { token(.defaultEffects) }
+    /// Size / position changes inside a surface (rows, tab height, gauges, list moves):
+    /// expressiveDefaultSpatial, 500 ms × scale (400 ms), with overshoot.
+    public var spatial: Animation { token(.defaultSpatial) }
+    /// Workspace indicator and other quick moves: expressiveFastSpatial, 350 ms × scale (280 ms).
+    public var fastSpatial: Animation { token(.fastSpatial) }
 
     /// Seconds a drawer takes to open / close (the panel's fade and the delay before it is
     /// ordered out use the same numbers as the SwiftUI slide).

@@ -66,3 +66,38 @@ final class LiquidSurfaceTests: XCTestCase {
         XCTAssertEqual(ShellController.blobStyle("popout").edge, .left)
     }
 }
+
+@MainActor
+final class ShellMotionTokenTests: XCTestCase {
+    func testShellTokensAreCaelestiasAtGabbysScale() {
+        let t = ShellTheme(scheme: ShellTheme.gabby.scheme)
+        XCTAssertEqual(t.durationScale, 0.8, accuracy: 1e-9)
+        XCTAssertEqual(t.tokenSeconds(CaelestiaTokens.Duration.defaultSpatial), 0.4, accuracy: 1e-9)
+        XCTAssertEqual(t.tokenSeconds(CaelestiaTokens.Duration.fastSpatial), 0.28, accuracy: 1e-9)
+        XCTAssertEqual(t.tokenSeconds(CaelestiaTokens.Duration.slowSpatial), 0.52, accuracy: 1e-9)
+        XCTAssertEqual(t.tokenSeconds(CaelestiaTokens.Duration.defaultEffects), 0.16, accuracy: 1e-9)
+    }
+
+    func testReduceMotionShortensEverySurfaceAnimation() {
+        var c = Config()
+        c.animations.reduceMotion = true
+        let t = ShellTheme(scheme: ShellTheme.gabby.scheme, config: c)
+        XCTAssertTrue(t.reduceMotion)
+        XCTAssertLessThanOrEqual(t.seconds(CaelestiaTokens.Duration.defaultSpatial), 0.12)
+    }
+
+    func testFrameSurfacePicksUpTheTokens() throws {
+        guard LiquidSurface.isSupported else { throw XCTSkip("no Metal") }
+        var t = ShellTheme(scheme: ShellTheme.gabby.scheme)
+        t.liquidSurface = true
+        let layout = DisplayLayout(area: CGRect(x: 0, y: 0, width: 800, height: 500), thickness: 10, barWidth: 60)
+        let f = ScreenFrameWindow(displayID: "t", layout: layout, theme: t)
+        defer { f.close() }
+        let s = try XCTUnwrap(f.surface)
+        XCTAssertEqual(s.openSeconds, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(s.closeSeconds, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(s.frameInner, CGRect(x: 10, y: 10, width: 780, height: 480))
+        f.setBarReveal(1)
+        XCTAssertEqual(s.frameInner.minX, 60, accuracy: 1e-9, "the bar is the frame's left edge")
+    }
+}
