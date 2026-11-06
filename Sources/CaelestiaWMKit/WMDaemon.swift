@@ -146,6 +146,8 @@ public final class WMDaemon {
         shell.controller.useNotificationHistory(NotificationHistoryFile(url: Paths.appSupport.appendingPathComponent("notifications.json")))
         wm.onLayoutApplied = { [weak shell] in shell?.sync() }
         wm.shellResponder = { [weak shell] request, command in shell?.respond(to: request, command: command) }
+        // Lid-closed sleep back to stock: panic always, quit when SkyRose set it.
+        wm.onPanic = { [weak shell] in shell?.controller.lidSleep.releaseForPanic() }
         wm.onUnhandledAction = { [weak self, weak shell] action in
             if AppLauncher.handle(action, apps: self?.wm.config.apps ?? AppsConfig()) { return }
             if shell?.handle(action) != true {
@@ -401,6 +403,7 @@ public final class WMDaemon {
 
     private func terminate() {
         cursors.stop()  // the macOS cursors come back with the windows
+        shell?.controller.lidSleep.releaseForQuit()  // SleepDisabled 0 if SkyRose set it
         tap.stop()
         ipc?.stop()
         configWatcher?.stop()

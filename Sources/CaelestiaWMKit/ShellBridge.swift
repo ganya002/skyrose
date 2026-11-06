@@ -177,15 +177,36 @@ public final class ShellBridge: ShellHost {
             return ok(.object(o))
         case .clamshell:
             let cm = controller.clamshell
+            let lid = controller.lidSleep
+            cm.refresh()
+            let verb = request.string("state") ?? "status"
+            switch verb {
+            case "on", "off":
+                guard cm.facts.hasLid else { return fail("this Mac has no lid") }
+                lid.setClamshell(verb == "on")
+            case "status", "helper":
+                if cm.facts.hasLid { lid.refresh() }
+            default:
+                return fail("state must be on, off, status or helper")
+            }
             cm.refresh()
             let f = cm.facts
+            let s = lid.status
             var o: [String: JSONValue] = [
                 "hasLid": .bool(f.hasLid), "lidClosed": .bool(f.lidClosed), "onAC": .bool(f.onAC),
                 "externalDisplays": .number(Double(f.externalDisplays)), "mode": .string(Clamshell.mode(f).rawValue),
-                "summary": .string(Clamshell.summary(f)), "keepAwake": .bool(cm.keepAwakeWhenClosed),
+                "summary": .string(Clamshell.summary(f, lid: s)), "keepAwake": .bool(cm.keepAwakeWhenClosed),
                 "holdingKeepAwake": .bool(cm.isHoldingKeepAwake),
+                "enabled": .bool(s.clamshellOn), "keepAwakeActive": .bool(s.keepAwakeOn),
+                "sleepDisabled": .bool(f.sleepDisabled), "sleepDisabledBySkyRose": .bool(lid.ownsSleepDisabled),
+                "helper": .string(s.helper.rawValue),
             ]
-            if let s = f.closingCausesSleep { o["closingCausesSleep"] = .bool(s) }
+            if let v = Clamshell.via(f) { o["via"] = .string(v.rawValue) }
+            if let c = f.closingCausesSleep { o["closingCausesSleep"] = .bool(c) }
+            if s.helper != .ready || verb == "helper" {
+                o["helperCommand"] = .string(lid.installCommand)
+                if let e = lid.lastError { o["helperError"] = .string(e) }
+            }
             return ok(.object(o))
         // Keep awake (Caelestia's idle inhibitor): the sidebar toggle's power assertion.
         case .shellIdleInhibitorToggle: controller.keepAwake.toggle(); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))

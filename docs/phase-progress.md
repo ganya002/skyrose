@@ -12,11 +12,11 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
 | 3. SIP-off mode | done, live-tested in the Dock (3b) | "Phase 5 part 3a", "3a-fix", "3b" |
 | 4. Material Symbols | done, live-checked (dashboard + sidebar) | "Phase 5 part 4" |
-| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers done, live-tested; 5c Clamshell done (lid-closed path unit-tested only, needs a dock) | "Phase 5 part 5a", "5b", "5c" |
+| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers done, live-tested; 5c Clamshell done; 5c-fix: lid closed on battery / built-in only via `pmset disablesleep` (on/off/timer/panic live-tested; closed lid tested by Gabby) | "Phase 5 part 5a", "5b", "5c", "5c-fix" |
 
 **Phase 5 is complete.** Next: whatever Gabby picks; candidates are in "Remaining (next phases)" in the
-archive section below and in `docs/arch-parity.md`. Open item for 5c: live-test lid closed with a power
-adapter + external display (see "Part 5c" below).
+archive section below and in `docs/arch-parity.md`. Open item for 5c: Gabby's own lid-close test (Clamshell
+on, battery, built-in display only; see "Part 5c-fix" below).
 
 ## Part 1 — done
 
@@ -222,9 +222,9 @@ the display was back on ws1 before the first picker (picker/drag/Esc on ws2 kept
 
 ## Part 5c — Clamshell (done)
 
-No sudo, no pmset, no power-setting changes. macOS runs lid-closed only on a power adapter AND with an
-external display (native clamshell); SkyRose reports that and does not override it (LIMITATIONS.md
-"Lid closed").
+(Superseded by 5c-fix below: the "adapter + external display only" limit was wrong; SkyRose now uses
+`pmset disablesleep` through a scoped sudo -n helper.) Original 5c: macOS runs lid-closed natively only
+on a power adapter AND with an external display; SkyRose reported that.
 - Core `Power/Clamshell.swift`: `ClamshellFacts` (hasLid, lidClosed, closingCausesSleep?, onAC,
   externalDisplays) → `ClamshellMode` (no-lid, open-will-sleep, open-will-stay-awake, closed-running);
   the kernel's `AppleClamshellCausesSleep` wins when published; summary line names what is missing;
@@ -248,6 +248,37 @@ external display (native clamshell); SkyRose reports that and does not override 
   `/tmp/cwm/phase5/clamshell-sidebar.png`. **Not live-tested**: lid closed with power + display
   (closed-running, the assertion, workspaces returning on open); needs a dock.
 
+## Part 5c-fix — Clamshell on battery / built-in only (done)
+
+5c called "power adapter AND external display" a hard limit; that is only macOS without a helper.
+Ported Clamshell Toggle's `Power.swift` (github.com/ganya002/clamshell-toggle) into SkyRose (no
+second menu-bar app, no updater, LaunchAgent or installer).
+- Core `Clamshell.swift`: `ClamshellFacts.sleepDisabled` wins over `AppleClamshellCausesSleep`
+  (the kernel keeps that `Yes` with SleepDisabled 1, seen live); `ClamshellVia` native /
+  sleep-disabled; `LidSleepStatus` (clamshellOn, keepAwakeOn, helper unknown/ready/missing);
+  new summary lines; `LidSleep` (pmset -g parsing, `sudo -n pmset disablesleep 0|1` arguments, the
+  two-command sudoers rule, `installCommand(user:)` for `/etc/sudoers.d/skyrose`).
+- Services `Power/LidSleepControl.swift`: `PmsetSleepSwitch` (pmset -g / sudo -n on a serial queue,
+  never interactive) + `LidSleepControl`: SleepDisabled 1 while Clamshell or a keep-awake is on, no
+  sudo call when already there, 0 when both are off; quit and next-start-after-crash restore only
+  what SkyRose set (marker `sleep-disabled-by-skyrose`), panic restores always. Start probes the
+  helper by re-applying the current value (as Clamshell Toggle's installer does).
+- `ClamshellMonitor` reads `SleepDisabled` from IOPMrootDomain. Shell: `ShellState.lidSleep`,
+  keep-awake `onChange` → `setKeepAwake`, sidebar Clamshell chip next to the lid line.
+  WM: `onPanic` hook (chord + IPC), `WMDaemon.terminate` → `releaseForQuit`.
+- IPC/CLI `skyrose clamshell [status|on|off|helper]` adds `enabled, keepAwakeActive, sleepDisabled,
+  sleepDisabledBySkyRose, helper, via?, helperCommand?, helperError?`. Schema.md, help, LIMITATIONS
+  ("Lid closed"), UNINSTALL (restore sleep, remove the rule, heat/battery), SHELL.md, README.
+- Helper: **already present**: `/etc/sudoers.d/clamshell` (Clamshell Toggle's) makes `sudo -n` work;
+  status `helper ready` at WM start. The missing-helper path is unit-tested only.
+- Live (Clamshell Toggle quit by Gabby first; AC + DELL attached): `clamshell on` → pmset
+  SleepDisabled 1, `via sleep-disabled`; `off` → 0; `keepawake on 15s` → 1, back to 0 at ~15 s;
+  `clamshell on` + `wm panic` → 0, no marker; WM restart → helper ready, layout from session.json.
+  Sidebar shots `/tmp/cwm/phase5/clamshell-fix-on.png` / `-off.png`. Left at SleepDisabled 0.
+- **Not tested by Claude**: closing the lid. Gabby: `skyrose clamshell on`, unplug power and the
+  DELL, close the lid, check it stays awake (e.g. music keeps playing / ssh in), open the lid,
+  `skyrose clamshell off`, `pmset -g | grep SleepDisabled` → 0.
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
@@ -259,6 +290,7 @@ After part 4: 993 tests, 0 failures.
 After part 5a: 1002 tests, 0 failures.
 After part 5b: 1011 tests, 0 failures.
 After part 5c: 1024 tests, 0 failures.
+After part 5c-fix: 1031 tests, 0 failures.
 
 ---
 

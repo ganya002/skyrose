@@ -33,6 +33,12 @@ What happens, in order, with a printed report at the end:
    "click wallpaper to show desktop"), writing back the exact original value or deleting the key
    if it did not exist — from `~/Library/Application Support/SkyRose/restore-manifest.json`.
 4. Removes the Caps Lock → F18 `hidutil` mapping if preset B was used.
+   Puts lid-closed sleep back: quitting the WM sets `pmset disablesleep 0` if SkyRose set it
+   (Clamshell / keep-awake); check with `pmset -g | grep SleepDisabled` (must be `0`; if not:
+   `sudo pmset disablesleep 0`). If you installed SkyRose's helper, remove it:
+   `sudo rm /etc/sudoers.d/skyrose` (Clamshell Toggle's `/etc/sudoers.d/clamshell` belongs to that
+   app; leave it if you still use it). Remember a closed lid with sleep disabled runs warmer and
+   drains the battery faster, so do not skip this.
 5. Removes the login item / launch agent (`com.skyrose.mac`).
 6. Restores the previous wallpaper(s) if we changed them.
 7. Removes the SkyRose kitty profile if it was set up (`skyrose kitty uninstall`: the one

@@ -31,6 +31,8 @@ public final class ShellState: ObservableObject {
     @Published public var keepAwakeDuration: TimeInterval?
     /// Lid / power / external-display facts (sidebar clamshell line).
     @Published public var clamshell: ClamshellFacts
+    /// Clamshell on/off, keep-awake and whether the `disablesleep` helper works.
+    @Published public var lidSleep: LidSleepStatus
     @Published public var gameMode: Bool
     @Published public var recorder: RecorderInfo
     @Published public var media: MediaInfo
@@ -64,6 +66,7 @@ public final class ShellState: ObservableObject {
         self.keepAwakeUntil = nil
         self.keepAwakeDuration = nil
         self.clamshell = ClamshellFacts(hasLid: false, lidClosed: false, onAC: true, externalDisplays: 0)
+        self.lidSleep = LidSleepStatus()
         self.gameMode = false
         self.recorder = RecorderInfo()
         self.media = MediaInfo()

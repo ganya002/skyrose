@@ -43,14 +43,21 @@ final class KeepAwakeCLITests: XCTestCase {
     }
 }
 
-/// `skyrose clamshell [status]` (alias lid).
+/// `skyrose clamshell [status | on | off | helper]` (alias lid).
 final class ClamshellCLITests: XCTestCase {
-    func testStatusIsTheOnlyVerb() throws {
-        for args in [["clamshell"], ["clamshell", "status"], ["lid"]] {
+    func testVerbs() throws {
+        for args in [["clamshell"], ["lid"]] {
             guard case let .ipc(req) = try CLIParser.parse(args).kind else { return XCTFail("\(args)") }
             XCTAssertEqual(req.knownCommand, .clamshell)
+            XCTAssertNil(req.string("state"))
         }
-        XCTAssertThrowsError(try CLIParser.parse(["clamshell", "on"]), "nothing to switch: macOS decides")
+        for verb in ["status", "on", "off", "helper"] {
+            guard case let .ipc(req) = try CLIParser.parse(["clamshell", verb]).kind else { return XCTFail(verb) }
+            XCTAssertEqual(req.knownCommand, .clamshell)
+            XCTAssertEqual(req.string("state"), verb)
+        }
+        XCTAssertThrowsError(try CLIParser.parse(["clamshell", "toggle"]))
         XCTAssertThrowsError(try CLIParser.parse(["clamshell", "status", "x"]))
+        XCTAssertEqual(IPCCommand.clamshell.spec.arguments.map(\.name), ["state"])
     }
 }

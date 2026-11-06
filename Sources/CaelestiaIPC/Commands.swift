@@ -485,8 +485,9 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
                                   arguments: [IPCArgument("state", .string), .optional("seconds", .double, help: "how long; omitted = until turned off")],
                                   returns: "{enabled, until?, status}")
         case .clamshell:
-            return IPCCommandSpec(.misc, "Lid state and what closing the lid does (native clamshell: power adapter + external display; read-only, no pmset).",
-                                  returns: "{hasLid, lidClosed, onAC, externalDisplays, mode, summary, closingCausesSleep?, keepAwake, holdingKeepAwake}")
+            return IPCCommandSpec(.misc, "Lid state and Clamshell: on keeps the Mac running with the lid closed (also on battery, built-in display only) by setting pmset disablesleep 1 through sudo -n and a scoped sudoers rule; never prompts.",
+                                  arguments: [.optional("state", .string, help: "on | off | status (default) | helper")],
+                                  returns: "{hasLid, lidClosed, onAC, externalDisplays, mode, via?, summary, enabled, keepAwakeActive, sleepDisabled, sleepDisabledBySkyRose, helper, helperCommand?, helperError?, closingCausesSleep?, keepAwake, holdingKeepAwake}")
         case .notify:
             return IPCCommandSpec(.misc, "Post a notification to the sidebar.", arguments: [IPCArgument("title", .string), .optional("body", .string), .optional("app", .string, help: "app name shown as the sender"), .optional("icon", .string, help: "SF Symbol or Material icon name")], returns: "{id}")
 

@@ -150,6 +150,8 @@ public final class WindowManager {
     public var onLayoutApplied: (() -> Void)?
     /// Shell IPC (`shell.*`, drawers, toasts). Returns nil for commands the shell does not own.
     public var shellResponder: ((IPCRequest, IPCCommand) -> IPCResponse?)?
+    /// Panic (chord or `wm panic`), before windows are restored: the shell puts power settings back.
+    public var onPanic: (() -> Void)?
     /// Displays whose auto-hidden bar is currently revealed (it overlays windows, reserves nothing).
     public internal(set) var barRevealed: Set<String> = []
     /// Every window id managed in this session (CGWindowIDs are never reused while a window
@@ -323,6 +325,7 @@ public final class WindowManager {
     /// The panic chord (⌃⌥⌘⇧Esc): same as quit; it must work in any state.
     public func panic() {
         Log.wm.notice("panic: restoring every window and quitting")
+        onPanic?()
         shutdown()
     }
 

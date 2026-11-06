@@ -89,6 +89,8 @@ public final class ShellController {
     public let keepAwake = KeepAwakeService()
     /// Lid state + the optional lid-closed keep-awake (`[clamshell]`).
     public let clamshell = ClamshellMonitor()
+    /// `pmset disablesleep` while Clamshell or a keep-awake is on (lid closed on battery / built-in only).
+    public let lidSleep = LidSleepControl()
     /// Open-Meteo weather for the dashboard (`[weather]`).
     public private(set) lazy var weatherController = WeatherController(state: state)
     let sampler = SystemStatsSampler()

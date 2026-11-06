@@ -144,7 +144,9 @@ frame stays click-through: the WM only watches the pointer.
 
 Right drawer: notification history, Keep awake, volume/brightness sliders, quick toggles. Real
 toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (SkyRose toasts only), Keep awake (IOPM
-assertion). Bluetooth and dark mode are read-only tiles that open System Settings. Notifications
+assertion; on a Mac with a lid it also sets `pmset disablesleep 1` while it runs, so it survives
+closing the lid), and on laptops a lid line with a **Clamshell** chip (lid closed keeps running on
+battery / built-in only; see LIMITATIONS.md "Lid closed"). Bluetooth and dark mode are read-only tiles that open System Settings. Notifications
 are kept across restarts in `~/Library/Application Support/SkyRose/notifications.json` (the
 app's existing support folder; latest 100, rewritten atomically on every change, "Clear all"
 empties it). Bar status icons (audio, network, Bluetooth, battery) open popouts on click;

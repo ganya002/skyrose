@@ -260,11 +260,12 @@ public enum CLIParser {
         case "keepawake", "keep-awake", "caffeinate":
             inv.kind = try parseKeepAwake(args)
         case "clamshell", "lid":
-            if let verb = args.first, verb != "status" {
-                throw CLIUsageError.invalidArgument(command: "clamshell", name: "verb", value: verb, expected: "status")
+            let verb = args.first ?? "status"
+            guard ["status", "on", "off", "helper"].contains(verb) else {
+                throw CLIUsageError.invalidArgument(command: "clamshell", name: "verb", value: verb, expected: "status | on | off | helper")
             }
             try rejectExtra("clamshell", Array(args.dropFirst()))
-            inv.kind = .ipc(IPCRequest(.clamshell))
+            inv.kind = .ipc(args.isEmpty ? IPCRequest(.clamshell) : IPCRequest(.clamshell, args: ["state": .string(verb)]))
         case "action", "dispatch":
             inv.kind = try parseAction(args)
         case "wm":
@@ -720,7 +721,7 @@ public enum CLIParser {
             ("wallpaper set <file> | random | get | list", "Wallpaper control"),
             ("notify <title> [body] [--app NAME] [--icon ICON]", "Post a notification to the sidebar"),
             ("keepawake on [30m|1h|forever] | off | status", "Keep the Mac awake, optionally for a time"),
-            ("clamshell [status]", "Lid state and what closing the lid does (needs power + an external display)"),
+            ("clamshell [status | on | off | helper]", "Lid state; on keeps the Mac running lid-closed (battery, built-in only) via pmset disablesleep; helper prints the one-time sudoers command"),
         ]),
         HelpSection(title: "Keys and config", topics: ["keys", "rules", "config", "settings", "onboarding", "migrate"], rows: [
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),

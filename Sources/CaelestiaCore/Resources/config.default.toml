@@ -231,8 +231,9 @@ thumbnail = true                 # toast with a thumbnail after each shot
 overrideSystemShortcuts = false  # true also binds macOS's ⇧⌘3 / ⇧⌘4 / ⇧⌘5 to SkyRose
 
 # =====================================================================================
-# Lid closed (skyrose clamshell). macOS runs lid-closed only on a power adapter with an
-# external display; SkyRose never overrides that (no pmset / root).
+# Lid closed (skyrose clamshell on|off). While Clamshell or a keep-awake is on, SkyRose sets
+# pmset disablesleep 1 via sudo -n (one-time scoped sudoers rule: skyrose clamshell helper), so
+# the Mac keeps running lid-closed on battery and with only the built-in display.
 # =====================================================================================
 [clamshell]
 keepAwake = false          # true: no idle display sleep while running lid-closed

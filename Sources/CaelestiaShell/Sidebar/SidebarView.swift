@@ -16,6 +16,8 @@ public final class SidebarModel: ObservableObject {
     public var onKeepAwake: (Bool) -> Void = { _ in }
     /// Keep awake for a preset time (nil = until turned off).
     public var onKeepAwakeFor: (TimeInterval?) -> Void = { _ in }
+    /// Clamshell on/off (the lid-closed `disablesleep`).
+    public var onClamshell: (Bool) -> Void = { _ in }
     public var onMute: () -> Void = {}
     public var onWallpaper: () -> Void = {}
     public init() {}
@@ -190,14 +192,26 @@ struct UtilitiesSection: View {
             }
             .accessibilityIdentifier("sidebar.keepAwake.timers")
             if state.clamshell.hasLid {
-                // What closing the lid does now (native clamshell: power adapter + external display).
+                // What closing the lid does now, and the Clamshell chip (SleepDisabled while on).
                 HStack(spacing: 6) {
                     MaterialIcon("laptopcomputer", size: 13).foregroundStyle(theme[.onSurfaceVariant])
-                    Text(Clamshell.summary(state.clamshell)).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                    Text(Clamshell.summary(state.clamshell, lid: state.lidSleep)).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
                         .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    let on = state.lidSleep.clamshellOn
+                    Button { model.onClamshell(!on) } label: {
+                        Text("Clamshell").font(theme.sans(11, weight: .medium))
+                            .foregroundStyle(on ? theme[.onPrimary] : theme[.onSurface])
+                            .padding(.horizontal, 10).frame(height: 24)
+                            .background(Capsule().fill(on ? theme[.primary] : theme[.onSurface].opacity(0.08)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("sidebar.clamshell.toggle")
                 }
                 .padding(.leading, 2)
-                .help("macOS keeps running with the lid closed only on a power adapter with an external display. SkyRose does not override that.")
+                .help(state.lidSleep.helper == .missing
+                      ? "Clamshell needs its helper: run `skyrose clamshell helper` and paste the command it prints into a terminal (once)."
+                      : "Clamshell keeps the Mac running with the lid closed, on battery and with only the built-in display (pmset disablesleep). A closed lid runs warmer and drains the battery faster.")
                 .accessibilityIdentifier("sidebar.clamshell")
             }
         }

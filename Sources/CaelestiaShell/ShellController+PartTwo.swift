@@ -35,6 +35,7 @@ extension ShellController {
         sidebar.onBrightness = { [weak self] v in self?.brightness.set(v) }
         sidebar.onKeepAwake = { [weak self] on in self?.keepAwake.set(on: on) }
         sidebar.onKeepAwakeFor = { [weak self] d in self?.keepAwake.set(on: true, duration: d) }
+        sidebar.onClamshell = { [weak self] on in self?.lidSleep.setClamshell(on) }
         sidebar.onWallpaper = { [weak self] in self?.open(.wallpaper) }
 
         popout.onSetOutput = { [weak self] id in
@@ -64,6 +65,8 @@ extension ShellController {
             self.state.keepAwake = on
             self.state.keepAwakeUntil = self.keepAwake.until
             self.state.keepAwakeDuration = self.keepAwake.duration
+            // A keep-awake also survives closing the lid (SleepDisabled 1 while it runs).
+            if self.state.clamshell.hasLid { self.lidSleep.setKeepAwake(on) }
         }
         bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b) }
         bluetooth.start()
@@ -71,6 +74,16 @@ extension ShellController {
         clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
         clamshell.start()
         state.clamshell = clamshell.facts
+        lidSleep.onChange = { [weak self] in
+            guard let self else { return }
+            self.state.lidSleep = self.lidSleep.status
+            self.clamshell.refresh()
+        }
+        if clamshell.facts.hasLid {
+            lidSleep.start()
+            state.lidSleep = lidSleep.status
+            clamshell.refresh()
+        }
         weatherController.configure(state.config.weather)
         state.systemDarkMode = Self.readDarkMode()
         observers.append(DistributedNotificationCenter.default().addObserver(

@@ -167,6 +167,7 @@ extension WindowManager {
 
     private func panicFromIPC() -> Bool {
         Log.wm.notice("panic via IPC: restoring every window and quitting")
+        onPanic?()
         restoreEverything()
         return true
     }

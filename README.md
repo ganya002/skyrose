@@ -54,8 +54,7 @@ SkyRose never installs kitty itself.
 and checksummed, see docs/FONTS.md) for SkyRose's own use; "Install for kitty and other apps"
 copies them into ~/Library/Fonts.
 
-**Not in this build:** screenshot tool, clamshell handling, an
-installer, SIP-off mode, a module store and the uninstaller.
+**Not in this build:** an installer, a module store and the uninstaller.
 
 ## Upgrading from Caelestia for Mac
 

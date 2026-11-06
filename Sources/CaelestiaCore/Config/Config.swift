@@ -267,9 +267,9 @@ public struct CaptureConfig: Codable, Equatable, Sendable {
     public init() {}
 }
 
-/// Lid closed (native clamshell mode: power adapter + external display; nothing needs root).
+/// Lid closed. Clamshell on/off itself is runtime state (`skyrose clamshell on`, `LidSleepControl`).
 public struct ClamshellConfig: Codable, Equatable, Sendable {
-    /// Hold a keep-awake (idle display sleep off) while the lid is closed in clamshell mode.
+    /// Hold a keep-awake (idle display sleep off) while the lid is closed.
     public var keepAwake: Bool = false
     public init() {}
 }

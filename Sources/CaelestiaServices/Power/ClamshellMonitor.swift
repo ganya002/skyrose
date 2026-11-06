@@ -11,8 +11,7 @@ import CaelestiaCore
 /// reconfiguration; nothing polls.
 ///
 /// With `keepAwakeWhenClosed` it holds its own `PreventUserIdleDisplaySleep` assertion while the
-/// lid is closed in clamshell mode. It never changes power settings (no pmset, no disablesleep):
-/// lid closed on battery or without a display sleeps, as macOS decides.
+/// lid is closed. It only reads `SleepDisabled` (IOPMrootDomain); `LidSleepControl` sets it.
 @MainActor
 public final class ClamshellMonitor {
     public private(set) var facts = ClamshellFacts(hasLid: false, lidClosed: false, onAC: true, externalDisplays: 0)
@@ -96,8 +95,10 @@ public final class ClamshellMonitor {
     static func read(rootDomain: io_service_t) -> ClamshellFacts {
         let lid = rootDomain == 0 ? nil : boolProperty(rootDomain, "AppleClamshellState")
         let causesSleep = rootDomain == 0 ? nil : boolProperty(rootDomain, "AppleClamshellCausesSleep")
+        // `pmset disablesleep` state, published by the root domain (same value as `pmset -g`).
+        let sleepDisabled = rootDomain == 0 ? false : (boolProperty(rootDomain, "SleepDisabled") ?? false)
         return ClamshellFacts(hasLid: lid != nil, lidClosed: lid ?? false, closingCausesSleep: causesSleep,
-                              onAC: onACPower(), externalDisplays: externalDisplayCount())
+                              onAC: onACPower(), externalDisplays: externalDisplayCount(), sleepDisabled: sleepDisabled)
     }
 
     private static func boolProperty(_ entry: io_registry_entry_t, _ key: String) -> Bool? {
