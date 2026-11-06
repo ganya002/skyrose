@@ -47,6 +47,8 @@ public final class ShellController {
     public let session = SessionModel()
     public let osd = OSDModel()
     public let toasts = ToastModel()
+    /// The screenshot tool (capture.* binds, `skyrose screenshot`).
+    public let screenshots = ScreenshotController()
     private var launcherPanel: ShellPanel?
     private var sessionPanel: ShellPanel?
     private var osdPanel: ShellPanel?
@@ -728,8 +730,8 @@ public final class ShellController {
     // MARK: Toasts
 
     @discardableResult
-    public func toast(_ kind: ToastKind, title: String, message: String, icon: String = "", record: Bool = true) -> UUID {
-        let id = toasts.queue.add(Toast(kind: kind, title: title, message: message, icon: icon, createdAt: ProcessInfo.processInfo.systemUptime))
+    public func toast(_ kind: ToastKind, title: String, message: String, icon: String = "", record: Bool = true, imagePath: String = "") -> UUID {
+        let id = toasts.queue.add(Toast(kind: kind, title: title, message: message, icon: icon, createdAt: ProcessInfo.processInfo.systemUptime, imagePath: imagePath))
         if record { recordNotification(kind: kind, title: title, message: message, icon: icon) }
         guard isRunning, state.config.shell.isOn("notifications"), !state.doNotDisturb else {
             if state.doNotDisturb { toasts.queue.dismiss(id) }
@@ -776,6 +778,9 @@ public final class ShellController {
             notify(title: "Test notification", body: "Sent from the keybind. Notifications from SkyRose appear here.", app: "skyrose-shell", icon: "info")
         case .shellKill: stop()
         case .shellRestart: restart()
+        case .captureRegion: takeScreenshot(.region)
+        case .captureFull: takeScreenshot(.full)
+        case .captureFreeze: takeScreenshot(.freeze)
         case .audioVolumeUp, .audioVolumeDown:
             // Media keys reach macOS too (fireAndPass): the system steps the volume and the
             // service reports it. From IPC / another chord nothing changes, so step ourselves.

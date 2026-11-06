@@ -24,9 +24,12 @@ public struct Toast: Identifiable, Equatable, Sendable {
     /// Material Symbols or SF Symbols name; empty = the kind's default.
     public var icon: String
     public var createdAt: TimeInterval
+    /// A picture shown on the right (screenshot thumbnail); "" = none.
+    public var imagePath: String
 
-    public init(id: UUID = UUID(), kind: ToastKind, title: String, message: String = "", icon: String = "", createdAt: TimeInterval) {
+    public init(id: UUID = UUID(), kind: ToastKind, title: String, message: String = "", icon: String = "", createdAt: TimeInterval, imagePath: String = "") {
         self.id = id
+        self.imagePath = imagePath
         self.kind = kind
         self.title = title
         self.message = message
@@ -116,6 +119,13 @@ struct ToastCard: View {
                 }
             }
             Spacer(minLength: 0)
+            if !toast.imagePath.isEmpty, let image = NSImage(contentsOfFile: toast.imagePath) {
+                Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
+                    .frame(width: 72, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(theme[.outlineVariant], lineWidth: 1))
+                    .accessibilityIdentifier("toast.thumbnail")
+            }
         }
         .padding(14)
         .frame(width: ToastModel.width, alignment: .leading)

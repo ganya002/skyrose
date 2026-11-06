@@ -463,7 +463,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
         case .shellRestart: return IPCCommandSpec(.shell, "Restart the shell UI.")
 
         case .screenshot:
-            return IPCCommandSpec(.capture, "Take a screenshot.", arguments: [.optional("mode", .string, help: "region (default) | freeze | full")], returns: "{path}")
+            return IPCCommandSpec(.capture, "Take a screenshot (the picker runs in the shell; the result is a toast).", arguments: [.optional("mode", .string, help: "region (default) | freeze | window | full")], returns: "{mode, folder}")
         case .record:
             return IPCCommandSpec(.capture, "Start/stop the screen recorder.", arguments: [.optional("sound", .bool, help: "capture system audio"), .optional("region", .bool, help: "pick a region")], returns: "{recording: bool, path?}")
         case .clipboard:

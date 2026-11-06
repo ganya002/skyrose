@@ -484,7 +484,7 @@ public enum CLIParser {
     }
 
     static func parseScreenshot(_ args: [String], _ tokens: Tokens) throws -> CLIInvocation.Kind {
-        let modes = ["region", "freeze", "full"]
+        let modes = ["region", "freeze", "window", "full"]
         let mode = args.first ?? "region"
         try rejectExtra("screenshot", Array(args.dropFirst()))
         guard modes.contains(mode) else {
@@ -682,7 +682,7 @@ public enum CLIParser {
             ("frame calibrate [display]", "Tune the frame's corner radii by eye (↑↓ ±0.5, ⇧ ±0.1, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
         ]),
         HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify"], rows: [
-            ("screenshot [region|freeze|full]", "Take a screenshot (default: region)"),
+            ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
             ("record [-s] [-r]", "Start/stop the screen recorder (-s: system sound, -r: region)"),
             ("clipboard [-d]", "Open clipboard history (-d: delete mode)"),
             ("emoji", "Open the emoji picker"),

@@ -57,3 +57,12 @@ feature cannot work, the UI says so and the closest substitute is used.
 | P11 | Fresh-Mac install→uninstall QA pass | not performed |
 
 See the end-of-build report in README.md for what was verified.
+
+## Screenshots
+
+| Item | What SkyRose does | Why |
+|---|---|---|
+| ⇧⌘3 / ⇧⌘4 / ⇧⌘5 | Left to macOS. `capture.overrideSystemShortcuts = true` binds them to SkyRose's tool; if macOS still takes them too, turn its own off in System Settings › Keyboard › Keyboard Shortcuts › Screenshots. | macOS handles some system hotkeys before an event tap sees them; SkyRose never edits the hotkey plist without asking. |
+| Full-screen shot | The display under the pointer. | Linux grim joins every output; mixed-scale stitching is not done. |
+| Editor (swappy) | None; the file opens in Preview. | Not built. |
+

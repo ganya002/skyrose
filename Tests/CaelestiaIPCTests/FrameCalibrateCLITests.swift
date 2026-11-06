@@ -51,3 +51,15 @@ final class FrameCalibrateCLITests: XCTestCase {
         XCTAssertFalse(spec.arguments[0].required)
     }
 }
+
+final class ScreenshotCLITests: XCTestCase {
+    func testModesIncludingWindow() throws {
+        for mode in ["region", "freeze", "window", "full"] {
+            guard case let .ipc(req) = try CLIParser.parse(["screenshot", mode]).kind else { return XCTFail(mode) }
+            XCTAssertEqual(req.string("mode"), mode)
+        }
+        guard case let .ipc(def) = try CLIParser.parse(["screenshot"]).kind else { return XCTFail() }
+        XCTAssertEqual(def.string("mode"), "region")
+        XCTAssertThrowsError(try CLIParser.parse(["screenshot", "area"]))
+    }
+}

@@ -391,6 +391,7 @@ public enum ShellIcon {
         case "auto_awesome": return "sparkles"
         case "thermostat": return "thermometer.medium"
         case "coffee": return "cup.and.saucer.fill"
+        case "screenshot_region", "screenshot_monitor": return "camera.viewfinder"
         default:
             if let hit = fromSF.first(where: { $0.value.0 == material })?.key { return hit }
             return material

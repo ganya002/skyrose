@@ -12,7 +12,7 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
 | 3. SIP-off mode | done, live-tested in the Dock (3b) | "Phase 5 part 3a", "3a-fix", "3b" |
 | 4. Material Symbols | done, live-checked (dashboard + sidebar) | "Phase 5 part 4" |
-| 5. Screenshots, keep-awake, Clamshell | not started | |
+| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers + 5c Clamshell next | "Phase 5 part 5a" |
 
 ## Part 1 — done
 
@@ -164,6 +164,35 @@ Dock has the dylib loaded was harmless (Dock kept running, helper kept answering
 Decisions: no config switch (Material whenever the font is present, SF otherwise); Settings
 (SkyRoseSettingsKit) keeps SF Symbols (macOS settings look); `apple.logo` stays SF.
 
+## Part 5a — screenshot tool (done)
+
+- Core `Capture/Capture.swift`: `CaptureMode` (region, freeze, window, full), `CaptureGeometry`
+  (drag rect, click tolerance 4 pt, global → display-local → pixels, window under the pointer from
+  the window list, macOS-style file names "Screenshot 2026-11-06 at 09.05.07.png" + " (2)",
+  opt-in ⇧⌘3/4/5 binds written with whichever logical modifier is ⌘ in the preset).
+- `[capture]` config: folder `~/Pictures/Screenshots`, saveToFolder, copyToClipboard, thumbnail,
+  overrideSystemShortcuts = **false** (WMDaemon appends the binds at keymap load / reload / when the
+  key flips; macOS's own shortcuts are never touched by default).
+- Shell `Capture/ScreenshotController.swift`: ScreenCaptureKit (`SCScreenshotManager`), picker
+  panels at screen-saver level on every display (dim + hole, size label, hover highlights the
+  window under the pointer; drag = region, click = window, click on the desktop = that display,
+  Esc / right click = cancel, pressing the bind again cancels). Freeze captures every display
+  first and crops the still. Window capture without shadow. Full = display under the pointer.
+  PNG to the folder + PNG/TIFF on the clipboard; success toast with a thumbnail
+  (`Toast.imagePath`). Binds: existing `capture.region` / `capture.full` / `capture.freeze`
+  (Print → ⌥L⌘⇧4 / F13 etc.). CLI: `skyrose screenshot region|freeze|window|full` (returns at once).
+- Live (capture.folder → /tmp, clipboard off, then both reset): full 2940×1912; region drag
+  400×220 pt → 800×440 px; window (TestWindow 1408×862) → 2816×1724 without shadow; freeze drag
+  → 800×400 of the still; Esc closes the picker; toast with thumbnail
+  (`/tmp/cwm/phase5/shots-toast.png`, `window-shot.png`, `freeze-shot.png`).
+
+Decisions: full = the display under the pointer (grim joins all outputs; stitching mixed scales is
+not worth it); no swappy-style editor (Preview is one double-click away); the toast is
+click-through like every toast, so no "open" action on it; if macOS's own ⇧⌘3/4/5 still fire with
+the override on, turn them off in System Settings › Keyboard › Shortcuts › Screenshots
+(documented in LIMITATIONS.md). Seen once, not reproduced: right after a WM restart + `ws focus 2`
+the display was back on ws1 before the first picker (picker/drag/Esc on ws2 kept ws2 three times).
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
@@ -172,6 +201,7 @@ After part 3a: 987 tests, 0 failures.
 After 3a-fix (loader): 987 tests, 0 failures.
 After part 3b: 988 tests, 0 failures.
 After part 4: 993 tests, 0 failures.
+After part 5a: 1002 tests, 0 failures.
 
 ---
 

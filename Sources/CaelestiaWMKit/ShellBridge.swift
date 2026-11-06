@@ -160,6 +160,10 @@ public final class ShellBridge: ShellHost {
             guard let d = drawer() else { return fail("unknown drawer \(request.string("drawer") ?? ""); see `shell drawers list`") }
             controller.toggle(d)
             return ok()
+        case .screenshot:
+            guard let mode = CaptureMode(argument: request.string("mode")) else { return fail("mode must be region, freeze, window or full") }
+            controller.takeScreenshot(mode)
+            return ok(.object(["mode": .string(mode.rawValue), "folder": .string(CaptureGeometry.folderURL(state.config.capture.folder).path)]))
         // Keep awake (Caelestia's idle inhibitor): the sidebar toggle's power assertion.
         case .shellIdleInhibitorToggle: controller.keepAwake.toggle(); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))
         case .shellIdleInhibitorEnable: controller.keepAwake.set(on: true); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))

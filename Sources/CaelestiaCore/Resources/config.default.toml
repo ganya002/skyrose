@@ -221,6 +221,16 @@ instantWorkspaces = true   # instant workspace switches, no slide
 pinOnTop = true            # pinned windows really stay on top
 
 # =====================================================================================
+# Screenshots (skyrose screenshot region|freeze|window|full, Print/F13 binds)
+# =====================================================================================
+[capture]
+folder = "~/Pictures/Screenshots"
+saveToFolder = true
+copyToClipboard = true
+thumbnail = true                 # toast with a thumbnail after each shot
+overrideSystemShortcuts = false  # true also binds macOS's ⇧⌘3 / ⇧⌘4 / ⇧⌘5 to SkyRose
+
+# =====================================================================================
 # Bar (shell.json bar.*)
 # =====================================================================================
 [bar]

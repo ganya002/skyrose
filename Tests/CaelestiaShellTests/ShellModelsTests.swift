@@ -387,3 +387,20 @@ final class ShellIconTests: XCTestCase {
         }
     }
 }
+
+final class ScreenshotTextTests: XCTestCase {
+    func testSummary() {
+        let f = URL(fileURLWithPath: "/tmp/Screenshot 2026-11-06 at 09.05.07.png")
+        let s = CGSize(width: 2940, height: 1912)
+        XCTAssertEqual(ScreenshotText.summary(file: f, copied: true, size: s), "2940 × 1912 · copied, saved as Screenshot 2026-11-06 at 09.05.07.png")
+        XCTAssertEqual(ScreenshotText.summary(file: nil, copied: true, size: s), "2940 × 1912 · copied to the clipboard")
+        XCTAssertTrue(ScreenshotText.summary(file: nil, copied: false, size: s).contains("not saved"))
+    }
+
+    func testToastKeepsItsThumbnail() {
+        var q = ToastQueue()
+        _ = q.add(Toast(kind: .success, title: "Screenshot taken", createdAt: 0, imagePath: "/tmp/x.png"))
+        XCTAssertEqual(q.toasts.first?.imagePath, "/tmp/x.png")
+        XCTAssertEqual(Toast(kind: .info, title: "t", createdAt: 0).imagePath, "")
+    }
+}

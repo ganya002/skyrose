@@ -19,6 +19,8 @@ public struct Config: Codable, Equatable, Sendable {
     public var weather: WeatherConfig
     /// SIP-off mode (`[sipOff]`): opt-in, needs the scripting addition loaded into the Dock.
     public var sipOff: SIPOffConfig
+    /// Screenshot tool (`[capture]`).
+    public var capture: CaptureConfig
     public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
@@ -31,8 +33,10 @@ public struct Config: Codable, Equatable, Sendable {
         animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
         frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
         general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig(),
-        weather: WeatherConfig = WeatherConfig(), sipOff: SIPOffConfig = SIPOffConfig()
+        weather: WeatherConfig = WeatherConfig(), sipOff: SIPOffConfig = SIPOffConfig(),
+        capture: CaptureConfig = CaptureConfig()
     ) {
+        self.capture = capture
         self.general = general
         self.weather = weather
         self.sipOff = sipOff
@@ -241,6 +245,22 @@ public struct SIPOffConfig: Codable, Equatable, Sendable {
     public var instantWorkspaces: Bool = true
     /// Pinned windows are really always on top (floating window level).
     public var pinOnTop: Bool = true
+    public init() {}
+}
+
+/// Screenshot tool (Caelestia's grim + slurp + wl-copy + swappy flow, on ScreenCaptureKit).
+public struct CaptureConfig: Codable, Equatable, Sendable {
+    /// Where screenshots are saved ("~" expands). Created on first use.
+    public var folder: String = "~/Pictures/Screenshots"
+    /// Save a PNG into `folder`.
+    public var saveToFolder: Bool = true
+    /// Put the image on the clipboard (wl-copy).
+    public var copyToClipboard: Bool = true
+    /// A toast with a thumbnail after each screenshot.
+    public var thumbnail: Bool = true
+    /// Also bind macOS's own ⇧⌘3 (full), ⇧⌘4 (region) and ⇧⌘5 (freeze) to SkyRose's tool.
+    /// Off by default: macOS's shortcuts stay untouched.
+    public var overrideSystemShortcuts: Bool = false
     public init() {}
 }
 

@@ -41,7 +41,8 @@ public final class WMDaemon {
             Log.config.notice("migrated from Caelestia for Mac: \(migration.moved.count) moved, \(migration.keptAside.count) kept aside")
         }
         let (config, configWarnings) = ConfigLoader.loadUserOrDefault()
-        let (keymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
+        let (loadedKeymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
+        let keymap = CaptureGeometry.withSystemShortcuts(loadedKeymap, enabled: config.effective.capture.overrideSystemShortcuts)
         let (rules, rulesWarnings) = RulesLoader.loadUserOrDefault()
         for w in configWarnings + keymapWarnings + rulesWarnings {
             Log.config.warning("\(w, privacy: .public)")
@@ -289,9 +290,16 @@ public final class WMDaemon {
                 case .loaded(let config, let warnings):
                     for w in warnings { Log.config.warning("\(w, privacy: .public)") }
                     let config = config.effective
+                    let overrideChanged = wm.config.capture.overrideSystemShortcuts != config.capture.overrideSystemShortcuts
                     matcher.update(input: config.input)
                     self.tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
                     wm.apply(config: config)
+                    if overrideChanged {
+                        // ⇧⌘3/4/5 opt-in switched: rebuild the binds.
+                        let keymap = CaptureGeometry.withSystemShortcuts(KeymapLoader.loadUserOrDefault().0, enabled: config.capture.overrideSystemShortcuts)
+                        matcher.update(keymap: keymap)
+                        wm.apply(keymap: keymap)
+                    }
                     self.decorations?.apply(config: config)
                     self.enhanced.apply(config: config)
                     self.shell?.apply(config: config)
@@ -304,9 +312,14 @@ public final class WMDaemon {
         configWatcher?.start()
         keymapWatcher = KeymapWatcher(
             fallback: KeymapLoader.loadDefault(),
-            onChange: { keymap, _ in
-                matcher.update(keymap: keymap)
-                DispatchQueue.main.async { MainActor.assumeIsolated { wm.apply(keymap: keymap) } }
+            onChange: { loaded, _ in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        let keymap = CaptureGeometry.withSystemShortcuts(loaded, enabled: wm.config.capture.overrideSystemShortcuts)
+                        matcher.update(keymap: keymap)
+                        wm.apply(keymap: keymap)
+                    }
+                }
             },
             onError: { error in Log.config.error("keymap.toml not applied: \(error.description, privacy: .public)") }
         )
@@ -316,7 +329,8 @@ public final class WMDaemon {
     private func reloadConfigAndKeymap() -> [String] {
         let (written, warnings) = ConfigLoader.loadUserOrDefault()
         let config = written.effective
-        let (keymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
+        let (loadedKeymap, keymapWarnings) = KeymapLoader.loadUserOrDefault()
+        let keymap = CaptureGeometry.withSystemShortcuts(loadedKeymap, enabled: config.capture.overrideSystemShortcuts)
         matcher.update(input: config.input)
         tap.mediaKeys.update(enabled: config.input.interceptMediaKeys)
         matcher.update(keymap: keymap)

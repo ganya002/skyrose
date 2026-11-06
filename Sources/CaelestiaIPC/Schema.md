@@ -93,7 +93,7 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 |----------------------|----------------------------------------------------|--------|
 | `shell.launcher`, `shell.dashboard`, `shell.sidebar`, `shell.session`, `shell.showall`, `shell.clear-notifs` | | null |
 | `shell.kill`, `shell.restart` |                                           | null   |
-| `screenshot`         | `mode?: region\|freeze\|full`                      | `{path}` |
+| `screenshot`         | `mode?: region\|freeze\|window\|full`              | `{mode, folder}` (result: toast) |
 | `record`             | `sound?: bool`, `region?: bool`                    | `{recording: bool, path?}` |
 | `clipboard`          | `delete?: bool`                                    | null   |
 | `emoji`              |                                                    | null   |
