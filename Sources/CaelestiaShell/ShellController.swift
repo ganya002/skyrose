@@ -43,6 +43,10 @@ public final class ShellController {
 
     // Drawers.
     public let launcher = LauncherModel()
+    /// Desktop cross-fades: the `>wallpaper` carousel preview and every wallpaper change.
+    public let wallpaperPreview = WallpaperPreview()
+    /// The carousel is previewing (closing the launcher without a pick reverts the desktop).
+    var carouselPreviewing = false
     public let appWatcher = AppIndexWatcher()
     public let session = SessionModel()
     public let osd = OSDModel()
@@ -140,6 +144,14 @@ public final class ShellController {
         theme = Self.makeTheme(state)
         launcher.onActivate = { [weak self] in self?.activate($0) }
         launcher.onClose = { [weak self] in self?.close(.launcher) }
+        launcher.onPreview = { [weak self] url in self?.previewWallpaper(url) }
+        launcher.onPickWallpaper = { [weak self] url in self?.pickCarouselWallpaper(url) }
+        launcher.onNeedThumb = { [weak self] url in
+            guard let self, self.launcher.thumbs[url] == nil else { return }
+            self.wallpaper.thumbnail(for: url, maxPixel: WallpaperService.carouselThumbnailSize) { img in
+                if let img { self.launcher.thumbs[url] = img }
+            }
+        }
         session.onRun = { [weak self] action in
             self?.close(.session)
             Log.wm.notice("session: \(action.rawValue, privacy: .public)")
@@ -546,12 +558,23 @@ public final class ShellController {
             closeTransient()
             let panel = launcherPanel ?? makeDrawerPanel(LauncherView(model: launcher, fillet: theme.frameRounding), name: "launcher", key: true)
             launcherPanel = panel
-            let body = LauncherModel.maxBodySize
-            let size = CGSize(width: body.width + 2 * theme.frameRounding, height: body.height)
+            // Caelestia: the carousel may use the screen minus 4 × rounding and the bar on both sides.
+            let room = layout.area.width - 4 * theme.frameRounding - 2 * max(layout.thickness, theme.barWidth)
+            launcher.carouselRoom = room
+            let body = LauncherModel.maxBodySize(carouselRoom: room)
+            let size = CGSize(width: min(body.width + 2 * theme.frameRounding, layout.area.width), height: body.height)
             panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .bottom, barReveal: reveal), edge: .bottom,
                                                   room: theme.overshootRoom(depth: body.height)), display: false)
             launcher.reset()
             launcher.apps = state.apps
+            launcher.currentWallpaper = displayedWallpaper
+            launcher.wallpapers = state.wallpapers
+            carouselPreviewing = false
+            wallpaper.scan(folder: state.config.appearance.wallpaperFolder) { [weak self] result in
+                guard let self else { return }
+                self.state.wallpapers = result.urls
+                self.launcher.wallpapers = result.urls
+            }
             present(panel)
             launcher.shown = true
         case .session:
@@ -594,6 +617,11 @@ public final class ShellController {
         case .launcher:
             guard openDrawers.contains(.launcher) else { return }
             launcher.shown = false
+            // Closed without a pick: the desktop goes back (Caelestia Wallpapers.stopPreview).
+            if carouselPreviewing {
+                carouselPreviewing = false
+                wallpaperPreview.revert(crossfade: wallpaperCrossfade)
+            }
             host?.shellKeyDrawerClosed(launched: false)
             dismiss(launcherPanel)
         case .session:
@@ -760,6 +788,8 @@ public final class ShellController {
             case .randomWallpaper:
                 close(.launcher)
                 randomWallpaper()
+            case .autocomplete(let name):
+                launcher.query = ">\(name) "
             case .openSettings:
                 close(.launcher)
                 guard let url = AppIndex.settingsAppURL() else {

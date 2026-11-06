@@ -9,7 +9,7 @@ Resume here after a context reset. Spec: `docs/caelestia-reference/PHASE-PROMPT.
 | 6a. Blob overlay (one SDF surface) | done, live-tested on the built-in | "Phase 6 part 6a" |
 | 6b. Panel motion tokens | done, live-checked (launcher, dashboard clips) | "Phase 6 part 6b" |
 | 6c. Left-bar dock popouts | done, live-tested on the built-in (hover, morph, trail) | "Phase 6 part 6c" |
-| 6d. Wallpaper carousel | next | |
+| 6d. Wallpaper carousel | done, live-tested on the built-in (preview, revert, commit) | "Phase 6 part 6d" |
 
 ## Part 6a — blob overlay (done)
 
@@ -103,11 +103,39 @@ stretch at full speed): subtle by design.
 - Note: during this run macOS showed "SkyRose would like to record this computer's screen and audio"
   although `permissions status` reports Screen Recording granted (left for Gabby; nothing clicked).
 
+## Part 6d — wallpaper carousel (done)
+
+- `>wallpaper` (the command autocompletes to `>wallpaper `, Caelestia `autocomplete`) turns the
+  launcher into the carousel (Caelestia ContentList "wallpapers" state + WallpaperList PathView):
+  the app list fades out (defaultEffects), the body morphs to max(600 × 1.2, slots × 254) ×
+  200 on the spatial token, the carousel fades in. Text after the command fuzzy-filters by file name
+  and starts on the best match; with no search the carousel starts on the desktop's wallpaper.
+- Carousel: circular path; slots = what fits in screen − 4 × rounding − 2 × bar, at most 9, odd
+  (2 → 1); centre item scale 1 with an elevation shadow, the others on the path 0.8, items
+  leaving the path shrink to 0, new ones pop in from 0.5 (scale spatial, opacity effects). Items are
+  280 × 158 thumbnails (640 px, disk-cached) with the file name; live wallpapers show a play badge.
+  Up / Down / Tab / ←/→ / scroll / click a neighbour move it; Enter or a click on the centre picks.
+- Live preview: every centred item cross-fades the desktop over 600 ms through `WallpaperPreview`
+  (desktop-level image windows above the live-wallpaper video, below icons and windows, all
+  Spaces, click-through). Nothing is written until a pick: Escape / click outside / closing the
+  launcher fades back to the real desktop picture; a pick sets it underneath and the overlay
+  leaves 0.8 s later (2 s for a live wallpaper, whose video window starts below it).
+- The wallpaper drawer and `>random` now change wallpapers through the same 600 ms cross-fade
+  (`transitionWallpaper`); IPC `wallpaper set` stays immediate. Reduce Motion: 200 ms fade.
+- Live (built-in, 3 slots): typing → morph, preview cross-fades behind kitty, → → moves + previews,
+  Escape reverts (measured fade ≈ 0.55–0.6 s, `wallpaper get` unchanged), `>wallpaper peaks` +
+  Enter set "Landscapes - Minimal peaks" and removed the overlay windows. Gabby's wallpaper
+  (`~/Pictures/arch-mac-blue.png`) was restored afterwards on both displays.
+  Shots: scratchpad `live6d/carousel.png`, `live6d/moved.png`, `live6d/reverted_s.png`, `live6d/morph2.png`.
+- Short of 1:1: the dynamic colour scheme is not previewed while scrolling (it follows the pick);
+  one transition (crossfade), not Caelestia's 29 shaders.
+
 ## Tests (phase 6)
 
 After part 6a: 1045 tests, 0 failures (`/usr/bin/swift test`).
 After part 6b: 1048 tests, 0 failures.
 After part 6c: 1055 tests, 0 failures.
+After part 6d: 1065 tests, 0 failures.
 
 ---
 

@@ -291,7 +291,7 @@ final class WallpaperLibraryTests: XCTestCase {
     }
 
     func testLauncherWallpaperCommandsAreWired() {
-        XCTAssertEqual(LauncherCommand.all.first { $0.name == "wallpaper" }?.effect, .drawer(.wallpaper))
+        XCTAssertEqual(LauncherCommand.all.first { $0.name == "wallpaper" }?.effect, .autocomplete("wallpaper"))
         XCTAssertEqual(LauncherCommand.all.first { $0.name == "random" }?.effect, .randomWallpaper)
         XCTAssertTrue(Drawer.allCases.contains(.wallpaper))
     }

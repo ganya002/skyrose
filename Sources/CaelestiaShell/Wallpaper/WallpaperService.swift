@@ -28,30 +28,40 @@ public final class WallpaperService {
         }
     }
 
-    public func cachedThumbnail(for url: URL) -> NSImage? { memory.object(forKey: url.path as NSString) }
+    /// The carousel's items are 280 pt wide (560 px on Retina).
+    public static let carouselThumbnailSize = 640
+
+    public func cachedThumbnail(for url: URL, maxPixel: Int = WallpaperService.thumbnailSize) -> NSImage? {
+        memory.object(forKey: Self.memoryKey(url, maxPixel))
+    }
+
+    private static func memoryKey(_ url: URL, _ maxPixel: Int) -> NSString {
+        (maxPixel == thumbnailSize ? url.path : "\(url.path)@\(maxPixel)") as NSString
+    }
 
     /// Generates (or loads from the disk cache) a thumbnail without blocking the main thread.
-    public func thumbnail(for url: URL, completion: @escaping @MainActor (NSImage?) -> Void) {
-        if let hit = cachedThumbnail(for: url) { completion(hit); return }
+    public func thumbnail(for url: URL, maxPixel: Int = WallpaperService.thumbnailSize, completion: @escaping @MainActor (NSImage?) -> Void) {
+        if let hit = cachedThumbnail(for: url, maxPixel: maxPixel) { completion(hit); return }
+        let key = Self.memoryKey(url, maxPixel)
         DispatchQueue.global(qos: .utility).async {
-            let image = Self.makeThumbnail(url)
+            let image = Self.makeThumbnail(url, maxPixel: maxPixel)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
-                    if let image { self.memory.setObject(image, forKey: url.path as NSString) }
+                    if let image { self.memory.setObject(image, forKey: key) }
                     completion(image)
                 }
             }
         }
     }
 
-    nonisolated static func makeThumbnail(_ url: URL) -> NSImage? {
+    nonisolated static func makeThumbnail(_ url: URL, maxPixel: Int = 320) -> NSImage? {
         let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
         let modified = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         let size = (attrs?[.size] as? Int) ?? 0
         let key = WallpaperLibrary.thumbnailKey(path: url.path, modified: modified, size: size)
-        let cached = cacheDir.appendingPathComponent(key + ".jpg")
+        let cached = cacheDir.appendingPathComponent(key + (maxPixel == 320 ? "" : "-\(maxPixel)") + ".jpg")
         if let data = try? Data(contentsOf: cached), let img = NSImage(data: data) { return img }
-        guard let cg = thumbnailImage(url, maxPixel: thumbnailSize) else { return nil }
+        guard let cg = thumbnailImage(url, maxPixel: maxPixel) else { return nil }
         let rep = NSBitmapImageRep(cgImage: cg)
         if let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) {
             try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)

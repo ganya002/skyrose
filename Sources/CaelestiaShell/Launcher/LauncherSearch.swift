@@ -11,6 +11,9 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         case randomWallpaper
         /// Opens SkyRose Settings.
         case openSettings
+        /// Fills the search with `>name ` (Caelestia `autocomplete`): `>wallpaper ` turns the
+        /// launcher into the wallpaper carousel.
+        case autocomplete(String)
     }
 
     public var id: String { name }
@@ -30,7 +33,7 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
     public static let all: [LauncherCommand] = [
         LauncherCommand("calculator", "Do simple math equations", icon: "calculate", effect: .later("Type = followed by an expression")),
         LauncherCommand("scheme", "Change the current colour scheme", icon: "palette", effect: .later("Set appearance.schemeMode = \"dynamic\" or \"static\" in config.toml")),
-        LauncherCommand("wallpaper", "Change the current wallpaper", icon: "image", effect: .drawer(.wallpaper)),
+        LauncherCommand("wallpaper", "Change the current wallpaper", icon: "image", effect: .autocomplete("wallpaper")),
         LauncherCommand("variant", "Change the current scheme variant", icon: "contrast", effect: .later("Scheme variants arrive with dynamic colour")),
         LauncherCommand("transparency", "Change shell transparency", icon: "opacity", effect: .later("Transparency is set in config.toml for now")),
         LauncherCommand("random", "Switch to a random wallpaper", icon: "shuffle", effect: .randomWallpaper),

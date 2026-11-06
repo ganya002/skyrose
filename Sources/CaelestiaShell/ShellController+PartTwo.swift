@@ -49,7 +49,7 @@ extension ShellController {
         popout.onScan = { [weak self] in self?.scanNetworks() }
         popout.onOpenSettings = { [weak self] kind in self?.openSettings(for: kind) }
 
-        wallpaperPicker.onPick = { [weak self] url in self?.setWallpaper(url) }
+        wallpaperPicker.onPick = { [weak self] url in self?.transitionWallpaper(url) }
         wallpaperPicker.onRandom = { [weak self] in self?.randomWallpaper() }
         wallpaperPicker.onNeedThumb = { [weak self] url in
             guard let self, self.wallpaperPicker.thumbs[url] == nil else { return }
@@ -629,7 +629,43 @@ extension ShellController {
                 self.toast(.warn, title: "No wallpapers", message: result.message ?? "The wallpaper folder is empty")
                 return
             }
+            self.transitionWallpaper(url)
+        }
+    }
+
+    /// The desktop cross-fade length (Caelestia 600 ms; short under Reduce Motion).
+    var wallpaperCrossfade: Double { theme.reduceMotion ? 0.2 : WallpaperPreview.crossfade }
+
+    /// Sets a wallpaper through the 600 ms cross-fade: the new picture fades in over the desktop,
+    /// then becomes the real desktop picture underneath and the overlay leaves.
+    public func transitionWallpaper(_ url: URL) {
+        guard url != displayedWallpaper else { return }
+        wallpaperPreview.show(url, crossfade: wallpaperCrossfade) { [weak self] in
+            guard let self else { return }
             self.setWallpaper(url)
+            self.wallpaperPreview.finish(after: WallpaperLibrary.isLive(url) ? 2 : 0.8)
+        }
+    }
+
+    /// The carousel's centred item changed: show it on the desktop (nothing is set yet).
+    func previewWallpaper(_ url: URL) {
+        if !carouselPreviewing, url == displayedWallpaper { return }
+        carouselPreviewing = true
+        wallpaperPreview.show(url, crossfade: wallpaperCrossfade)
+    }
+
+    /// Enter / click in the carousel: keep the previewed wallpaper.
+    func pickCarouselWallpaper(_ url: URL) {
+        let previewing = carouselPreviewing
+        carouselPreviewing = false
+        close(.launcher)
+        if url == displayedWallpaper {
+            if previewing { wallpaperPreview.revert(crossfade: wallpaperCrossfade) }
+            return
+        }
+        setWallpaper(url)
+        if previewing {
+            wallpaperPreview.finish(after: WallpaperLibrary.isLive(url) ? 2 : 0.8)
         }
     }
 
