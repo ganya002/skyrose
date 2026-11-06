@@ -14,6 +14,8 @@ public final class SidebarModel: ObservableObject {
     public var onVolume: (Double) -> Void = { _ in }
     public var onBrightness: (Double) -> Void = { _ in }
     public var onKeepAwake: (Bool) -> Void = { _ in }
+    /// Keep awake for a preset time (nil = until turned off).
+    public var onKeepAwakeFor: (TimeInterval?) -> Void = { _ in }
     public var onMute: () -> Void = {}
     public var onWallpaper: () -> Void = {}
     public init() {}
@@ -156,17 +158,37 @@ struct UtilitiesSection: View {
     }
 
     private var keepAwake: some View {
-        HStack(spacing: 12) {
-            MaterialIcon("cup.and.saucer.fill", size: 16)
-                .foregroundStyle(theme[.onSurface]).frame(width: 40, height: 40)
-                .background(Circle().fill(theme[.onSurface].opacity(0.08)))
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Keep awake").font(theme.sans(14, weight: .medium)).foregroundStyle(theme[.onSurface])
-                Text(state.keepAwake ? "Keeping awake" : "Normal power management").font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                MaterialIcon("cup.and.saucer.fill", size: 16)
+                    .foregroundStyle(theme[.onSurface]).frame(width: 40, height: 40)
+                    .background(Circle().fill(theme[.onSurface].opacity(0.08)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Keep awake").font(theme.sans(14, weight: .medium)).foregroundStyle(theme[.onSurface])
+                    // Ticks so a timed keep-awake counts down.
+                    TimelineView(.periodic(from: .now, by: 20)) { ctx in
+                        Text(KeepAwakeTimer.status(enabled: state.keepAwake, until: state.keepAwakeUntil, now: ctx.date))
+                            .font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).monospacedDigit()
+                    }
+                }
+                Spacer()
+                // Only real flips: re-sending the current value would turn a timed keep-awake into an unlimited one.
+                Toggle("", isOn: Binding(get: { state.keepAwake }, set: { if $0 != state.keepAwake { model.onKeepAwake($0) } })).toggleStyle(.switch).labelsHidden()
+                    .tint(theme[.primary]).accessibilityIdentifier("sidebar.keepAwake")
             }
-            Spacer()
-            Toggle("", isOn: Binding(get: { state.keepAwake }, set: { model.onKeepAwake($0) })).toggleStyle(.switch).labelsHidden()
-                .tint(theme[.primary]).accessibilityIdentifier("sidebar.keepAwake")
+            HStack(spacing: 6) {
+                ForEach(Array(KeepAwakeTimer.presets.enumerated()), id: \.offset) { _, d in
+                    let chosen = KeepAwakeTimer.isChosen(d, enabled: state.keepAwake, duration: state.keepAwakeDuration)
+                    Button { model.onKeepAwakeFor(d) } label: {
+                        Text(KeepAwakeTimer.label(d)).font(theme.sans(11, weight: .medium))
+                            .foregroundStyle(chosen ? theme[.onPrimary] : theme[.onSurface])
+                            .frame(maxWidth: .infinity).frame(height: 24)
+                            .background(Capsule().fill(chosen ? theme[.primary] : theme[.onSurface].opacity(0.08)))
+                    }
+                    .buttonStyle(.plain).help(d == nil ? "Keep awake until turned off" : "Keep awake for \(KeepAwakeTimer.label(d))")
+                }
+            }
+            .accessibilityIdentifier("sidebar.keepAwake.timers")
         }
         .padding(.horizontal, 12).padding(.vertical, 10).shellCard(radius: 20)
     }

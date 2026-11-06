@@ -164,6 +164,17 @@ public final class ShellBridge: ShellHost {
             guard let mode = CaptureMode(argument: request.string("mode")) else { return fail("mode must be region, freeze, window or full") }
             controller.takeScreenshot(mode)
             return ok(.object(["mode": .string(mode.rawValue), "folder": .string(CaptureGeometry.folderURL(state.config.capture.folder).path)]))
+        case .keepAwake:
+            let ka = controller.keepAwake
+            switch request.string("state") ?? "status" {
+            case "on": ka.set(on: true, duration: request.double("seconds"))
+            case "off": ka.set(on: false)
+            case "status": break
+            default: return fail("state must be on, off or status")
+            }
+            var o: [String: JSONValue] = ["enabled": .bool(ka.isEnabled), "status": .string(ka.statusText)]
+            if let u = ka.until { o["until"] = .string(ISO8601DateFormatter().string(from: u)) }
+            return ok(.object(o))
         // Keep awake (Caelestia's idle inhibitor): the sidebar toggle's power assertion.
         case .shellIdleInhibitorToggle: controller.keepAwake.toggle(); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))
         case .shellIdleInhibitorEnable: controller.keepAwake.set(on: true); return ok(.string(controller.keepAwake.isEnabled ? "true" : "false"))

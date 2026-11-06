@@ -279,6 +279,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case schemeSet = "scheme.set"
     case wallpaperRandom = "wallpaper.random"
     case notify
+    case keepAwake = "keepawake"
     case frameCalibrate = "frame.calibrate"
 
     // MARK: Shell targets (ipc-commands.txt, 1:1)
@@ -478,6 +479,10 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.shell, "Tune the screen frame's outer corner radius by eye (arrow keys, Return saves per display, Esc cancels).",
                                   arguments: [.optional("display", .string, help: "display id or name (default: the one under the pointer)")],
                                   returns: "{display, radius}")
+        case .keepAwake:
+            return IPCCommandSpec(.misc, "Keep the Mac awake (idle display sleep off), optionally for a time.",
+                                  arguments: [IPCArgument("state", .string), .optional("seconds", .double, help: "how long; omitted = until turned off")],
+                                  returns: "{enabled, until?, status}")
         case .notify:
             return IPCCommandSpec(.misc, "Post a notification to the sidebar.", arguments: [IPCArgument("title", .string), .optional("body", .string), .optional("app", .string, help: "app name shown as the sender"), .optional("icon", .string, help: "SF Symbol or Material icon name")], returns: "{id}")
 

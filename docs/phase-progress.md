@@ -12,7 +12,16 @@ Symbols → 5 screenshots, keep-awake, Clamshell. Commit on main after each part
 | 2. Wallpaper subfolders + live wallpapers | done, live-tested | see `git log` ("Phase 5 part 2") |
 | 3. SIP-off mode | done, live-tested in the Dock (3b) | "Phase 5 part 3a", "3a-fix", "3b" |
 | 4. Material Symbols | done, live-checked (dashboard + sidebar) | "Phase 5 part 4" |
-| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers + 5c Clamshell next | "Phase 5 part 5a" |
+| 5. Screenshots, keep-awake, Clamshell | 5a screenshots done, live-tested; 5b keep-awake timers done, live-tested; **5c Clamshell next** (plan below) | "Phase 5 part 5a", "5b" |
+
+### Part 5c — Clamshell (plan)
+
+No sudo/pmset. macOS keeps running with the lid closed only with power + an external display (native
+clamshell). Plan: read `AppleClamshellState` (IOPMrootDomain), external display count, AC power; show what
+closing the lid will do (Settings/sidebar); optional "keep awake while the lid is closed" = hold the keep-awake
+assertion in native clamshell; WM: built-in's workspaces move to the external on close and back on open
+(check existing display-removal code first). Document that lid-closed on battery / without a display needs
+root (`pmset disablesleep`) and is not done.
 
 ## Part 1 — done
 
@@ -193,6 +202,29 @@ the override on, turn them off in System Settings › Keyboard › Shortcuts ›
 (documented in LIMITATIONS.md). Seen once, not reproduced: right after a WM restart + `ws focus 2`
 the display was back on ws1 before the first picker (picker/drag/Esc on ws2 kept ws2 three times).
 
+## Part 5b — keep-awake timers (done)
+
+- Core `Power/KeepAwakeTimer.swift`: parse "30m" / "1h" / "1h30m" / "90" (minutes) / "45s" /
+  "forever" (1 s … 7 days), presets ∞ / 15 min / 1 h / 2 h / 5 h, "1 h 05 min left" text, status
+  line, `isChosen` (a chip lights only for exactly its length; a CLI `on 1m` lights none).
+- `KeepAwakeService.set(on:duration:)` + `until` / `duration` / `remaining`; a one-shot Timer
+  (RunLoop common mode) releases the `PreventUserIdleDisplaySleep` assertion "SkyRose keep awake".
+  Turning it on again replaces the timer.
+- `ShellState.keepAwakeUntil` + `keepAwakeDuration`; sidebar card: countdown status (TimelineView,
+  20 s) + chip row. The switch only forwards real flips (re-sending the current value would have
+  turned a timed keep-awake unlimited).
+- IPC `keepawake {state: on|off|status, seconds?}` → `{enabled, until?, status}`; CLI
+  `skyrose keepawake on [30m|1h|forever] | off | status` (aliases keep-awake, caffeinate), help + Schema.md.
+- Live: `on 1m` → assertion present (checked with a read-only `IOPMCopyAssertionsByProcess` script,
+  no pmset), released on time with the sidebar open and `swift test` running; 10 s / 15 s timers with
+  the sidebar closed / open / opened after start all ended on time; bad duration / verb → exit 3 +
+  help. Shots: `/tmp/cwm/phase5/keepawake-1m-card.png` (no chip lit), `keepawake-1h-card.png` (1 h lit).
+- Seen once, not reproduced (4 later runs fine): the first 1 min run was still on, unlimited, after
+  it should have ended. Only the sidebar switch can do that, so its setter is now guarded. If it
+  comes back, log the caller in `KeepAwakeService.set`.
+- Not live-clicked: the chips themselves (the same `set(on:duration:)` path as the CLI). The switch
+  looks grey while on because the sidebar panel is never key (macOS inactive look; it was like that before).
+
 ## Tests
 
 After part 1: 970 tests, 0 failures (`/usr/bin/swift test`).
@@ -202,6 +234,7 @@ After 3a-fix (loader): 987 tests, 0 failures.
 After part 3b: 988 tests, 0 failures.
 After part 4: 993 tests, 0 failures.
 After part 5a: 1002 tests, 0 failures.
+After part 5b: 1011 tests, 0 failures.
 
 ---
 

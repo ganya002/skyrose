@@ -257,6 +257,8 @@ public enum CLIParser {
             inv.kind = try parseQuery(args)
         case "notify":
             inv.kind = try parseNotify(args, tokens)
+        case "keepawake", "keep-awake", "caffeinate":
+            inv.kind = try parseKeepAwake(args)
         case "action", "dispatch":
             inv.kind = try parseAction(args)
         case "wm":
@@ -546,6 +548,27 @@ public enum CLIParser {
         return .ipc(IPCRequest(command))
     }
 
+    /// `keepawake on [30m|1h|forever] | off | status` (status is the default).
+    static func parseKeepAwake(_ args: [String]) throws -> CLIInvocation.Kind {
+        let verb = args.first ?? "status"
+        switch verb {
+        case "on":
+            try rejectExtra("keepawake on", Array(args.dropFirst(2)))
+            var a: [String: JSONValue] = ["state": .string("on")]
+            do {
+                if let d = try KeepAwakeTimer.parse(args.count > 1 ? args[1] : "") { a["seconds"] = .number(d) }
+            } catch {
+                throw CLIUsageError.invalidArgument(command: "keepawake on", name: "duration", value: args[1], expected: "30m | 1h | 1h30m | 90 (minutes) | forever")
+            }
+            return .ipc(IPCRequest(.keepAwake, args: a))
+        case "off", "status":
+            try rejectExtra("keepawake \(verb)", Array(args.dropFirst()))
+            return .ipc(IPCRequest(.keepAwake, args: ["state": .string(verb)]))
+        default:
+            throw CLIUsageError.invalidArgument(command: "keepawake", name: "verb", value: verb, expected: "on | off | status")
+        }
+    }
+
     static func parseNotify(_ args: [String], _ tokens: Tokens) throws -> CLIInvocation.Kind {
         guard let title = args.first else { throw CLIUsageError.missingArgument(command: "notify", name: "title") }
         try rejectExtra("notify", Array(args.dropFirst(2)))
@@ -681,7 +704,7 @@ public enum CLIParser {
             ("shell help [target]", "List the IPC targets and their signatures"),
             ("frame calibrate [display]", "Tune the frame's corner radii by eye (↑↓ ±0.5, ⇧ ±0.1, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
         ]),
-        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify"], rows: [
+        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake"], rows: [
             ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
             ("record [-s] [-r]", "Start/stop the screen recorder (-s: system sound, -r: region)"),
             ("clipboard [-d]", "Open clipboard history (-d: delete mode)"),
@@ -690,6 +713,7 @@ public enum CLIParser {
             ("scheme set <name>", "Switch colour scheme"),
             ("wallpaper set <file> | random | get | list", "Wallpaper control"),
             ("notify <title> [body] [--app NAME] [--icon ICON]", "Post a notification to the sidebar"),
+            ("keepawake on [30m|1h|forever] | off | status", "Keep the Mac awake, optionally for a time"),
         ]),
         HelpSection(title: "Keys and config", topics: ["keys", "rules", "config", "settings", "onboarding", "migrate"], rows: [
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),

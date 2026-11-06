@@ -34,6 +34,7 @@ extension ShellController {
         sidebar.onVolume = { [weak self] v in self?.audio.setVolume(v) }
         sidebar.onBrightness = { [weak self] v in self?.brightness.set(v) }
         sidebar.onKeepAwake = { [weak self] on in self?.keepAwake.set(on: on) }
+        sidebar.onKeepAwakeFor = { [weak self] d in self?.keepAwake.set(on: true, duration: d) }
         sidebar.onWallpaper = { [weak self] in self?.open(.wallpaper) }
 
         popout.onSetOutput = { [weak self] id in
@@ -58,7 +59,12 @@ extension ShellController {
     func startPartTwoServices() {
         media.onChange = { [weak self] m in self?.applyMedia(m) }
         media.start()
-        keepAwake.onChange = { [weak self] on in self?.state.keepAwake = on }
+        keepAwake.onChange = { [weak self] on in
+            guard let self else { return }
+            self.state.keepAwake = on
+            self.state.keepAwakeUntil = self.keepAwake.until
+            self.state.keepAwakeDuration = self.keepAwake.duration
+        }
         bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b) }
         bluetooth.start()
         weatherController.configure(state.config.weather)

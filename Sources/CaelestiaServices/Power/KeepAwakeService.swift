@@ -41,29 +41,54 @@ final class PowerAssertion {
 }
 
 /// Sidebar "Keep awake" utility: `kIOPMAssertionTypePreventUserIdleDisplaySleep` named
-/// "Caelestia keep awake". Status text mirrors Caelestia ("Normal power management" /
-/// "Keeping awake").
+/// "SkyRose keep awake", optionally for a limited time (`set(on:duration:)`); the assertion is
+/// released when the timer ends. Status text mirrors Caelestia ("Normal power management" /
+/// "Keeping awake") plus the time left.
 @MainActor
 public final class KeepAwakeService {
     public private(set) var isEnabled = false
+    /// When a timed keep-awake ends; nil = until turned off.
+    public private(set) var until: Date?
+    /// The length the running timed keep-awake was started with (nil = off or unlimited).
+    public private(set) var duration: TimeInterval?
     public var onChange: ((Bool) -> Void)?
 
     private let assertion = PowerAssertion(name: "SkyRose keep awake")
+    private var timer: Timer?
+    private let now: () -> Date
 
-    public init() {}
+    public init(now: @escaping () -> Date = Date.init) { self.now = now }
 
-    public var statusText: String { isEnabled ? "Keeping awake" : "Normal power management" }
+    public var statusText: String { KeepAwakeTimer.status(enabled: isEnabled, until: until, now: now()) }
 
-    public func set(on: Bool) {
+    /// Seconds left of a timed keep-awake (nil when off or unlimited).
+    public var remaining: TimeInterval? { until.map { max(0, $0.timeIntervalSince(now())) } }
+
+    /// Turns keep-awake on (for `duration` seconds, nil = until turned off) or off. Turning it on
+    /// again replaces the previous timer.
+    public func set(on: Bool, duration: TimeInterval? = nil) {
+        timer?.invalidate()
+        timer = nil
         if on {
             guard assertion.acquire() else { return }
+            until = duration.map { now().addingTimeInterval($0) }
+            self.duration = duration
+            if let duration {
+                let t = Timer(timeInterval: duration, repeats: false) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.set(on: false) }
+                }
+                RunLoop.main.add(t, forMode: .common)
+                timer = t
+            }
         } else {
             assertion.release()
+            until = nil
+            self.duration = nil
         }
-        if on != isEnabled {
-            isEnabled = on
-            onChange?(on)
-        }
+        let changed = on != isEnabled
+        isEnabled = on
+        // A new timer on an already-on keep-awake still changes the status line.
+        if changed || on { onChange?(on) }
     }
 
     public func toggle() { set(on: !isEnabled) }

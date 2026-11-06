@@ -25,6 +25,10 @@ public final class ShellState: ObservableObject {
     @Published public var notifications: [ShellNotification]
     @Published public var doNotDisturb: Bool
     @Published public var keepAwake: Bool
+    /// When a timed keep-awake ends (nil = off or until turned off).
+    @Published public var keepAwakeUntil: Date?
+    /// The length the timed keep-awake was started with, for the sidebar chip highlight.
+    @Published public var keepAwakeDuration: TimeInterval?
     @Published public var gameMode: Bool
     @Published public var recorder: RecorderInfo
     @Published public var media: MediaInfo
@@ -55,6 +59,8 @@ public final class ShellState: ObservableObject {
         self.notifications = []
         self.doNotDisturb = false
         self.keepAwake = false
+        self.keepAwakeUntil = nil
+        self.keepAwakeDuration = nil
         self.gameMode = false
         self.recorder = RecorderInfo()
         self.media = MediaInfo()

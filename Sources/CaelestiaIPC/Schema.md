@@ -94,6 +94,7 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 | `shell.launcher`, `shell.dashboard`, `shell.sidebar`, `shell.session`, `shell.showall`, `shell.clear-notifs` | | null |
 | `shell.kill`, `shell.restart` |                                           | null   |
 | `screenshot`         | `mode?: region\|freeze\|window\|full`              | `{mode, folder}` (result: toast) |
+| `keepawake`          | `state: on\|off\|status, seconds?`                  | `{enabled, until?, status}` |
 | `record`             | `sound?: bool`, `region?: bool`                    | `{recording: bool, path?}` |
 | `clipboard`          | `delete?: bool`                                    | null   |
 | `emoji`              |                                                    | null   |
