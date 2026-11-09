@@ -6,7 +6,7 @@ Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part
 |---|---|---|
 | 8a. Bibata cursor bundled, on by default | done | "Phase 8 part 8a" |
 | 8b. Dock removed (not unloaded) | done | "Phase 8 part 8b" |
-| 8c. Starter wallpapers | | |
+| 8c. Starter wallpapers | done, none bundled (licensing) | "Phase 8 part 8c" |
 | 8d. Updater | | |
 | 8e. Corner calibration | | |
 | 8f. Release v0.3.0 | | |
@@ -32,6 +32,14 @@ restarts the Dock; a fixture-HOME test covers the four keys.
 
 What the Dock did that SkyRose covers: opening apps (launcher), running apps (workspace pills).
 Not covered: Dock stacks, recent items, and the Downloads folder.
+
+## Part 8c — starter wallpapers (done, none bundled)
+
+The copier journals each copied file by SHA-256 and skips an existing name or a duplicate hash.
+Uninstall trashes only those paths. No picture is in the bundle: seven wallhaven pages were fan art
+without a redistribution license, the API then returned 429, and the Eris Greyrat files were
+excluded. The list is in `Sources/CaelestiaCore/Resources/Wallpapers/CREDITS.md`. Nothing was copied
+into `~/Pictures/Wallpapers` and no desktop picture was changed.
 
 # Phase 7: first ship, installer and uninstaller (started 2026-11-06)
 

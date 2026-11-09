@@ -405,6 +405,22 @@ final class UninstallScriptTests: XCTestCase {
         XCTAssertTrue(c.contains("killall Dock"), c.joined(separator: "\n"))
     }
 
+    func testTrashesOnlyTheStarterWallpaperSkyRoseCopied() throws {
+        try fm.createDirectory(at: support, withIntermediateDirectories: true)
+        let picture = path("Pictures/Wallpapers/Static")
+        try fm.createDirectory(at: picture, withIntermediateDirectories: true)
+        let starter = picture.appendingPathComponent("SkyRose - Dawn.png")
+        let own = picture.appendingPathComponent("Arch - mine.png")
+        try Data("starter".utf8).write(to: starter)
+        try Data("mine".utf8).write(to: own)
+        let journal = BackupJournal(url: support.appendingPathComponent("restore-manifest.json"))
+        try journal.append(BackupEntry(domain: "wallpapers", key: starter.path, oldValue: .absent, newValue: .string("abc"), kind: .file, note: "starter wallpaper abc"))
+        let r = try runScript(["--yes", "--no-color"])
+        XCTAssertEqual(r.status, 0, r.out)
+        XCTAssertFalse(fm.fileExists(atPath: starter.path))
+        XCTAssertTrue(fm.fileExists(atPath: own.path))
+    }
+
     func testDockCommandParses() throws {
         let inv = try CLIParser.parse(["dock", "hide"])
         XCTAssertEqual(inv.kind, .local(.dock(.hide)))

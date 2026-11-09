@@ -208,10 +208,24 @@ public final class WMDaemon {
         shell.start()
         KittyLiveSync.apply(shell.controller.state.scheme)
         cursors.start(identifier: wm.config.appearance.cursor)
+        installStarterWallpapers()
         startEventTap()
         startWatchers()
         installSignalHandlers()
         Log.wm.notice("SkyRose WM \(CaelestiaVersion.string, privacy: .public) managing \(self.wm.managedWindowIDs.count) window(s)")
+    }
+
+    /// Copies licensed starter pictures into ~/Pictures/Wallpapers/Static. Sets one only when
+    /// SkyRose has never set a wallpaper. An empty bundle (no redistributable art) does nothing.
+    private func installStarterWallpapers() {
+        guard let bundled = StarterWallpapers.bundledFolder else { return }
+        let dest = Paths.home.appendingPathComponent("Pictures/Wallpapers/Static", isDirectory: true)
+        let journal = BackupJournal(url: Paths.restoreManifest)
+        let has = ((try? journal.entries()) ?? []).contains { $0.kind == .wallpaper }
+        guard let report = try? StarterWallpapers.install(bundled: bundled, destination: dest, journal: journal, hasSkyRoseWallpaper: has),
+              let suggested = report.suggested else { return }
+        shell?.controller.wallpaper.journal = journal
+        _ = shell?.controller.wallpaper.apply(suggested)
     }
 
     private func startEventTap() {
