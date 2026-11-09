@@ -388,6 +388,28 @@ final class UninstallScriptTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: support.path))
     }
 
+    func testRestoresTheDockRemovalKeysAndRestartsTheDock() throws {
+        let journal = BackupJournal(url: support.appendingPathComponent("restore-manifest.json"))
+        try fm.createDirectory(at: support, withIntermediateDirectories: true)
+        try journal.append(BackupEntry(domain: "com.apple.dock", key: "autohide", oldValue: .bool(false), newValue: .bool(true)))
+        try journal.append(BackupEntry(domain: "com.apple.dock", key: "autohide-delay", oldValue: .absent, newValue: .double(1000)))
+        try journal.append(BackupEntry(domain: "com.apple.dock", key: "autohide-time-modifier", oldValue: .double(0.5), newValue: .double(0)))
+        try journal.append(BackupEntry(domain: "com.apple.dock", key: "tilesize", oldValue: .int(48), newValue: .int(16)))
+        let r = try runScript(["--yes", "--no-color"])
+        XCTAssertEqual(r.status, 0, r.out)
+        let c = calls
+        XCTAssertTrue(c.contains("defaults write com.apple.dock autohide -bool false"), c.joined(separator: "\n"))
+        XCTAssertTrue(c.contains("defaults delete com.apple.dock autohide-delay"), c.joined(separator: "\n"))
+        XCTAssertTrue(c.contains { $0.hasPrefix("defaults write com.apple.dock autohide-time-modifier -float 0.5") }, c.joined(separator: "\n"))
+        XCTAssertTrue(c.contains("defaults write com.apple.dock tilesize -int 48"), c.joined(separator: "\n"))
+        XCTAssertTrue(c.contains("killall Dock"), c.joined(separator: "\n"))
+    }
+
+    func testDockCommandParses() throws {
+        let inv = try CLIParser.parse(["dock", "hide"])
+        XCTAssertEqual(inv.kind, .local(.dock(.hide)))
+    }
+
     func testCLIPassesTheFlagsThrough() throws {
         let inv = try CLIParser.parse(["uninstall", "--dry-run", "--remove-fonts", "--yes"])
         XCTAssertEqual(inv.kind, .local(.uninstall(flags: ["--dry-run", "--remove-fonts"])))

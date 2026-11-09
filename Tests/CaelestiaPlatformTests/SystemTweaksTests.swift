@@ -76,6 +76,33 @@ final class SystemTweaksTests: XCTestCase {
         XCTAssertEqual((store.values["com.apple.dock/autohide"] as? NSNumber)?.boolValue, false)
     }
 
+    func testDockRemovalJournalsEveryOriginalIncludingAbsentKeys() throws {
+        store.values["com.apple.dock/autohide"] = false
+        store.values["com.apple.dock/autohide-delay"] = 0.5
+        store.values["com.apple.dock/tilesize"] = 48
+        var restarts = 0
+        let removal = DockRemoval(backup: tweaks.backup, restart: { restarts += 1 })
+        XCTAssertFalse(removal.isHidden())
+        try removal.hide()
+        XCTAssertEqual(restarts, 1)
+        XCTAssertTrue(removal.isHidden())
+        let entries = try tweaks.backup.journal.entries()
+        XCTAssertEqual(entries.map(\.key), ["autohide", "autohide-delay", "autohide-time-modifier", "tilesize"])
+        XCTAssertEqual(entries[0].oldValue, .bool(false))
+        XCTAssertEqual(entries[1].oldValue, .double(0.5))
+        XCTAssertEqual(entries[2].oldValue, .absent)
+        XCTAssertEqual(entries[3].oldValue, .int(48))
+        try removal.hide()
+        XCTAssertEqual(restarts, 1, "already hidden: nothing is written again")
+        try removal.show()
+        XCTAssertEqual(restarts, 2)
+        XCTAssertEqual((store.values["com.apple.dock/autohide"] as? NSNumber)?.boolValue, false)
+        XCTAssertEqual((store.values["com.apple.dock/autohide-delay"] as? NSNumber)?.doubleValue ?? -1, 0.5, accuracy: 0.001)
+        XCTAssertNil(store.values["com.apple.dock/autohide-time-modifier"])
+        XCTAssertEqual((store.values["com.apple.dock/tilesize"] as? NSNumber)?.intValue, 48)
+        XCTAssertFalse(removal.isHidden())
+    }
+
     func testUndoWithNothingRecordedDoesNothing() throws {
         try tweaks.undo(.dockAutoHide)
         XCTAssertEqual(store.writes, 0)

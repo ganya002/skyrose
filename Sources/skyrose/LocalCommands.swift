@@ -27,6 +27,8 @@ enum LocalCommands {
             return openSettings(onboarding: onboarding)
         case .cursor(let verb):
             return cursor(verb, json: invocation.json)
+        case .dock(let verb):
+            return dock(verb)
         case .kitty(let verb):
             return kitty(verb, json: invocation.json)
         case .fonts(let verb):
@@ -440,6 +442,30 @@ extension LocalCommands {
 // MARK: cursor
 
 extension LocalCommands {
+    /// `skyrose dock …`: hide the Dock without unloading it. `hide` journals the old values first.
+    static func dock(_ verb: DockVerb) -> Int32 {
+        let removal = DockRemoval()
+        switch verb {
+        case .status:
+            Console.out(removal.isHidden() ? "hidden (the Dock process is still running)" : "shown")
+            return ExitCode.ok
+        case .hide:
+            do { try removal.hide() } catch {
+                Console.error("could not hide the Dock: \(error)")
+                return ExitCode.failed
+            }
+            Console.out("Dock hidden. Mission Control and Spaces still work. `skyrose dock show` puts your old Dock back.")
+            return ExitCode.ok
+        case .show:
+            do { try removal.show() } catch {
+                Console.error("could not show the Dock: \(error)")
+                return ExitCode.failed
+            }
+            Console.out("Dock shown again.")
+            return ExitCode.ok
+        }
+    }
+
     /// `skyrose cursor …`: the session cursor theme. `set` writes `appearance.cursor` (the WM
     /// applies it); `reset` clears it and puts the macOS cursors back right here, so it also
     /// works when the WM is not running (uninstall).

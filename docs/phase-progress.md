@@ -5,7 +5,7 @@ Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part
 | Part | State | Commit |
 |---|---|---|
 | 8a. Bibata cursor bundled, on by default | done | "Phase 8 part 8a" |
-| 8b. Dock removed (not unloaded) | | |
+| 8b. Dock removed (not unloaded) | done | "Phase 8 part 8b" |
 | 8c. Starter wallpapers | | |
 | 8d. Updater | | |
 | 8e. Corner calibration | | |
@@ -20,6 +20,18 @@ finds that folder first, then Application Support, then Mousecape. New configs d
 activate and every 15 s, and clears it on quit. Settings still offers macOS, and says the wait
 cursor cannot be restored until logout. Gabby's config already names this cape, so the default
 change does not rewrite it. Not verified: a fresh login on this Mac.
+
+## Part 8b — Dock removed, not unloaded (done)
+
+`DockRemoval` journals `autohide`, `autohide-delay`, `autohide-time-modifier` and `tilesize`
+(including absent), then sets autohide, a 1000 s delay, a 0 time modifier and a 16 pt tile size,
+and restarts the Dock with `killall Dock`. It does not unload the Dock's launch agent.
+`skyrose dock show|hide|status`, Settings › Appearance, and an Apply button on the onboarding
+tweaks step. Nothing was applied on this Mac. The uninstaller already rewrites those defaults and
+restarts the Dock; a fixture-HOME test covers the four keys.
+
+What the Dock did that SkyRose covers: opening apps (launcher), running apps (workspace pills).
+Not covered: Dock stacks, recent items, and the Downloads folder.
 
 # Phase 7: first ship, installer and uninstaller (started 2026-11-06)
 

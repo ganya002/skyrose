@@ -253,6 +253,47 @@ final class TweaksModel: ObservableObject {
     }
 }
 
+/// Recommended on the onboarding step. Nothing is written until Apply.
+struct DockRemovalCard: View {
+    @Environment(\.look) var look
+    @State private var hidden = false
+    @State private var error: String?
+
+    var body: some View {
+        Card {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: "dock.rectangle").font(.system(size: 20)).foregroundStyle(look[.primary])
+                    .frame(width: 44, height: 44).background(Circle().fill(look[.primaryContainer].opacity(0.6)))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Remove the Dock").font(look.font(15, .semibold)).foregroundStyle(look[.onSurface])
+                    Text("Recommended. The Dock never slides out. It keeps running, so Mission Control and Spaces stay. Undo puts your old Dock back.")
+                        .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 6) {
+                    if hidden {
+                        PillButton(title: "Undo", icon: "arrow.uturn.backward", kind: .outline) { toggle(false) }
+                    } else {
+                        PillButton(title: "Apply", kind: .filled) { toggle(true) }
+                            .accessibilityIdentifier("tweak.apply.dockRemoval")
+                    }
+                }
+            }
+            if let error { Text(error).font(look.font(12)).foregroundStyle(look[.error]) }
+        }
+        .onAppear { hidden = DockRemoval().isHidden() }
+    }
+
+    func toggle(_ on: Bool) {
+        let removal = DockRemoval()
+        do {
+            if on { try removal.hide() } else { try removal.show() }
+            hidden = removal.isHidden()
+            error = nil
+        } catch { self.error = "\(error)" }
+    }
+}
+
 struct TweaksStep: View {
     @StateObject private var model = TweaksModel()
     @Environment(\.look) var look
@@ -297,6 +338,7 @@ struct TweaksStep: View {
                     }
                 }
             }
+            DockRemovalCard()
             if let e = model.error {
                 Text(e).font(look.font(12)).foregroundStyle(look[.error])
             }

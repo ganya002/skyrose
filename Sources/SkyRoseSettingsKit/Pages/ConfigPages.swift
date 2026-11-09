@@ -150,6 +150,7 @@ struct AppearancePage: View {
                 }
             }
             .animation(look.motion.page, value: store.config.wm.screenFrame)
+            DockCard(store: store)
             CursorCard(store: store)
             FontsCard(store: store)
             Card {
@@ -426,6 +427,42 @@ struct CloseQuitsCard: View {
     static func icon(for id: String) -> NSImage {
         guard let url = appURL(id) else { return NSImage(systemSymbolName: "app", accessibilityDescription: nil) ?? NSImage() }
         return NSWorkspace.shared.icon(forFile: url.path)
+    }
+}
+
+/// Appearance › Dock: the Dock stays running (Mission Control, Spaces) but cannot slide on screen.
+struct DockCard: View {
+    @ObservedObject var store: SettingsStore
+    @Environment(\.look) var look
+    @State private var hidden = false
+    @State private var note: String?
+
+    var body: some View {
+        Card {
+            SectionLabel(text: "Dock")
+            SettingRow(title: "Remove the Dock",
+                       detail: "The Dock does not slide out when the pointer hits the screen edge. It keeps running, so Mission Control and Spaces still work. Your previous Dock settings are written down and restored if you turn this off or uninstall.",
+                       icon: "dock.rectangle") {
+                PillToggle(isOn: Binding(get: { hidden }, set: { set($0) }), accessibilityLabel: "Remove the Dock")
+            }
+            Text("Open apps from the launcher (tap ⌥). Running apps sit on the workspace pills in the bar. Dock stacks and the Downloads folder are not in the bar.")
+                .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+            if let note { Text(note).font(look.font(12)).foregroundStyle(look[.onSurfaceVariant]) }
+        }
+        .onAppear { hidden = DockRemoval().isHidden() }
+    }
+
+    func set(_ on: Bool) {
+        let removal = DockRemoval()
+        do {
+            if on { try removal.hide() } else { try removal.show() }
+            hidden = removal.isHidden()
+            note = hidden ? "Dock hidden." : "Dock shown again."
+        } catch {
+            note = error.localizedDescription
+            hidden = removal.isHidden()
+        }
+        store.flush()
     }
 }
 

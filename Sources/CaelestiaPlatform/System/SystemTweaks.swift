@@ -36,6 +36,74 @@ public struct SystemTweak: Identifiable, Equatable, Sendable {
     public static let all: [SystemTweak] = [.dockAutoHide, .menuBarAutoHide]
 }
 
+/// Hides the Dock so completely that the pointer cannot bring it back, without unloading it.
+/// The Dock process also runs Mission Control and Spaces, so it is restarted, never disabled.
+/// Every original value is journaled before it is changed, including keys that did not exist.
+public final class DockRemoval {
+    public static let domain = "com.apple.dock"
+    public static let delayKey = "autohide-delay"
+    public static let modifierKey = "autohide-time-modifier"
+    public static let tileKey = "tilesize"
+    /// Long enough that the Dock's show animation never starts when the pointer hits the edge.
+    public static let hiddenDelay = 1000.0
+    public static let hiddenTileSize = 16
+
+    public let backup: DefaultsBackup
+    /// `killall Dock`: the process relaunches itself. Tests pass a no-op.
+    public var restart: () -> Void
+
+    public init(backup: DefaultsBackup = DefaultsBackup(journal: BackupJournal(url: Paths.restoreManifest)),
+                restart: @escaping () -> Void = DockRemoval.restartLive) {
+        self.backup = backup
+        self.restart = restart
+    }
+
+    public static func restartLive() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+        p.arguments = ["Dock"]
+        try? p.run()
+    }
+
+    /// True when SkyRose's "never show" values are what macOS has now.
+    public func isHidden() -> Bool {
+        let hide = (backup.store.value(domain: Self.domain, key: "autohide") as? NSNumber)?.boolValue ?? false
+        let delay = (backup.store.value(domain: Self.domain, key: Self.delayKey) as? NSNumber)?.doubleValue ?? 0
+        return hide && delay >= Self.hiddenDelay - 0.001
+    }
+
+    /// Writes the hidden values. A key already at the target is left alone (and not re-journaled).
+    public func hide() throws {
+        var changed = false
+        changed = try set(true, key: "autohide") || changed
+        changed = try set(Self.hiddenDelay, key: Self.delayKey) || changed
+        changed = try set(0.0, key: Self.modifierKey) || changed
+        changed = try set(Self.hiddenTileSize, key: Self.tileKey) || changed
+        if changed { restart() }
+    }
+
+    /// Puts back the first journaled value of each key (or leaves a key SkyRose never wrote).
+    public func show() throws {
+        var changed = false
+        for key in ["autohide", Self.delayKey, Self.modifierKey, Self.tileKey] {
+            guard let first = try backup.journal.firstEntry(domain: Self.domain, key: key) else { continue }
+            let now = BackupValue(plist: backup.store.value(domain: Self.domain, key: key))
+            if now == first.oldValue { continue }
+            try backup.write(first.oldValue.plistValue, domain: Self.domain, key: key, note: "dock shown again")
+            changed = true
+        }
+        if changed { restart() }
+    }
+
+    @discardableResult
+    private func set(_ value: Any, key: String) throws -> Bool {
+        let now = BackupValue(plist: backup.store.value(domain: Self.domain, key: key))
+        if now == BackupValue(plist: value) { return false }
+        try backup.write(value, domain: Self.domain, key: key, note: "remove the Dock")
+        return true
+    }
+}
+
 /// Reads, applies and undoes ``SystemTweak``s.
 public final class SystemTweaks {
     /// `NSGlobalDomain` (what `defaults write -g` uses); mapped to `kCFPreferencesAnyApplication`.
