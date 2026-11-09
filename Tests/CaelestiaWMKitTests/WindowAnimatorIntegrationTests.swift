@@ -54,7 +54,9 @@ final class FakeWindowAnimator: WindowAnimator {
 @MainActor
 final class WindowAnimatorIntegrationTests: XCTestCase {
     private func harness() -> (Harness, FakeWindowAnimator) {
-        let h = Harness()
+        var config = Config()
+        config.animations.windows = .snapshot
+        let h = Harness(config: config)
         let a = FakeWindowAnimator()
         a.system = h.system
         h.wm.windowAnimator = a
@@ -91,11 +93,7 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         XCTAssertEqual(req.windows.map(\.id).sorted(), [a.windowID, b.windowID, c.windowID])
 
         anim.commitAll()
-        // The first sample is the frame the window already has. It reaches the slot on the spring.
-        XCTAssertEqual(a.frame, beforeA)
-        h.clock.now.addTimeInterval(h.wm.liveResizeSchedule.spec.duration + 0.05)
-        h.wm.stepLiveResize()
-        XCTAssertEqual(a.frame, toA)
+        XCTAssertEqual(a.frame, toA, "commit lands the real window on its tile, with no cover")
         XCTAssertGreaterThan(c.setFrameCount, 0)
         XCTAssertEqual(c.frame, h.wm.visiblePlacements[c.windowID]?.frame)
     }
@@ -302,8 +300,10 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         w.minSize = CGSize(width: 900, height: 0)
         h.system.open("other")
         h.settle()
-        XCTAssertFalse(a.applied.contains { $0.0 == w.windowID }, "a resize has no cover to retarget: \(a.applied)")
-        XCTAssertTrue(h.wm.liveResizeSchedule.contains(w.windowID))
+        XCTAssertGreaterThanOrEqual(w.frame.width, 900, "the real window kept the size the app allows")
+        for (id, frame) in a.applied where id == w.windowID {
+            XCTAssertEqual(frame.width, 900, "a cover, if any, ends on the size the app actually took")
+        }
         // A new window has no previous frame to compare with (an app may apply its size a moment
         // later): its first write is never reported. A window that ignores writes is reported
         // where it really is.

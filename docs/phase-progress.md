@@ -7,7 +7,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | Part | State | Commit |
 |---|---|---|
 | 9i. Rock-solid tiling | done | "Phase 9 part 9i" |
-| 9j. Smooth live resize | done | "Phase 9 part 9j" |
+| 9j. Smooth live resize | redone, recorded | "Phase 9 part 9j" (2fe3e6e still blurred; this commit replaces it) |
 | 9a. Cursor follows focus | | |
 | 9b. Focus follows mouse | | |
 | 9c. Easy setup | | |
@@ -49,21 +49,30 @@ User float survived a new process and a daemon restart. `/usr/bin/swift test`: 1
 Not verified on this Mac: no TestWindows were opened, the running WM was not restarted, and
 nothing was applied to Gabby's windows, Dock, cursor, wallpaper or desktop picture.
 
-## Part 9j — smooth live resize (done)
+## Part 9j — smooth live resize (redone)
 
-A size change is no longer drawn by scaling a ScreenCaptureKit still (that still is the fade,
-the grey and the stretch). `LiveResizeSchedule` samples the window-move spring (the same 300 ms
-spring as a retile, `AnimationTable.gabbySpringy` `.windowsMove`) onto the real window frame.
-There is no opacity, blur or scale in that path. One track per window: a newer target replaces
-the older one before the next tick. Two read-backs that are not the frame we asked for snap that
-window to the final frame. The daemon steps it from a display link at 60–120 Hz (preferred 120).
-A mouse resize between tiles still writes the real frames and now updates neighbours at up to
-120 Hz instead of 30. Position-only moves still use the snapshot cover.
+The first attempt (40de4bf, 2fe3e6e) still blurred on this Mac: the default was the snapshot
+cover, and a size change big enough for the window server to scale the old buffer stays blurry
+until the app paints. Live mode is now the default. Snapshot ("Glide") is opt-in. Moves and
+resizes, including a move that does not change size, go to the real window. The border stays
+fully visible on that frame instead of fading out.
 
-Not verified on this Mac: no 60/120 fps recording of kitty or TestWindows. The check is the
-scheduler (start frame, exact end frame, coalesce, snap) and a headless WM resize that never
-hands a size change to the animator. Animator tests that expected a retile to scale a still now
-expect the live schedule instead. `/usr/bin/swift test` after that: 0 failures.
+`AXEnhancedUserInterface` is turned off for an app while SkyRose drives it and restored on quit,
+so AppKit does not animate the frame. Writes are coalesced per app on a background queue.
+Measured on this Mac: a step of 2pt per 16ms stays sharp, and 6pt per 16ms does not. Each tick
+therefore moves at most 2pt. A faster flick trails the cursor until it catches up. The keyboard
+path is still the window-move spring, limited by that step.
+
+Recorded with the WM's own screen recorder (the terminal has no Screen Recording grant):
+
+- `docs/bugs/resize-keyboard.mov` — 84 frames, 1.783s, 47 fps (mean interval 21ms). One
+  keyboard resize of a kitty with neighbours on screen. Text in the window stayed sharp
+  (laplacian of the text tile stayed in the tens of thousands). No `live jump` log lines.
+- `docs/bugs/resize-drag.mov` — 124 frames, 2.217s, 54 fps (mean interval 18ms). A slow edge
+  drag. Every sample of the kitty was sharp (laplacian above 100000).
+
+The built-in panel was at 60Hz during the recording (kitty reported 60 Hz), so this is not a
+120Hz proof. The display link still asks for 60–120, preferred 120.
 
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 

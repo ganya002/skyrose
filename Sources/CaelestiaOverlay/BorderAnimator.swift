@@ -164,8 +164,10 @@ public struct BorderAnimator: Equatable, Sendable {
         target = new
         target.frame = shownFrameTarget
         if frameChanged {
-            if wasVanishing || !Self.fades(table) {
-                snap(to: newFrame)
+            // Snap stays on the window at full opacity. The fade exists for the opt-in glide
+            // cover, where the border waits under the still. A live resize must not fade.
+            if new.motion == .snap || wasVanishing || !Self.fades(table) {
+                showAt(newFrame)
             } else {
                 hideForMove(to: newFrame, at: now)
             }
@@ -203,6 +205,13 @@ public struct BorderAnimator: Equatable, Sendable {
         pendingFrame = nil
         moveFade.animate(to: 1, spec: Self.moveFadeIn, at: now)
         return true
+    }
+
+    /// On the window, fully visible, immediately. Clears a fade that a previous move started.
+    public mutating func showAt(_ frame: CGRect) {
+        revealAt = nil
+        moveFade.set(1)
+        snap(to: frame)
     }
 
     /// Jumps to `frame` at once (no fade): used when motion is off and after a reveal.
@@ -284,11 +293,19 @@ public struct OverlayEngine: Sendable {
         return removed
     }
 
-    /// The real window frame changed under us (drag, app resize): hide the border until the
-    /// window is still, then show it at the final frame. Ignored for unknown ids.
-    public mutating func track(_ id: CGWindowID, frame: CGRect, at now: TimeInterval) {
+    /// Puts `id` fully visible on `frame` right now (a live resize tick).
+    public mutating func snapVisible(_ id: CGWindowID, frame: CGRect) {
+        guard var b = borders[id] else { return }
+        b.showAt(frame)
+        borders[id] = b
+    }
+
+    /// The real window frame changed under us (drag, app resize): the border stays fully
+    /// visible on that frame. Ignored for unknown ids.
+    public mutating func track(_ id: CGWindowID, frame: CGRect, at _: TimeInterval) {
         guard var b = borders[id], b.phase == .shown, b.target.frame != frame else { return }
-        if BorderAnimator.fades(table) { b.hideForMove(to: frame, at: now) } else { b.snap(to: frame) }
+        // The window is moving under the pointer. The border stays sharp on it.
+        b.showAt(frame)
         borders[id] = b
     }
 

@@ -53,14 +53,14 @@ final class OverlayEngineTests: XCTestCase {
         XCTAssertEqual(e.samples(at: done)[1]!.alpha, 1, accuracy: 1e-9)
     }
 
-    func testSnapMotionAlsoFadesInsteadOfJumping() {
+    func testSnapMotionStaysVisibleOnTheNewFrame() {
         var e = engine()
         e.apply(OverlayScene(borders: [border(1, a, appear: .instant)]), at: 0)
         e.apply(OverlayScene(borders: [border(1, b, appear: .instant, motion: .snap)]), at: 1)
-        let s = e.samples(at: 1 + BorderAnimator.moveFadeOut.duration + 0.001)[1]!
-        XCTAssertEqual(s.frame, a, "frame is not touched until the reveal")
-        XCTAssertEqual(s.alpha, 0, accuracy: 1e-9)
-        XCTAssertTrue(e.isAnimating(at: 1))
+        let s = e.samples(at: 1)[1]!
+        XCTAssertEqual(s.frame, b, "a live border is on the window this frame")
+        XCTAssertEqual(s.alpha, 1, accuracy: 1e-9)
+        XCTAssertFalse(e.isAnimating(at: 1))
     }
 
     func testSnapMotionJumpsImmediatelyWhenMoveFadeIsOff() {
@@ -151,15 +151,14 @@ final class OverlayEngineTests: XCTestCase {
         XCTAssertEqual(e.shownIDs, [5, 11])
     }
 
-    func testTrackHidesShownBorderAndRevealsWhenStillAndIgnoresUnknown() {
+    func testTrackFollowsTheRealFrameAndIgnoresUnknown() {
         var e = engine()
         e.apply(OverlayScene(borders: [border(1, a, appear: .instant)]), at: 0)
         let real = CGRect(x: 10, y: 20, width: 30, height: 40)
         e.track(1, frame: real, at: 1)
         XCTAssertEqual(e.borders[1]?.target.frame, real)
-        XCTAssertEqual(e.samples(at: 1.05)[1]!.frame, a, "not moved while hidden")
-        e.advance(at: 1 + BorderAnimator.moveSettle + 0.001)
-        XCTAssertEqual(e.samples(at: 1 + BorderAnimator.moveSettle + 0.001)[1]!.frame, real)
+        XCTAssertEqual(e.samples(at: 1)[1]!.frame, real, "the border is on the window, not left behind")
+        XCTAssertEqual(e.samples(at: 1)[1]!.alpha, 1, accuracy: 1e-9)
 
         e.track(99, frame: real, at: 2)
         XCTAssertNil(e.borders[99])
@@ -284,7 +283,7 @@ final class OverlayEngineTests: XCTestCase {
         XCTAssertFalse(e.isAnimating(at: 1))
     }
 
-    func testDragTrackingKeepsBorderHiddenUntilFrameIsStillForMoveSettle() {
+    func testDragTrackingKeepsTheBorderVisibleOnEveryFrame() {
         var e = engine()
         e.apply(OverlayScene(borders: [border(1, a, appear: .instant)]), at: 0)
         var t = 1.0
@@ -294,21 +293,13 @@ final class OverlayEngineTests: XCTestCase {
             e.track(1, frame: frame, at: t)
             e.advance(at: t)
             let s = e.samples(at: t)[1]!
-            XCTAssertEqual(s.frame, a, "hidden at the old place, never follows the drag (frame \(i))")
-            if i >= 5 { XCTAssertEqual(s.alpha, 0, accuracy: 1e-9) }
+            XCTAssertEqual(s.frame, frame, "the border follows the drag (frame \(i))")
+            XCTAssertEqual(s.alpha, 1, accuracy: 1e-9)
             t += 0.016
         }
-        let last = t - 0.016
-        // Still, but not for long enough.
-        e.track(1, frame: frame, at: last + 0.1)
-        e.advance(at: last + BorderAnimator.moveSettle - 0.001)
-        XCTAssertEqual(e.samples(at: last + 0.1)[1]!.frame, a)
-        e.advance(at: last + BorderAnimator.moveSettle + 0.001)
-        XCTAssertEqual(e.samples(at: last + BorderAnimator.moveSettle + 0.001)[1]!.frame, frame)
-        let end = last + BorderAnimator.moveSettle + BorderAnimator.moveFadeIn.duration + 0.01
-        e.advance(at: end)
-        XCTAssertEqual(e.samples(at: end)[1]!.alpha, 1, accuracy: 1e-9)
-        XCTAssertFalse(e.isAnimating(at: end))
+        XCTAssertEqual(e.samples(at: t)[1]!.frame, frame)
+        XCTAssertEqual(e.samples(at: t)[1]!.alpha, 1, accuracy: 1e-9)
+        XCTAssertFalse(e.isAnimating(at: t))
     }
 
     func testTrackWithTheSameFrameDoesNotPushTheRevealBack() {

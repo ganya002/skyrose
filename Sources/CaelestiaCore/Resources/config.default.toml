@@ -366,12 +366,10 @@ kittyFontSize = 13.0
 # "gabby-springy" (hypr-user.lua: riko spring, snappy bezier, speed 3.2), "caelestia-stock",
 # "reduced" or "off".
 preset = "gabby-springy"
-# Window animations (open = pop in, close = shrink + fade, retile/swap/drag = spring) in
-# Standard mode: "snapshot" animates ScreenCaptureKit stills of the windows on an overlay while
-# the real windows move once underneath (needs Screen Recording; without it moves are instant),
-# "off" snaps windows to their final frame. Curve and speed: the windowsIn / windowsMove /
-# windowsOut overrides below and globalMultiplier.
-windows = "snapshot"
+# Window animations in Standard mode. "live" (default) moves the real window every refresh:
+# no snapshot, blur, fade or scale. "snapshot" is the old still-image cover, only if you set it.
+# "off" snaps to the final frame. Curve and speed: windowsIn / windowsMove / windowsOut below.
+windows = "live"
 # Multiplier on every WM duration (1.0 = as configured).
 globalMultiplier = 1.0
 # Speed of every animation (windows, workspaces, shell): 2.0 = twice as fast, 0.5 = half speed.

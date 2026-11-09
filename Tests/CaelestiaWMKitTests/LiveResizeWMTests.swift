@@ -43,13 +43,9 @@ final class LiveResizeWMTests: XCTestCase {
         h.wm.setNeedsLayout()
         h.settle()
         XCTAssertEqual(recorder.sizeChanges, 0, "the cover is not given a size change to scale")
-        XCTAssertNotEqual(h.wm.visiblePlacements[a.windowID]?.frame, before)
         let target = h.wm.visiblePlacements[a.windowID]!.frame
-        // The first sample is the frame the window already has.
-        XCTAssertEqual(a.frame, before)
-        h.clock.now.addTimeInterval(h.wm.liveResizeSchedule.spec.duration + 0.05)
-        h.wm.stepLiveResize()
-        h.settle()
+        XCTAssertNotEqual(target, before)
+        // Manual scheduling has no display link, so the pass lands on the final real frame.
         XCTAssertEqual(a.frame, target)
         XCTAssertFalse(WorkspaceLayout.overlaps(a.frame, h.wm.visiblePlacements[h.wm.managedWindowIDs.first { $0 != a.windowID }!]!.frame))
         let done = a.setFrameCount

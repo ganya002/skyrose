@@ -391,8 +391,10 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     }
     /// How real windows animate in Standard mode (SIP on).
     public enum WindowMode: String, Codable, Sendable, CaseIterable {
+        /// The real window moves every refresh. No snapshot, blur, fade or scale. This is the default.
+        case live
         /// ScreenCaptureKit stills animate on an overlay cover while the real windows are moved
-        /// once underneath (needs Screen Recording; instant without it).
+        /// once underneath (needs Screen Recording; instant without it). Off unless set explicitly.
         case snapshot
         /// Windows snap to their final frame; only the borders fade.
         case off
@@ -400,7 +402,7 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     public var preset: Preset = .gabbySpringy
     /// Window open/close/move/drag animations. Curves and speeds come from the preset and the
     /// `windowsIn` / `windowsMove` / `windowsOut` overrides.
-    public var windows: WindowMode = .snapshot
+    public var windows: WindowMode = .live
     /// Global multiplier on all durations (Hyprland global speed / shell durations.scale are
     /// applied separately inside the Motion tables).
     public var globalMultiplier: Double = 1.0

@@ -71,6 +71,10 @@ final class TestDecorations: WindowDecorations {
         controller.noteExternalMove(id)
     }
 
+    func followLiveFrame(_ id: WindowID, _ frame: CGRect) {
+        controller.followLiveFrame(id, frame)
+    }
+
     func workspaceWillChange(_ transitions: [WorkspaceTransition], resume: @escaping () -> Void) -> Bool {
         self.transitions.append(transitions)
         if holds {

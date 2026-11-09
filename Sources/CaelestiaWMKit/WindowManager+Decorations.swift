@@ -12,6 +12,8 @@ public protocol WindowDecorations: AnyObject {
     func apply(_ scene: OverlayScene)
     /// The app or the user moved/resized `id` (not an echo of our own write).
     func externalMove(_ id: WindowID)
+    /// SkyRose wrote this frame itself. The border stays fully visible on it.
+    func followLiveFrame(_ id: WindowID, _ frame: CGRect)
     /// Visible workspaces are about to change. Return true to hold the layout until `resume` is
     /// called (the slide puts its cover up first); `resume` may also be called synchronously.
     func workspaceWillChange(_ transitions: [WorkspaceTransition], resume: @escaping () -> Void) -> Bool
@@ -163,10 +165,13 @@ extension WindowManager {
             // Drawn by the window animator's cover (with its own ring): the real border just
             // waits at the final frame, hidden under the cover.
             let covered = windowAnimator?.isCovering(id) == true
+            // Live motion keeps the border on the window. Glide is the only path that fades it
+            // (the border waits under the snapshot).
+            let track = config.animations.windows == .live || drag?.window == id || covered || liveResizeSchedule.contains(id)
             targets.append(BorderTarget(
                 id: id, frame: frame, isActive: id == focused,
                 appear: shownBefore.contains(id) || group != nil || covered ? .instant : .popIn,
-                motion: drag?.window == id || covered ? .snap : .animate,
+                motion: track ? .snap : .animate,
                 group: group
             ))
         }

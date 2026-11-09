@@ -134,12 +134,11 @@ final class OverlayControllerTests: XCTestCase {
         c.noteExternalMove(1)
         c.tick(at: clock.now + 0.1)
         let w = c.style.borderWidth
-        XCTAssertEqual(c.engine.borders[1]?.target.frame, real[1]!.insetBy(dx: -w, dy: -w))
-        // Hidden in place while the window moves, then drawn at the final frame.
-        XCTAssertEqual(fake(c, 1).renders.last!.sample.frame, a)
-        c.tick(at: clock.now + 0.1 + BorderAnimator.moveSettle)
-        let last = fake(c, 1).renders.last!
-        XCTAssertEqual(last.sample.frame, real[1]!.insetBy(dx: -w, dy: -w))
+        let followed = real[1]!.insetBy(dx: -w, dy: -w)
+        XCTAssertEqual(c.engine.borders[1]?.target.frame, followed)
+        let drawn = fake(c, 1).renders.last!
+        XCTAssertEqual(drawn.sample.frame, followed, "the border stays on the window while it moves")
+        XCTAssertEqual(drawn.sample.alpha, 1, accuracy: 1e-9)
     }
 
     func testExternalMoveWithGroupBarGrowsUpward() {

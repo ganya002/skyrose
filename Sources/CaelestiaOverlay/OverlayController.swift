@@ -111,6 +111,15 @@ public final class OverlayController {
         }
     }
 
+    /// A frame SkyRose itself just wrote. The border is on that rect, fully visible, this refresh.
+    public func followLiveFrame(_ id: CGWindowID, _ frame: CGRect) {
+        guard isEnabled, engine.borders[id] != nil else { return }
+        let now = clock()
+        engine.snapVisible(id, frame: frame)
+        if !visibleTargets.contains(id), onScreen([id]).contains(id) { visibleTargets.insert(id) }
+        render(at: now)
+    }
+
     /// The app or the user moved `id` (not us): follow its real frame 1:1 for a moment.
     public func noteExternalMove(_ id: CGWindowID) {
         guard isEnabled, engine.borders[id] != nil else { return }

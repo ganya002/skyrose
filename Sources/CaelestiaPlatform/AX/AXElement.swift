@@ -292,6 +292,14 @@ public struct AXElement: Hashable, CustomStringConvertible {
         setAttribute(name, AXValue.make(size))
     }
 
+    /// One size write and one position write. No read-back and no enhanced-UI toggle: those
+    /// belong on the animation clock's thread, and a slow read must not stall the other windows.
+    public func setFrameFast(_ target: CGRect) {
+        let target = target.integralPoints
+        setSize(kAXSizeAttribute, target.size)
+        setPoint(kAXPositionAttribute, target.origin)
+    }
+
     @discardableResult
     public func setBool(_ name: String, _ value: Bool) -> AXFailure? {
         setAttribute(name, (value ? kCFBooleanTrue : kCFBooleanFalse) as CFTypeRef)

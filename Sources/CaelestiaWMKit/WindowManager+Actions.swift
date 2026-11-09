@@ -258,7 +258,7 @@ extension WindowManager {
         state.recordFocus(p.window, unfullscreenOthers: config.wm.unfullscreenOnFocus)
         // A tiled window dragged with the mouse: its still follows the pointer on the animator's
         // cover and a preview shows the slot it would swap into; the real window stays put.
-        if kind != .windowResizeDrag, p.kind == .tiled, let animator = windowAnimator {
+        if config.animations.windows == .snapshot, kind != .windowResizeDrag, p.kind == .tiled, let animator = windowAnimator {
             var scene = animationScene(visiblePlacements, raiseOrder: Array(raised))
             for i in scene.indices { scene[i].isActive = scene[i].id == p.window }
             dragIsLive = animator.beginDrag(p.window, pointer: location, scene: WindowAnimationRequest(changes: [], windows: scene, displays: displayFrames))

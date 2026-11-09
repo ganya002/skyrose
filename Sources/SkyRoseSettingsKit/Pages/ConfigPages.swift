@@ -367,7 +367,7 @@ struct WindowsPage: View {
             Card {
                 SectionLabel(text: "Motion")
                 SettingRow(title: "Window animations", detail: "Windows glide into place (needs Screen Recording). Off: they move at once.", icon: "wand.and.rays") {
-                    PillSegmented(options: [(AnimationsConfig.WindowMode.snapshot, "Glide", nil), (.off, "Off", nil)],
+                    PillSegmented(options: [(AnimationsConfig.WindowMode.live, "Live", nil), (.snapshot, "Glide", nil), (.off, "Off", nil)],
                                   selection: store.binding(\.animations.windows, "animations.windows") { .string($0.rawValue) })
                 }
                 SettingRow(title: "Animation speed", detail: "2× is twice as fast.", icon: "speedometer") {

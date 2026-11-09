@@ -98,6 +98,10 @@ public final class AXWindow: Hashable, Identifiable, CustomStringConvertible {
     /// Called by `setFrame`/`setPosition` with the frames the window was asked to take and the one it
     /// reported back, so `WindowDiscovery` can tag the resulting AX move/resize notifications as echoes.
     public var frameExpectationSink: ((CGWindowID, CGRect) -> Void)?
+    /// While SkyRose is driving frames, AppKit must not animate them. Turning
+    /// `AXEnhancedUserInterface` back on makes the next size change scale and blur.
+    private let animationLock = NSLock()
+    private var holdFrameAnimationOff = false
 
     public var id: CGWindowID { windowID }
 
@@ -130,11 +134,48 @@ public final class AXWindow: Hashable, Identifiable, CustomStringConvertible {
     /// Frame read with the failure reason preserved.
     public func readFrame() -> Result<CGRect, AXFailure> { element.rectResult() }
 
+    /// The next AX frame changes must be instant. One attribute write, no read-back.
+    /// Live resize calls this off the main thread, before the frames, and leaves it off
+    /// until SkyRose quits: turning it back on is what scales the window.
+    public func suppressSystemFrameAnimation() {
+        animationLock.lock()
+        holdFrameAnimationOff = true
+        animationLock.unlock()
+        let attribute = AXElement.enhancedUserInterfaceAttribute
+        if appElement.bool(attribute) == true { appElement.setBool(attribute, false) }
+    }
+
+    /// Set on the main thread before the background write, so a `setFrame` on main cannot
+    /// turn the animation back on in the gap.
+    public func holdSystemFrameAnimationOff() {
+        animationLock.lock()
+        holdFrameAnimationOff = true
+        animationLock.unlock()
+    }
+
+    public func releaseSystemFrameAnimationHold() {
+        animationLock.lock()
+        holdFrameAnimationOff = false
+        animationLock.unlock()
+    }
+
+    /// Puts `AXEnhancedUserInterface` back. Only SkyRose's shutdown calls this.
+    public func restoreSystemFrameAnimation() {
+        appElement.setBool(AXElement.enhancedUserInterfaceAttribute, true)
+    }
+
+    private var systemFrameAnimationHeldOff: Bool {
+        animationLock.lock()
+        defer { animationLock.unlock() }
+        return holdFrameAnimationOff
+    }
+
     /// Moves and resizes the window: size, then position, then size again (the second size
     /// write handles apps that clamp to a minimum size or reject the first write). Returns the
     /// frame read back afterwards, which may differ from `target` (min size, screen clamping).
     /// Unchanged frames (within 0.5 pt) are not written. Apps with `AXEnhancedUserInterface`
-    /// (Chrome/Electron) get it switched off for the duration of the write, like AeroSpace/yabai do.
+    /// (Chrome/Electron) get it switched off for the write. A live resize holds it off so the
+    /// window is never scaled.
     @discardableResult
     public func setFrame(_ target: CGRect) -> CGRect {
         let target = target.integralPoints
@@ -174,7 +215,7 @@ public final class AXWindow: Hashable, Identifiable, CustomStringConvertible {
         let attribute = AXElement.enhancedUserInterfaceAttribute
         let wasEnhanced = appElement.bool(attribute) == true
         if wasEnhanced { appElement.setBool(attribute, false) }
-        defer { if wasEnhanced { appElement.setBool(attribute, true) } }
+        defer { if wasEnhanced, !systemFrameAnimationHeldOff { appElement.setBool(attribute, true) } }
         return body()
     }
 

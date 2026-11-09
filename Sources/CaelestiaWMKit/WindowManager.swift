@@ -99,9 +99,9 @@ public final class WindowManager {
     /// After a native drag ends, late AX notifications from the drag are re-applied without
     /// counting as the app fighting its slot.
     public static let nativeDragGrace: TimeInterval = 0.6
-    /// Neighbours follow a native edge resize at most this often (a ProMotion frame).
-    /// The real window is moved; a still is never scaled to the new size.
-    public static let liveResizeInterval: TimeInterval = 1.0 / 120
+    /// A mouse-edge resize updates the layout on every event. The display link writes the
+    /// frames; this is not a throttle (a throttle is lag).
+    public static let liveResizeInterval: TimeInterval = 0
     /// How often the button state is polled while a native drag is open (the event tap's
     /// mouse-up normally ends it first).
     public static let pointerPollInterval: TimeInterval = 1.0 / 30
@@ -200,8 +200,18 @@ public final class WindowManager {
     /// Keyboard and layout resizes, sampled onto the real window (no snapshot cover).
     var liveResizeSchedule = LiveResizeSchedule()
     var liveResizeLink: LiveResizeLink?
+    /// Per-app AX writes. The display link enqueues a frame and returns.
+    let frameWriter = AsyncFrameWriter()
+    /// Apps whose `AXEnhancedUserInterface` SkyRose turned off so frame changes are not scaled.
+    /// Restored in `shutdown`.
+    var liveFrameApps: Set<Int32> = []
+    /// Echoes of a live write that arrive just after the track ends are not the app fighting its tile.
+    var liveGraceUntil: [WindowID: Date] = [:]
     /// Last real frame written for a live resize, so a tick that has not moved skips AX.
     var lastLiveFrame: [WindowID: CGRect] = [:]
+    /// Seconds since the previous live tick. The first tick of a gesture takes one sharp step.
+    var liveFrameStep: TimeInterval = 0
+    var liveFrameStamp: TimeInterval?
     /// Until when late notifications of a finished native drag are re-applied silently.
     var nativeGrace: [WindowID: Date] = [:]
     /// Where a window really is before the next pass (dropped after a native drag): the pass
@@ -339,6 +349,7 @@ public final class WindowManager {
         stopReconcileTimer()
         stopLiveResizePump()
         liveResizeSchedule = LiveResizeSchedule()
+        restoreSystemFrameAnimations()
         // SIP-off mode: every alpha / level / transform / shadow goes back first.
         enhanced?.shutdown()
         if isManaging { saveSessionIfChanged(immediately: true) }
@@ -518,12 +529,16 @@ public final class WindowManager {
         // window to its end (live finding, round 4).
         let busy = windowAnimator?.isAnimating == true
         let showsReappeared = suspendChanged || (!revealed.isEmpty && !busy)
-        let animated = windowAnimator != nil && drag?.kind != .resize && !liveResize && !showsReappeared
-            && (lastVisibleWorkspaces.isEmpty || workspaceTransitions(from: lastVisibleWorkspaces, to: visibleWorkspacesByDisplay()).isEmpty)
+        let workspaceSlide = !lastVisibleWorkspaces.isEmpty
+            && !workspaceTransitions(from: lastVisibleWorkspaces, to: visibleWorkspacesByDisplay()).isEmpty
+        // Glide (a snapshot cover) only when the user turned it on. The default moves the real windows.
+        let glide = config.animations.windows == .snapshot && windowAnimator != nil && drag?.kind != .resize
+            && !liveResize && !showsReappeared && !workspaceSlide
+        let live = config.animations.windows == .live && !showsReappeared && !workspaceSlide
         if suspendChanged { windowAnimator?.cancel() }
         var writes: [() -> Bool] = []
         var changes: [WindowFrameChange] = []
-        let instantSwitch = !animated && enhanced?.instantWorkspaces == true
+        let instantSwitch = !glide && enhanced?.instantWorkspaces == true
         var unparking: [WindowID] = []
         var borders: [WindowID: CGRect] = [:]
         for id in handles.keys.sorted() {
@@ -532,8 +547,9 @@ public final class WindowManager {
                 if p.kind != .fullscreen, p.borderFrame != p.frame, decorated(id) { borders[id] = p.borderFrame }
                 let wasParked = parked[id] != nil
                 if applied[id] != p.frame { snapBacks[id] = 0 }
-                // Never write to a window the user is dragging: it gets its frame on release.
-                if nativeDrags[id] != nil { continue }
+                // A title-bar move waits for the drop. A resize is written every event, including
+                // the window under the cursor, so macOS never leaves a stretched proxy on screen.
+                if let drag = nativeDrags[id], !drag.isResize { continue }
                 guard wasParked || forceApply.contains(id) || applied[id] != p.frame else { continue }
                 forceApply.remove(id)
                 let old = displaced.removeValue(forKey: id) ?? previous[id]?.frame ?? (wasParked ? nil : applied[id])
@@ -552,16 +568,10 @@ public final class WindowManager {
                 }
                 writes.append { [weak self] in
                     guard let self else { return false }
-                    // A resize in the live schedule is drawn by the real window. The first sample
-                    // is where it already is; later ticks walk it to `p.frame`. No cover.
-                    let clock = self.now().timeIntervalSinceReferenceDate
-                    let requested = self.liveResizeSchedule.samples(at: clock).first { $0.id == id }?.frame ?? p.frame
-                    let live = self.liveResizeSchedule.contains(id)
-                    let got = self.setFrame(handle, requested)
-                    if live {
-                        _ = self.liveResizeSchedule.noteReadBack(id, requested: requested, actual: got)
-                        return false
-                    }
+                    // The live driver owns this window. The display link writes it; this pass must
+                    // not block on AX.
+                    if self.liveResizeSchedule.contains(id) { return false }
+                    let got = self.setFrame(handle, p.frame)
                     // The app chose its own frame (a minimum, a refused resize): the animation
                     // ends where the window really is, not on the slot (else the cover would
                     // fade onto a different frame). An unchanged read-back may be an app that
@@ -569,10 +579,19 @@ public final class WindowManager {
                     if !got.isNull, !got.approximatelyEquals(p.frame, tolerance: 2), old.map({ !got.approximatelyEquals($0, tolerance: 2) }) ?? false {
                         self.windowAnimator?.frameApplied(id, actual: got)
                     }
-                    return p.kind == .tiled && self.learnMinSize(id, target: p.frame, readBack: got)
+                    guard p.kind == .tiled else { return false }
+                    if handle is AXWindow {
+                        // The immediate read is often the frame we just left. Confirm once the
+                        // app has had a turn, or a live resize stacks the workspace on a stale size.
+                        if got.width > p.frame.width + 1 || got.height > p.frame.height + 1 {
+                            self.confirmMinSizeLater(id, target: p.frame, first: got)
+                        }
+                        return false
+                    }
+                    return self.learnMinSize(id, target: p.frame, readBack: got)
                 }
             } else if let ws = state[wsID] {
-                if animated, let was = previous[id] {
+                if glide, let was = previous[id] {
                     changes.append(WindowFrameChange(id: id, kind: .leave, from: was.frame, to: nil))
                     let display = ws.displayID
                     writes.append { [weak self] in
@@ -592,29 +611,58 @@ public final class WindowManager {
             changes.append(WindowFrameChange(id: id, kind: .close, from: p.frame, to: nil))
         }
         displaced.removeAll()
-        if animated {
-            // A size change is not a cover. Scaling a still to the new size is the fade and the stretch.
+        if live {
+            // Every move and resize is the real window. Nothing is handed to a snapshot cover.
+            let clock = now().timeIntervalSinceReferenceDate
+            let direct = liveResize || drag?.kind == .resize
+            for change in changes where change.kind == .move || change.kind == .open {
+                guard let to = change.to else { continue }
+                let from = change.from ?? to
+                guard !from.approximatelyEquals(to, tolerance: 0.5) else {
+                    liveResizeSchedule.remove(change.id)
+                    continue
+                }
+                if lastLiveFrame[change.id] == nil { lastLiveFrame[change.id] = from }
+                liveResizeSchedule.retarget(change.id, from: from, to: to, at: clock, direct: direct)
+            }
+            changes = []
+            let samples = liveResizeSchedule.samples(at: clock)
+            for sample in samples {
+                guard let p = visible[sample.id] else { continue }
+                borders[sample.id] = Self.border(around: sample.frame, matching: p)
+            }
+        } else if glide {
+            // Opt-in glide: a size change is still the real window. Scaling a still is the blur.
             changes = changes.filter { change in
                 guard change.kind == .move, let from = change.from, let to = change.to else { return true }
                 guard abs(from.width - to.width) > 1 || abs(from.height - to.height) > 1 else { return true }
-                let now = self.now().timeIntervalSinceReferenceDate
-                let visual = self.liveResizeSchedule.samples(at: now).first { $0.id == change.id }?.frame ?? from
-                self.liveResizeSchedule.retarget(change.id, from: visual, to: to, at: now)
+                let clock = now().timeIntervalSinceReferenceDate
+                let visual = liveResizeSchedule.samples(at: clock).first { $0.id == change.id }?.frame ?? from
+                liveResizeSchedule.retarget(change.id, from: visual, to: to, at: clock)
                 return false
             }
         }
+        visiblePlacements = visible
         let commit = { [weak self] in
+            guard let self else { return }
             var learned = false
             for w in writes where w() { learned = true }
-            if learned { self?.setNeedsLayout() }
+            if learned { self.setNeedsLayout() }
+            guard !self.liveResizeSchedule.isEmpty else { return }
+            if self.scheduling == .manual {
+                // No display link in tests: land on the final frame in this pass.
+                self.stepLiveResize(at: self.now().addingTimeInterval(self.liveResizeSchedule.spec.duration + 0.05))
+            } else {
+                self.stepLiveResize()
+                self.startLiveResizePump()
+            }
         }
         let scene = animationScene(visible, raiseOrder: raiseOrder)
-        if animated, let animator = windowAnimator, !changes.isEmpty {
+        if glide, let animator = windowAnimator, !changes.isEmpty {
             animator.animate(WindowAnimationRequest(changes: changes, windows: scene, displays: displayFrames), commit: commit)
         } else {
             commit()
         }
-        if !liveResizeSchedule.isEmpty { startLiveResizePump() }
         if instantSwitch { enhanced?.restoreAfterSwitch() }
         if let enhanced, enhanced.active {
             enhanced.layoutApplied(visible.map { id, p in
@@ -622,7 +670,6 @@ public final class WindowManager {
             })
         }
         borderFrames = borders
-        visiblePlacements = visible
         publishDecorations(borders: borders)
         windowAnimator?.windowsChanged(visible: scene)
 
@@ -635,6 +682,16 @@ public final class WindowManager {
         syncFocus()
         saveSessionIfChanged()
         onLayoutApplied?()
+    }
+
+    /// The border rect for a window that is visually at `window` while its slot is `p.frame`.
+    static func border(around window: CGRect, matching p: Placement) -> CGRect {
+        CGRect(
+            x: window.minX + (p.borderFrame.minX - p.frame.minX),
+            y: window.minY + (p.borderFrame.minY - p.frame.minY),
+            width: window.width + (p.borderFrame.width - p.frame.width),
+            height: window.height + (p.borderFrame.height - p.frame.height)
+        )
     }
 
     /// Display frames by CGDirectDisplayID (for the window animator).
@@ -911,6 +968,9 @@ public final class WindowManager {
         if handles[id] == nil { adoptIfManageable(id) }
         guard !isEcho, !frame.isNull, parked[id] == nil, drag == nil, let wsID = state.workspace(of: id),
               let ws = state[wsID] else { return }
+        // A frame we are writing ourselves is not the app moving, and it must not fade the border
+        // or be learned as a minimum (the spring is still larger than the slot on purpose).
+        if liveResizeSchedule.contains(id) { return }
         if ws.isFloating(id) {
             // The user moved/resized a floating window: remember it, don't fight it.
             state.setFloatingFrame(id, frame)
@@ -933,8 +993,9 @@ public final class WindowManager {
             return
         }
         guard !frame.approximatelyEquals(target, tolerance: 2) else { return }
-        // An in-flight live resize writes intermediate frames. They are not the app leaving its tile.
-        if liveResizeSchedule.contains(id) { return }
+        if let until = liveGraceUntil[id], now() < until, frame.approximatelyEquals(applied[id] ?? frame, tolerance: 2) {
+            return
+        }
         // Late notifications from a drag that just ended: put it back, it is not the app.
         if let until = nativeGrace[id], now() < until {
             forceApply.insert(id)
@@ -1297,6 +1358,8 @@ public final class WindowManager {
             d.lastLiveUpdate = now()
             applyNativeResize(id, d)
             setNeedsLayout()
+            // Same turn as the mouse event: the edge is on the cursor before this returns.
+            layoutIfNeeded()
         }
         nativeDrags[id] = d
         startPointerPoll()

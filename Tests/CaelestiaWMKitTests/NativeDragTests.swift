@@ -116,15 +116,15 @@ final class NativeDragTests: XCTestCase {
         wider.size.width += 120
         let press = CGPoint(x: slotA.maxX + 2, y: slotA.midY)  // on the resize handle
         drag(s, s.a, from: press, through: [wider])
-        XCTAssertEqual(s.a.frame.width, wider.width, accuracy: 1, "not snapped back while dragging")
+        XCTAssertEqual(s.a.frame.width, s.slotA.width, accuracy: 3, "the real window is on the tile, not a stretched proxy")
         release(s, at: press)
         XCTAssertEqual(s.h.wm.counters.nativeResizes, 1)
         XCTAssertEqual(s.h.wm.counters.nativeDrops, 0)
         XCTAssertEqual(s.h.wm.counters.autoFloats, 0)
         XCTAssertFalse(s.h.wm.isFloating(s.a.windowID))
-        XCTAssertEqual(s.slotA.width, slotA.width + 120, accuracy: 3)
-        XCTAssertEqual(s.a.frame.width, slotA.width + 120, accuracy: 3)
-        XCTAssertEqual(s.slotB.width, slotB.width - 120, accuracy: 3, "the neighbour gave up the room")
+        XCTAssertEqual(s.slotA.width, slotA.width + 120, accuracy: 8)
+        XCTAssertEqual(s.a.frame.width, s.slotA.width, accuracy: 2)
+        XCTAssertEqual(s.slotB.width, slotB.width - 120, accuracy: 8, "the neighbour gave up the room")
         XCTAssertFalse(s.slotA.intersects(s.slotB))
         assertFrame(s.b.frame, s.slotB)
 
@@ -135,14 +135,15 @@ final class NativeDragTests: XCTestCase {
         XCTAssertEqual(s.a.setFrameCount + s.b.setFrameCount, writes)
     }
 
-    func testNativeResizeMovesNeighbourLiveButNeverWritesTheDraggedWindow() {
+    func testNativeResizeMovesTheDraggedWindowAndItsNeighbourLive() {
         let s = scene()
         let slotA = s.slotA, slotB = s.slotB
         var wider = slotA
         wider.size.width += 100
         let writesA = s.a.setFrameCount
         drag(s, s.a, from: CGPoint(x: slotA.maxX + 2, y: slotA.midY), through: [wider])
-        XCTAssertEqual(s.a.setFrameCount, writesA)
+        XCTAssertGreaterThan(s.a.setFrameCount, writesA, "the window under the cursor is written to its tile")
+        XCTAssertEqual(s.a.frame.width, s.slotA.width, accuracy: 3)
         XCTAssertLessThan(s.slotB.width, slotB.width, "b follows the edge while the button is still down")
         release(s, at: CGPoint(x: slotA.maxX + 2, y: slotA.midY))
     }

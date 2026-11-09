@@ -11,7 +11,9 @@ import XCTest
 @MainActor
 final class SnapshotAnimationRulesTests: XCTestCase {
     private func harness(_ titles: String...) -> (Harness, FakeWindowAnimator, [FakeWindow]) {
-        let h = Harness()
+        var config = Config()
+        config.animations.windows = .snapshot
+        let h = Harness(config: config)
         let anim = FakeWindowAnimator()
         anim.system = h.system
         h.wm.windowAnimator = anim
@@ -88,10 +90,8 @@ final class SnapshotAnimationRulesTests: XCTestCase {
             return abs(from.width - to.width) > 1 || abs(from.height - to.height) > 1
         }
         XCTAssertTrue(sized.isEmpty, "a size change is not given to the cover")
-        XCTAssertTrue(
-            h.wm.liveResizeSchedule.contains(ws[0].windowID) || h.wm.liveResizeSchedule.contains(b.windowID),
-            "the tiles that make room are sampled onto the real windows"
-        )
+        XCTAssertEqual(ws[0].frame, h.wm.visiblePlacements[ws[0].windowID]?.frame)
+        XCTAssertEqual(b.frame, h.wm.visiblePlacements[b.windowID]?.frame)
     }
 
     func testUnmanagedAndManagedAgainWithTheSameIDIsInstant() {

@@ -19,6 +19,8 @@ public struct LiveResizeSchedule: Equatable, Sendable {
         public var sampler: FrameSampler
         public var missed: Int
         public var snapped: Bool
+        /// Mouse-drag: the frame is `to` itself, updated in place, with no spring lag.
+        public var direct: Bool
     }
 
     public struct Sample: Equatable, Sendable {
@@ -36,15 +38,25 @@ public struct LiveResizeSchedule: Equatable, Sendable {
     public var isEmpty: Bool { tracks.isEmpty }
 
     /// `from` is where the window is now (the current sample, if one is in flight).
-    public mutating func retarget(_ id: UInt32, from: CGRect, to: CGRect, at now: TimeInterval) {
+    /// `direct` follows `to` with no interpolation: a mouse-drag edge stays on the cursor.
+    public mutating func retarget(_ id: UInt32, from: CGRect, to: CGRect, at now: TimeInterval, direct: Bool = false) {
+        if direct, var track = tracks[id] {
+            track.to = to
+            track.direct = true
+            tracks[id] = track
+            return
+        }
         tracks[id] = Track(
-            from: from, to: to, sampler: FrameSampler(spec: spec, startTime: now), missed: 0, snapped: false
+            from: from, to: to, sampler: FrameSampler(spec: spec, startTime: now), missed: 0, snapped: false, direct: direct
         )
     }
 
     public func samples(at now: TimeInterval) -> [Sample] {
         tracks.keys.sorted().compactMap { id in
             guard let track = tracks[id] else { return nil }
+            if track.direct {
+                return Sample(id: id, frame: track.to, finished: false, snapped: false)
+            }
             if track.snapped {
                 return Sample(id: id, frame: track.to, finished: true, snapped: true)
             }

@@ -103,6 +103,8 @@ public final class OverlayDecorations: WindowDecorations {
 
     public func externalMove(_ id: WindowID) { borders.noteExternalMove(id) }
 
+    public func followLiveFrame(_ id: WindowID, _ frame: CGRect) { borders.followLiveFrame(id, frame) }
+
     public func workspaceWillChange(_ transitions: [WorkspaceTransition], resume: @escaping () -> Void) -> Bool {
         slide.begin(transitions, resume: resume)
         return true
