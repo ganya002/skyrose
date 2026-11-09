@@ -33,7 +33,7 @@ Legend for "Action": **fixed** = changed in this phase; **kept** = already match
 | smart_resizing | on | on (`resizePercent`) | kept |
 | Keyboard resize | ±10 % of window size (SUPER+−/=) | ±10 % | kept |
 | move dir | swap with neighbour, else next monitor | same | kept |
-| Min tile size | none (tiles down to 27×32 px at 14 windows) | only learned app minimums | **fixed (decision)**: `wm.dwindle.minTileWidth/Height` = 120×80 pt; a split that would go below it splits the largest tile that fits instead; none fits → the window floats centred |
+| Min tile size | none (tiles down to 27×32 px at 14 windows) | only learned app minimums | **fixed (decision)**: `wm.dwindle.minTileWidth/Height` = 120×80 pt; a split that would go below it splits the largest tile that fits instead; none fits → the window is stacked into a group (never floated) |
 | pseudo | keeps the client's own size centred in its slot, scaled down to fit (ops08: slot 1263×1398 → 1248×1388 centred) | missing | **fixed**: `window.pseudo`; size = last floating size, else the size the window had when it was first tiled; Hyprland's fit-and-centre maths |
 | Float toggle | remembered float size centred on the slot's centre (ops10: 1280×1410 centred on a 1263×1398 slot; ops21: 2530×1380) | last float frame, else 60 %×70 % centred on the screen | **fixed**: last float size, else the tile's size, centred on the tile's centre, clamped on-screen |
 | Center | `centerwindow` on floats | same | kept |

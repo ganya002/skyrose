@@ -140,6 +140,7 @@ public final class WMDaemon {
         wm.onQuit = { [weak self] in self?.terminate() }
         // A restart keeps every window's workspace and side (Paths.sessionSnapshot).
         wm.sessionStore = SessionSnapshotStore()
+        wm.userFloatLedgerURL = Paths.userFloatLedger
         // Native shell part 1: frame, bar, launcher, session menu, OSDs, toasts (CaelestiaShell).
         let shell = ShellBridge(wm: wm)
         shell.controller.wallpaper.journal = BackupJournal(url: Paths.restoreManifest)
@@ -327,6 +328,7 @@ public final class WMDaemon {
             }
         }
         configWatcher?.start()
+        watchSessionEvents()
         keymapWatcher = KeymapWatcher(
             fallback: KeymapLoader.loadDefault(),
             onChange: { loaded, _ in
@@ -416,7 +418,30 @@ public final class WMDaemon {
         }
     }
 
+    private var sessionObservers: [NSObjectProtocol] = []
+
+    /// Wake and Space changes re-tile anything that drifted and pick up windows that left
+    /// native fullscreen. The reconcile timer is the fallback when no event arrives.
+    private func watchSessionEvents() {
+        let center = NSWorkspace.shared.notificationCenter
+        let names: [(Notification.Name, String)] = [
+            (NSWorkspace.didWakeNotification, "wake"),
+            (NSWorkspace.screensDidWakeNotification, "screens woke"),
+            (NSWorkspace.activeSpaceDidChangeNotification, "a Space change"),
+            (NSWorkspace.sessionDidBecomeActiveNotification, "the session becoming active"),
+        ]
+        let wm = wm
+        for (name, reason) in names {
+            sessionObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { wm.noteSessionEvent(reason) }
+            })
+        }
+    }
+
     private func terminate() {
+        let center = NSWorkspace.shared.notificationCenter
+        for observer in sessionObservers { center.removeObserver(observer) }
+        sessionObservers.removeAll()
         cursors.stop()  // the macOS cursors come back with the windows
         shell?.controller.lidSleep.releaseForQuit()  // SleepDisabled 0 if SkyRose set it
         tap.stop()

@@ -262,7 +262,7 @@ extension WindowManager {
             focusedWorkspace: state.focusedWorkspace.map(workspaceRef),
             focusedMonitor: display(id: state.focusedDisplay)?.name,
             windowCount: managedWindowIDs.count, workspaceCount: state.workspaces.count, monitorCount: displays.count,
-            gameMode: config.wm.gameMode, counters: counters.dictionary
+            gameMode: config.wm.gameMode, counters: counters.dictionary, tilingNotes: tilingNotes
         )
     }
 }

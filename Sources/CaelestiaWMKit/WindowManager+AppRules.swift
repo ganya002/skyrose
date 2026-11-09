@@ -127,7 +127,8 @@ extension WindowManager {
         let new = config.appRuleBook
         guard new != old else { return }
         for id in managedWindowIDs {
-            guard let d = descriptors[id], old.mode(for: d.bundleID).mode != new.mode(for: d.bundleID).mode else { continue }
+            guard let d = descriptors[id], userFloatChoice(d) == nil,
+                  old.mode(for: d.bundleID).mode != new.mode(for: d.bundleID).mode else { continue }
             let shouldFloat = new.floats(d, ruleFloat: effects[id]?.float)
             guard shouldFloat != isFloating(id), let area = area(of: id) else { continue }
             if shouldFloat {
@@ -136,7 +137,6 @@ extension WindowManager {
                 state.setFloating(id, true, frame: Self.clamp(centered(size, in: area), to: area).integralPoints, env: environment)
             } else {
                 state.setFloating(id, false, env: environment)
-                autoFloated[id] = nil
             }
             forceApply.insert(id)
         }

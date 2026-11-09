@@ -220,8 +220,8 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     /// managed or no display is registered.
     ///
     /// `size` is the window's own size when it appeared (remembered for float and pseudo). When no
-    /// tile has room for another split (dwindle `minTileWidth/Height`), the window floats centred
-    /// at that size instead.
+    /// tile has room for another split (dwindle `minTileWidth/Height`), the window is stacked into
+    /// the focused leaf's group. It is never floated for lack of room.
     @discardableResult
     public mutating func addWindow(
         _ id: WindowID, to target: WorkspaceID? = nil, floating frame: CGRect? = nil, cursor: CGPoint? = nil,
@@ -237,11 +237,9 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
             lastFloatingFrames[id] = frame
         } else {
             let area = env.area(forDisplay: wsDisplay)
-            if !workspaces[wsID]!.addTiled(id, cursor: cursor, area: area, config: env.config.dwindle, tilePadding: Self.tilePadding(env.config)) {
-                let f = Self.centred(naturalSizes[id], in: area)
-                workspaces[wsID]!.addFloating(id, frame: f)
-                lastFloatingFrames[id] = f
-            }
+            guard workspaces[wsID]!.addTiledOrStack(
+                id, cursor: cursor, area: area, config: env.config.dwindle, tilePadding: Self.tilePadding(env.config)
+            ) else { return false }
         }
         if focus {
             if isVisible(wsID) {
@@ -316,7 +314,10 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
         if let floatingFrame {
             workspaces[target]!.addFloating(id, frame: floatingFrame)
         } else {
-            workspaces[target]!.addTiled(id, cursor: cursor, area: env.area(forDisplay: targetDisplay), config: env.config.dwindle)
+            let area = env.area(forDisplay: targetDisplay)
+            _ = workspaces[target]!.addTiledOrStack(
+                id, cursor: cursor, area: area, config: env.config.dwindle, tilePadding: Self.tilePadding(env.config)
+            )
         }
 
         if follow, case .special(let name) = sourceID, !target.isSpecial, openSpecials[source.displayID] == name {
@@ -694,13 +695,6 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     /// Gaps and border a tile loses per axis (conservative: the larger gap on both sides).
     static func tilePadding(_ config: WMConfig) -> Double {
         config.gameMode ? 0 : 2 * max(config.gapsIn, config.gapsOut) + 2 * config.borderSize
-    }
-
-    /// `size` (else the default float size) centred in `area`, clamped to it.
-    static func centred(_ size: CGSize?, in area: CGRect) -> CGRect {
-        guard let size else { return defaultFloatingFrame(in: area) }
-        let w = min(size.width, area.width), h = min(size.height, area.height)
-        return CGRect(x: (area.midX - w / 2).rounded(), y: (area.midY - h / 2).rounded(), width: w, height: h)
     }
 
     static func defaultFloatingFrame(in area: CGRect) -> CGRect {

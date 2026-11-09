@@ -78,12 +78,22 @@ public struct Workspace: Sendable, Hashable, Codable {
 
     /// Tiles a new window next to the last focused tiled one. With `tilePadding` (gaps + border
     /// per axis) the dwindle minimum tile size is enforced: false when no tile has room left (the
-    /// window was not added).
+    /// window was not added; `addTiledOrStack` then stacks it into a group).
     @discardableResult
     mutating func addTiled(_ window: WindowID, cursor: CGPoint?, area: CGRect, config: DwindleConfig, tilePadding: Double? = nil) -> Bool {
         tree.insert(window, relativeTo: lastFocusedTiled, cursor: cursor, in: area, config: config,
                     enforceMinTile: tilePadding != nil, tilePadding: tilePadding ?? 0)
         guard tree.contains(window) else { return false }
+        if !order.contains(window) { order.append(window) }
+        return true
+    }
+
+    /// Tiles `window`, and when no split can honour the minimum tile size stacks it into the
+    /// focused leaf's group instead. Never floats. False only when the window is already here.
+    @discardableResult
+    mutating func addTiledOrStack(_ window: WindowID, cursor: CGPoint?, area: CGRect, config: DwindleConfig, tilePadding: Double?) -> Bool {
+        if addTiled(window, cursor: cursor, area: area, config: config, tilePadding: tilePadding) { return true }
+        guard tree.stack(window, onto: lastFocusedTiled) else { return false }
         if !order.contains(window) { order.append(window) }
         return true
     }

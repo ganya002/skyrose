@@ -391,11 +391,14 @@ public struct StateQueryEntry: Codable, Hashable, Sendable {
     public var gameMode: Bool
     /// Free-form counters (layout passes, AX setFrame calls, ...) for the Riko suite.
     public var counters: [String: Int]
+    /// What the tiler did when a window could not take its natural size, for `skyrose doctor`.
+    public var tilingNotes: [String]
 
     public init(
         mode: String, version: String = CaelestiaVersion.string, pid: Int = Int(ProcessInfo.processInfo.processIdentifier),
         uptimeSeconds: Double = 0, focusedWindow: String? = nil, focusedWorkspace: WorkspaceRef? = nil, focusedMonitor: String? = nil,
-        windowCount: Int = 0, workspaceCount: Int = 0, monitorCount: Int = 0, gameMode: Bool = false, counters: [String: Int] = [:]
+        windowCount: Int = 0, workspaceCount: Int = 0, monitorCount: Int = 0, gameMode: Bool = false, counters: [String: Int] = [:],
+        tilingNotes: [String] = []
     ) {
         self.mode = mode
         self.version = version
@@ -409,6 +412,7 @@ public struct StateQueryEntry: Codable, Hashable, Sendable {
         self.monitorCount = monitorCount
         self.gameMode = gameMode
         self.counters = counters
+        self.tilingNotes = tilingNotes
     }
 }
 

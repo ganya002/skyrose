@@ -35,19 +35,18 @@ final class LiveTestRegressionTests: XCTestCase {
         h.system.existing("b")
         h.start()
         let elsewhere = CGRect(x: 400, y: 300, width: 300, height: 200)
-        for _ in 0...WindowManager.maxSnapBackRetries {  // another WM keeps moving it; we give up
+        for _ in 0...WindowManager.maxSnapBackRetries {  // another WM keeps moving it; we stop fighting
             a.appMoves(to: elsewhere)
             h.settle()
         }
-        // After giving up it is auto-floated centred in the usable area: that is the real frame now.
-        XCTAssertTrue(h.wm.isFloating(a.windowID))
-        XCTAssertNotEqual(a.frame, elsewhere)
-        XCTAssertTrue(h.wm.usableArea(of: TestDisplays.air).contains(a.frame))
+        // The window stays tiled. Query reports where it actually is, not the slot we asked for.
+        XCTAssertFalse(h.wm.isFloating(a.windowID))
+        XCTAssertEqual(a.frame, elsewhere)
         let entries = try XCTUnwrap(h.wm.respond(to: IPCRequest(.queryWindows)).response.result).decode([WindowQueryEntry].self)
         let entry = try XCTUnwrap(entries.first { $0.title == "a" })
         XCTAssertEqual(entry.at, [Int(a.frame.minX), Int(a.frame.minY)])
         XCTAssertEqual(entry.size, [Int(a.frame.width), Int(a.frame.height)])
-        XCTAssertTrue(entry.floating)
+        XCTAssertFalse(entry.floating)
     }
 
     /// Bugs 2/3 root cause: a second window manager (CatWM) was running. It is detected by

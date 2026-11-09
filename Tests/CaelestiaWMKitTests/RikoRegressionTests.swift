@@ -167,35 +167,40 @@ final class RikoRegressionTests: XCTestCase {
     }
 
     /// R3: an app that snaps its window back after every write is re-applied at most
-    /// `maxSnapBackRetries` times, then floated (centred, on-screen) instead of fought forever.
+    /// `maxSnapBackRetries` times in a burst. It stays tiled. The reconcile pass puts it back
+    /// once the cooldown has passed, and a second reconcile writes nothing.
     func testR3SnapBackAppIsNotFoughtForever() {
         let h = Harness()
         h.system.existing("a")
         let b = h.system.existing("snaps back")
         h.start()
+        let slot = h.wm.visiblePlacements[b.windowID]!.frame
         let original = CGRect(x: 300, y: 300, width: 500, height: 300)
         let writesBefore = b.setFrameCount
-        for _ in 0..<20 where !h.wm.isFloating(b.windowID) {
+        for _ in 0..<20 {
             b.appMoves(to: original)
             h.settle()
         }
         XCTAssertLessThanOrEqual(b.setFrameCount - writesBefore, WindowManager.maxSnapBackRetries + 1)
         XCTAssertEqual(h.wm.counters.snapBacks, WindowManager.maxSnapBackRetries)
-        XCTAssertEqual(h.wm.counters.autoFloats, 1)
-        XCTAssertTrue(h.wm.isFloating(b.windowID), "the window ends floating")
-        XCTAssertNotNil(h.wm.autoFloated[b.windowID])
-        XCTAssertTrue(h.isOnScreen(b))
-        let area = h.wm.usableArea(of: TestDisplays.air)
-        XCTAssertTrue(area.contains(b.frame))
-        XCTAssertEqual(b.frame.midX, area.midX, accuracy: 1, "centred")
-        XCTAssertEqual(b.frame.midY, area.midY, accuracy: 1)
+        XCTAssertEqual(h.wm.counters.autoFloats, 0)
+        XCTAssertFalse(h.wm.isFloating(b.windowID), "it stays tiled")
+        XCTAssertEqual(b.frame, original, "the burst stops; the window is not dragged around")
 
-        // Further app moves are the user's now (floating): no more writes.
-        let writes = b.setFrameCount
+        let stalled = b.setFrameCount
         b.appMoves(to: CGRect(x: 120, y: 140, width: 500, height: 300))
         h.settle()
-        XCTAssertEqual(b.setFrameCount, writes)
-        XCTAssertEqual(b.frame.origin, CGPoint(x: 120, y: 140))
+        XCTAssertEqual(b.setFrameCount, stalled)
+
+        h.clock.now.addTimeInterval(WindowManager.reconcileInterval + 0.1)
+        h.wm.reconcileTiling()
+        h.settle()
+        XCTAssertFalse(WorkspaceLayout.overlaps(b.frame, h.wm.visiblePlacements.values.first { $0.window != b.windowID }?.frame ?? .null))
+        XCTAssertEqual(b.frame, slot)
+        let quiet = b.setFrameCount
+        h.wm.reconcileTiling()
+        h.settle()
+        XCTAssertEqual(b.setFrameCount, quiet, "a second reconcile is a no-op")
     }
 
     /// R3: a window that ignores every write (read-back = old frame) does not loop either.

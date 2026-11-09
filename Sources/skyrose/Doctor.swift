@@ -45,6 +45,7 @@ struct Doctor {
         items.append(wmItem)
         if running {
             items.append(contentsOf: permissions())
+            items.append(tiling())
         }
 
         if json {
@@ -230,6 +231,29 @@ struct Doctor {
             return items
         } catch {
             return [Item(status: .warn, name: "permissions", detail: "permissions.status failed: \(error.localizedDescription)", data: .null)]
+        }
+    }
+
+    /// Notes from the tiler: a window larger than the screen, a split flipped, a stack, a window
+    /// put back on its tile. Empty means nothing had to be rescued.
+    private func tiling() -> Item {
+        do {
+            let result = try client.call(.queryState, timeout: 2)
+            let notes = result["tilingNotes"]?.arrayValue?.compactMap(\.stringValue) ?? []
+            if notes.isEmpty {
+                return Item(
+                    status: .ok, name: "tiling",
+                    detail: "tiled windows are in their slots (or explicitly floating)",
+                    data: .array([])
+                )
+            }
+            return Item(
+                status: .warn, name: "tiling",
+                detail: notes.joined(separator: " | "),
+                data: .array(notes.map(JSONValue.string))
+            )
+        } catch {
+            return Item(status: .info, name: "tiling", detail: "could not read tiling notes: \(error.localizedDescription)", data: .null)
         }
     }
 }

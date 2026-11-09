@@ -88,20 +88,24 @@ final class MinSizeLayoutTests: XCTestCase {
         XCTAssertFalse(p.values.contains { $0.overflows })
     }
 
-    func testBothTooBigIsProportionalAndFlagsOverflow() {
+    func testBothTooBigStaysInsideTheSlotsWithoutOverlap() {
         let t = tree(2)
+        let plain = layout(t, [:])
         let p = layout(t, [1: CGSize(width: 1000, height: 0), 2: CGSize(width: 1000, height: 0)])
-        XCTAssertTrue(p[1]!.overflows || p[2]!.overflows)
-        for w in [1, 2] as [WindowID] {
-            XCTAssertGreaterThanOrEqual(p[w]!.frame.width, 1000, "the frame always carries at least the min size")
-        }
+        XCTAssertTrue(p[1]!.overflows && p[2]!.overflows)
+        XCTAssertFalse(WorkspaceLayout.overlaps(p[1]!.frame, p[2]!.frame))
+        XCTAssertLessThan(p[1]!.frame.width, 1000, "the frame is not grown past the slot")
+        XCTAssertLessThan(p[2]!.frame.width, 1000)
+        XCTAssertEqual(p[1]!.frame.minX, plain[1]!.frame.minX, accuracy: 0.5)
+        XCTAssertEqual(p[2]!.frame.maxX, plain[2]!.frame.maxX, accuracy: 0.5)
     }
 
-    func testSingleWindowBiggerThanTheAreaOverflows() {
+    func testSingleWindowBiggerThanTheAreaStaysInItsSlot() {
         let t = tree(1)
+        let plain = layout(t, [:])
         let p = layout(t, [1: CGSize(width: 3000, height: 0)])
         XCTAssertTrue(p[1]!.overflows)
-        XCTAssertEqual(p[1]!.frame.width, 3000)
+        XCTAssertEqual(p[1]!.frame, plain[1]!.frame, "best fit is the slot, not the minimum grown past the screen")
     }
 
     func testFittingMinimumDoesNotOverflow() {

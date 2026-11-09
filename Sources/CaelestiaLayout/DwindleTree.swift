@@ -312,7 +312,7 @@ public struct DwindleTree: Sendable, Hashable, Codable {
     /// `enforceMinTile` (new windows): a split that would leave either half smaller than
     /// `minTileWidth × minTileHeight` plus `tilePadding` (gaps and border, per axis) splits the
     /// largest leaf that still fits instead; when none fits nothing changes and false comes back
-    /// (the caller floats the window).
+    /// (the caller stacks the window into a group instead of floating it).
     ///
     /// Returns false (no change) when the window is already in the tree or there is no room.
     @discardableResult
@@ -457,6 +457,67 @@ public struct DwindleTree: Sendable, Hashable, Codable {
         return swap(window, other)
     }
 
+    /// A copy with every split's direction flipped. Used when the current direction cannot
+    /// honour minimum sizes and the other direction can. The receiver is unchanged.
+    public func withToggledSplits() -> DwindleTree {
+        var copy = self
+        copy.root = root.map(Self.togglingDirections)
+        return copy
+    }
+
+    /// A copy whose every split uses `direction`. Pair with `preserveSplit` so layout does not
+    /// replace it with the aspect rule.
+    public func withSplitDirection(_ direction: SplitDirection) -> DwindleTree {
+        var copy = self
+        copy.root = root.map { Self.forcing($0, direction) }
+        return copy
+    }
+
+    private static func forcing(_ node: Node, _ direction: SplitDirection) -> Node {
+        switch node {
+        case .leaf:
+            return node
+        case .split(var split):
+            split.direction = direction
+            split.first = forcing(split.first, direction)
+            split.second = forcing(split.second, direction)
+            return .split(split)
+        }
+    }
+
+    private static func togglingDirections(_ node: Node) -> Node {
+        switch node {
+        case .leaf:
+            return node
+        case .split(var split):
+            split.direction = split.direction.toggled
+            split.first = togglingDirections(split.first)
+            split.second = togglingDirections(split.second)
+            return .split(split)
+        }
+    }
+
+    /// Puts `window` into the leaf that holds `focused` (or the last leaf), turning that leaf
+    /// into a tab group and making `window` the active tab. Used when another split would break
+    /// the minimum tile size: the window stays tiled, stacked, and nothing overlaps. An empty
+    /// tree becomes a single leaf.
+    @discardableResult
+    public mutating func stack(_ window: WindowID, onto focused: WindowID?) -> Bool {
+        guard !contains(window) else { return false }
+        guard root != nil else {
+            root = .leaf(Leaf(window: window))
+            return true
+        }
+        let path = focused.flatMap { path(to: $0) } ?? leafNodes.last?.path
+        guard let path else { return false }
+        updateLeaf(at: path) { leaf in
+            leaf.isGroup = true
+            leaf.windows.append(window)
+            leaf.activeIndex = leaf.windows.count - 1
+        }
+        return contains(window)
+    }
+
     /// Hyprland `togglesplit`: flips the direction of the parent split of `window`. Only lasting
     /// with `preserveSplit` (or `smartSplit`) on; otherwise the aspect rule wins at layout time,
     /// exactly like Hyprland. Returns false for the root (no parent).
@@ -502,11 +563,13 @@ public struct DwindleTree: Sendable, Hashable, Codable {
     ///
     /// Minimum sizes (`minSizes`, learned from apps that refuse to shrink): every split first
     /// gives each side at least what its subtree needs (`minimumBox`), moving the divider only as
-    /// far as necessary; the stored ratios are not changed, so the layout stays a pure function
-    /// and the extra room goes back when the window closes. When both sides cannot fit, the box is
-    /// shared in proportion to the needs and the window that still does not fit gets its min
-    /// size centred in its slot with `overflows = true` (the WM floats it). Inactive group members
-    /// are returned with `hidden = true` and the group's frame.
+    /// far as necessary. That rebalances the effective split ratios for this pass; the stored
+    /// ratios are not changed, so the extra room goes back when the window closes and the layout
+    /// stays a pure function. When both sides cannot fit, the box is shared in proportion to the
+    /// needs and each window keeps the slot it was given (`overflows = true`). Frames are never
+    /// grown past the slot, so neighbours do not overlap. The WM then flips the split direction
+    /// or stacks the workspace; it does not float the window. Inactive group members are
+    /// returned with `hidden = true` and the group's frame.
     public func layout(area: CGRect, params: LayoutParams, minSizes: [WindowID: CGSize] = [:]) -> [Placement] {
         let relevant = minSizes.filter { contains($0.key) }
         let gapsOut = (leafCount == 1 ? params.gapsOutSingle : nil) ?? params.gapsOut
@@ -536,9 +599,11 @@ public struct DwindleTree: Sendable, Hashable, Codable {
             let active = leaf.activeWindow
             var overflows = false
             if let minimum = relevant[active] {
-                // Half a point of rounding is not an overflow.
-                overflows = minimum.width > frame.width + 0.5 || minimum.height > frame.height + 0.5
-                frame = HyprGeometry.atLeast(frame, minimum)
+                // Half a point of rounding is not an overflow. The frame stays in the slot:
+                // growing it to the minimum would paint over the neighbour.
+                let tooWide = minimum.width > 0 && minimum.width > frame.width + 0.5
+                let tooTall = minimum.height > 0 && minimum.height > frame.height + 0.5
+                overflows = tooWide || tooTall
             }
             let borderFrame = CGRect(
                 x: frame.minX - border, y: frame.minY - bar - border,

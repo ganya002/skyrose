@@ -337,8 +337,9 @@ is the fallback). While the button is down on a tiled window nothing is written.
 - late AX notifications within a 0.6 s grace are re-applied, not treated as new drags.
 
 Floating windows stay where dropped. An app that keeps moving or resizing its own tiled window is
-re-applied up to 2 times and then auto-floated (centred, clamped on screen) rather than fought.
-Counters: `snapBacks`, `nativeDrops`, `nativeResizes`, `autoFloats`, `minSizesLearned`.
+re-applied up to 2 times and then left until the reconcile pass (1 s, or the next wake / Space
+change) puts it back. It stays tiled. Counters: `snapBacks`, `nativeDrops`, `nativeResizes`,
+`autoFloats` (always 0), `minSizesLearned`, `reconciles`, `splitFlips`, `monocleLayouts`.
 
 ## D20. Minimum window sizes
 
@@ -348,11 +349,13 @@ second, identical read-back confirms it. `DwindleTree.layout(area:params:minSize
 the side of a split the room its minimum needs (`minimumAwareFirstSize`); stored ratios are not
 changed, so the layout returns to normal when the window goes. Gaps and borders are counted
 conservatively, so a window may get a few points more than its minimum (825 for an 800 one).
-When it is impossible, `Placement.overflows` is true and the WM floats the newest overflowing
-window, centred and on screen. A per-app hint (`appMinSizes`, a max over the app's windows) seeds
-new windows of the same app but never floats one: live, one TestWindows window with an 800 pt
-minimum floated every new window of the app, so a hint that would overflow is dropped. There is
-never a resize loop; an app that refuses to grow stays at its own size in its slot (LIMITATIONS).
+When it is impossible, `Placement.overflows` is true and the frame stays inside its slot (it does
+not cover the neighbour). The WM then tries the other split direction, and if that still cannot
+fit, stacks the workspace so one window fills the area and the others are parked. Nothing is
+floated for lack of room. A per-app hint (`appMinSizes`, a max over the app's windows) seeds new
+windows of the same app but never floats one: a hint that would overflow is dropped. There is
+never a resize loop; an app that refuses to shrink stays tiled at the best fit (LIMITATIONS).
+`skyrose doctor` prints the tiling notes (`query state`'s `tilingNotes`).
 
 ## D21. Per-app window rules
 

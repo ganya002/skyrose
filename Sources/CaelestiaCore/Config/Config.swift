@@ -508,6 +508,8 @@ public enum Paths {
     public static var parkedWindowsJournal: URL { appSupport.appendingPathComponent("parked-windows.json") }
     /// Workspace model at the last WM run, so a restart keeps every window's workspace and side.
     public static var sessionSnapshot: URL { appSupport.appendingPathComponent("session.json") }
+    /// Windows the user floated or tiled, keyed by app + window identity, across restarts.
+    public static var userFloatLedger: URL { appSupport.appendingPathComponent("user-float.json") }
     public static var workspaceAssignments: URL { appSupport.appendingPathComponent("workspace-assignments.json") }
     public static var logsDir: URL { home.appendingPathComponent("Library/Logs/SkyRose", isDirectory: true) }
     public static var kittyConfigDir: URL { home.appendingPathComponent(".config/kitty", isDirectory: true) }

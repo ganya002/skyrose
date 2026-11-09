@@ -127,48 +127,48 @@ final class MinSizeWMTests: XCTestCase {
 
     // MARK: overflow
 
-    func testAWindowThatCannotFitAnywhereIsFloatedCentredAndOnScreen() {
+    func testWindowsThatCannotSitSideBySideStayTiledWithoutOverlap() {
         let h = Harness()
         let a = h.system.existing("a")
-        a.minSize = CGSize(width: 1000, height: 0)
+        a.minSize = CGSize(width: 1000, height: 800)
         h.start()
-        let b = h.system.open("b") { $0.minSize = CGSize(width: 1000, height: 0) }
+        let b = h.system.open("b") { $0.minSize = CGSize(width: 1000, height: 800) }
         let passes = h.settle()
-        XCTAssertLessThanOrEqual(passes, 6)
+        XCTAssertLessThanOrEqual(passes, 8)
 
-        let area = h.wm.usableArea(of: TestDisplays.air)
-        XCTAssertEqual(h.wm.counters.autoFloats, 1)
-        XCTAssertTrue(h.wm.isFloating(b.windowID), "the newest overflowing window floats")
+        XCTAssertEqual(h.wm.counters.autoFloats, 0)
         XCTAssertFalse(h.wm.isFloating(a.windowID))
-        XCTAssertNotNil(h.wm.autoFloated[b.windowID])
-        XCTAssertTrue(area.contains(b.frame), "fully inside the usable area: \(b.frame) in \(area)")
-        XCTAssertEqual(b.frame.midX, area.midX, accuracy: 1)
-        XCTAssertEqual(b.frame.midY, area.midY, accuracy: 1)
-        XCTAssertGreaterThanOrEqual(b.frame.width, 1000)
-        XCTAssertTrue(area.contains(a.frame))
-        XCTAssertFalse(h.wm.visiblePlacements[a.windowID]!.overflows)
+        XCTAssertFalse(h.wm.isFloating(b.windowID))
+        let area = h.wm.usableArea(of: TestDisplays.air)
+        let visible = [a, b].filter { h.isOnScreen($0) }
+        XCTAssertEqual(visible.count, 1, "they stack: one tile fills the screen")
+        let shown = visible[0]
+        XCTAssertTrue(area.contains(shown.frame))
+        XCTAssertGreaterThanOrEqual(shown.frame.width, 1000)
+        XCTAssertFalse(WorkspaceLayout.overlaps(a.frame, b.frame) && h.isOnScreen(a) && h.isOnScreen(b))
 
-        // Stable afterwards.
         let writes = a.setFrameCount + b.setFrameCount
         for _ in 0..<5 {
             h.wm.setNeedsLayout()
             h.settle()
         }
         XCTAssertEqual(a.setFrameCount + b.setFrameCount, writes)
-        XCTAssertEqual(h.wm.counters.autoFloats, 1)
+        XCTAssertEqual(h.wm.counters.autoFloats, 0)
     }
 
-    func testClosingTheOverflowingNeighbourLeavesTheFloatAlone() {
+    func testClosingTheOtherWindowReturnsToANormalTile() {
         let h = Harness()
         let a = h.system.existing("a")
-        a.minSize = CGSize(width: 1000, height: 0)
+        a.minSize = CGSize(width: 1000, height: 800)
         h.start()
-        let b = h.system.open("b") { $0.minSize = CGSize(width: 1000, height: 0) }
+        let b = h.system.open("b") { $0.minSize = CGSize(width: 1000, height: 800) }
         h.settle()
-        XCTAssertTrue(h.wm.isFloating(b.windowID))
+        XCTAssertFalse(h.wm.isFloating(b.windowID))
         h.system.destroy(a.windowID)
         h.settle()
-        XCTAssertTrue(h.wm.isFloating(b.windowID), "an auto-floated window stays floating")
+        XCTAssertFalse(h.wm.isFloating(b.windowID))
+        XCTAssertTrue(h.isOnScreen(b))
         XCTAssertTrue(h.wm.usableArea(of: TestDisplays.air).contains(b.frame))
+        XCTAssertGreaterThanOrEqual(b.frame.width, 1000)
     }
 }

@@ -100,6 +100,7 @@ extension WindowManager {
         case .windowToggleFloat:
             guard let f = focused else { return false }
             done = state.toggleFloating(f, env: env)
+            if done { rememberUserFloat(f) }
         case .windowFullscreen:
             guard let f = focused else { return false }
             done = state.toggleFullscreen(f)
@@ -110,6 +111,7 @@ extension WindowManager {
             guard let f = focused else { return false }
             if !isFloating(f) { state.setFloating(f, true, env: env) }
             done = state.togglePin(f)
+            if isFloating(f) { rememberUserFloat(f) }
         case .windowCenter:
             guard let f = focused, let frame = floatingFrame(f), let area = area(of: f) else { return false }
             done = state.setFloatingFrame(f, centered(frame.size, in: area))
@@ -127,6 +129,7 @@ extension WindowManager {
             let size = CGSize(width: floor(area.width * 0.55), height: floor(area.height * 0.7))
             if !isFloating(f) { state.setFloating(f, true, env: env) }
             done = state.setFloatingFrame(f, centered(size, in: area))
+            if done { rememberUserFloat(f) }
         case .windowPip:
             guard let f = focused, let area = area(of: f) else { return false }
             if !isFloating(f) { state.setFloating(f, true, env: env) }
@@ -134,6 +137,8 @@ extension WindowManager {
             let pip = resolvedFloatingFrame(effects: RuleEffects(move: "pip"), in: area, windowSize: frame.size) ?? frame
             state.setFloatingFrame(f, pip.integralPoints)
             if !state.isPinned(f) { state.setPinned(f, true) }
+            rememberUserFloat(f)
+            done = true
         case .windowClose:
             guard let f = focused, let handle = handles[f] else { return false }
             // SIP-off mode: the real window shrinks and fades, then closes.

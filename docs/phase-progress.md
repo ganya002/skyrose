@@ -1,3 +1,54 @@
+# Phase 9: focus, easy setup, tiling (started 2026-11-09)
+
+Spec: `docs/PHASE-PROMPT-9-focus-easy-setup.md`. Commit locally after each part. Push `main` and tag `v0.4.0` only at 9k. Do not move tags `v0.2.0` or `v0.3.0`.
+
+Order for this run: 9i, 9j, then 9a–9h, then 9k.
+
+| Part | State | Commit |
+|---|---|---|
+| 9i. Rock-solid tiling | done | "Phase 9 part 9i" |
+| 9j. Smooth live resize | | |
+| 9a. Cursor follows focus | | |
+| 9b. Focus follows mouse | | |
+| 9c. Easy setup | | |
+| 9d. SIP-off assistant | | |
+| 9e. End-of-animation flash | | |
+| 9f. Menu bar off | | |
+| 9g. Clipboard history | | |
+| 9h. Bongo cat + lyrics | | |
+| 9k. Release v0.4.0 | | |
+
+## Part 9i — rock-solid tiling (done)
+
+A normal window stays tiled. It floats only when the user floated it, or a float rule matches
+(rules, dialogs, sheets, panels, utility windows, fixed-size windows). The WM no longer floats a
+window because its minimum does not fit or because the app keeps moving it.
+
+- Minimums still steal room from the other side of a split (stored ratios are unchanged, so the
+  room comes back when the window closes). The frame is never grown past its slot, so neighbours
+  do not overlap. If the other split direction fits, that direction is used for the pass. If
+  nothing fits side by side, the workspace stacks: one window fills the area, the rest are parked.
+  A window bigger than the screen stays tiled to the full area.
+- A new window that would break `minTileWidth` / `minTileHeight` joins the focused leaf as a tab
+  instead of floating.
+- An app that moves its own tiled window is put back twice, then left alone until the reconcile
+  pass (1 s, or wake / Space change / a window that shows up with no event). The pass is
+  idempotent. Native fullscreen exit and a window that AX announces late are picked up there.
+- User float/tile is stored in `~/Library/Application Support/SkyRose/user-float.json`, keyed by
+  bundle id + subrole + title, and wins over rules until the user toggles it back. The session
+  snapshot still restores the same window id within a boot.
+- `query state` carries `tilingNotes`. `skyrose doctor` prints them.
+
+Harness stress (not the live WM): 55 windows spawned and 30 closed, workspace switch in the
+middle, two displays, an empty display list then the screens back, and a sleep event. Wide
+minimums (900 pt) flipped the split and both stayed on screen with no overlap. 2000×2000
+minimums stacked. A drifted window came back on wake; a second reconcile wrote nothing. A window
+inserted with no event, and one that left native fullscreen, were tiled. A dialog still floated.
+User float survived a new process and a daemon restart. `/usr/bin/swift test`: 1115 tests, 0 failures.
+
+Not verified on this Mac: no TestWindows were opened, the running WM was not restarted, and
+nothing was applied to Gabby's windows, Dock, cursor, wallpaper or desktop picture.
+
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 
 Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part, `git push origin main`. Do not move tag `v0.2.0`.

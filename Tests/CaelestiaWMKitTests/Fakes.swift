@@ -19,6 +19,7 @@ final class FakeWindow: WindowHandle {
     var subrole = "AXStandardWindow"
     var isResizable = true
     var isMinimized = false
+    var isNativeFullscreen = false
     /// The app refuses to get smaller than this.
     var minSize = CGSize.zero
     /// The app ignores every write and keeps its frame (stubborn app).
@@ -81,7 +82,8 @@ final class FakeWindow: WindowHandle {
     func descriptor() -> WindowDescriptor {
         WindowDescriptor(
             bundleID: bundleID, appName: bundleID, title: title, role: role, subrole: subrole, pid: pid,
-            windowID: windowID, isResizable: isResizable, isMinimized: isMinimized
+            windowID: windowID, isResizable: isResizable, isMinimized: isMinimized,
+            isNativeFullscreen: isNativeFullscreen
         )
     }
 

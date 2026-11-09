@@ -203,7 +203,7 @@ final class NativeDragTests: XCTestCase {
 
     // MARK: app-initiated moves (button up)
 
-    func testAppInitiatedMovesSnapBackThenAutoFloat() {
+    func testAppInitiatedMovesSnapBackAndStayTiled() {
         let s = scene()
         let slot = s.slotA
         XCTAssertFalse(s.h.system.isLeftMouseDown)
@@ -214,16 +214,20 @@ final class NativeDragTests: XCTestCase {
             assertFrame(s.a.frame, slot, "snapped back #\(i)")
             XCTAssertFalse(s.h.wm.isFloating(s.a.windowID))
         }
-        s.a.appMoves(to: slot.offsetBy(dx: 40, dy: 99))
+        let neighbour = s.slotB.width
+        let wandered = slot.offsetBy(dx: 40, dy: 99)
+        s.a.appMoves(to: wandered)
         s.h.settle()
         XCTAssertEqual(s.h.wm.counters.snapBacks, WindowManager.maxSnapBackRetries)
-        XCTAssertEqual(s.h.wm.counters.autoFloats, 1)
-        XCTAssertTrue(s.h.wm.isFloating(s.a.windowID))
-        let area = s.h.wm.usableArea(of: TestDisplays.air)
-        XCTAssertTrue(area.contains(s.a.frame))
-        XCTAssertEqual(s.a.frame.midX, area.midX, accuracy: 1)
-        XCTAssertEqual(s.a.frame.midY, area.midY, accuracy: 1)
-        // b takes the freed space.
-        XCTAssertGreaterThan(s.slotB.width, slot.width)
+        XCTAssertEqual(s.h.wm.counters.autoFloats, 0)
+        XCTAssertFalse(s.h.wm.isFloating(s.a.windowID))
+        assertFrame(s.a.frame, wandered, "the burst stops")
+        XCTAssertEqual(s.slotB.width, neighbour, accuracy: 1, "b keeps its tile; a was not floated out of the tree")
+
+        s.h.clock.now.addTimeInterval(WindowManager.reconcileInterval + 0.1)
+        s.h.wm.reconcileTiling()
+        s.h.settle()
+        assertFrame(s.a.frame, slot, "reconcile puts it back")
+        XCTAssertFalse(s.h.wm.isFloating(s.a.windowID))
     }
 }

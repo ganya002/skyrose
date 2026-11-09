@@ -33,13 +33,19 @@ public final class WindowManager {
         public var restoredFromSession = 0
         /// Re-applies after an app moved/resized a tiled window by itself.
         public var snapBacks = 0
-        /// Tiled windows floated because they could not fit or kept fighting their slot.
+        /// Kept at 0. Windows are no longer floated because they could not fit or fought their slot.
         public var autoFloats = 0
         /// Title-bar drags / edge resizes of tiled windows finished by the user.
         public var nativeDrops = 0
         public var nativeResizes = 0
         /// Minimum sizes confirmed by a second read-back.
         public var minSizesLearned = 0
+        /// Reconcile passes that put a drifted window back on its tile.
+        public var reconciles = 0
+        /// Workspaces whose split direction was flipped so minimum sizes could fit.
+        public var splitFlips = 0
+        /// Workspaces stacked (one visible tile) because minimum sizes could not sit side by side.
+        public var monocleLayouts = 0
 
         public var dictionary: [String: Int] {
             [
@@ -48,6 +54,7 @@ public final class WindowManager {
                 "restoredFromSession": restoredFromSession,
                 "journalWriteFailures": journalWriteFailures, "snapBacks": snapBacks, "autoFloats": autoFloats,
                 "nativeDrops": nativeDrops, "nativeResizes": nativeResizes, "minSizesLearned": minSizesLearned,
+                "reconciles": reconciles, "splitFlips": splitFlips, "monocleLayouts": monocleLayouts,
             ]
         }
     }
@@ -84,9 +91,11 @@ public final class WindowManager {
         var isResize: Bool { abs(latest.width - slot.width) > 2 || abs(latest.height - slot.height) > 2 }
     }
 
-    /// Re-applies allowed per window and target when an app moves a tiled window back by itself;
-    /// after that the window is floated (centred, on-screen) instead of fighting the app.
+    /// Re-applies allowed per window and target when an app moves a tiled window by itself.
+    /// After that the window stays tiled; the reconcile pass puts it back, it is not floated.
     public static let maxSnapBackRetries = 2
+    /// How often the reconcile pass re-checks tiles that drifted (event-driven first; this is the fallback).
+    public static let reconcileInterval: TimeInterval = 1
     /// After a native drag ends, late AX notifications from the drag are re-applied without
     /// counting as the app fighting its slot.
     public static let nativeDragGrace: TimeInterval = 0.6
@@ -207,8 +216,16 @@ public final class WindowManager {
     /// Apps the red button quit (pid → bundle id), for `query state` and tests.
     public private(set) var closeQuitApps: [String] = []
     var pointerPoll: Timer?
-    /// Floated by the WM itself (no room for the min size, or the app kept fighting its slot).
-    public internal(set) var autoFloated: [WindowID: String] = [:]
+    /// Plain-language tiling events for `query state` and `skyrose doctor` (capped).
+    public internal(set) var tilingNotes: [String] = []
+    /// User float / tile choices, keyed by app + window identity. Nil URL keeps them in memory.
+    public var userFloatLedgerURL: URL?
+    var userFloats = UserFloatLedger()
+    /// Until when a window that keeps leaving its tile is left alone (the reconcile pass retries then).
+    var resistedUntil: [WindowID: Date] = [:]
+    /// Last fit strategy per workspace, so a note is written once when it changes.
+    var workspaceFit: [WorkspaceID: String] = [:]
+    var reconcileTimer: Timer?
     /// Order in which windows were managed (the newest overflowing window floats first).
     var manageSerial: [WindowID: Int] = [:]
     var nextManageSerial = 0
@@ -291,18 +308,21 @@ public final class WindowManager {
             Log.wm.notice("restored \(self.counters.restoredOnLaunch) parked window(s) from the journal")
         }
 
+        if let url = userFloatLedgerURL { userFloats = UserFloatLedger.load(from: url) }
         isManaging = true
         windowSystem.onEvent = { [weak self] in self?.handle($0) }
         isDiscovering = true
         windowSystem.start()
         isDiscovering = false
         counters.restoredFromSession = restoreSession()
+        enforceUserFloatLedger()
         systemFocus = windowSystem.focusedWindowID
         // A restored session keeps the workspace each display showed; the app focus only counts
         // when it is on one of those.
         if let f = systemFocus, isManaged(f), counters.restoredFromSession == 0 || state.workspace(of: f).map(state.isVisible) == true {
             state.recordFocus(f)
         }
+        startReconcileTimer()
         setNeedsLayout()
     }
 
@@ -310,6 +330,7 @@ public final class WindowManager {
     /// Used by the panic chord, `wm.quit`/`wm.panic` and SIGTERM.
     @discardableResult
     public func shutdown() -> Int {
+        stopReconcileTimer()
         // SIP-off mode: every alpha / level / transform / shadow goes back first.
         enhanced?.shutdown()
         if isManaging { saveSessionIfChanged(immediately: true) }
@@ -393,24 +414,49 @@ public final class WindowManager {
 
     /// Placements of one workspace with the current config, areas and learned min sizes.
     ///
-    /// A tiled window whose minimum size is bigger than its slot comes back from the layout
-    /// centred on the slot, which can push it past the usable area (live test: Finder at x = −44).
-    /// Such frames are shifted back inside the area, keeping their size.
+    /// A tiled frame that would stick out of the usable area is pulled back inside it (live test:
+    /// Finder at x = −44). The size is shrunk when it is larger than the area, so it never covers
+    /// a neighbour.
     public func placements(of id: WorkspaceID) -> [Placement] {
-        guard let ws = state[id], let d = display(id: ws.displayID) else { return [] }
+        guard let ws = state[id] else { return [] }
+        return placements(for: ws)
+    }
+
+    func placements(for ws: Workspace, forcing direction: SplitDirection? = nil) -> [Placement] {
+        guard let d = display(id: ws.displayID) else { return [] }
         let area = usableArea(of: d)
-        let wm = config.resolved(forDisplay: d.id).wm
+        var wm = config.resolved(forDisplay: d.id).wm
+        var workspace = ws
+        if let direction {
+            // Honour this direction even when the aspect rule would pick the other one.
+            workspace.tree = ws.tree.withSplitDirection(direction)
+            wm.dwindle.preserveSplit = true
+        }
         return WorkspaceLayout.compute(
-            ws, area: area, fullFrame: d.frame, config: wm, minSizes: minSizes, groupBarHeight: groupBarReserved(wm)
+            workspace, area: area, fullFrame: d.frame, config: wm, minSizes: minSizes, groupBarHeight: groupBarReserved(wm)
         ).map { p in
-            guard p.kind == .tiled, !area.contains(p.frame) else { return p }
-            let x = p.frame.width > area.width ? area.minX : min(max(p.frame.minX, area.minX), area.maxX - p.frame.width)
-            let y = p.frame.height > area.height ? area.minY : min(max(p.frame.minY, area.minY), area.maxY - p.frame.height)
+            guard p.kind == .tiled else { return p }
+            var frame = p.frame
+            if frame.width > area.width { frame.size.width = area.width }
+            if frame.height > area.height { frame.size.height = area.height }
+            let x = min(max(frame.minX, area.minX), max(area.minX, area.maxX - frame.width))
+            let y = min(max(frame.minY, area.minY), max(area.minY, area.maxY - frame.height))
+            frame.origin = CGPoint(x: x, y: y)
+            guard frame != p.frame else { return p }
             var shifted = p
-            shifted.frame.origin = CGPoint(x: x, y: y)
-            shifted.borderFrame = p.borderFrame.offsetBy(dx: x - p.frame.minX, dy: y - p.frame.minY)
+            let dx = frame.minX - p.frame.minX
+            let dy = frame.minY - p.frame.minY
+            shifted.frame = frame
+            shifted.borderFrame = p.borderFrame.offsetBy(dx: dx, dy: dy)
+            shifted.borderFrame.size.width += frame.width - p.frame.width
+            shifted.borderFrame.size.height += frame.height - p.frame.height
             return shifted
         }
+    }
+
+    func placements(of id: WorkspaceID, forcing direction: SplitDirection) -> [Placement] {
+        guard let ws = state[id] else { return [] }
+        return placements(for: ws, forcing: direction)
     }
 
     // MARK: - Layout
@@ -431,6 +477,7 @@ public final class WindowManager {
     /// parked, newly visible floating/special windows are raised, and focus is synced.
     public func layoutIfNeeded() {
         guard needsLayout, isManaging else { return }
+        adoptStrays()
         if holdForWorkspaceTransition() { return }
         needsLayout = false
         counters.layoutPasses += 1
@@ -442,7 +489,7 @@ public final class WindowManager {
             if let n = state.activeNumberedWorkspace(forDisplay: d.id) { ids.append(.numbered(n)) }
             if let s = state.openSpecial(onDisplay: d.id) { ids.append(.special(s)) }
             for wsID in ids {
-                for p in placementsFloatingOverflow(of: wsID) where !p.hidden {
+                for p in placementsKeepingTiled(of: wsID) where !p.hidden {
                     visible[p.window] = p
                     if wsID.isSpecial || p.kind != .tiled { raiseOrder.append(p.window) }
                 }
@@ -708,7 +755,7 @@ public final class WindowManager {
         if target == nil { target = state.activeWorkspace(forDisplay: displayID) }
 
         var floating: CGRect?
-        let isFloating = config.appRuleBook.floats(d, ruleFloat: effects.float)
+        let isFloating = wantsFloat(d, ruleFloat: effects.float)
         if isFloating {
             let size = frame.isNull ? CGSize(width: area.width * 0.6, height: area.height * 0.7) : frame.size
             if isDiscovering, !frame.isNull, area.intersects(frame) {
@@ -774,8 +821,8 @@ public final class WindowManager {
         nativeDrags[id] = nil
         nativeGrace[id] = nil
         displaced[id] = nil
-        autoFloated[id] = nil
         manageSerial[id] = nil
+        resistedUntil[id] = nil
         suspended[id] = nil
         snapBacks[id] = nil
         forceApply.remove(id)
@@ -807,7 +854,7 @@ public final class WindowManager {
         guard let ws = suspended.removeValue(forKey: id) else { return }
         suspendChangedSinceLayout = true
         let frame = handles[id]!.frame
-        let floating = descriptors[id].map { config.appRuleBook.floats($0, ruleFloat: effects[id]?.float) } ?? false
+        let floating = descriptors[id].map { wantsFloat($0, ruleFloat: effects[id]?.float) } ?? false
         // A special that closed while the window was away is reopened only by focusing it.
         state.addWindow(id, to: ws, floating: floating && !frame.isNull ? frame : nil, focus: true, env: environment)
         setNeedsLayout()
@@ -820,6 +867,7 @@ public final class WindowManager {
 
     private func systemFocusChanged(_ id: WindowID?) {
         systemFocus = id
+        if let id { adoptIfManageable(id) }
         guard let id, isManaged(id), id != state.focusedWindow else { return }
         if parked[id] != nil, now().timeIntervalSince(lastWorkspaceChange) < Self.focusGuardInterval { return }
         if parked[id] != nil, now().timeIntervalSince(lastKeyDrawerClose) < Self.focusGuardInterval { return }
@@ -829,6 +877,7 @@ public final class WindowManager {
     }
 
     private func frameChanged(_ id: WindowID, _ frame: CGRect, isEcho: Bool) {
+        if handles[id] == nil { adoptIfManageable(id) }
         guard !isEcho, !frame.isNull, parked[id] == nil, drag == nil, let wsID = state.workspace(of: id),
               let ws = state[wsID] else { return }
         if ws.isFloating(id) {
@@ -859,11 +908,14 @@ public final class WindowManager {
             setNeedsLayout()
             return
         }
-        // The app moved or resized its own tiled window: back to the slot, a few times, then
-        // float it instead of fighting it in a resize loop.
+        // The app moved or resized its own tiled window: back to the slot a few times. After that
+        // it stays tiled; the reconcile pass puts it back. It is never floated for fighting.
         let tries = snapBacks[id, default: 0]
         guard tries < Self.maxSnapBackRetries else {
-            autoFloat(id, reason: "the app keeps moving or resizing it out of its slot")
+            if resistedUntil[id] == nil || now() >= resistedUntil[id]! {
+                resistedUntil[id] = now().addingTimeInterval(Self.reconcileInterval)
+                noteTiling("#\(id) keeps leaving its tile; it stays tiled and is put back on the next reconcile")
+            }
             return
         }
         snapBacks[id] = tries + 1
@@ -913,44 +965,231 @@ public final class WindowManager {
         return true
     }
 
-    /// Placements of a visible workspace after floating every tiled window whose minimum size
-    /// cannot fit even with the splits moved for it (newest first, one at a time).
-    func placementsFloatingOverflow(of wsID: WorkspaceID) -> [Placement] {
+    /// Placements that keep every non-rule window tiled. Hints that cannot fit are dropped.
+    /// Confirmed minimums that still do not fit flip the split direction when that helps, and
+    /// otherwise stack the workspace (one visible tile). Frames never overlap.
+    func placementsKeepingTiled(of wsID: WorkspaceID) -> [Placement] {
         var list = placements(of: wsID)
         for _ in 0..<8 {
-            let over = list.filter { $0.kind == .tiled && $0.overflows && !$0.hidden }
-            // A window that only overflows because of its app's hint loses the hint instead.
-            let hinted = over.filter { minSizeHinted.contains($0.window) }
-            if !hinted.isEmpty {
-                for p in hinted {
-                    minSizeHinted.remove(p.window)
-                    minSizes[p.window] = nil
-                }
-                list = placements(of: wsID)
-                continue
+            let hinted = list.filter { $0.kind == .tiled && $0.overflows && !$0.hidden && minSizeHinted.contains($0.window) }
+            if hinted.isEmpty { break }
+            for p in hinted {
+                minSizeHinted.remove(p.window)
+                minSizes[p.window] = nil
             }
-            guard let victim = over.max(by: { (manageSerial[$0.window] ?? 0) < (manageSerial[$1.window] ?? 0) }) else { break }
-            autoFloat(victim.window, reason: "its minimum size does not fit in the layout")
             list = placements(of: wsID)
         }
+        let before = Self.overflowCount(list)
+        if before == 0 {
+            rememberFit(wsID, "dwindle", nil)
+            return list
+        }
+        // The other split direction, forced (the aspect rule would otherwise keep the one that
+        // does not fit). The stored tree is left alone; the choice is recomputed every pass.
+        var bestDirection: SplitDirection?
+        var bestList = list
+        var bestCount = before
+        for direction in SplitDirection.allCases {
+            let candidate = placements(of: wsID, forcing: direction)
+            let count = Self.overflowCount(candidate)
+            if count < bestCount {
+                bestDirection = direction
+                bestList = candidate
+                bestCount = count
+            }
+        }
+        if bestDirection != nil {
+            rememberFit(wsID, "flipped", "split direction changed so minimum sizes fit")
+            if bestCount == 0 { return bestList }
+            list = bestList
+        }
+        let visibleTiled = list.filter { $0.kind == .tiled && !$0.hidden }
+        if visibleTiled.count >= 2, Self.overflowCount(list) > 0, let shown = focusedTiled(in: wsID, among: visibleTiled.map(\.window)) {
+            guard let ws = state[wsID], let d = display(id: ws.displayID) else { return list }
+            let area = usableArea(of: d)
+            let wm = config.resolved(forDisplay: d.id).wm
+            let grouped = ws.tree.leaf(of: shown)?.isGroup == true
+            guard let tile = WorkspaceLayout.fullTile(
+                in: area, config: wm, singleWindowGaps: !wsID.isSpecial,
+                groupBarHeight: grouped ? groupBarReserved(wm) : 0
+            ) else { return list }
+            rememberFit(wsID, "monocle", "minimum sizes do not fit side by side; stacked so nothing overlaps")
+            return WorkspaceLayout.monocle(list, showing: shown, tile: tile, minSizes: minSizes)
+        }
+        rememberFit(wsID, "squeezed", "a window is larger than its screen; it stays tiled to the full area")
         return list
     }
 
-    /// Floats a tiled window the layout cannot hold, centred in its display's usable area at its
-    /// current (or minimum) size, clamped so it is never off-screen.
-    func autoFloat(_ id: WindowID, reason: String) {
-        guard let area = area(of: id), !isFloating(id) else { return }
-        let current = handles[id]?.frame ?? .null
-        var size = current.isNull ? (applied[id]?.size ?? CGSize(width: area.width * 0.6, height: area.height * 0.7)) : current.size
-        if let m = minSizes[id] { size = CGSize(width: max(size.width, m.width), height: max(size.height, m.height)) }
-        let frame = Self.clamp(centered(size, in: area), to: area).integralPoints
-        guard state.setFloating(id, true, frame: frame, env: environment) else { return }
-        autoFloated[id] = reason
-        snapBacks[id] = 0
-        forceApply.insert(id)
-        counters.autoFloats += 1
-        Log.wm.notice("floating #\(id) (\(self.handles[id]?.bundleID ?? "", privacy: .public)): \(reason, privacy: .public)")
+    static func overflowCount(_ list: [Placement]) -> Int {
+        list.filter { $0.kind == .tiled && !$0.hidden && $0.overflows }.count
+    }
+
+    func focusedTiled(in wsID: WorkspaceID, among ids: [WindowID]) -> WindowID? {
+        if let focused = state.focusedWindow, ids.contains(focused) { return focused }
+        if let history = state[wsID]?.focusHistory.first(where: { ids.contains($0) }) { return history }
+        return ids.first
+    }
+
+    func rememberFit(_ wsID: WorkspaceID, _ strategy: String, _ message: String?) {
+        guard workspaceFit[wsID] != strategy else { return }
+        workspaceFit[wsID] = strategy
+        guard let message else { return }
+        switch strategy {
+        case "flipped": counters.splitFlips += 1
+        case "monocle": counters.monocleLayouts += 1
+        default: break
+        }
+        noteTiling(message)
+    }
+
+    func noteTiling(_ message: String) {
+        guard tilingNotes.last != message else { return }
+        tilingNotes.append(message)
+        if tilingNotes.count > 24 { tilingNotes.removeFirst(tilingNotes.count - 24) }
+        Log.wm.notice("tiling: \(message, privacy: .public)")
+    }
+
+    /// The user's explicit choice, if they have floated or tiled this window before.
+    func userFloatChoice(_ d: WindowDescriptor) -> Bool? {
+        switch userFloats.choice(bundleID: d.bundleID, subrole: d.subrole, title: d.title) {
+        case .floating: return true
+        case .tiled: return false
+        case nil: return nil
+        }
+    }
+
+    /// User choice wins. Otherwise the float rule, including dialogs, sheets and panels.
+    func wantsFloat(_ d: WindowDescriptor, ruleFloat: Bool?) -> Bool {
+        if let choice = userFloatChoice(d) { return choice }
+        return config.appRuleBook.floats(d, ruleFloat: ruleFloat)
+    }
+
+    func rememberUserFloat(_ id: WindowID) {
+        guard let d = descriptors[id] else { return }
+        userFloats.set(isFloating(id) ? .floating : .tiled, bundleID: d.bundleID, subrole: d.subrole, title: d.title)
+        guard let url = userFloatLedgerURL else { return }
+        do {
+            try userFloats.save(to: url)
+        } catch {
+            Log.wm.error("user float ledger not saved: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Applies explicit user choices on top of a restored session (the ledger is the intent; the
+    /// snapshot can be one save behind).
+    func enforceUserFloatLedger() {
+        for id in managedWindowIDs {
+            guard let d = descriptors[id], let want = userFloatChoice(d), want != isFloating(id) else { continue }
+            if want {
+                let area = area(of: id) ?? .zero
+                let current = handles[id]?.frame ?? .null
+                let size = current.isNull ? CGSize(width: max(area.width * 0.6, 1), height: max(area.height * 0.7, 1)) : current.size
+                let frame = current.isNull ? centered(size, in: area) : Self.clamp(current, to: area).integralPoints
+                _ = state.setFloating(id, true, frame: frame, env: environment)
+            } else {
+                _ = state.setFloating(id, false, env: environment)
+            }
+            forceApply.insert(id)
+        }
+    }
+
+    /// Manages a window that was skipped earlier (native fullscreen, not yet in the AX tree) now
+    /// that it can be tiled.
+    func adoptIfManageable(_ id: WindowID) {
+        guard handles[id] == nil, let handle = windowSystem.allWindows.first(where: { $0.windowID == id }) else { return }
+        manage(handle)
+    }
+
+    /// Picks up every tracked window that should be tiled and is not.
+    func adoptStrays() {
+        for handle in windowSystem.allWindows where handles[handle.windowID] == nil {
+            manage(handle)
+        }
+    }
+
+    /// Wake, space change, or a display coming back: adopt anything missed and re-apply tiles
+    /// that drifted. Idempotent when everything is already in place.
+    public func noteSessionEvent(_ reason: String) {
+        guard isManaging else { return }
+        let before = managedWindowIDs.count
+        adoptStrays()
+        var drifted: [WindowID] = []
+        for id in managedWindowIDs where !isFloating(id) && nativeDrags[id] == nil && parked[id] == nil {
+            guard let target = applied[id], let frame = handles[id]?.frame, !frame.isNull,
+                  !frame.approximatelyEquals(target, tolerance: 2) else { continue }
+            drifted.append(id)
+        }
+        guard managedWindowIDs.count != before || !drifted.isEmpty else { return }
+        for id in drifted {
+            forceApply.insert(id)
+            snapBacks[id] = 0
+            resistedUntil[id] = nil
+        }
+        counters.reconciles += 1
+        noteTiling("re-tiled after \(reason)")
         setNeedsLayout()
+    }
+
+    /// Event-driven callers and the timer fallback. Puts drifted tiled windows back on their
+    /// slots and adopts windows that appeared without an event. A second call with nothing
+    /// drifted writes nothing.
+    public func reconcileTiling() {
+        guard isManaging else { return }
+        let before = managedWindowIDs.count
+        adoptStrays()
+        let moment = now()
+        var drifted: [WindowID] = []
+        for id in managedWindowIDs where !isFloating(id) && nativeDrags[id] == nil && parked[id] == nil {
+            if let until = resistedUntil[id], moment < until { continue }
+            guard let target = applied[id] ?? visiblePlacements[id]?.frame else { continue }
+            guard let frame = handles[id]?.frame, !frame.isNull else {
+                drifted.append(id)
+                continue
+            }
+            guard !frame.approximatelyEquals(target, tolerance: 2) else { continue }
+            drifted.append(id)
+        }
+        let tiled = visiblePlacements.values.filter { $0.kind == .tiled }
+        let tiledList = Array(tiled)
+        var overlap = false
+        if tiledList.count > 1 {
+            for i in tiledList.indices {
+                for j in tiledList.indices where j > i && WorkspaceLayout.overlaps(tiledList[i].frame, tiledList[j].frame) {
+                    overlap = true
+                }
+            }
+        }
+        if overlap {
+            noteTiling("tiled windows overlapped; laying them out again")
+            setNeedsLayout()
+        }
+        if managedWindowIDs.count != before {
+            noteTiling("picked up a window that was not tiled yet")
+            setNeedsLayout()
+        }
+        guard !drifted.isEmpty else { return }
+        for id in drifted {
+            forceApply.insert(id)
+            snapBacks[id] = 0
+            resistedUntil[id] = moment.addingTimeInterval(Self.reconcileInterval)
+        }
+        counters.reconciles += 1
+        noteTiling("put \(drifted.count) window(s) back on their tiles")
+        setNeedsLayout()
+    }
+
+    func startReconcileTimer() {
+        guard scheduling == .mainQueue, reconcileTimer == nil else { return }
+        let timer = Timer(timeInterval: Self.reconcileInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reconcileTiling() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        reconcileTimer = timer
+    }
+
+    func stopReconcileTimer() {
+        reconcileTimer?.invalidate()
+        reconcileTimer = nil
     }
 
     // MARK: - Native drags (title bar / window edge)

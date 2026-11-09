@@ -209,7 +209,7 @@ final class ArchParityLayoutTests: XCTestCase {
 
     // MARK: Minimum tile (SkyRose)
 
-    func testMinimumTileSplitsTheLargestTileInsteadAndFloatsWhenFull() {
+    func testMinimumTileSplitsTheLargestTileAndStacksWhenFull() {
         let air = CGRect(x: 10, y: 10, width: 1450, height: 936)
         var wm = WMConfig()
         wm.dwindle.minTileWidth = 120
@@ -217,24 +217,26 @@ final class ArchParityLayoutTests: XCTestCase {
         let e = LayoutEnvironment(config: wm, areas: ["air": air])
         var s = WorkspaceState()
         _ = s.ensureDisplay("air")
-        var tiled = 0
-        var floated = 0
-        var lastFloated: WindowID?
+        var stacked = 0
         for i in 1...150 {
-            XCTAssertTrue(s.addWindow(WindowID(i), cursor: CGPoint(x: 15, y: 15), size: CGSize(width: 600, height: 400), env: e))
-            let ws = s[s.workspace(of: WindowID(i))!]!
-            if ws.isFloating(WindowID(i)) { floated += 1; lastFloated = WindowID(i) } else { tiled += 1 }
+            let id = WindowID(i)
+            XCTAssertTrue(s.addWindow(id, cursor: CGPoint(x: 15, y: 15), size: CGSize(width: 600, height: 400), env: e))
+            let ws = s[s.workspace(of: id)!]!
+            XCTAssertFalse(ws.isFloating(id), "a full screen stacks; it does not float")
+            if ws.tree.leaf(of: id)?.isGroup == true { stacked += 1 }
             let list = WorkspaceLayout.compute(ws, area: air, fullFrame: air, config: wm)
-            for p in list where p.kind == .tiled {
+            let visible = list.filter { $0.kind == .tiled && !$0.hidden }
+            for p in visible {
                 XCTAssertGreaterThanOrEqual(p.frame.width, 120 - 0.5, "window \(p.window) after \(i)")
                 XCTAssertGreaterThanOrEqual(p.frame.height, 80 - 0.5, "window \(p.window) after \(i)")
             }
+            for a in visible.indices {
+                for b in visible.indices where b > a {
+                    XCTAssertFalse(WorkspaceLayout.overlaps(visible[a].frame, visible[b].frame), "overlap after \(i)")
+                }
+            }
         }
-        XCTAssertGreaterThan(tiled, 10, "tiles keep coming while there is room")
-        XCTAssertGreaterThan(floated, 0, "a full screen floats new windows")
-        guard let id = lastFloated, let f = s[s.workspace(of: id)!]?.floating[id] else { return XCTFail("nothing floated") }
-        XCTAssertEqual(f.size, CGSize(width: 600, height: 400))
-        XCTAssertEqual(f.midX, air.midX, accuracy: 1)
+        XCTAssertGreaterThan(stacked, 0, "once the screen is full, new windows join a group")
     }
 
     func testNoMinimumMeansArchSlivers() {

@@ -64,6 +64,50 @@ public enum WorkspaceLayout {
         return placements
     }
 
+    /// The frame one window gets when it is the only tile (the monocle / stack slot).
+    public static func fullTile(
+        in area: CGRect, config: WMConfig, singleWindowGaps: Bool, groupBarHeight: Double = 0
+    ) -> Placement? {
+        var tree = DwindleTree()
+        let probe = WindowID(UInt32.max)
+        guard tree.insert(probe, relativeTo: nil, in: area, config: config.dwindle) else { return nil }
+        if groupBarHeight > 0 {
+            tree.updateLeaf(at: []) { $0.isGroup = true }
+        }
+        let params = LayoutParams(wm: config, singleWindowGaps: singleWindowGaps, groupBarHeight: groupBarHeight)
+        return tree.layout(area: area, params: params).first
+    }
+
+    /// Stacked layout: every tiled window shares `tile`'s frame and only `showing` is visible.
+    /// Nothing overlaps. A minimum larger than that frame sets `overflows` on the visible window
+    /// and still does not grow the frame.
+    public static func monocle(
+        _ placements: [Placement], showing: WindowID, tile: Placement, minSizes: [WindowID: CGSize]
+    ) -> [Placement] {
+        placements.map { placement in
+            guard placement.kind == .tiled else { return placement }
+            var next = placement
+            next.frame = tile.frame
+            next.borderFrame = tile.borderFrame
+            let show = placement.window == showing
+            next.hidden = !show
+            if show, let minimum = minSizes[placement.window] {
+                let tooWide = minimum.width > 0 && minimum.width > next.frame.width + 0.5
+                let tooTall = minimum.height > 0 && minimum.height > next.frame.height + 0.5
+                next.overflows = tooWide || tooTall
+            } else {
+                next.overflows = false
+            }
+            return next
+        }
+    }
+
+    /// True when two tiled frames share more than half a point of area (edge contact is not an overlap).
+    public static func overlaps(_ a: CGRect, _ b: CGRect) -> Bool {
+        let hit = a.intersection(b)
+        return !hit.isNull && hit.width > 0.5 && hit.height > 0.5
+    }
+
     /// Hyprland's pseudotile maths: the window keeps `size` centred in `slot`; when it does not
     /// fit it is scaled down (aspect kept) to fit, then centred. Integral points.
     public static func pseudoFrame(_ size: CGSize, in slot: CGRect) -> CGRect {

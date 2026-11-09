@@ -22,8 +22,8 @@ public struct Placement: Sendable, Hashable, Codable {
     /// so switching tabs is instant).
     public var hidden: Bool
     /// A tiled window whose learned minimum size does not fit in its slot even after the splits
-    /// gave it every point they could (`frame` is its min size, so it overlaps a neighbour). The
-    /// WM floats such a window instead of fighting the app.
+    /// gave it every point they could. `frame` stays inside the slot (it does not overlap a
+    /// neighbour). The WM flips the split or stacks the workspace; it does not float the window.
     public var overflows: Bool
 
     public init(window: WindowID, frame: CGRect, borderFrame: CGRect, kind: Kind, hidden: Bool = false, overflows: Bool = false) {
