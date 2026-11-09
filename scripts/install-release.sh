@@ -10,7 +10,7 @@
 #   sh install.sh
 #
 #   sh install.sh [--dry-run] [--yes] [--no-cli] [--cli] [--no-open] [--version X]
-#                 [--payload DIR] [--no-color] [--progress] [--uninstall] [-h]
+#                 [--payload DIR] [--update] [--no-color] [--progress] [--uninstall] [-h]
 #
 #   --dry-run    print every action, change nothing
 #   --yes        no questions. The CLI symlink stays off (the default) unless --cli is also set
@@ -19,6 +19,7 @@
 #   --no-open    do not open SkyRose at the end
 #   --version X  download vX instead of the version baked into this file
 #   --payload D  install from a folder of apps that was already checked (the window uses this)
+#   --update     replace the two apps only; keep config, the journal and wallpapers; reopen SkyRose if it was running
 #   --progress   machine-readable ::stage / ::done / ::skip / ::fail / ::finished lines
 #   --uninstall  run uninstall.sh next to this file
 #
@@ -35,7 +36,7 @@ VERSION=0.2.0
 BAKED_SHA256=""
 
 main() {
-  DRY=0 YES=0 CLI=ask OPEN=1 PROGRESS=0 COLOR=1 UNINSTALL=0
+  DRY=0 YES=0 CLI=ask OPEN=1 PROGRESS=0 COLOR=1 UNINSTALL=0 UPDATE=0
   payload=${SKYROSE_RELEASE_PAYLOAD:-}
   prev=""
   for arg in "$@"; do
@@ -50,9 +51,10 @@ main() {
       --no-color) COLOR=0 ;;
       --progress) PROGRESS=1; YES=1; COLOR=0 ;;
       --uninstall) UNINSTALL=1 ;;
+      --update) UPDATE=1; YES=1; CLI=no ;;
       --version) prev=--version ;;
       --payload) prev=--payload ;;
-      -h|--help) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      -h|--help) sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
       *) echo "install.sh: unknown option: $arg" >&2; exit 3 ;;
     esac
   done
@@ -103,6 +105,12 @@ main() {
     exit "$code"
   }
   run() { if [ "$DRY" = 1 ]; then echo "  ${D}would run:${N} $*"; return 0; fi; "$@"; }
+  # An update relaunches only what it had to quit. In the sandbox the test records the
+  # relaunch and does not call Launch Services.
+  reopen_app() {
+    if [ "$DRY" = 1 ] || [ "${SKYROSE_INSTALL_SANDBOX:-0}" = 1 ]; then done_ "reopen $1"; return 0; fi
+    if open "$HOME/Applications/$1"; then done_ "reopen $1"; else fail "Could not reopen $1."; finish 1; fi
+  }
 
   if [ "$PROGRESS" = 0 ]; then
     echo "${B}SkyRose installer${N} ${D}v$VERSION, as $(id -un), no sudo${N}"
@@ -177,15 +185,46 @@ main() {
   fi
 
   # 4. Replace any previous apps, then copy and check the signature.
+  # --update replaces only SkyRose.app and SkyRose Settings.app. It does not touch
+  # ~/.config/skyrose, the restore journal, or ~/Pictures (wallpapers stay).
   stage place "Copying SkyRose"
+  was_wm=0
+  was_settings=0
+  if [ "$UPDATE" = 1 ]; then
+    if [ -n "${SKYROSE_UPDATE_RUNNING:-}" ]; then
+      oldifs=$IFS
+      IFS=,
+      for item in $SKYROSE_UPDATE_RUNNING; do
+        case $item in
+          "SkyRose.app") was_wm=1 ;;
+          "SkyRose Settings.app") was_settings=1 ;;
+        esac
+      done
+      IFS=$oldifs
+    elif [ "${SKYROSE_INSTALL_SANDBOX:-0}" != 1 ]; then
+      pgrep -x SkyRoseWM >/dev/null 2>&1 && was_wm=1
+      pgrep -x SkyRoseSettings >/dev/null 2>&1 && was_settings=1
+    fi
+  fi
   if [ "$DRY" = 0 ] && [ "${SKYROSE_INSTALL_SANDBOX:-0}" != 1 ]; then
-    old="$HOME/Applications/SkyRose.app/Contents/MacOS/skyrose"
-    if [ -x "$old" ] && pgrep -x SkyRoseWM >/dev/null 2>&1; then
-      "$old" wm quit >/dev/null 2>&1 || osascript -e 'tell application id "com.skyrose.mac" to quit' </dev/null >/dev/null 2>&1 || true
+    if [ "$was_wm" = 1 ] || { [ "$UPDATE" != 1 ] && pgrep -x SkyRoseWM >/dev/null 2>&1; }; then
+      old="$HOME/Applications/SkyRose.app/Contents/MacOS/skyrose"
+      if [ -x "$old" ]; then
+        "$old" wm quit >/dev/null 2>&1 || osascript -e 'tell application id "com.skyrose.mac" to quit' </dev/null >/dev/null 2>&1 || true
+      else
+        osascript -e 'tell application id "com.skyrose.mac" to quit' </dev/null >/dev/null 2>&1 || true
+      fi
       i=0
       while [ "$i" -lt 20 ]; do pgrep -x SkyRoseWM >/dev/null 2>&1 || break; i=$((i + 1)); sleep 0.25; done
       if pgrep -x SkyRoseWM >/dev/null 2>&1; then fail "SkyRose is still running. Quit it, then run this again."; finish 1; fi
       done_ "the running SkyRose quit"
+    fi
+    if [ "$UPDATE" = 1 ] && [ "$was_settings" = 1 ]; then
+      osascript -e 'tell application id "com.skyrose.mac.settings" to quit' </dev/null >/dev/null 2>&1 || true
+      i=0
+      while [ "$i" -lt 20 ]; do pgrep -x SkyRoseSettings >/dev/null 2>&1 || break; i=$((i + 1)); sleep 0.25; done
+      if pgrep -x SkyRoseSettings >/dev/null 2>&1; then fail "SkyRose Settings is still running. Quit it, then run this again."; finish 1; fi
+      done_ "SkyRose Settings quit"
     fi
   fi
   mkdir -p "$HOME/Applications" "$HOME/Library/Application Support/SkyRose"
@@ -193,6 +232,7 @@ main() {
   for app in "SkyRose.app" "SkyRose Settings.app" "CaelestiaWM.app"; do
     dest="$HOME/Applications/$app"
     if [ "$app" = "CaelestiaWM.app" ]; then
+      if [ "$UPDATE" = 1 ]; then continue; fi
       if [ -d "$dest" ]; then run to_trash "$dest" && done_ "CaelestiaWM.app to the Trash"; fi
       continue
     fi
@@ -238,9 +278,12 @@ main() {
   stage permissions "Permissions"
   done_ "On first open, SkyRose asks for Accessibility, Input Monitoring and Screen Recording"
 
-  # 7. Open.
+  # 7. Open. An update puts back only the apps that were running; it does not start a fresh one.
   stage done "Opening SkyRose"
-  if [ "$OPEN" = 1 ]; then
+  if [ "$UPDATE" = 1 ]; then
+    if [ "$was_wm" = 1 ]; then reopen_app "SkyRose.app"; else skip "SkyRose was not running"; fi
+    if [ "$was_settings" = 1 ]; then reopen_app "SkyRose Settings.app"; else skip "SkyRose Settings was not running"; fi
+  elif [ "$OPEN" = 1 ]; then
     if run open "$HOME/Applications/SkyRose.app"; then done_ "SkyRose opened"; else fail "Could not open SkyRose. Open it from ~/Applications."; finish 1; fi
   else
     skip "not opened"
@@ -251,6 +294,11 @@ main() {
 # Moves a file to the Trash. Never rm -rf.
 to_trash() {
   [ -e "$1" ] || [ -L "$1" ] || return 0
+  # Tests pass a temporary HOME. Never hand those files to Finder, which would put them in the real Trash.
+  if [ "${SKYROSE_INSTALL_SANDBOX:-0}" = 1 ]; then
+    mkdir -p "$HOME/.Trash" && mv "$1" "$HOME/.Trash/$(basename "$1").$(date +%s)"
+    return 0
+  fi
   if command -v trash >/dev/null 2>&1; then trash "$1" && return 0; fi
   osascript -e 'on run argv' -e 'tell application "Finder" to delete POSIX file (item 1 of argv)' -e 'end run' "$1" </dev/null >/dev/null 2>&1 && return 0
   mkdir -p "$HOME/.Trash" && mv "$1" "$HOME/.Trash/$(basename "$1").$(date +%s)"

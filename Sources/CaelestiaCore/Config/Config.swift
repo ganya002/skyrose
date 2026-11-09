@@ -533,6 +533,8 @@ public struct GeneralConfig: Codable, Equatable, Sendable {
         case wm
     }
     public var mode: Mode = .full
+    /// Once a day, Settings looks for a newer release and only tells you. Installing is always a click.
+    public var checkForUpdates: Bool = false
     public init() {}
 }
 

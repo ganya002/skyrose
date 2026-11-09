@@ -29,6 +29,8 @@ enum LocalCommands {
             return cursor(verb, json: invocation.json)
         case .dock(let verb):
             return dock(verb)
+        case .update(let checkOnly):
+            return update(checkOnly: checkOnly || !invocation.yes)
         case .kitty(let verb):
             return kitty(verb, json: invocation.json)
         case .fonts(let verb):
@@ -442,6 +444,102 @@ extension LocalCommands {
 // MARK: cursor
 
 extension LocalCommands {
+    /// `skyrose update`: compare with the latest GitHub release. Without `--yes` it only reports.
+    /// A bad checksum or no network keeps the current install. Never downgrades.
+    static func update(checkOnly: Bool) -> Int32 {
+        let json: Data
+        if let path = ProcessInfo.processInfo.environment["SKYROSE_UPDATE_JSON"], !path.isEmpty {
+            guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+                Console.error("offline: the release list could not be read. Keeping SkyRose \(CaelestiaVersion.string).")
+                return ExitCode.failed
+            }
+            json = data
+        } else {
+            var request = URLRequest(url: Updater.releaseAPI)
+            request.timeoutInterval = 20
+            let box = UpdateBox()
+            let sem = DispatchSemaphore(value: 0)
+            URLSession.shared.dataTask(with: request) { data, _, _ in box.data = data; sem.signal() }.resume()
+            if sem.wait(timeout: .now() + 25) == .timedOut || box.data == nil {
+                Console.error("offline: no network. Keeping SkyRose \(CaelestiaVersion.string).")
+                return ExitCode.failed
+            }
+            json = box.data ?? Data()
+        }
+        switch Updater.plan(current: CaelestiaVersion.string, json: json) {
+        case .upToDate:
+            Console.out("SkyRose \(CaelestiaVersion.string) is up to date.")
+            return ExitCode.ok
+        case .newerInstalled(let tag):
+            Console.out("SkyRose \(CaelestiaVersion.string) is newer than \(tag). Not downgrading.")
+            return ExitCode.ok
+        case .unreadable(let why):
+            Console.error("\(why) Keeping SkyRose \(CaelestiaVersion.string).")
+            return ExitCode.failed
+        case .update(let tag, let zipURL, let shaURL):
+            Console.out("SkyRose \(tag) is available (installed: \(CaelestiaVersion.string)).")
+            if checkOnly { return ExitCode.ok }
+            return installUpdate(tag: tag, zip: zipURL, checksum: shaURL)
+        }
+    }
+
+    private static func installUpdate(tag: String, zip: URL, checksum: URL) -> Int32 {
+        let work = FileManager.default.temporaryDirectory.appendingPathComponent("skyrose-update-\(UUID().uuidString)", isDirectory: true)
+        let zipFile = work.appendingPathComponent("SkyRose.zip")
+        let shaFile = work.appendingPathComponent("SkyRose.zip.sha256")
+        do {
+            try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+            try fetch(zip, to: zipFile)
+            try fetch(checksum, to: shaFile)
+        } catch {
+            Console.error("The download failed (\(error.localizedDescription)). Keeping SkyRose \(CaelestiaVersion.string).")
+            return ExitCode.failed
+        }
+        guard Updater.checksumMatches(file: zipFile, shaFile: shaFile) else {
+            Console.error("SHA-256 did not match. Keeping SkyRose \(CaelestiaVersion.string).")
+            return ExitCode.failed
+        }
+        let unpacked = work.appendingPathComponent("unpacked", isDirectory: true)
+        let unpack = Process()
+        unpack.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+        unpack.arguments = ["-x", "-k", zipFile.path, unpacked.path]
+        do { try unpack.run() } catch {
+            Console.error("Could not open the zip. Keeping SkyRose \(CaelestiaVersion.string).")
+            return ExitCode.failed
+        }
+        unpack.waitUntilExit()
+        guard unpack.terminationStatus == 0 else {
+            Console.error("Could not open the zip. Keeping SkyRose \(CaelestiaVersion.string).")
+            return ExitCode.failed
+        }
+        let script = unpacked.appendingPathComponent("install.sh")
+        guard FileManager.default.isReadableFile(atPath: script.path) else {
+            Console.error("The release has no install.sh. Keeping SkyRose \(CaelestiaVersion.string).")
+            return ExitCode.failed
+        }
+        // The release's own install.sh, in update mode: keep config, the journal and wallpapers.
+        let status = Environment.run("/bin/sh", [script.path, "--update", "--payload", unpacked.path, "--yes"], timeout: 180)
+        if status.status != 0 {
+            let why = status.stderr.isEmpty ? status.stdout : status.stderr
+            Console.error(why.isEmpty ? "The update did not finish. Keeping SkyRose \(CaelestiaVersion.string)." : why)
+        }
+        return status.status == 0 ? ExitCode.ok : ExitCode.failed
+    }
+
+    private static func fetch(_ url: URL, to dest: URL) throws {
+        if url.isFileURL {
+            try FileManager.default.copyItem(at: url, to: dest)
+            return
+        }
+        let box = UpdateBox()
+        let sem = DispatchSemaphore(value: 0)
+        URLSession.shared.dataTask(with: url) { data, _, _ in box.data = data; sem.signal() }.resume()
+        guard sem.wait(timeout: .now() + 120) == .success, let data = box.data, !data.isEmpty else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        try data.write(to: dest, options: .atomic)
+    }
+
     /// `skyrose dock …`: hide the Dock without unloading it. `hide` journals the old values first.
     static func dock(_ verb: DockVerb) -> Int32 {
         let removal = DockRemoval()
@@ -509,4 +607,8 @@ extension LocalCommands {
             return ExitCode.failed
         }
     }
+}
+
+private final class UpdateBox: @unchecked Sendable {
+    var data: Data?
 }

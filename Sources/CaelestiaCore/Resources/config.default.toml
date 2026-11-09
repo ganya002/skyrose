@@ -18,6 +18,9 @@
 # "full" = SkyRose WM + the shell (bar, frame, launcher, dashboard, sidebar, OSDs).
 # "wm"   = SkyRose WM only: tiling, keybinds and borders; no bar, no shell, no screen frame.
 mode = "full"
+# Settings › About looks for a newer GitHub release once a day and only tells you.
+# Off by default. Installing is always a click (`skyrose update --yes`). Nothing installs itself.
+checkForUpdates = false
 
 [shell]
 # Every shell part can be turned off on its own. enabled = false turns the whole shell off.

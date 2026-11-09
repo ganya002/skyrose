@@ -7,7 +7,7 @@ Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part
 | 8a. Bibata cursor bundled, on by default | done | "Phase 8 part 8a" |
 | 8b. Dock removed (not unloaded) | done | "Phase 8 part 8b" |
 | 8c. Starter wallpapers | done, none bundled (licensing) | "Phase 8 part 8c" |
-| 8d. Updater | | |
+| 8d. Updater | done | "Phase 8 part 8d" |
 | 8e. Corner calibration | | |
 | 8f. Release v0.3.0 | | |
 
@@ -40,6 +40,16 @@ Uninstall trashes only those paths. No picture is in the bundle: seven wallhaven
 without a redistribution license, the API then returned 429, and the Eris Greyrat files were
 excluded. The list is in `Sources/CaelestiaCore/Resources/Wallpapers/CREDITS.md`. Nothing was copied
 into `~/Pictures/Wallpapers` and no desktop picture was changed.
+
+## Part 8d — updater (done)
+
+`skyrose update` reads the latest GitHub release and compares it to the installed version.
+`--check` (and a bare `update`, which does not pass `--yes`) only reports. `--yes` downloads the
+zip and its `.sha256`, checks the hash, and runs that release's `install.sh --update`, which
+replaces the two apps and relaunches whichever of them was running. A bad checksum, an unreadable
+release list, or no network keeps the current install and does not downgrade. Settings › About
+shows the version, Check, and Install once a newer release is known. "Check automatically once a
+day" is off; the daily check only writes a note. Nothing was installed over the copy on this Mac.
 
 # Phase 7: first ship, installer and uninstaller (started 2026-11-06)
 

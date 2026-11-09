@@ -24,6 +24,8 @@ public enum CLILocalCommand: Equatable, Sendable {
     case cursor(CursorVerb)
     /// `dock show | hide | status`: keep the Dock from appearing, without unloading it.
     case dock(DockVerb)
+    /// `update [--check] [--yes]`: look for a newer GitHub release and, with --yes, install it.
+    case update(checkOnly: Bool)
     /// `kitty status | install | uninstall`: the SkyRose kitty profile (works without the WM).
     case kitty(KittyVerb)
     /// `fonts status | download | install | uninstall`: the Arch font pack.
@@ -141,7 +143,7 @@ public enum CLIParser {
     /// Options that take a value.
     static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon"]
     /// Boolean options (long and short).
-    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete"]).union(uninstallFlags)
+    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check"]).union(uninstallFlags)
     /// Passed through to scripts/uninstall.sh.
     public static let uninstallFlags: Set<String> = ["--dry-run", "--remove-fonts", "--remove-config", "--remove-cert", "--no-color"]
 
@@ -308,6 +310,9 @@ public enum CLIParser {
         case "uninstall":
             try rejectExtra("uninstall", args)
             inv.kind = .local(.uninstall(flags: uninstallFlags.sorted().filter { tokens.has($0) }))
+        case "update":
+            try rejectExtra("update", args)
+            inv.kind = .local(.update(checkOnly: tokens.has("--check")))
         case "dock":
             let verb = args.first ?? "status"
             guard let v = DockVerb(rawValue: verb) else {
@@ -766,6 +771,7 @@ public enum CLIParser {
             ("uninstall [--yes] [--dry-run] [--remove-fonts|config|cert]", "Run uninstall.sh: restore every setting, trash the apps (--dry-run: print only)"),
             ("cursor list | status | set <cape|default> | reset", "Session cursor theme (Mousecape capes); reset puts the macOS cursors back"),
             ("dock show | hide | status", "Keep the Dock from sliding out (it keeps running Mission Control); hide is journaled"),
+            ("update [--check] [--yes]", "Look for a newer release; --yes downloads it, checks SHA-256, and replaces the apps"),
             ("fonts status | download | install | uninstall", "Arch font pack: download (checksummed, SkyRose only) / install into ~/Library/Fonts for kitty and other apps"),
             ("sa status | load-command | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, undo everything it changed"),
             ("kitty status | install | uninstall", "SkyRose kitty profile: Gabby's Arch settings + live scheme colours (one include line in kitty.conf)"),

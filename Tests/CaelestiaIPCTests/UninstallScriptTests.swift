@@ -424,6 +424,10 @@ final class UninstallScriptTests: XCTestCase {
     func testDockCommandParses() throws {
         let inv = try CLIParser.parse(["dock", "hide"])
         XCTAssertEqual(inv.kind, .local(.dock(.hide)))
+        XCTAssertEqual(try CLIParser.parse(["update", "--check"]).kind, .local(.update(checkOnly: true)))
+        let installing = try CLIParser.parse(["update", "--yes"])
+        XCTAssertEqual(installing.kind, .local(.update(checkOnly: false)))
+        XCTAssertTrue(installing.yes)
     }
 
     func testCLIPassesTheFlagsThrough() throws {
