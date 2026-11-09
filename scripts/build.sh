@@ -76,6 +76,9 @@ ln -s skyrose "$APP/Contents/MacOS/caelestia"
 copy_resource_bundles "$APP"
 [[ -d "$ROOT/Resources" ]] && cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"   # optional extra resources (untracked)
 cp "$ROOT/Packaging/SkyRose.icns" "$ROOT/Packaging/SkyRoseWM.icns" "$APP/Contents/Resources/"   # scripts/make-icons.swift
+# The uninstaller travels with the app, so `skyrose uninstall` and Settings work without the repo.
+mkdir -p "$APP/Contents/Resources/scripts"
+install -m 0755 "$ROOT/scripts/uninstall.sh" "$APP/Contents/Resources/scripts/uninstall.sh"
 # SIP-off scripting addition (arm64e): payload for the Dock + the sudo loader. Ad-hoc signed
 # before the bundle seal; nothing is loaded at build time.
 "$ROOT/scripts/build-sa.sh" "$APP/Contents/Resources/sa"

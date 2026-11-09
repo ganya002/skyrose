@@ -81,17 +81,46 @@ public final class WallpaperService {
         return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
     }
 
+    /// The restore manifest the wallpaper changes are recorded in (nil: not recorded). Set by the
+    /// WM daemon; tests leave it nil so they never write the user's manifest.
+    public var journal: BackupJournal?
+
     /// Sets the desktop picture on all displays. Returns false (with a reason) on failure.
     @discardableResult
     public func apply(_ url: URL) -> String? {
         guard FileManager.default.fileExists(atPath: url.path) else { return "File not found: \(url.path)" }
         var failure: String?
         for screen in NSScreen.screens {
+            record(url, on: screen)
             do { try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: [:]) }
             catch { failure = error.localizedDescription }
         }
         if failure == nil { lastSet = url }
         return failure
+    }
+
+    /// Records the display's picture from before SkyRose's first change (the uninstaller puts it
+    /// back, but only on a display that still shows what SkyRose set last), then each new
+    /// picture SkyRose sets (`newValue`, only when it changes).
+    func record(_ url: URL, on screen: NSScreen) {
+        guard let journal else { return }
+        let id = Self.displayID(screen)
+        do {
+            let latest = try journal.entries().last { $0.kind == .wallpaper && $0.domain == id }
+            if case .string(url.path)? = latest?.newValue { return }
+            let before = NSWorkspace.shared.desktopImageURL(for: screen).map { BackupValue.string($0.path) } ?? .absent
+            try journal.append(BackupEntry(domain: id, key: "wallpaper", oldValue: latest == nil ? before : latest!.oldValue,
+                                           newValue: .string(url.path), kind: .wallpaper, note: screen.localizedName))
+        } catch {
+            Log.shell.error("wallpaper: restore manifest not written: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// The display's stable UUID (as in `query monitors`), or its number when it has none.
+    static func displayID(_ screen: NSScreen) -> String {
+        let n = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+        if let uuid = CGDisplayCreateUUIDFromDisplayID(n)?.takeRetainedValue(), let s = CFUUIDCreateString(nil, uuid) as String? { return s }
+        return "display-\(n)"
     }
 
     /// The wallpaper of the main display as macOS reports it (nil for dynamic / unknown).

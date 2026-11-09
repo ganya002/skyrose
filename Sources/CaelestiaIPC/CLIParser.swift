@@ -9,8 +9,9 @@ public enum CLILocalCommand: Equatable, Sendable {
     case keysList
     /// `doctor`: environment, permissions, versions, conflicts.
     case doctor
-    /// `uninstall`: run scripts/uninstall.sh or print the manual steps.
-    case uninstall
+    /// `uninstall [--dry-run] [--remove-fonts] [--remove-config] [--remove-cert] [--no-color]`: run
+    /// scripts/uninstall.sh with those flags (`--yes` is `CLIInvocation.yes`) or print the manual steps.
+    case uninstall(flags: [String])
     /// `shell -d`: launch the WM app and wait for its socket.
     case shellStart
     /// `shell help [target]`: print the Linux shell IPC targets and signatures.
@@ -134,7 +135,9 @@ public enum CLIParser {
     /// Options that take a value.
     static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon"]
     /// Boolean options (long and short).
-    static let flagOptions: Set<String> = ["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete"]
+    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete"]).union(uninstallFlags)
+    /// Passed through to scripts/uninstall.sh.
+    public static let uninstallFlags: Set<String> = ["--dry-run", "--remove-fonts", "--remove-config", "--remove-cert", "--no-color"]
 
     struct Tokens {
         var positionals: [String] = []
@@ -298,7 +301,7 @@ public enum CLIParser {
             inv.kind = .local(.doctor)
         case "uninstall":
             try rejectExtra("uninstall", args)
-            inv.kind = .local(.uninstall)
+            inv.kind = .local(.uninstall(flags: uninstallFlags.sorted().filter { tokens.has($0) }))
         case "cursor":
             let verb = args.first ?? "status"
             switch verb {
@@ -747,7 +750,7 @@ public enum CLIParser {
             ("permissions status", "TCC permissions as the WM sees them"),
             ("permissions request <accessibility|inputMonitoring|screenRecording>", "Ask for one permission and open its System Settings pane"),
             ("doctor [--json]", "Environment, permissions, versions, SIP status, conflicts"),
-            ("uninstall [--yes]", "Run scripts/uninstall.sh (or print the manual steps)"),
+            ("uninstall [--yes] [--dry-run] [--remove-fonts|config|cert]", "Run uninstall.sh: restore every setting, trash the apps (--dry-run: print only)"),
             ("cursor list | status | set <cape|default> | reset", "Session cursor theme (Mousecape capes); reset puts the macOS cursors back"),
             ("fonts status | download | install | uninstall", "Arch font pack: download (checksummed, SkyRose only) / install into ~/Library/Fonts for kitty and other apps"),
             ("sa status | load-command | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, undo everything it changed"),

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Settings pages, in sidebar order.
 public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
-    case general, appearance, windows, rules, keybinds, shell, terminal, sipOff, permissions, about
+    case general, appearance, windows, rules, keybinds, shell, terminal, sipOff, permissions, backup, about
     public var id: String { rawValue }
 
     public var title: String {
@@ -17,6 +17,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .terminal: return "Terminal"
         case .sipOff: return "SIP-off mode"
         case .permissions: return "Permissions"
+        case .backup: return "Backup & uninstall"
         case .about: return "About"
         }
     }
@@ -32,6 +33,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .terminal: return "terminal"
         case .sipOff: return "bolt.shield"
         case .permissions: return "lock.shield"
+        case .backup: return "arrow.uturn.backward.circle"
         case .about: return "info.circle"
         }
     }
@@ -46,10 +48,13 @@ public struct SettingsRoot: View {
     @State var page: SettingsPage
     var onClose: () -> Void
     var onRunOnboarding: () -> Void
+    var onUninstall: (Bool) -> Void
     @Namespace private var ns
 
-    public init(store: SettingsStore, page: SettingsPage = .general, onClose: @escaping () -> Void, onRunOnboarding: @escaping () -> Void) {
+    public init(store: SettingsStore, page: SettingsPage = .general, onClose: @escaping () -> Void, onRunOnboarding: @escaping () -> Void,
+                onUninstall: @escaping (_ dryRun: Bool) -> Void = { _ in }) {
         self.store = store
+        self.onUninstall = onUninstall
         _page = State(initialValue: page)
         self.onClose = onClose
         self.onRunOnboarding = onRunOnboarding
@@ -155,6 +160,7 @@ public struct SettingsRoot: View {
         case .terminal: TerminalPage(store: store)
         case .sipOff: SIPOffPage(store: store)
         case .permissions: PermissionsPage(store: store, only: [])
+        case .backup: BackupUninstallPage(store: store, onUninstall: onUninstall)
         case .about: AboutPage(store: store)
         }
     }

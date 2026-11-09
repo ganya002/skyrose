@@ -142,6 +142,7 @@ public final class WMDaemon {
         wm.sessionStore = SessionSnapshotStore()
         // Native shell part 1: frame, bar, launcher, session menu, OSDs, toasts (CaelestiaShell).
         let shell = ShellBridge(wm: wm)
+        shell.controller.wallpaper.journal = BackupJournal(url: Paths.restoreManifest)
         self.shell = shell
         shell.controller.useNotificationHistory(NotificationHistoryFile(url: Paths.appSupport.appendingPathComponent("notifications.json")))
         wm.onLayoutApplied = { [weak shell] in shell?.sync() }

@@ -177,9 +177,6 @@ struct PermissionSteps: View {
 struct AboutPage: View {
     @ObservedObject var store: SettingsStore
     @Environment(\.look) var look
-    @State private var restores: [RestoreManifest.Item] = []
-    @State private var manifestError: String?
-    @State private var showSIPDemo = false
 
     static let credits: [(String, String, String)] = [
         ("Caelestia", "The shell this is modelled on: bar, panels, colours and motion. GPL-3.0.", "https://github.com/caelestia-dots/shell"),
@@ -220,38 +217,8 @@ struct AboutPage: View {
                 }
             }
             Card {
-                SectionLabel(text: "Changes SkyRose made to macOS")
-                if let manifestError {
-                    Text("The restore list cannot be read: \(manifestError)").font(look.font(12.5)).foregroundStyle(look[.error])
-                } else if restores.isEmpty {
-                    Text("None. SkyRose has not changed any macOS setting.").font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
-                } else {
-                    Text("Each one is undone by the uninstaller, back to the value you had.").font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
-                    ForEach(restores) { r in
-                        HStack {
-                            Image(systemName: "arrow.uturn.backward.circle").foregroundStyle(look[.primary])
-                            Text(r.title).font(look.font(13)).foregroundStyle(look[.onSurface])
-                            Spacer()
-                            Text(r.changedAt.formatted(date: .abbreviated, time: .omitted)).font(look.font(11.5)).foregroundStyle(look[.onSurfaceVariant])
-                        }
-                    }
-                }
-                Text(Paths.restoreManifest.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                    .font(look.mono(10.5)).foregroundStyle(look[.onSurfaceVariant]).textSelection(.enabled)
-            }
-            Card {
-                SettingRow(title: "Preview the SIP reminder", detail: "The uninstaller shows this if SIP-off mode was ever used. It cannot be closed for 5 seconds.", icon: "lock.shield") {
-                    PillButton(title: "Show", kind: .outline) { SIPReminderPresenter.show(look: look) }
-                        .accessibilityIdentifier("about.sipPreview")
-                }
+                SettingRow(title: "Backup & uninstall", detail: "The settings SkyRose changed, a copy of your config, and the uninstaller are in Settings › Backup & uninstall.", icon: "arrow.uturn.backward.circle") { EmptyView() }
             }
         }
-        .onAppear(perform: load)
-    }
-
-    func load() {
-        let m = RestoreManifest()
-        manifestError = m.readError
-        restores = (try? m.pendingRestores()) ?? []
     }
 }

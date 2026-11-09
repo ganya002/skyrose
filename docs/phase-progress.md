@@ -5,7 +5,7 @@ Spec: `docs/PHASE-PROMPT-7-ship.md`. Commit on `main` after each part, `git push
 | Part | State | Commit |
 |---|---|---|
 | 7a. Launcher black flash | done, live-tested on the built-in | "Phase 7 part 7a" |
-| 7b. Uninstaller | | |
+| 7b. Uninstaller | done | "Phase 7 part 7b" |
 | 7c. Release installer + GUIs | | |
 | 7d. GitHub Release v0.2.0 | | |
 
@@ -37,6 +37,30 @@ left and right of the launcher and a frame above it. Two causes, both fixed:
   and not committed, because they show the terminal). Debugging also ruled out the content's
   sublayerTransform: its pivot and jelly match the blob, and dx stays 0 on screen.
 - Tests: 1066 passed, 0 failed (`/usr/bin/swift test`).
+
+## Part 7b — uninstaller (done)
+
+`scripts/uninstall.sh` is the engine `skyrose uninstall` runs, and `scripts/build.sh` copies it into
+`SkyRose.app/Contents/Resources/scripts/uninstall.sh`. Settings › Backup & uninstall opens the same
+script in the SkyRose-styled window (`--progress`). `--yes` keeps fonts, `~/.config/skyrose` and the
+signing certificate unless a `--remove-*` flag says otherwise.
+
+Five bugs in the first draft are fixed, each with a fixture-HOME test (the real account is refused;
+nothing here ran the uninstaller against Gabriel's Mac):
+
+- A failed `defaults` / hotkey / wallpaper / file restore keeps `~/Library/Application Support/SkyRose`
+  (the manifest stays) and the script exits non-zero.
+- If the WM is still running after `wm quit`, the script stops. Settings, apps and data are left as they are.
+- Every `BackupValue` type is written back (bool, int, double, string, date, data, array, dictionary),
+  and a `symbolichotkeys` entry restores or removes only that shortcut number inside `AppleSymbolicHotKeys`.
+- Wallpaper restore uses the recorded display id. Two displays showing the same SkyRose picture get
+  their own originals; a display that no longer shows it is left alone.
+- After `::sip` the script waits for `ack` on stdin (the window sends it when the reminder is dismissed).
+  Terminal uses `open -W` on a Settings instance that quits when the reminder is dismissed. Nothing is
+  trashed before that, and a missing acknowledgement exits non-zero.
+
+Tests: 1087 passed, 0 failed (`/usr/bin/swift test`). Uninstaller checks were `--dry-run` and fixture
+HOME only.
 
 # Phase 6: Caelestia 1:1 visual polish (started 2026-11-06)
 

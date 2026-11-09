@@ -14,8 +14,8 @@ enum LocalCommands {
             return keysList(json: invocation.json)
         case .doctor:
             return Doctor(client: client, json: invocation.json).run()
-        case .uninstall:
-            return Uninstaller(assumeYes: invocation.yes, client: client).run()
+        case .uninstall(let flags):
+            return Uninstaller(assumeYes: invocation.yes, flags: flags, client: client).run()
         case .shellStart:
             return ShellStarter(client: client, timeout: invocation.timeout ?? 15).run()
         case .shellTargets(let target):
@@ -315,32 +315,25 @@ struct ShellStarter {
 /// is already gone.
 struct Uninstaller {
     let assumeYes: Bool
+    var flags: [String] = []
     let client: IPCClient
 
     func run() -> Int32 {
-        // Decided before anything is removed (the script moves Application Support to the Trash).
-        let sipReminder = RestoreManifest().mustShowSIPReminder(csrutilStatus: SIPStatus.readCSRUtil())
-        defer { if sipReminder { showSIPReminder() } }
         guard let script = locateScript() else {
+            // Without the script the reminder is shown here (the script shows it itself, before it
+            // moves Application Support to the Trash).
+            if RestoreManifest().mustShowSIPReminder(csrutilStatus: SIPStatus.readCSRUtil()) { showSIPReminder() }
             printManualSteps()
             return ExitCode.failed
         }
         Console.out("Uninstall script: \(Environment.tilde(script))")
-        Console.out("It stops the WM, restores every window and every backed-up setting, removes the login item,")
-        Console.out("hidutil mappings, apps and CLI, and moves the config to the Trash (it asks about fonts/config).")
-        if !assumeYes {
-            guard Console.stdinIsTerminal else {
-                Console.error("not a terminal; re-run with --yes to proceed without confirmation.")
-                return ExitCode.failed
-            }
-            Console.out("Run it now? [y/N] ", terminator: "")
-            let answer = readLine()?.trimmingCharacters(in: .whitespaces).lowercased() ?? ""
-            guard answer == "y" || answer == "yes" else {
-                Console.out("Cancelled.")
-                return ExitCode.ok
-            }
+        let dryRun = flags.contains("--dry-run")
+        if !assumeYes, !dryRun, !Console.stdinIsTerminal {
+            Console.error("not a terminal; re-run with --yes to proceed without questions (or --dry-run to look first).")
+            return ExitCode.failed
         }
-        var args = [script.path]
+        // The script asks for confirmation itself (and about fonts, config and the certificate).
+        var args = [script.path] + flags
         if assumeYes { args.append("--yes") }
         let status = Environment.runInteractive("/bin/sh", args)
         if status != 0 { Console.error("uninstall script exited with status \(status)") }
@@ -360,6 +353,10 @@ struct Uninstaller {
     /// Looks next to the app bundle first, then in the repository the CLI was built from.
     func locateScript() -> URL? {
         var candidates: [URL] = []
+        // The app this CLI runs from (…/SkyRose.app/Contents/MacOS/skyrose), then the installed one.
+        if let exe = Bundle.main.executableURL?.resolvingSymlinksInPath() {
+            candidates.append(exe.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Resources/scripts/uninstall.sh"))
+        }
         if let app = Environment.wmAppURL {
             candidates.append(app.appendingPathComponent("Contents/Resources/scripts/uninstall.sh"))
             candidates.append(app.appendingPathComponent("Contents/Resources/uninstall.sh"))

@@ -20,6 +20,14 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
     public var sipOffShowcase = false
     /// Opens the onboarding at this step (screenshots, tests).
     public var onboardingStep: OnboardingStep?
+    /// `--uninstaller [--dry-run]`: opens the uninstaller window (Settings › Backup & uninstall
+    /// does the same after a confirm). `--dry-run` previews it: the engine runs with --dry-run.
+    public var uninstaller = false
+    public var dryRun = false
+
+    /// `--sip-reminder` on its own: the uninstaller is blocked in `open -W` until this instance
+    /// quits, and it quits when the reminder is dismissed.
+    public var sipReminderOnly: Bool { sipReminder && !uninstaller && onboarding == nil }
 
     public init() {}
 
@@ -39,6 +47,8 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
         o.sipReminder = args.contains("--sip-reminder")
         o.sipOffShowcase = args.contains("--sip-off-showcase")
         if let i = args.firstIndex(of: "--step"), i + 1 < args.count { o.onboardingStep = OnboardingStep(rawValue: args[i + 1]) }
+        o.uninstaller = args.contains("--uninstaller")
+        o.dryRun = args.contains("--dry-run")
         return o
     }
 }
@@ -55,6 +65,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
     var options: SettingsLaunchOptions
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var uninstallerWindow: NSWindow?
 
     public init(options: SettingsLaunchOptions) {
         self.options = options
@@ -71,7 +82,14 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
             let args = n.userInfo?["arguments"] as? [String] ?? []
             MainActor.assumeIsolated { self?.handle(arguments: args) }
         }
-        if let req = options.onboarding {
+        if options.sipReminderOnly {
+            SIPReminderPresenter.show(look: store.look) { NSApp.terminate(nil) }
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        if options.uninstaller {
+            showUninstaller(dryRun: options.dryRun)
+        } else if let req = options.onboarding {
             showOnboarding(req)
         } else {
             showSettings(page: options.page)
@@ -104,7 +122,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
     /// Another launch (the WM or `skyrose settings`) asked for a window.
     func handle(arguments: [String]) {
         let o = SettingsLaunchOptions.parse(arguments)
-        if let req = o.onboarding { showOnboarding(req) } else { showSettings(page: o.page) }
+        if o.uninstaller { showUninstaller(dryRun: o.dryRun) } else if let req = o.onboarding { showOnboarding(req) } else { showSettings(page: o.page) }
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -115,7 +133,8 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         }
         let root = SettingsRoot(store: store, page: page,
                                 onClose: { [weak self] in self?.settingsWindow?.close() },
-                                onRunOnboarding: { [weak self] in self?.showOnboarding(.firstRun) })
+                                onRunOnboarding: { [weak self] in self?.showOnboarding(.firstRun) },
+                                onUninstall: { [weak self] dry in self?.showUninstaller(dryRun: dry) })
         let w = makeWindow(NSHostingView(rootView: root), size: NSSize(width: 980, height: 700), title: "SkyRose Settings")
         w.minSize = NSSize(width: 860, height: 600)
         settingsWindow = w
@@ -136,6 +155,22 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         let w = makeWindow(NSHostingView(rootView: view), size: NSSize(width: 780, height: 640), title: "Welcome to SkyRose")
         if let s = settingsWindow { w.setFrameTopLeftPoint(NSPoint(x: s.frame.minX + 40, y: s.frame.maxY - 40)) }
         onboardingWindow = w
+        w.makeKeyAndOrderFront(nil)
+    }
+
+    /// The uninstaller window. Closing it while the engine runs is not offered (no close button);
+    /// when it was the only window, closing it quits.
+    func showUninstaller(dryRun: Bool) {
+        if let w = uninstallerWindow { w.makeKeyAndOrderFront(nil); return }
+        let view = UninstallerView(store: store, dryRun: dryRun) { [weak self] in
+            guard let self else { return }
+            self.uninstallerWindow?.close()
+            if self.settingsWindow == nil, self.onboardingWindow == nil { NSApp.terminate(nil) }
+        }
+        let w = makeWindow(NSHostingView(rootView: view), size: SetupChrome<EmptyView, EmptyView>.size, title: dryRun ? "Preview the SkyRose uninstall" : "Uninstall SkyRose")
+        w.styleMask.remove(.resizable)
+        if let s = settingsWindow { w.setFrameTopLeftPoint(NSPoint(x: s.frame.minX + 60, y: s.frame.maxY - 50)) }
+        uninstallerWindow = w
         w.makeKeyAndOrderFront(nil)
     }
 
@@ -166,6 +201,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         guard let w = notification.object as? NSWindow else { return }
         if w === settingsWindow { store.flush(); settingsWindow = nil }
         if w === onboardingWindow { onboardingWindow = nil }
+        if w === uninstallerWindow { uninstallerWindow = nil }
     }
 
     static func menu() -> NSMenu {

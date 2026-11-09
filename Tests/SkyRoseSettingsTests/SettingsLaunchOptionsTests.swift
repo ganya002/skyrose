@@ -11,6 +11,9 @@ final class SettingsLaunchOptionsTests: XCTestCase {
         XCTAssertFalse(o.sipReminder)
         XCTAssertFalse(o.demoSIPPopup)
         XCTAssertTrue(SettingsLaunchOptions.parse(["--sip-reminder"]).sipReminder)
+        XCTAssertTrue(SettingsLaunchOptions.parse(["--sip-reminder"]).sipReminderOnly)
+        XCTAssertFalse(SettingsLaunchOptions.parse(["--sip-reminder", "--uninstaller"]).sipReminderOnly)
+        XCTAssertFalse(SettingsLaunchOptions.parse(["--onboarding", "--sip-reminder"]).sipReminderOnly)
     }
 
     func testRepairAndSimulate() {
