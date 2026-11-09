@@ -395,8 +395,9 @@ reduceMotion = false    # SkyRose Reduce Motion: every animation becomes a short
 [frame]
 # Radius (pt) of the display's physical rounded corners. The frame's outer edge follows it and
 # its inner corners use it - the band thickness, so the band keeps one width around the corner.
-# Apple does not publish it: tune it by eye with `skyrose frame calibrate` (arrow keys, Tab
-# switches top/bottom corners, Return saves per display under [displays."<uuid>"]).
+# Apple does not publish it: tune it by eye with `skyrose corners calibrate` (or `frame calibrate`).
+# A slider or the arrow keys move the live outline (Tab switches top/bottom, 0 makes that pair
+# square, Return saves per display under [displays."<uuid>"]).
 # A radius larger than the hardware's shows the wallpaper in the corner; a smaller one is hidden.
 # displayCornerRadius: top corners (and bottom ones unless set below). Negative = auto: 10 on a
 # built-in panel with a notch, 0 (square) elsewhere.

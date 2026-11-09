@@ -477,7 +477,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
         case .wallpaperRandom:
             return IPCCommandSpec(.misc, "Pick a random wallpaper from the configured folder.", returns: "{path}")
         case .frameCalibrate:
-            return IPCCommandSpec(.shell, "Tune the screen frame's outer corner radius by eye (arrow keys, Return saves per display, Esc cancels).",
+            return IPCCommandSpec(.shell, "Tune the screen frame's outer corner radius by eye (slider or arrow keys, Return saves per display, Esc cancels).",
                                   arguments: [.optional("display", .string, help: "display id or name (default: the one under the pointer)")],
                                   returns: "{display, radius}")
         case .keepAwake:

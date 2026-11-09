@@ -278,6 +278,24 @@ struct CornerRow: View {
             }
             radius("Top corners", top, key: "displayCornerRadius") { $0.displayCornerRadius = $1 }
             radius("Bottom corners", bottom, key: "displayBottomCornerRadius") { $0.displayBottomCornerRadius = $1 }
+            SettingRow(title: "This screen has square corners", detail: "On for most external monitors. Off goes back to Auto.", icon: "square") {
+                PillToggle(isOn: Binding(
+                    get: {
+                        let o = store.config.displays[display.id]
+                        let top = o?.displayCornerRadius ?? store.config.frame.displayCornerRadius
+                        let bottom = o?.displayBottomCornerRadius ?? store.config.frame.displayBottomCornerRadius
+                        return top == 0 && bottom == 0
+                    },
+                    set: { square in
+                        let value = square ? 0.0 : -1.0
+                        store.set("displays.\(display.id).displayCornerRadius", .number(value), update: { c in
+                            var o = c.displays[display.id] ?? DisplayOverride(); o.displayCornerRadius = value; c.displays[display.id] = o
+                        })
+                        store.set("displays.\(display.id).displayBottomCornerRadius", .number(value), update: { c in
+                            var o = c.displays[display.id] ?? DisplayOverride(); o.displayBottomCornerRadius = value; c.displays[display.id] = o
+                        })
+                    }), accessibilityLabel: "Square corners on \(display.name)")
+            }
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: SettingsLook.rowRadius, style: .continuous).fill(look[.surfaceContainerHigh].opacity(0.6)))

@@ -18,6 +18,36 @@ final class DisplayGeometryTests: XCTestCase {
         Facts(uuid: "ext", frame: CGRect(origin: origin, size: size), visibleFrame: CGRect(origin: origin, size: size))
     }
 
+    func testNotchFromTheSafeAreaOrAuxiliaryGapFeedsTheCornerDefault() {
+        XCTAssertTrue(DisplayGeometry.panelHasNotch(
+            safeAreaTop: 32,
+            auxiliaryTopLeft: CGRect(x: 0, y: 0, width: 10, height: 32),
+            auxiliaryTopRight: CGRect(x: 200, y: 0, width: 10, height: 32)))
+        XCTAssertTrue(DisplayGeometry.panelHasNotch(
+            safeAreaTop: 0,
+            auxiliaryTopLeft: CGRect(x: 0, y: 0, width: 100, height: 20),
+            auxiliaryTopRight: CGRect(x: 180, y: 0, width: 100, height: 20)))
+        XCTAssertFalse(DisplayGeometry.panelHasNotch(safeAreaTop: 0, auxiliaryTopLeft: nil, auxiliaryTopRight: nil))
+
+        var built = air
+        built.isBuiltIn = true
+        built.auxiliaryTopLeft = CGRect(x: 0, y: 924, width: 600, height: 32)
+        built.auxiliaryTopRight = CGRect(x: 800, y: 924, width: 670, height: 32)
+        let notch = DisplayGeometry.info(for: built, converter: CoordinateConverter(primaryHeight: 956))
+        XCTAssertTrue(notch.hasNotch)
+        XCTAssertTrue(notch.isBuiltIn)
+        XCTAssertEqual(notch.id, "air", "the radius is stored by display UUID, not by screen index")
+        let frame = FrameConfig()
+        XCTAssertEqual(frame.cornerRadius(isBuiltIn: notch.isBuiltIn, hasNotch: notch.hasNotch), FrameConfig.autoBuiltInRadius)
+        XCTAssertEqual(frame.bottomCornerRadius(isBuiltIn: notch.isBuiltIn, hasNotch: notch.hasNotch), 0)
+
+        let ext = DisplayGeometry.info(for: external(at: .zero), converter: CoordinateConverter(primaryHeight: 1440))
+        XCTAssertFalse(ext.isBuiltIn)
+        XCTAssertFalse(ext.hasNotch)
+        XCTAssertEqual(frame.cornerRadius(isBuiltIn: ext.isBuiltIn, hasNotch: ext.hasNotch), 0)
+        XCTAssertEqual(frame.bottomCornerRadius(isBuiltIn: ext.isBuiltIn, hasNotch: ext.hasNotch), 0)
+    }
+
     func testPrimaryOnly() {
         let d = DisplayGeometry.displays(from: [air])[0]
         XCTAssertEqual(d.frame, CGRect(x: 0, y: 0, width: 1470, height: 956))

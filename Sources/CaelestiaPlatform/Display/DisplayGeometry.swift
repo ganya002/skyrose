@@ -88,8 +88,17 @@ public enum DisplayGeometry {
         return DisplayInfo(
             id: s.uuid, displayID: s.displayID, name: s.name, frame: converter.toTopLeft(s.frame),
             menuBarHeight: menuBar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero,
-            shownMenuBarHeight: shown, topCutouts: cutouts, isBuiltIn: s.isBuiltIn, hasNotch: s.safeAreaTop > 0
+            shownMenuBarHeight: shown, topCutouts: cutouts, isBuiltIn: s.isBuiltIn,
+            hasNotch: panelHasNotch(safeAreaTop: s.safeAreaTop, auxiliaryTopLeft: s.auxiliaryTopLeft, auxiliaryTopRight: s.auxiliaryTopRight)
         )
+    }
+
+    /// A built-in panel has a notch when `NSScreen.safeAreaInsets.top` is set, or when the two
+    /// auxiliary top areas leave a gap between them. External screens and pre-notch MacBooks do neither.
+    public static func panelHasNotch(safeAreaTop: Double, auxiliaryTopLeft: CGRect?, auxiliaryTopRight: CGRect?) -> Bool {
+        if safeAreaTop > 0 { return true }
+        guard let left = auxiliaryTopLeft, let right = auxiliaryTopRight else { return false }
+        return right.minX - left.maxX >= minimumCutoutWidth
     }
 
     /// Slivers narrower than this between the auxiliary areas are rounding noise, not a cutout.

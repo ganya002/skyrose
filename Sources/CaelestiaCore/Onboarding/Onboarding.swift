@@ -152,7 +152,7 @@ public struct PermissionHistory: Codable, Equatable, Sendable {
 
 /// The onboarding steps, in order.
 public enum OnboardingStep: String, Codable, CaseIterable, Sendable {
-    case welcome, mode, permissions, tweaks, kitty, fonts, done
+    case welcome, mode, permissions, tweaks, kitty, fonts, corners, done
 
     public var title: String {
         switch self {
@@ -162,6 +162,7 @@ public enum OnboardingStep: String, Codable, CaseIterable, Sendable {
         case .tweaks: return "macOS tweaks"
         case .kitty: return "kitty"
         case .fonts: return "Fonts"
+        case .corners: return "Corners"
         case .done: return "All set"
         }
     }

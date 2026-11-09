@@ -306,6 +306,28 @@ final class FrameCalibrationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
     }
 
+    func testSliderAndSquareApplyLiveAndTheZeroKeyMakesThePairSquare() throws {
+        let view = FrameCalibrationView(frame: CGRect(x: 0, y: 0, width: 800, height: 600))
+        let track = FrameCalibrationView.sliderTrack(in: view.bounds)
+        XCTAssertEqual(FrameCalibrationView.radius(atX: track.minX, track: track), 0)
+        XCTAssertEqual(FrameCalibrationView.radius(atX: track.midX, track: track), 30)
+        XCTAssertEqual(FrameCalibrationView.radius(atX: track.maxX, track: track), FrameConfig.maxRadius)
+        XCTAssertEqual(view.pick(at: CGPoint(x: track.midX, y: track.midY)), 30)
+        XCTAssertNil(view.pick(at: CGPoint(x: 4, y: 4)))
+        let square = FrameCalibrationView.squareHit(in: view.bounds)
+        XCTAssertEqual(view.pick(at: CGPoint(x: square.midX, y: square.midY)), 0)
+
+        let c = controller()
+        defer { c.stop() }
+        _ = try c.startFrameCalibration(display: "BUILTIN").get()
+        c.calibration?.view.onPick?(22)
+        XCTAssertEqual(c.layouts["BUILTIN"]?.displayCornerRadius, 22, "the frame follows the slider without a restart")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path), "dragging does not save")
+        XCTAssertTrue(c.calibrationKey(key(29)))
+        XCTAssertEqual(c.cornerRadiusTrials["BUILTIN"], 0)
+        XCTAssertEqual(c.layouts["BUILTIN"]?.displayCornerRadius, 0)
+    }
+
     func testOtherKeysAreNotConsumed() throws {
         let c = controller()
         defer { c.stop() }

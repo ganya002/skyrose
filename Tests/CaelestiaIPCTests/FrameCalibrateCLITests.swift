@@ -12,6 +12,14 @@ final class FrameCalibrateCLITests: XCTestCase {
         return req
     }
 
+    func testCornersCalibrateIsTheSameCommand() throws {
+        let direct = try request(["corners", "calibrate"])
+        XCTAssertEqual(direct.knownCommand, .frameCalibrate)
+        XCTAssertNil(direct.string("display"))
+        XCTAssertEqual(try request(["corners", "calibrate", "DELL", "U2720Q"]).string("display"), "DELL U2720Q")
+        XCTAssertThrowsError(try CLIParser.parse(["corners", "reset"]))
+    }
+
     func testCalibrateWithoutDisplay() throws {
         let r = try request(["frame", "calibrate"])
         XCTAssertEqual(r.knownCommand, .frameCalibrate)

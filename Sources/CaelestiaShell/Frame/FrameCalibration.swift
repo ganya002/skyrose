@@ -14,7 +14,8 @@ public enum CalibrationCorners: String, Sendable {
 /// along the display edge with the radii being tried, while the screen frame underneath redraws
 /// with them live. The radii are tuned by eye (Apple does not publish them):
 ///
-/// - ↑ / ↓: ±0.5 pt, with ⇧: ±0.1 pt (the pair of corners being tuned)
+/// - Slider, or ↑ / ↓: ±0.5 pt, with ⇧: ±0.1 pt (the pair of corners being tuned)
+/// - 0: this pair of corners is square
 /// - Tab: switch between the top and the bottom corners
 /// - ← / →: previous / next display
 /// - Return: save every changed radius to `[displays."<uuid>"] displayCornerRadius` /
@@ -35,7 +36,7 @@ final class FrameCalibration {
 
     init(displayID: String, frame: CGRect, name: String, radius: Double) {
         self.displayID = displayID
-        panel = ShellPanel(frame: frame, level: ShellLevel.osd, clickThrough: true, name: "frame-calibration")
+        panel = ShellPanel(frame: frame, level: ShellLevel.osd, clickThrough: false, name: "frame-calibration")
         panel.acceptsKey = true
         view = FrameCalibrationView(frame: CGRect(origin: .zero, size: frame.size))
         view.autoresizingMask = [.width, .height]
@@ -71,6 +72,8 @@ final class FrameCalibrationView: NSView {
     var bottomRadius: Double? { didSet { needsDisplay = true } }
     var corners: CalibrationCorners = .top { didSet { needsDisplay = true } }
     var displayName = "" { didSet { needsDisplay = true } }
+    /// Called with the radius the slider or the Square control picked, for the pair being tuned.
+    var onPick: ((Double) -> Void)?
     static let dimColor = NSColor(calibratedWhite: 1, alpha: 0.35)
     /// Bright and thin so its edge against the hardware corner is easy to judge.
     static let lineWidth: Double = 1.5
@@ -99,6 +102,44 @@ final class FrameCalibrationView: NSView {
         return path
     }
 
+    /// The slider track, centred under the instructions. x maps onto 0...``FrameConfig/maxRadius``.
+    static func sliderTrack(in bounds: CGRect) -> CGRect {
+        let width = min(360, max(40, bounds.width - 80))
+        return CGRect(x: bounds.midX - width / 2, y: bounds.midY + 86, width: width, height: 6)
+    }
+
+    static func sliderHit(in bounds: CGRect) -> CGRect {
+        sliderTrack(in: bounds).insetBy(dx: -8, dy: -18)
+    }
+
+    static func squareHit(in bounds: CGRect) -> CGRect {
+        let track = sliderTrack(in: bounds)
+        return CGRect(x: bounds.midX - 70, y: track.maxY + 16, width: 140, height: 28)
+    }
+
+    static func radius(atX x: CGFloat, track: CGRect) -> Double {
+        guard track.width > 0 else { return 0 }
+        let t = min(1, max(0, (x - track.minX) / track.width))
+        return (Double(t) * FrameConfig.maxRadius * 10).rounded() / 10
+    }
+
+    /// Square control wins over the track. Nil when the point is on neither.
+    func pick(at point: CGPoint) -> Double? {
+        if Self.squareHit(in: bounds).contains(point) { return 0 }
+        let track = Self.sliderTrack(in: bounds)
+        guard Self.sliderHit(in: bounds).contains(point) else { return nil }
+        return Self.radius(atX: point.x, track: track)
+    }
+
+    override func mouseDown(with event: NSEvent) { drag(event) }
+    override func mouseDragged(with event: NSEvent) { drag(event) }
+
+    private func drag(_ event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard let value = pick(at: point) else { return }
+        onPick?(value)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         ctx.clear(bounds)
@@ -119,7 +160,8 @@ final class FrameCalibrationView: NSView {
 
         let value = corners == .top ? radius : bottom
         let title = String(format: "%@ corner radius  %.2f pt", corners == .top ? "Top" : "Bottom", value)
-        let help = "\(displayName)\n↑ ↓  ±0.5 pt    ⇧ ↑ ↓  ±0.1 pt    Tab  top / bottom corners    ← →  other display\n"
+        let help = "\(displayName)\nDrag the slider, or ↑ ↓ ±0.5 pt (⇧ ±0.1).  0 or Square makes this pair square.\n"
+            + "Tab  top / bottom    ← →  other display\n"
             + "Too large: wallpaper shows outside the line.  Too small: the corner cuts the line.\nReturn  save    Esc  cancel"
         let para = NSMutableParagraphStyle()
         para.alignment = .center
@@ -136,6 +178,22 @@ final class FrameCalibrationView: NSView {
         NSColor(calibratedWhite: 0.08, alpha: 0.88).setFill()
         NSBezierPath(roundedRect: box, xRadius: 16, yRadius: 16).fill()
         text.draw(with: box.insetBy(dx: 22, dy: 16), options: [.usesLineFragmentOrigin])
+
+        let valueNow = corners == .top ? radius : bottom
+        let track = Self.sliderTrack(in: bounds)
+        NSColor.white.withAlphaComponent(0.25).setFill()
+        NSBezierPath(roundedRect: track, xRadius: 3, yRadius: 3).fill()
+        let thumbX = track.minX + CGFloat(min(FrameConfig.maxRadius, max(0, valueNow)) / FrameConfig.maxRadius) * track.width
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: CGRect(x: thumbX - 7, y: track.midY - 7, width: 14, height: 14)).fill()
+        let square = Self.squareHit(in: bounds)
+        NSColor.white.withAlphaComponent(0.16).setFill()
+        NSBezierPath(roundedRect: square, xRadius: 10, yRadius: 10).fill()
+        let label = NSAttributedString(string: "Square", attributes: [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium), .foregroundColor: NSColor.white,
+        ])
+        let labelSize = label.size()
+        label.draw(at: CGPoint(x: square.midX - labelSize.width / 2, y: square.midY - labelSize.height / 2))
     }
 }
 
@@ -199,6 +257,7 @@ extension ShellController {
         } else {
             let c = FrameCalibration(displayID: d.id, frame: frame, name: d.name, radius: radius)
             c.panel.onKeyDown = { [weak self] e in self?.calibrationKey(e) ?? false }
+            c.view.onPick = { [weak self] value in self?.setCalibrationRadius(value) }
             calibration = c
         }
         calibration?.setRadii(top: radius, bottom: bottom)
@@ -212,6 +271,7 @@ extension ShellController {
         switch e.keyCode {
         case 126: stepCalibration(by: fine ? 0.1 : 0.5)
         case 125: stepCalibration(by: fine ? -0.1 : -0.5)
+        case 29: setCalibrationRadius(0)
         case 48: calibration?.corners = calibration?.corners.toggled ?? .top
         case 123: switchCalibrationDisplay(by: -1)
         case 124: switchCalibrationDisplay(by: 1)
@@ -228,6 +288,13 @@ extension ShellController {
         guard let c = calibration, let d = state.displays.first(where: { $0.id == c.displayID }) else { return }
         let current = displayCornerRadius(for: d, corners: c.corners)
         let next = min(FrameConfig.maxRadius, max(0, ((current + delta) * 100).rounded() / 100))
+        setCalibrationRadius(next)
+    }
+
+    /// Sets the radius being tuned (slider, the Square control, or the 0 key) and redraws the frame.
+    public func setCalibrationRadius(_ value: Double) {
+        guard let c = calibration, let d = state.displays.first(where: { $0.id == c.displayID }) else { return }
+        let next = min(FrameConfig.maxRadius, max(0, (value * 100).rounded() / 100))
         setTrial(next, c.corners, d.id)
         c.setRadii(top: displayCornerRadius(for: d), bottom: displayCornerRadius(for: d, corners: .bottom))
         rebuildSurfaces()

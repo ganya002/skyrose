@@ -77,6 +77,7 @@ public struct OnboardingView: View {
         case .tweaks: TweaksStep()
         case .kitty: OptionalSetupStep(title: "kitty profile", subtitle: "Adds one include line to kitty.conf so colours follow SkyRose. Skip if you do not use kitty.", command: ["kitty", "install"])
         case .fonts: OptionalSetupStep(title: "Fonts for other apps", subtitle: "Copies the SkyRose fonts into ~/Library/Fonts. Skip to keep them inside SkyRose only.", command: ["fonts", "install"])
+        case .corners: CornersStep(store: store)
         case .done: DoneStep(store: store)
         }
     }
@@ -105,7 +106,7 @@ public struct OnboardingView: View {
         if step == .welcome { return "Get started" }
         if step == .permissions, !permissionsReady { return "Skip for now" }
         if step == .tweaks { return "Continue" }
-        if step == .kitty || step == .fonts { return "Skip" }
+        if step == .kitty || step == .fonts || step == .corners { return "Skip" }
         return "Next"
     }
 
@@ -401,6 +402,33 @@ struct DoneStep: View {
             }
         }
         .onAppear { withAnimation(look.motion.spring(0.3, bounce: 0.35)) { appeared = true } }
+    }
+}
+
+/// Skippable. The built-in panel starts from the notched-Mac radius; external screens start square.
+/// Calibrate opens the live overlay when SkyRose is already running. Skip leaves the defaults.
+struct CornersStep: View {
+    @ObservedObject var store: SettingsStore
+    @Environment(\.look) var look
+    @State private var note = ""
+
+    var body: some View {
+        VStack(spacing: 18) {
+            StepHeader(title: "Screen corners",
+                       subtitle: "A notched built-in screen starts at \(Int(FrameConfig.autoBuiltInRadius)) pt on the top corners, and square along the bottom. External screens start square. Match the real corner now, or skip and do it later in Settings › Appearance.")
+            PillButton(title: "Calibrate on screen", icon: "viewfinder", kind: .tonal) {
+                guard store.wmRunning else {
+                    note = "SkyRose is not running yet. Skip this, then use Settings › Appearance › Corners, or skyrose corners calibrate."
+                    return
+                }
+                store.calibrateFrame()
+                note = "The overlay is on the display under the pointer. Drag the slider or use the arrow keys until the line hugs the corner. Return saves. Esc cancels."
+            }
+            if !note.isEmpty {
+                Text(note).font(look.font(13)).foregroundStyle(look[.onSurfaceVariant]).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true).frame(maxWidth: 520)
+            }
+        }
     }
 }
 

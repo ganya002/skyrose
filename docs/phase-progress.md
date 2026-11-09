@@ -8,7 +8,7 @@ Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part
 | 8b. Dock removed (not unloaded) | done | "Phase 8 part 8b" |
 | 8c. Starter wallpapers | done, none bundled (licensing) | "Phase 8 part 8c" |
 | 8d. Updater | done | "Phase 8 part 8d" |
-| 8e. Corner calibration | | |
+| 8e. Corner calibration | done | "Phase 8 part 8e" |
 | 8f. Release v0.3.0 | | |
 
 ## Part 8a — Bibata cursor (done)
@@ -50,6 +50,15 @@ replaces the two apps and relaunches whichever of them was running. A bad checks
 release list, or no network keeps the current install and does not downgrade. Settings › About
 shows the version, Check, and Install once a newer release is known. "Check automatically once a
 day" is off; the daily check only writes a note. Nothing was installed over the copy on this Mac.
+
+## Part 8e — corner calibration (done)
+
+Onboarding has a skippable Corners step. Settings › Appearance has a per-display slider and a
+"this screen has square corners" switch (off returns to Auto). `skyrose corners calibrate` opens
+the same fullscreen outline as `frame calibrate`: all four corners, a slider or the arrow keys,
+0 for a square pair, saved under `[displays."<uuid>"]` and drawn live without restarting the WM.
+A notched built-in panel (safe area, or a gap between the auxiliary top areas) starts at 10 pt on
+top and square on the bottom. External screens start square. Not checked on the real displays.
 
 # Phase 7: first ship, installer and uninstaller (started 2026-11-06)
 

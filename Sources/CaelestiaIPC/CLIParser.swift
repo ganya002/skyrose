@@ -214,6 +214,12 @@ public enum CLIParser {
             inv.kind = try parseScheme(args)
         case "wallpaper":
             inv.kind = try parseWallpaper(args)
+        case "corners":
+            guard let verb = args.first, verb == "calibrate" else {
+                throw CLIUsageError.unknownVerb(group: "corners", verb: args.first ?? "", expected: ["calibrate"])
+            }
+            let display = args.dropFirst().joined(separator: " ")
+            inv.kind = .ipc(display.isEmpty ? IPCRequest(.frameCalibrate) : IPCRequest(.frameCalibrate, args: ["display": .string(display)]))
         case "frame":
             guard let verb = args.first else { throw CLIUsageError.missingArgument(command: "frame", name: "calibrate") }
             guard verb == "calibrate" else { throw CLIUsageError.unknownVerb(group: "frame", verb: verb, expected: ["calibrate"]) }
@@ -724,13 +730,14 @@ public enum CLIParser {
             ("window float|fullscreen|maximize|pin|close|center", "Act on the focused window"),
             ("window pseudo|togglesplit|swapsplit", "Pseudotile, flip or swap the focused window's split (dwindle)"),
         ]),
-        HelpSection(title: "Shell", topics: ["shell", "frame"], rows: [
+        HelpSection(title: "Shell", topics: ["shell", "frame", "corners"], rows: [
             ("shell launcher|dashboard|sidebar|session|lock|showall|clear-notifs", "Toggle a panel"),
             ("shell -d", "Start the WM app if it is not running"),
             ("shell kill | shell restart", "Hide / restart the shell UI"),
             ("shell <target> <fn> [args...]", "Linux shell IPC, 1:1 (e.g. shell toaster info \"Title\" \"Msg\" icon)"),
             ("shell help [target]", "List the IPC targets and their signatures"),
-            ("frame calibrate [display]", "Tune the frame's corner radii by eye (↑↓ ±0.5, ⇧ ±0.1, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
+            ("frame calibrate [display]", "Tune the frame's corner radii by eye (slider or ↑↓ ±0.5, ⇧ ±0.1, 0 square, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
+            ("corners calibrate [display]", "Same as frame calibrate"),
         ]),
         HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell"], rows: [
             ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
@@ -762,7 +769,7 @@ public enum CLIParser {
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [
             ("query windows|workspaces|monitors|binds|state [--json]", "Inspect WM state (tables, or raw JSON with --json)"),
         ]),
-        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "cursor", "kitty", "fonts", "sa", "version"], rows: [
+        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "cursor", "dock", "update", "kitty", "fonts", "sa", "version"], rows: [
             ("action <name> [key=value ...]", "Run any keymap action, e.g. action workspace.focus index=3"),
             ("wm panic | restore-all | quit", "Restore windows and stop managing / bring parked windows back / quit"),
             ("permissions status", "TCC permissions as the WM sees them"),

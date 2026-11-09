@@ -13,6 +13,7 @@ final class FrameCornerRadiusTests: XCTestCase {
         XCTAssertEqual(f.cornerRadius(isBuiltIn: false, hasNotch: true), 0)
         XCTAssertEqual(f.cornerRadius(isBuiltIn: true, hasNotch: false), 0, "pre-notch MacBook panels are square")
         XCTAssertEqual(f.cornerRadius(isBuiltIn: false, hasNotch: false), 0)
+        XCTAssertEqual(f.bottomCornerRadius(isBuiltIn: false, hasNotch: false), 0, "external screens default to square corners")
         XCTAssertEqual(FrameConfig.autoBuiltInRadius, 10)
     }
 
