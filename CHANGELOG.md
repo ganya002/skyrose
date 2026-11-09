@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 first public build (2026-11-09)
+
+Install and uninstall, from https://github.com/ganya002/skyrose/releases/tag/v0.2.0
+
+- **Release zip** `SkyRose-0.2.0-arm64.zip` with `SkyRose.app`, `SkyRose Settings.app`, `install.sh` and `uninstall.sh`, plus detached `.sha256` files. Signed with the local identity, not an Apple Developer ID, and not notarized. No Homebrew cask.
+- **install.sh** checks Apple Silicon and macOS 14, verifies the zip's SHA-256, then copies the apps to `~/Applications`. In a terminal it opens the SkyRose installer window. `--yes` stays in the terminal. `--dry-run` changes nothing.
+- **Uninstall** with `skyrose uninstall` or Settings › Backup & uninstall. It puts back the restore manifest, including symbolic hotkeys and per-display wallpapers, and waits for the SIP reminder before anything is trashed.
+
 ## Unreleased: Arch parity
 
 ### Added
