@@ -72,8 +72,8 @@ create "SkyRose Local Signing".
 From a release, without Xcode (the hash is the `SkyRose-<version>-arm64.zip.sha256` file next to the zip):
 
 ```sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.2.0/install.sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.2.0/install.sh.sha256
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.3.0/install.sh
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.3.0/install.sh.sha256
 shasum -a 256 -c install.sh.sha256
 less install.sh
 sh install.sh --dry-run
@@ -82,7 +82,9 @@ sh install.sh
 
 That build is signed on the build machine, not with an Apple Developer ID, and it is not notarized.
 `sh install.sh` opens the SkyRose installer window. Add `--yes` to stay in the terminal.
-There is no Homebrew cask.
+There is no Homebrew cask. A copy that is already installed can look for a newer release with
+`skyrose update` (see [docs/UPDATING.md](docs/UPDATING.md)); installing one always takes a click or
+`--yes`.
 
 From a git checkout (needs Xcode):
 

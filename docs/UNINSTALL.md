@@ -84,6 +84,11 @@ The report at the end lists what was done, what was not needed, and anything lef
 Settings → Backup & uninstall also saves a copy of the restore list and a `.zip` of
 `~/.config/skyrose` wherever you choose.
 
+## Updating
+
+Replacing SkyRose with a newer release is not an uninstall. [UPDATING.md](UPDATING.md) describes
+`skyrose update`. An update leaves this uninstaller, your config, and the restore journal in place.
+
 ## Afterwards
 
 The Mac looks and behaves like stock macOS. Permissions you granted stay listed in System

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 (2026-11-09)
+
+Shipped defaults and an updater. https://github.com/ganya002/skyrose/releases/tag/v0.3.0
+
+- **Bibata Modern Classic** ships inside the app (GPL-3.0) and is the cursor for a new config. The wait cursor stays macOS's until logout. Settings › Appearance › Cursor can put the macOS cursor back. The theme is re-applied for the login session.
+- **Dock.** A recommended tweak hides the Dock (a long autohide delay, then `killall Dock`) without unloading it, so Mission Control keeps working. `skyrose dock show|hide|status`. The original values are journaled and put back on uninstall. The launcher opens apps; the bar shows what is running. Dock stacks, recent items, and the Downloads folder are not replaced.
+- **Starter wallpapers.** The copier can place a SkyRose collection in `~/Pictures/Wallpapers/Static/` without overwriting a file or a duplicate hash, and uninstall removes only those copies. This release ships none: the candidates were fan art without a redistribution license.
+- **Updates.** `skyrose update [--check] [--yes]` and Settings › About. The check only notifies. `--yes` or Install verifies SHA-256 and replaces the two apps, keeping config, the journal, and wallpapers. No downgrade. A bad checksum or no network keeps the current install. A daily check is off unless you turn it on.
+- **Corners.** Onboarding can skip a calibration step. Settings › Appearance and `skyrose corners calibrate` show a live outline on each display. A slider or the arrow keys set the radius; external screens start square; a notched built-in screen starts at 10 pt on the top corners. Saved per display UUID and applied without restarting the WM.
+- **Release zip** `SkyRose-0.3.0-arm64.zip` with the two apps, `install.sh`, and `uninstall.sh`, plus detached `.sha256` files. Signed with the local identity, not an Apple Developer ID, and not notarized. Tag `v0.2.0` is unchanged.
+
 ## 0.2.0 first public build (2026-11-09)
 
 Install and uninstall, from https://github.com/ganya002/skyrose/releases/tag/v0.2.0
