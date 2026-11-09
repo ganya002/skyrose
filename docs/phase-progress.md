@@ -1,3 +1,26 @@
+# Phase 8: shipped defaults + updater (started 2026-11-09)
+
+Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part, `git push origin main`. Do not move tag `v0.2.0`.
+
+| Part | State | Commit |
+|---|---|---|
+| 8a. Bibata cursor bundled, on by default | done | "Phase 8 part 8a" |
+| 8b. Dock removed (not unloaded) | | |
+| 8c. Starter wallpapers | | |
+| 8d. Updater | | |
+| 8e. Corner calibration | | |
+| 8f. Release v0.3.0 | | |
+
+## Part 8a — Bibata cursor (done)
+
+Bibata Modern Classic (GPL-3.0, ful1e5) is copied into the Platform resource bundle
+(`Cursors/`, with `GPL-3.0.txt` and `CREDITS.txt`; also `THIRD_PARTY.md`). `CursorCapeLibrary`
+finds that folder first, then Application Support, then Mousecape. New configs default
+`appearance.cursor` to `Bibata-Modern-Classic`. The WM already re-applies it on wake, session
+activate and every 15 s, and clears it on quit. Settings still offers macOS, and says the wait
+cursor cannot be restored until logout. Gabby's config already names this cape, so the default
+change does not rewrite it. Not verified: a fresh login on this Mac.
+
 # Phase 7: first ship, installer and uninstaller (started 2026-11-06)
 
 Spec: `docs/PHASE-PROMPT-7-ship.md`. Commit on `main` after each part, `git push origin main`.

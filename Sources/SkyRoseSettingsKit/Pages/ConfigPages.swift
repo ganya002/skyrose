@@ -443,13 +443,13 @@ struct CursorCard: View {
         Card {
             SectionLabel(text: "Cursor")
             SettingRow(title: "Pointer theme",
-                       detail: "For this login session only: nothing on disk changes, and quitting SkyRose or logging out brings the macOS cursors back. Same size and hotspots as on Arch (24 pt). The pointer switches the next time it changes shape.",
+                       detail: "Bibata Modern Classic ships with SkyRose and is the default. It is applied again at each login (cursor themes last only for the session). Nothing on disk changes, and choosing macOS or quitting SkyRose brings the macOS cursors back. The pointer switches the next time it changes shape.",
                        icon: "cursorarrow") {
                 PillSegmented(options: [("", "macOS", nil)] + capes.map { ($0.identifier, $0.name, nil) },
                               selection: Binding(get: { current }, set: { choose($0) }))
             }
             if capes.isEmpty {
-                Text("No cursor themes found. Put a Mousecape .cape file (e.g. Bibata Modern Classic) in ~/Library/Application Support/SkyRose/cursors.")
+                Text("The bundled Bibata theme could not be read. Put a Mousecape .cape file in ~/Library/Application Support/SkyRose/cursors.")
                     .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
             }
             if let images = previews[current], !images.isEmpty {

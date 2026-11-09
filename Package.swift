@@ -67,6 +67,7 @@ let package = Package(
             name: "CaelestiaPlatform",
             dependencies: ["CaelestiaCore", "CaelestiaLayout", "CShims"],
             path: "Sources/CaelestiaPlatform",
+            resources: [.copy("Resources")],
             swiftSettings: relaxed
         ),
         .target(

@@ -1,4 +1,5 @@
 import AppKit
+import CaelestiaCore
 import CoreGraphics
 import XCTest
 @testable import CaelestiaPlatform
@@ -136,9 +137,23 @@ final class CursorThemeTests: XCTestCase {
         XCTAssertFalse(m.isApplied(bibata()))
     }
 
+    func testTheBundledBibataCapeIsFoundAndIsTheDefault() throws {
+        XCTAssertEqual(AppearanceConfig().cursor, CursorCapeLibrary.bundledIdentifier)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("cape-lib-\(UUID().uuidString)", isDirectory: true)
+        let library = CursorCapeLibrary(ownFolder: folder, searchFolders: [])
+        let found = try XCTUnwrap(library.available().first { $0.identifier == CursorCapeLibrary.bundledIdentifier })
+        XCTAssertTrue(found.url.path.contains("Cursors"))
+        let cape = try CursorCape.load(found.url)
+        XCTAssertEqual(cape.name, "Bibata Modern Classic")
+        XCTAssertGreaterThanOrEqual(cape.cursors.count, 30)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path), "finding the bundled cape does not copy it into Application Support")
+    }
+
     func testTheBibataCapeLoadsWithArchSizeAndHotspots() throws {
-        let url = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support/Mousecape/capes/Bibata-Modern-Classic.cape")
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: url.path), "Bibata cape not installed on this Mac")
+        let bundled = CursorCapeLibrary().url(for: CursorCapeLibrary.bundledIdentifier)
+        let installed = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support/Mousecape/capes/Bibata-Modern-Classic.cape")
+        let url = bundled ?? installed
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: url.path), "Bibata cape not bundled or installed")
         let cape = try CursorCape.load(url)
         XCTAssertEqual(cape.identifier, "Bibata-Modern-Classic")
         let arrow = try XCTUnwrap(cape.cursors["com.apple.coregraphics.Arrow"])

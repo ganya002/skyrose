@@ -1,0 +1,8 @@
+Bibata Modern Classic
+Copyright (C) Abdulkaiz Khatri (ful1e5) and contributors
+https://github.com/ful1e5/Bibata_Cursor
+
+The cursor theme shipped with SkyRose (Bibata-Modern-Classic.cape) is licensed under
+the GNU General Public License, version 3. The license text is GPL-3.0.txt in this folder.
+
+SkyRose does not modify the cursor artwork. The wait cursor is never replaced.

@@ -111,24 +111,39 @@ public struct CursorCape: @unchecked Sendable {
     }
 }
 
-/// Finds capes: SkyRose's own copy first (`~/Library/Application Support/SkyRose/cursors`), then
-/// Mousecape's library. A cape found only in Mousecape's library is copied into SkyRose's folder,
-/// so the theme keeps working if Mousecape is removed.
+/// Finds capes: the cape bundled with SkyRose first, then SkyRose's own copy
+/// (`~/Library/Application Support/SkyRose/cursors`), then Mousecape's library. A cape found only
+/// in Mousecape's library is copied into SkyRose's folder, so the theme keeps working if Mousecape
+/// is removed.
 public struct CursorCapeLibrary: Sendable {
+    public static let bundledIdentifier = "Bibata-Modern-Classic"
+    public var bundledFolder: URL?
     public var ownFolder: URL
     public var searchFolders: [URL]
 
-    public init(ownFolder: URL = Paths.appSupport.appendingPathComponent("cursors", isDirectory: true),
+    public init(bundledFolder: URL? = CursorCapeLibrary.defaultBundledFolder,
+                ownFolder: URL = Paths.appSupport.appendingPathComponent("cursors", isDirectory: true),
                 searchFolders: [URL] = [Paths.home.appendingPathComponent("Library/Application Support/Mousecape/capes", isDirectory: true)]) {
+        self.bundledFolder = bundledFolder
         self.ownFolder = ownFolder
         self.searchFolders = searchFolders
     }
 
-    /// Every cape found, own copies first, by identifier.
+    /// `Cursors/` inside the Platform resource bundle (Bibata Modern Classic). SwiftPM nests a
+    /// copied Resources directory one level down, so both layouts are checked.
+    public static var defaultBundledFolder: URL? {
+        let root = Bundle.module.resourceURL
+        return [root?.appendingPathComponent("Cursors", isDirectory: true),
+                root?.appendingPathComponent("Resources/Cursors", isDirectory: true)]
+            .compactMap { $0 }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// Every cape found, the bundled one first, by identifier.
     public func available() -> [(identifier: String, name: String, url: URL)] {
         var seen = Set<String>()
         var out: [(String, String, URL)] = []
-        for folder in [ownFolder] + searchFolders {
+        for folder in [bundledFolder, ownFolder].compactMap({ $0 }) + searchFolders {
             let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
             for url in files.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) where url.pathExtension == "cape" {
                 guard let meta = Self.meta(url), seen.insert(meta.identifier).inserted else { continue }
