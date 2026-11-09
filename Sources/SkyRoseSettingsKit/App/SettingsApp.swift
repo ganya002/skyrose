@@ -23,11 +23,13 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
     /// `--uninstaller [--dry-run]`: opens the uninstaller window (Settings › Backup & uninstall
     /// does the same after a confirm). `--dry-run` previews it: the engine runs with --dry-run.
     public var uninstaller = false
+    public var installer = false
+    public var payload: String?
     public var dryRun = false
 
     /// `--sip-reminder` on its own: the uninstaller is blocked in `open -W` until this instance
     /// quits, and it quits when the reminder is dismissed.
-    public var sipReminderOnly: Bool { sipReminder && !uninstaller && onboarding == nil }
+    public var sipReminderOnly: Bool { sipReminder && !uninstaller && !installer && onboarding == nil }
 
     public init() {}
 
@@ -48,6 +50,8 @@ public struct SettingsLaunchOptions: Equatable, Sendable {
         o.sipOffShowcase = args.contains("--sip-off-showcase")
         if let i = args.firstIndex(of: "--step"), i + 1 < args.count { o.onboardingStep = OnboardingStep(rawValue: args[i + 1]) }
         o.uninstaller = args.contains("--uninstaller")
+        o.installer = args.contains("--installer")
+        if let i = args.firstIndex(of: "--payload"), i + 1 < args.count { o.payload = args[i + 1] }
         o.dryRun = args.contains("--dry-run")
         return o
     }
@@ -66,6 +70,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var uninstallerWindow: NSWindow?
+    private var installerWindow: NSWindow?
 
     public init(options: SettingsLaunchOptions) {
         self.options = options
@@ -87,7 +92,9 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        if options.uninstaller {
+        if options.installer {
+            showInstaller(dryRun: options.dryRun, payload: options.payload)
+        } else if options.uninstaller {
             showUninstaller(dryRun: options.dryRun)
         } else if let req = options.onboarding {
             showOnboarding(req)
@@ -122,7 +129,9 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
     /// Another launch (the WM or `skyrose settings`) asked for a window.
     func handle(arguments: [String]) {
         let o = SettingsLaunchOptions.parse(arguments)
-        if o.uninstaller { showUninstaller(dryRun: o.dryRun) } else if let req = o.onboarding { showOnboarding(req) } else { showSettings(page: o.page) }
+        if o.installer { showInstaller(dryRun: o.dryRun, payload: o.payload) }
+        else if o.uninstaller { showUninstaller(dryRun: o.dryRun) }
+        else if let req = o.onboarding { showOnboarding(req) } else { showSettings(page: o.page) }
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -174,6 +183,20 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         w.makeKeyAndOrderFront(nil)
     }
 
+    /// The installer window. `payload` is a folder of apps the script already checked.
+    func showInstaller(dryRun: Bool, payload: String?) {
+        if let w = installerWindow { w.makeKeyAndOrderFront(nil); return }
+        let view = InstallerView(store: store, dryRun: dryRun, payload: payload) { [weak self] in
+            guard let self else { return }
+            self.installerWindow?.close()
+            if self.settingsWindow == nil, self.onboardingWindow == nil { NSApp.terminate(nil) }
+        }
+        let w = makeWindow(NSHostingView(rootView: view), size: SetupChrome<EmptyView, EmptyView>.size, title: dryRun ? "Preview the SkyRose install" : "Install SkyRose")
+        w.styleMask.remove(.resizable)
+        installerWindow = w
+        w.makeKeyAndOrderFront(nil)
+    }
+
     private func makeWindow(_ content: NSView, size: NSSize, title: String) -> NSWindow {
         let w = SettingsWindow(contentRect: NSRect(origin: .zero, size: size),
                                styleMask: [.borderless, .resizable, .miniaturizable, .fullSizeContentView],
@@ -202,6 +225,7 @@ public final class SettingsAppDelegate: NSObject, NSApplicationDelegate, NSWindo
         if w === settingsWindow { store.flush(); settingsWindow = nil }
         if w === onboardingWindow { onboardingWindow = nil }
         if w === uninstallerWindow { uninstallerWindow = nil }
+        if w === installerWindow { installerWindow = nil }
     }
 
     static func menu() -> NSMenu {

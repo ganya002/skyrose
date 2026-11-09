@@ -51,8 +51,8 @@ feature cannot work, the UI says so and the closest substitute is used.
 |---|---|---|
 | P6 | (shell parts 1 and 2 are built: see SHELL.md; the rest below is not) Screen recorder card; screenshot/colour-picker UI; clipboard/emoji pickers | services exist (`CaelestiaServices`) for some; the UIs are not wired yet |
 | P7 | Wallpaper-driven dynamic colour (Material "tonal spot") | static themes only (SkyRose Dynamic dark snapshot, SkyRose Default, Catppuccin Mocha, Noctalia); accent override is an approximation |
-| P8 | SkyRose Settings is built (General, Appearance, Windows, Window rules, Keybinds, Bar and Shell, Terminal, Permissions, About) but not the Enhanced-mode, Backup & uninstall or installer pages | the uninstaller is not built yet; `skyrose keys check` / `skyrose doctor` cover the checks |
-| P9 | xcursor2cape, installing kitty itself, fonts in the installer | the kitty **profile** and the **font pack** are built (Settings › Terminal / Appearance › Fonts, `skyrose kitty …`, `skyrose fonts …`); offering kitty and the fonts during onboarding is left to the installer phase; the cursor tool is not built |
+| P8 | SkyRose Settings is built (General, Appearance, Windows, Window rules, Keybinds, Bar and Shell, Terminal, Permissions, Backup & uninstall, About). The release installer is `scripts/install-release.sh` (published as `install.sh`) and opens the same SkyRose window | Enhanced-mode page is the SIP-off page; there is no module store |
+| P9 | xcursor2cape, installing kitty itself | the kitty **profile** and the **font pack** are built, and first-run onboarding offers both as steps you can skip; the cursor tool is not built |
 | P10 | Enhanced mode scripting addition | not built; documented in ENHANCED_MODE.md, capability probe reports Standard |
 | P11 | Fresh-Mac install→uninstall QA pass | not performed |
 

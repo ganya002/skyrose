@@ -6,7 +6,7 @@ Spec: `docs/PHASE-PROMPT-7-ship.md`. Commit on `main` after each part, `git push
 |---|---|---|
 | 7a. Launcher black flash | done, live-tested on the built-in | "Phase 7 part 7a" |
 | 7b. Uninstaller | done | "Phase 7 part 7b" |
-| 7c. Release installer + GUIs | | |
+| 7c. Release installer + GUIs | done | "Phase 7 part 7c" |
 | 7d. GitHub Release v0.2.0 | | |
 
 ## Part 7a — launcher black flash (done)
@@ -61,6 +61,24 @@ nothing here ran the uninstaller against Gabriel's Mac):
 
 Tests: 1087 passed, 0 failed (`/usr/bin/swift test`). Uninstaller checks were `--dry-run` and fixture
 HOME only.
+
+## Part 7c — release installer (done)
+
+`scripts/install-release.sh` is the user bootstrap (published as `install.sh`). It checks Apple
+Silicon and macOS 14, downloads the pinned GitHub release zip, checks SHA-256 before it strips
+quarantine, copies the two apps to `~/Applications`, and says plainly that the build is not
+notarized. The CLI symlink is off unless you pass `--cli` or answer yes. `--dry-run` changes
+nothing. `scripts/install.sh` (from source) gained `--dry-run` too.
+
+A terminal run without `--yes` opens SkyRose Settings from the checked download
+(`--installer --payload`). That window uses the same chrome as the uninstaller. Its progress bar
+follows the script's `::stage` lines. First-run onboarding still asks for permissions, and now has
+skippable kitty and font steps.
+
+The zip hash is read from `SkyRose-<version>-arm64.zip.sha256` on the release (or
+`SKYROSE_RELEASE_SHA256` in tests). Part 7d publishes that file. Tests used a local zip and a
+temporary HOME only. Full `/usr/bin/swift test`: 0 failures (1087 from 7b, plus 5 installer tests
+and 1 stage-map test).
 
 # Phase 6: Caelestia 1:1 visual polish (started 2026-11-06)
 

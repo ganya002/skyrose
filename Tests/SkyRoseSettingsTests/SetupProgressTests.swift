@@ -150,6 +150,25 @@ final class SetupProgressTests: XCTestCase {
         XCTAssertTrue(runner.progress.finished)
     }
 
+    func testInstallerStagesFollowTheEngine() throws {
+        let steps = SetupFlow.install
+        XCTAssertEqual(steps.map(\.id), ["welcome", "check", "download", "place", "optional", "done"])
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let script = try String(contentsOf: repo.appendingPathComponent("scripts/install-release.sh"), encoding: .utf8)
+        let ids = script.split(separator: "\n").compactMap { line -> String? in
+            let t = line.trimmingCharacters(in: .whitespaces)
+            guard t.hasPrefix("stage "), !t.hasPrefix("stage()") else { return nil }
+            return t.split(separator: " ").dropFirst().first.map(String.init)
+        }
+        let mapped = SetupFlow.install.reduce(into: Set<String>()) { $0.formUnion($1.engineStages) }
+        XCTAssertFalse(ids.isEmpty)
+        for id in ids { XCTAssertTrue(mapped.contains(id), "\(id) is not shown in the installer window") }
+        let o = SettingsLaunchOptions.parse(["--installer", "--payload", "/tmp/skyrose", "--dry-run"])
+        XCTAssertTrue(o.installer)
+        XCTAssertEqual(o.payload, "/tmp/skyrose")
+        XCTAssertTrue(o.dryRun)
+    }
+
     func testUninstallerLaunchOptions() {
         let o = SettingsLaunchOptions.parse(["--uninstaller", "--dry-run"])
         XCTAssertTrue(o.uninstaller)

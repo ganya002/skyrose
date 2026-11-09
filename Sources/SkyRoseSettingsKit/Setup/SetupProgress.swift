@@ -122,6 +122,16 @@ public enum SetupFlow {
         SetupStep("report", "Report", icon: "checklist"),
     ]
 
+    /// welcome → requirements → download → place → optional bits → done.
+    public static let install: [SetupStep] = [
+        SetupStep("welcome", "Welcome", icon: "sparkles"),
+        SetupStep("check", "This Mac", icon: "checkmark.seal", engine: ["check"]),
+        SetupStep("download", "Download", icon: "arrow.down.circle", engine: ["download", "verify"]),
+        SetupStep("place", "Install", icon: "square.and.arrow.down", engine: ["place"]),
+        SetupStep("optional", "Options", icon: "terminal", engine: ["optional", "permissions"]),
+        SetupStep("done", "Done", icon: "checkmark.circle", engine: ["done"]),
+    ]
+
     /// Where `progress` is in `steps`: the first step is the choice screen (before the engine
     /// runs), the last one the report (after `::finished`).
     public static func activeIndex(_ steps: [SetupStep], progress: SetupProgressState, started: Bool) -> Int {

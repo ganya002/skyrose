@@ -54,7 +54,7 @@ SkyRose never installs kitty itself.
 and checksummed, see docs/FONTS.md) for SkyRose's own use; "Install for kitty and other apps"
 copies them into ~/Library/Fonts.
 
-**Not in this build:** an installer, a module store and the uninstaller.
+**Not in this build:** a module store. Install and uninstall are in the sections below.
 
 ## Upgrading from Caelestia for Mac
 
@@ -69,8 +69,25 @@ create "SkyRose Local Signing".
 
 ## Quick start
 
+From a release, without Xcode (the hash is the `SkyRose-<version>-arm64.zip.sha256` file next to the zip):
+
 ```sh
-git clone <this repo> skyrose && cd skyrose
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.2.0/install.sh
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.2.0/install.sh.sha256
+shasum -a 256 -c install.sh.sha256
+less install.sh
+sh install.sh --dry-run
+sh install.sh
+```
+
+That build is signed on the build machine, not with an Apple Developer ID, and it is not notarized.
+`sh install.sh` opens the SkyRose installer window. Add `--yes` to stay in the terminal.
+There is no Homebrew cask.
+
+From a git checkout (needs Xcode):
+
+```sh
+git clone https://github.com/ganya002/skyrose.git && cd skyrose
 scripts/sign-setup.sh      # once: local signing cert so permissions survive rebuilds
 scripts/install.sh         # builds, copies to ~/Applications, opens the onboarding
 ```
@@ -109,18 +126,18 @@ Details and the full honest list: [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 - never destructive: user files go to the Trash, never `rm -rf`; nothing under `/System` or
   `/Library` is touched; no SIP / NVRAM / boot-args / firewall / MDM changes;
-- no `curl | sh`, no piped installers; downloads are pinned + SHA-256 checked or Homebrew;
+- the release install is download, check SHA-256, read the script, then `sh install.sh`
+  (a pipe can run it, but that skips the read and is not the path above); the zip is pinned to a release;
 - no `sudo` in Standard mode, never passwordless sudo;
 - every `defaults` key, hidutil mapping, wallpaper, kitty config, login item or font we change is
   recorded first in `~/Library/Application Support/SkyRose/restore-manifest.json` for the
-  uninstaller to restore (the uninstaller itself is not built yet; the manifest and the SIP
-  reminder popup component it will use are);
+  uninstaller to restore (`skyrose uninstall`, or Settings › Backup & uninstall);
 - no stored secrets; logs redact window titles by default;
 - crash-safe: parked windows are journaled before they are moved and restored on relaunch.
 
 ## Uninstall
 
-The uninstaller is **not built yet**; see [docs/UNINSTALL.md](docs/UNINSTALL.md) for the plan.
+`skyrose uninstall` or Settings › Backup & uninstall. See [docs/UNINSTALL.md](docs/UNINSTALL.md).
 
 ## Building and testing
 

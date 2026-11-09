@@ -17,6 +17,23 @@ public enum SetupLocator {
             + repoCandidates(executable).map { $0.appendingPathComponent("scripts/uninstall.sh") })
     }
 
+    /// `install-release.sh` (published as `install.sh`) inside the app, the payload folder, or a checkout.
+    public static func installScript(bundle: URL = Bundle.main.bundleURL, executable: URL? = Bundle.main.executableURL,
+                                     payload: String? = nil) -> URL? {
+        var urls: [URL] = []
+        if let payload, !payload.isEmpty {
+            let root = URL(fileURLWithPath: payload)
+            urls.append(root.appendingPathComponent("install.sh"))
+            urls.append(root.appendingPathComponent("install-release.sh"))
+        }
+        for app in appCandidates(bundle: bundle) {
+            urls.append(app.appendingPathComponent("Contents/Resources/scripts/install-release.sh"))
+            urls.append(app.appendingPathComponent("Contents/Resources/scripts/install.sh"))
+        }
+        urls += repoCandidates(executable).map { $0.appendingPathComponent("scripts/install-release.sh") }
+        return firstReadable(urls)
+    }
+
     /// The `skyrose` CLI the engine should use (passed as SKYROSE_CLI).
     public static func cli(bundle: URL = Bundle.main.bundleURL) -> URL? {
         appCandidates(bundle: bundle).map { $0.appendingPathComponent("Contents/MacOS/skyrose") }

@@ -75,6 +75,8 @@ public struct OnboardingView: View {
         case .mode: ModeStep(store: store)
         case .permissions: PermissionsStep(store: store, only: request.onlyPermissions, repair: isRepair)
         case .tweaks: TweaksStep()
+        case .kitty: OptionalSetupStep(title: "kitty profile", subtitle: "Adds one include line to kitty.conf so colours follow SkyRose. Skip if you do not use kitty.", command: ["kitty", "install"])
+        case .fonts: OptionalSetupStep(title: "Fonts for other apps", subtitle: "Copies the SkyRose fonts into ~/Library/Fonts. Skip to keep them inside SkyRose only.", command: ["fonts", "install"])
         case .done: DoneStep(store: store)
         }
     }
@@ -103,6 +105,7 @@ public struct OnboardingView: View {
         if step == .welcome { return "Get started" }
         if step == .permissions, !permissionsReady { return "Skip for now" }
         if step == .tweaks { return "Continue" }
+        if step == .kitty || step == .fonts { return "Skip" }
         return "Next"
     }
 
@@ -356,5 +359,48 @@ struct DoneStep: View {
             }
         }
         .onAppear { withAnimation(look.motion.spring(0.3, bounce: 0.35)) { appeared = true } }
+    }
+}
+
+/// An optional first-run step. Next says Skip. The button runs `skyrose` only when it is already installed.
+struct OptionalSetupStep: View {
+    var title: String
+    var subtitle: String
+    var command: [String]
+    @Environment(\.look) var look
+    @State private var note = ""
+
+    var body: some View {
+        VStack(spacing: 18) {
+            StepHeader(title: title, subtitle: subtitle)
+            PillButton(title: "Set up", icon: "arrow.down.circle", kind: .tonal, action: run)
+            if !note.isEmpty {
+                Text(note).font(look.font(13)).foregroundStyle(look[.onSurfaceVariant]).multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    func run() {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let candidates = [
+            home.appendingPathComponent("Applications/SkyRose.app/Contents/MacOS/skyrose"),
+            URL(fileURLWithPath: "/Applications/SkyRose.app/Contents/MacOS/skyrose"),
+        ]
+        guard let cli = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
+            note = "SkyRose is not installed yet. You can run skyrose \(command.joined(separator: " ")) later."
+            return
+        }
+        let p = Process()
+        p.executableURL = cli
+        p.arguments = command
+        p.standardOutput = Pipe()
+        p.standardError = Pipe()
+        do {
+            try p.run()
+            p.waitUntilExit()
+            note = p.terminationStatus == 0 ? "Done." : "That did not finish (status \(p.terminationStatus)). You can try again from Settings."
+        } catch {
+            note = error.localizedDescription
+        }
     }
 }

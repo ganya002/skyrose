@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs SkyRose for the current user. No sudo, no piped installers, no system files.
 #
-#   scripts/install.sh [--no-build] [--no-cli] [--no-open]
+#   scripts/install.sh [--no-build] [--no-cli] [--no-open] [--dry-run]
 #
 # What it does, in order (each step is idempotent, running it twice is safe):
 #   1. checks Apple Silicon + macOS 14 or newer + Xcode command line tools;
@@ -14,8 +14,17 @@
 #      ~/Library/Application Support/CaelestiaMac over and opens the onboarding.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD=1 CLI=1 OPEN=1
-for a in "$@"; do case "$a" in --no-build) BUILD=0;; --no-cli) CLI=0;; --no-open) OPEN=0;; -h|--help) sed -n '2,15p' "$0"; exit 0;; esac; done
+BUILD=1 CLI=1 OPEN=1 DRY=0
+for a in "$@"; do case "$a" in --no-build) BUILD=0;; --no-cli) CLI=0;; --no-open) OPEN=0;; --dry-run) DRY=1;; -h|--help) sed -n '2,15p' "$0"; exit 0;; esac; done
+if [[ $DRY -eq 1 ]]; then
+  echo "Dry run: nothing is changed."
+  echo "would check Apple Silicon, macOS 14+, and Xcode"
+  [[ $BUILD -eq 1 ]] && echo "would run scripts/build.sh"
+  echo "would copy SkyRose.app and SkyRose Settings.app to ~/Applications (old copies to the Trash)"
+  [[ $CLI -eq 1 ]] && echo "would ask before linking ~/.local/bin/skyrose (default no)"
+  [[ $OPEN -eq 1 ]] && echo "would open SkyRose"
+  exit 0
+fi
 
 if [[ "$(uname -m)" != "arm64" ]]; then echo "error: SkyRose needs an Apple Silicon Mac." >&2; exit 1; fi
 MAJOR="$(sw_vers -productVersion | cut -d. -f1)"

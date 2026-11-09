@@ -79,6 +79,8 @@ cp "$ROOT/Packaging/SkyRose.icns" "$ROOT/Packaging/SkyRoseWM.icns" "$APP/Content
 # The uninstaller travels with the app, so `skyrose uninstall` and Settings work without the repo.
 mkdir -p "$APP/Contents/Resources/scripts"
 install -m 0755 "$ROOT/scripts/uninstall.sh" "$APP/Contents/Resources/scripts/uninstall.sh"
+install -m 0755 "$ROOT/scripts/install-release.sh" "$APP/Contents/Resources/scripts/install-release.sh"
+cp "$ROOT/scripts/install-release.sh" "$APP/Contents/Resources/scripts/install.sh"
 # SIP-off scripting addition (arm64e): payload for the Dock + the sudo loader. Ad-hoc signed
 # before the bundle seal; nothing is loaded at build time.
 "$ROOT/scripts/build-sa.sh" "$APP/Contents/Resources/sa"
