@@ -333,7 +333,7 @@ is the fallback). While the button is down on a tiled window nothing is written.
 - a move returns the window to its slot, swaps it with the window under the drop point, or moves it
   to the active workspace of another display;
 - an edge resize changes the split ratio (re-derived from the tree at drag start; the neighbours
-  follow live at 30 Hz) instead of leaving the window free;
+  follow live at up to 120 Hz, the real windows, no scaled still) instead of leaving the window free;
 - late AX notifications within a 0.6 s grace are re-applied, not treated as new drags.
 
 Floating windows stay where dropped. An app that keeps moving or resizing its own tiled window is

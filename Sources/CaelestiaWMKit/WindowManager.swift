@@ -99,8 +99,9 @@ public final class WindowManager {
     /// After a native drag ends, late AX notifications from the drag are re-applied without
     /// counting as the app fighting its slot.
     public static let nativeDragGrace: TimeInterval = 0.6
-    /// Neighbours follow a native edge resize at most this often.
-    public static let liveResizeInterval: TimeInterval = 1.0 / 30
+    /// Neighbours follow a native edge resize at most this often (a ProMotion frame).
+    /// The real window is moved; a still is never scaled to the new size.
+    public static let liveResizeInterval: TimeInterval = 1.0 / 120
     /// How often the button state is polled while a native drag is open (the event tap's
     /// mouse-up normally ends it first).
     public static let pointerPollInterval: TimeInterval = 1.0 / 30
@@ -196,6 +197,11 @@ public final class WindowManager {
     var minSizeHinted: Set<WindowID> = []
     /// Tiled windows being dragged / resized by the user right now.
     var nativeDrags: [WindowID: NativeDrag] = [:]
+    /// Keyboard and layout resizes, sampled onto the real window (no snapshot cover).
+    var liveResizeSchedule = LiveResizeSchedule()
+    var liveResizeLink: LiveResizeLink?
+    /// Last real frame written for a live resize, so a tick that has not moved skips AX.
+    var lastLiveFrame: [WindowID: CGRect] = [:]
     /// Until when late notifications of a finished native drag are re-applied silently.
     var nativeGrace: [WindowID: Date] = [:]
     /// Where a window really is before the next pass (dropped after a native drag): the pass
@@ -331,6 +337,8 @@ public final class WindowManager {
     @discardableResult
     public func shutdown() -> Int {
         stopReconcileTimer()
+        stopLiveResizePump()
+        liveResizeSchedule = LiveResizeSchedule()
         // SIP-off mode: every alpha / level / transform / shadow goes back first.
         enhanced?.shutdown()
         if isManaging { saveSessionIfChanged(immediately: true) }
@@ -544,7 +552,16 @@ public final class WindowManager {
                 }
                 writes.append { [weak self] in
                     guard let self else { return false }
-                    let got = self.setFrame(handle, p.frame)
+                    // A resize in the live schedule is drawn by the real window. The first sample
+                    // is where it already is; later ticks walk it to `p.frame`. No cover.
+                    let clock = self.now().timeIntervalSinceReferenceDate
+                    let requested = self.liveResizeSchedule.samples(at: clock).first { $0.id == id }?.frame ?? p.frame
+                    let live = self.liveResizeSchedule.contains(id)
+                    let got = self.setFrame(handle, requested)
+                    if live {
+                        _ = self.liveResizeSchedule.noteReadBack(id, requested: requested, actual: got)
+                        return false
+                    }
                     // The app chose its own frame (a minimum, a refused resize): the animation
                     // ends where the window really is, not on the slot (else the cover would
                     // fade onto a different frame). An unchanged read-back may be an app that
@@ -575,6 +592,17 @@ public final class WindowManager {
             changes.append(WindowFrameChange(id: id, kind: .close, from: p.frame, to: nil))
         }
         displaced.removeAll()
+        if animated {
+            // A size change is not a cover. Scaling a still to the new size is the fade and the stretch.
+            changes = changes.filter { change in
+                guard change.kind == .move, let from = change.from, let to = change.to else { return true }
+                guard abs(from.width - to.width) > 1 || abs(from.height - to.height) > 1 else { return true }
+                let now = self.now().timeIntervalSinceReferenceDate
+                let visual = self.liveResizeSchedule.samples(at: now).first { $0.id == change.id }?.frame ?? from
+                self.liveResizeSchedule.retarget(change.id, from: visual, to: to, at: now)
+                return false
+            }
+        }
         let commit = { [weak self] in
             var learned = false
             for w in writes where w() { learned = true }
@@ -586,6 +614,7 @@ public final class WindowManager {
         } else {
             commit()
         }
+        if !liveResizeSchedule.isEmpty { startLiveResizePump() }
         if instantSwitch { enhanced?.restoreAfterSwitch() }
         if let enhanced, enhanced.active {
             enhanced.layoutApplied(visible.map { id, p in
@@ -636,7 +665,7 @@ public final class WindowManager {
         return descriptors[id]?.isStandardWindow ?? true
     }
 
-    private func setFrame(_ handle: any WindowHandle, _ frame: CGRect) -> CGRect {
+    func setFrame(_ handle: any WindowHandle, _ frame: CGRect) -> CGRect {
         counters.setFrameCalls += 1
         return handle.setFrame(frame)
     }
@@ -823,6 +852,8 @@ public final class WindowManager {
         displaced[id] = nil
         manageSerial[id] = nil
         resistedUntil[id] = nil
+        liveResizeSchedule.remove(id)
+        lastLiveFrame[id] = nil
         suspended[id] = nil
         snapBacks[id] = nil
         forceApply.remove(id)
@@ -902,6 +933,8 @@ public final class WindowManager {
             return
         }
         guard !frame.approximatelyEquals(target, tolerance: 2) else { return }
+        // An in-flight live resize writes intermediate frames. They are not the app leaving its tile.
+        if liveResizeSchedule.contains(id) { return }
         // Late notifications from a drag that just ended: put it back, it is not the app.
         if let until = nativeGrace[id], now() < until {
             forceApply.insert(id)

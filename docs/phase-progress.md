@@ -7,7 +7,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | Part | State | Commit |
 |---|---|---|
 | 9i. Rock-solid tiling | done | "Phase 9 part 9i" |
-| 9j. Smooth live resize | | |
+| 9j. Smooth live resize | done | "Phase 9 part 9j" |
 | 9a. Cursor follows focus | | |
 | 9b. Focus follows mouse | | |
 | 9c. Easy setup | | |
@@ -48,6 +48,21 @@ User float survived a new process and a daemon restart. `/usr/bin/swift test`: 1
 
 Not verified on this Mac: no TestWindows were opened, the running WM was not restarted, and
 nothing was applied to Gabby's windows, Dock, cursor, wallpaper or desktop picture.
+
+## Part 9j — smooth live resize (done)
+
+A size change is no longer drawn by scaling a ScreenCaptureKit still (that still is the fade,
+the grey and the stretch). `LiveResizeSchedule` samples the window-move spring (the same 300 ms
+spring as a retile, `AnimationTable.gabbySpringy` `.windowsMove`) onto the real window frame.
+There is no opacity, blur or scale in that path. One track per window: a newer target replaces
+the older one before the next tick. Two read-backs that are not the frame we asked for snap that
+window to the final frame. The daemon steps it from a display link at 60–120 Hz (preferred 120).
+A mouse resize between tiles still writes the real frames and now updates neighbours at up to
+120 Hz instead of 30. Position-only moves still use the snapshot cover.
+
+Not verified on this Mac: no 60/120 fps recording of kitty or TestWindows. The check is the
+scheduler (start frame, exact end frame, coalesce, snap) and a headless WM resize that never
+hands a size change to the animator.
 
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 
