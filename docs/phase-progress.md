@@ -62,7 +62,8 @@ A mouse resize between tiles still writes the real frames and now updates neighb
 
 Not verified on this Mac: no 60/120 fps recording of kitty or TestWindows. The check is the
 scheduler (start frame, exact end frame, coalesce, snap) and a headless WM resize that never
-hands a size change to the animator.
+hands a size change to the animator. Animator tests that expected a retile to scale a still now
+expect the live schedule instead. `/usr/bin/swift test` after that: 0 failures.
 
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 

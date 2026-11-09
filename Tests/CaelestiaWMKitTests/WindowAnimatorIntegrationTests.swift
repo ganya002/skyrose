@@ -84,17 +84,18 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         XCTAssertEqual(a.frame, beforeA)
         XCTAssertEqual(b.frame, beforeB)
 
-        let moveA = try XCTUnwrap(req.changes.first { $0.id == a.windowID })
-        XCTAssertEqual(moveA.kind, .move)
-        XCTAssertEqual(moveA.from, beforeA)
+        XCTAssertNil(req.changes.first { $0.id == a.windowID }, "a's new size is not a scaled still")
+        XCTAssertTrue(h.wm.liveResizeSchedule.contains(a.windowID))
         let toA = try XCTUnwrap(h.wm.visiblePlacements[a.windowID]?.frame)
-        XCTAssertEqual(moveA.to, toA)
-        XCTAssertNotEqual(moveA.from, moveA.to)
+        XCTAssertNotEqual(beforeA, toA)
         XCTAssertEqual(req.windows.map(\.id).sorted(), [a.windowID, b.windowID, c.windowID])
 
         anim.commitAll()
+        // The first sample is the frame the window already has. It reaches the slot on the spring.
+        XCTAssertEqual(a.frame, beforeA)
+        h.clock.now.addTimeInterval(h.wm.liveResizeSchedule.spec.duration + 0.05)
+        h.wm.stepLiveResize()
         XCTAssertEqual(a.frame, toA)
-        XCTAssertEqual(a.setFrameCount, 2, "initial placement plus the retile, one write each")
         XCTAssertGreaterThan(c.setFrameCount, 0)
         XCTAssertEqual(c.frame, h.wm.visiblePlacements[c.windowID]?.frame)
     }
@@ -130,7 +131,8 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         XCTAssertNil(close.to)
         XCTAssertFalse(anim.lastChanges.contains { $0.id == a.windowID && $0.kind == .leave })
         XCTAssertFalse(try XCTUnwrap(anim.requests.last).windows.contains { $0.id == a.windowID })
-        XCTAssertTrue(anim.lastChanges.contains { $0.id == b.windowID && $0.kind == .move })
+        XCTAssertFalse(anim.lastChanges.contains { $0.id == b.windowID && $0.kind == .move }, "b's new size is not a scaled still")
+        XCTAssertTrue(h.wm.liveResizeSchedule.contains(b.windowID))
         anim.commitAll()
     }
 
@@ -300,7 +302,8 @@ final class WindowAnimatorIntegrationTests: XCTestCase {
         w.minSize = CGSize(width: 900, height: 0)
         h.system.open("other")
         h.settle()
-        XCTAssertTrue(a.applied.contains { $0.0 == w.windowID && $0.1.width == 900 }, "\(a.applied)")
+        XCTAssertFalse(a.applied.contains { $0.0 == w.windowID }, "a resize has no cover to retarget: \(a.applied)")
+        XCTAssertTrue(h.wm.liveResizeSchedule.contains(w.windowID))
         // A new window has no previous frame to compare with (an app may apply its size a moment
         // later): its first write is never reported. A window that ignores writes is reported
         // where it really is.

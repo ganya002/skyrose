@@ -76,17 +76,22 @@ final class SnapshotAnimationRulesTests: XCTestCase {
         XCTAssertEqual(anim.requests.count, before)
     }
 
-    func testRealMoveStillAnimatesAsAMove() throws {
+    func testMakingRoomResizesTheRealWindowInsteadOfAStill() throws {
         let (h, anim, ws) = harness("a", "b")
         h.start()
         let b = ws[1]
         let c = h.system.open("c")
         h.settle()
         XCTAssertEqual(anim.lastChanges.first { $0.id == c.windowID }?.kind, .open)
-        let moves = anim.lastChanges.filter { $0.kind == .move }
-        XCTAssertFalse(moves.isEmpty, "the tiles that make room move")
-        for m in moves { XCTAssertNotEqual(m.from, m.to, "only real changes are requested") }
-        XCTAssertTrue([ws[0].windowID, b.windowID].contains { id in moves.contains { $0.id == id } })
+        let sized = anim.lastChanges.filter { change in
+            guard let from = change.from, let to = change.to else { return false }
+            return abs(from.width - to.width) > 1 || abs(from.height - to.height) > 1
+        }
+        XCTAssertTrue(sized.isEmpty, "a size change is not given to the cover")
+        XCTAssertTrue(
+            h.wm.liveResizeSchedule.contains(ws[0].windowID) || h.wm.liveResizeSchedule.contains(b.windowID),
+            "the tiles that make room are sampled onto the real windows"
+        )
     }
 
     func testUnmanagedAndManagedAgainWithTheSameIDIsInstant() {
