@@ -7,7 +7,7 @@ Spec: `docs/PHASE-PROMPT-7-ship.md`. Commit on `main` after each part, `git push
 | 7a. Launcher black flash | done, live-tested on the built-in | "Phase 7 part 7a" |
 | 7b. Uninstaller | done | "Phase 7 part 7b" |
 | 7c. Release installer + GUIs | done | "Phase 7 part 7c" |
-| 7d. GitHub Release v0.2.0 | | |
+| 7d. GitHub Release v0.2.0 | done | tag v0.2.0 on 1bf9a30 |
 
 ## Part 7a — launcher black flash (done)
 
@@ -79,6 +79,17 @@ The zip hash is read from `SkyRose-<version>-arm64.zip.sha256` on the release (o
 `SKYROSE_RELEASE_SHA256` in tests). Part 7d publishes that file. Tests used a local zip and a
 temporary HOME only. Full `/usr/bin/swift test`: 0 failures (1087 from 7b, plus 5 installer tests
 and 1 stage-map test).
+
+## Part 7d — GitHub Release (done)
+
+Release: https://github.com/ganya002/skyrose/releases/tag/v0.2.0
+Tag `v0.2.0` points at `1bf9a30` (not moved after that). Apps were built with
+`scripts/build.sh` and signed with "Caelestia Local Signing". The zip is
+`SkyRose-0.2.0-arm64.zip` (SkyRose.app, SkyRose Settings.app, install.sh, uninstall.sh).
+Detached checksums are on the release. `docs/caelestia-reference` is not in the zip.
+`uninstall.sh` is also inside `SkyRose.app/Contents/Resources/scripts/`.
+
+Not done, on purpose: Homebrew cask, Apple notarization.
 
 # Phase 6: Caelestia 1:1 visual polish (started 2026-11-06)
 
