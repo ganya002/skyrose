@@ -146,6 +146,13 @@ public struct AnimationSpec: Sendable, Hashable, Codable {
     /// A disabled animation: progress is 1 immediately.
     public static let disabled = AnimationSpec(enabled: false, curve: .bezier(.linear), durationMs: 0, style: .none)
 
+    /// Keyboard and tiling moves. Hyprland's built-in default curve (an ease-out) lasting exactly
+    /// `milliseconds`. Zero snaps. The duration is a clock time: it does not grow with distance.
+    public static func liveRetile(milliseconds: Double) -> AnimationSpec {
+        guard milliseconds.isFinite, milliseconds > 0 else { return .disabled }
+        return .bezier(.default, milliseconds: milliseconds)
+    }
+
     /// Bézier animation from a Hyprland speed in deciseconds (8 → 800 ms).
     public static func bezier(_ curve: CubicBezier, speed: Double, style: AnimationStyle = .none, enabled: Bool = true) -> AnimationSpec {
         AnimationSpec(enabled: enabled, curve: .bezier(curve), durationMs: milliseconds(fromSpeed: speed), style: style)

@@ -7,7 +7,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | Part | State | Commit |
 |---|---|---|
 | 9i. Rock-solid tiling | done | "Phase 9 part 9i" |
-| 9j. Smooth live resize | redone, recorded | "Phase 9 part 9j" (2fe3e6e still blurred; this commit replaces it) |
+| 9j. Smooth live resize | redone, recorded | speed fix: fixed ease-out, no 2 pt cap |
 | 9a. Cursor follows focus | | |
 | 9b. Focus follows mouse | | |
 | 9c. Easy setup | | |
@@ -49,30 +49,38 @@ User float survived a new process and a daemon restart. `/usr/bin/swift test`: 1
 Not verified on this Mac: no TestWindows were opened, the running WM was not restarted, and
 nothing was applied to Gabby's windows, Dock, cursor, wallpaper or desktop picture.
 
-## Part 9j — smooth live resize (redone)
+## Part 9j — smooth live resize (speed fix)
 
-The first attempt (40de4bf, 2fe3e6e) still blurred on this Mac: the default was the snapshot
-cover, and a size change big enough for the window server to scale the old buffer stays blurry
-until the app paints. Live mode is now the default. Snapshot ("Glide") is opt-in. Moves and
-resizes, including a move that does not change size, go to the real window. The border stays
-fully visible on that frame instead of fading out.
+The 2 pt-per-tick cap (in the display-link slew and again in the per-app frame writer) made a
+resize take seconds, because the time grew with the distance. That cap is gone.
 
-`AXEnhancedUserInterface` is turned off for an app while SkyRose drives it and restored on quit,
-so AppKit does not animate the frame. Writes are coalesced per app on a background queue.
-Measured on this Mac: a step of 2pt per 16ms stays sharp, and 6pt per 16ms does not. Each tick
-therefore moves at most 2pt. A faster flick trails the cursor until it catches up. The keyboard
-path is still the window-move spring, limited by that step.
+Keyboard and tiling moves use `animations.windowDurationMs` (default 150, 0 snaps) on Hyprland's
+default ease-out. `speed` and `globalMultiplier` scale it; 0 stays 0. The clock does not grow
+with distance. Size is written once, at the final size, and only the origin eases after that:
+a size step bigger than about 2 pt is what makes the window server scale the old buffer, and
+walking that 2 pt at a time was the multi-second resize. A mouse-edge drag is the cursor frame
+itself. A newer frame replaces one the app has not applied yet, so a slow app jumps to the
+cursor instead of catching up through the points it missed. Each finished move is logged as
+`live anim #<id> <ms>ms ease|snap <from> -> <to> budget <ms>ms`. A resize drag logs
+`live drag #<id> 1:1`.
 
-Recorded with the WM's own screen recorder (the terminal has no Screen Recording grant):
+Gabby's config has `animations.speed = 1.5`, so the budget on this Mac is 100 ms (150 / 1.5).
+Live, workspace 2, two kitty windows, TestWindows floating (her float rule). Lid closed,
+Clamshell on, SleepDisabled 1 the whole time.
 
-- `docs/bugs/resize-keyboard.mov` — 84 frames, 1.783s, 47 fps (mean interval 21ms). One
-  keyboard resize of a kitty with neighbours on screen. Text in the window stayed sharp
-  (laplacian of the text tile stayed in the tens of thousands). No `live jump` log lines.
-- `docs/bugs/resize-drag.mov` — 124 frames, 2.217s, 54 fps (mean interval 18ms). A slow edge
-  drag. Every sample of the kitty was sharp (laplacian above 100000).
+- Opening the second kitty: `live anim #9681 104ms ease 1357x861 -> 682x881 budget 100ms`.
+- Maximize to full width (675 pt wider): `live anim #9691 64ms ease 682x881 -> 1357x861 budget 100ms`.
+  Recording `docs/bugs/resize-maximize-9j.mov` (32 frames, 1.23 s, ~26 fps). The half-width
+  layout is frame 18 and the full-width sharp fastfetch is frame 20. One frame in between is
+  the old buffer at the new size; the next frame is sharp. No fade, blur filter, or grey.
+- Swap of the two equal tiles (695 pt, size unchanged): both `104ms ease 682x881 -> 682x881
+  budget 100ms`. `docs/bugs/resize-swap-9j.mov`.
+- Option-right drag of the split, cursor from x=730 to x=460 (−270 pt) in 20 steps of 25 ms.
+  The left tile's width went 682 → 416 (the 13 pt gap stayed). Samples every ~50 ms moved
+  26–27 pt, which is two cursor steps. The edge stopped when the cursor stopped. No trailing.
+  `docs/bugs/resize-drag-9j.mov`.
 
-The built-in panel was at 60Hz during the recording (kitty reported 60 Hz), so this is not a
-120Hz proof. The display link still asks for 60–120, preferred 120.
+The panel is 60 Hz (kitty's fastfetch still says 60 Hz). The recorder asked for up to 120.
 
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 

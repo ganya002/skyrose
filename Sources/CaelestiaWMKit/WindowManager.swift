@@ -209,9 +209,6 @@ public final class WindowManager {
     var liveGraceUntil: [WindowID: Date] = [:]
     /// Last real frame written for a live resize, so a tick that has not moved skips AX.
     var lastLiveFrame: [WindowID: CGRect] = [:]
-    /// Seconds since the previous live tick. The first tick of a gesture takes one sharp step.
-    var liveFrameStep: TimeInterval = 0
-    var liveFrameStamp: TimeInterval?
     /// Until when late notifications of a finished native drag are re-applied silently.
     var nativeGrace: [WindowID: Date] = [:]
     /// Where a window really is before the next pass (dropped after a native drag): the pass
@@ -535,6 +532,7 @@ public final class WindowManager {
         let glide = config.animations.windows == .snapshot && windowAnimator != nil && drag?.kind != .resize
             && !liveResize && !showsReappeared && !workspaceSlide
         let live = config.animations.windows == .live && !showsReappeared && !workspaceSlide
+        if live || glide { liveResizeSchedule.spec = currentLiveRetileSpec() }
         if suspendChanged { windowAnimator?.cancel() }
         var writes: [() -> Bool] = []
         var changes: [WindowFrameChange] = []
@@ -617,16 +615,21 @@ public final class WindowManager {
             let direct = liveResize || drag?.kind == .resize
             for change in changes where change.kind == .move || change.kind == .open {
                 guard let to = change.to else { continue }
-                let from = change.from ?? to
-                guard !from.approximatelyEquals(to, tolerance: 0.5) else {
+                let layoutFrom = change.from ?? to
+                let visual = lastLiveFrame[change.id] ?? layoutFrom
+                guard !visual.approximatelyEquals(to, tolerance: 0.5) else {
                     liveResizeSchedule.remove(change.id)
+                    lastLiveFrame[change.id] = nil
                     continue
                 }
-                if lastLiveFrame[change.id] == nil { lastLiveFrame[change.id] = from }
-                liveResizeSchedule.retarget(change.id, from: from, to: to, at: clock, direct: direct)
+                if lastLiveFrame[change.id] == nil { lastLiveFrame[change.id] = layoutFrom }
+                liveResizeSchedule.retarget(change.id, from: visual, to: to, at: clock, direct: direct)
             }
             changes = []
-            let samples = liveResizeSchedule.samples(at: clock)
+            // Manual scheduling writes the final frame in this pass. Borders must match that
+            // write, not the pose at t = 0.
+            let sampleAt = scheduling == .manual ? clock + liveResizeSchedule.spec.duration + 0.05 : clock
+            let samples = liveResizeSchedule.samples(at: sampleAt)
             for sample in samples {
                 guard let p = visible[sample.id] else { continue }
                 borders[sample.id] = Self.border(around: sample.frame, matching: p)
@@ -651,7 +654,8 @@ public final class WindowManager {
             guard !self.liveResizeSchedule.isEmpty else { return }
             if self.scheduling == .manual {
                 // No display link in tests: land on the final frame in this pass.
-                self.stepLiveResize(at: self.now().addingTimeInterval(self.liveResizeSchedule.spec.duration + 0.05))
+                let end = self.now().addingTimeInterval(self.liveResizeSchedule.spec.duration + 0.05)
+                self.stepLiveResize(at: end)
             } else {
                 self.stepLiveResize()
                 self.startLiveResizePump()
@@ -1378,6 +1382,7 @@ public final class WindowManager {
         if drop.isResize {
             applyNativeResize(id, drop)
             counters.nativeResizes += 1
+            Log.wm.notice("live drag #\(id, privacy: .public) 1:1")
         } else if !drop.latest.approximatelyEquals(drop.slot, tolerance: 2) {
             let point = location ?? windowSystem.cursorLocation ?? CGPoint(x: drop.latest.midX, y: drop.latest.minY + 12)
             if let target = dropTarget(for: id, at: point) {

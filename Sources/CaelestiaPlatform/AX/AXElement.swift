@@ -292,11 +292,12 @@ public struct AXElement: Hashable, CustomStringConvertible {
         setAttribute(name, AXValue.make(size))
     }
 
-    /// One size write and one position write. No read-back and no enhanced-UI toggle: those
-    /// belong on the animation clock's thread, and a slow read must not stall the other windows.
-    public func setFrameFast(_ target: CGRect) {
+    /// Position, and size only when `resize` is set. No read-back and no enhanced-UI toggle:
+    /// those belong on the animation clock's thread, and a slow read must not stall the other
+    /// windows. Writing the size when it has not changed makes the window server scale the buffer.
+    public func setFrameFast(_ target: CGRect, resize: Bool = true) {
         let target = target.integralPoints
-        setSize(kAXSizeAttribute, target.size)
+        if resize { setSize(kAXSizeAttribute, target.size) }
         setPoint(kAXPositionAttribute, target.origin)
     }
 

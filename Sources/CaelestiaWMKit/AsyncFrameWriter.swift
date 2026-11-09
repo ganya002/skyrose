@@ -11,7 +11,7 @@ final class AsyncFrameWriter: @unchecked Sendable {
     private var lastSent: [UInt32: CGRect] = [:]
     private var busy: Set<UInt32> = []
 
-    func submit(id: UInt32, pid: Int32, frame: CGRect, perform: @escaping (CGRect) -> Void) {
+    func submit(id: UInt32, pid: Int32, frame: CGRect, perform: @escaping (CGRect, Bool) -> Void) {
         lock.lock()
         if let last = lastSent[id], pending[id] == nil, last.approximatelyEquals(frame, tolerance: 0.5), !busy.contains(id) {
             lock.unlock()
@@ -35,7 +35,7 @@ final class AsyncFrameWriter: @unchecked Sendable {
         queue(pid).asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
-    private func drain(_ id: UInt32, _ perform: (CGRect) -> Void) {
+    private func drain(_ id: UInt32, _ perform: (CGRect, Bool) -> Void) {
         while true {
             lock.lock()
             guard let wanted = pending.removeValue(forKey: id) else {
@@ -43,28 +43,25 @@ final class AsyncFrameWriter: @unchecked Sendable {
                 lock.unlock()
                 return
             }
-            // One step only. A newer frame that arrived during the write is picked up next
-            // loop; the rest of a jump waits for the next display tick so the app can paint.
-            let frame = Self.step(lastSent[id], toward: wanted, max: 2)
-            lastSent[id] = frame
+            // The exact frame. A 2 pt cap made keyboard resizes take seconds, and a drag trailed
+            // the cursor until it caught up. A newer frame that arrived during the write replaces
+            // this one on the next loop, so a slow app jumps to the cursor instead of replaying
+            // the points it missed. Size is written only when it changed: repeating it is what
+            // makes the window server scale the old buffer.
+            let write = Self.plan(last: lastSent[id], next: wanted)
+            lastSent[id] = write.frame
             lock.unlock()
-            perform(frame)
+            perform(write.frame, write.resize)
         }
     }
 
-    /// At most `max` points on each edge. A bigger jump is what macOS paints as a scaled,
-    /// blurred frame until the app redraws.
-    static func step(_ from: CGRect?, toward: CGRect, max: Double) -> CGRect {
-        guard let from else { return toward }
-        func axis(_ value: Double, _ was: Double) -> Double {
-            let d = value - was
-            if abs(d) <= max { return value }
-            return was + max * (d < 0 ? -1 : 1)
-        }
-        return CGRect(
-            x: axis(toward.minX, from.minX), y: axis(toward.minY, from.minY),
-            width: axis(toward.width, from.width), height: axis(toward.height, from.height)
-        )
+    /// The frame to write, and whether the size attribute has to change. Position-only writes
+    /// do not scale the window's buffer.
+    static func plan(last: CGRect?, next: CGRect) -> (frame: CGRect, resize: Bool) {
+        let resize = last.map {
+            abs($0.width - next.width) > 0.5 || abs($0.height - next.height) > 0.5
+        } ?? true
+        return (next, resize)
     }
 
     private func queue(_ pid: Int32) -> DispatchQueue {

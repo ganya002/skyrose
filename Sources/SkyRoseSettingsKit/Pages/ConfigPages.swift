@@ -366,9 +366,13 @@ struct WindowsPage: View {
             CloseQuitsCard(store: store)
             Card {
                 SectionLabel(text: "Motion")
-                SettingRow(title: "Window animations", detail: "Windows glide into place (needs Screen Recording). Off: they move at once.", icon: "wand.and.rays") {
+                SettingRow(title: "Window animations", detail: "Live moves the real window. Glide is a still image and needs Screen Recording. Off snaps.", icon: "wand.and.rays") {
                     PillSegmented(options: [(AnimationsConfig.WindowMode.live, "Live", nil), (.snapshot, "Glide", nil), (.off, "Off", nil)],
                                   selection: store.binding(\.animations.windows, "animations.windows") { .string($0.rawValue) })
+                }
+                SettingRow(title: "Resize and retile", detail: "Ease-out time for a keyboard resize or retile. It stays the same however far a window moves. 0 snaps.", icon: "timer") {
+                    PillSlider(value: store.number(\.animations.windowDurationMs, "animations.windowDurationMs"), range: 0...400, step: 10,
+                               format: { "\(Int($0)) ms" }, onCommit: store.flush)
                 }
                 SettingRow(title: "Animation speed", detail: "2× is twice as fast.", icon: "speedometer") {
                     PillSlider(value: store.number(\.animations.speed, "animations.speed"), range: 0.5...3, step: 0.1,

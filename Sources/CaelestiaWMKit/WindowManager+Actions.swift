@@ -304,6 +304,9 @@ extension WindowManager {
     /// A tiled window dropped on another tiled window of the same workspace swaps with it.
     func endDrag(at location: CGPoint?) {
         guard let d = drag else { return }
+        if d.kind == .resize {
+            Log.wm.notice("live drag #\(d.window, privacy: .public) 1:1")
+        }
         drag = nil
         if dragIsLive {
             dragIsLive = false

@@ -415,6 +415,10 @@ public enum ConfigLoader {
             check(AppLayoutMode(rawValue: mode.lowercased()) != nil, path, "must be \"tile\", \"float\" or \"auto\" (got \"\(mode)\")")
         }
         check(c.animations.speed > 0 && c.animations.speed <= 10, "animations.speed", "must be in (0, 10] (got \(c.animations.speed))")
+        check(
+            c.animations.windowDurationMs.isFinite && (0...10_000).contains(c.animations.windowDurationMs),
+            "animations.windowDurationMs",
+            "must be between 0 and 10000 (got \(c.animations.windowDurationMs)); 0 snaps")
 
         positive(c.bar.width, "bar.width")
         var seenIcons: Set<String> = []

@@ -54,4 +54,25 @@ final class LiveResizeWMTests: XCTestCase {
         XCTAssertEqual(a.setFrameCount, done, "a finished resize does not keep writing")
         XCTAssertGreaterThan(done, writes)
     }
+
+    func testTheRetileBudgetIsTheConfiguredDuration() {
+        var config = Config()
+        config.animations.windowDurationMs = 150
+        let h = Harness(config: config)
+        h.start()
+        XCTAssertEqual(h.wm.liveResizeSchedule.spec.durationMs, 150, accuracy: 0.1)
+        XCTAssertEqual(h.wm.currentLiveRetileSpec().durationMs, 150, accuracy: 0.1)
+    }
+
+    func testAFrameWriteIsTheWholeFrameAndResizesOnlyWhenTheSizeChanges() {
+        let first = AsyncFrameWriter.plan(last: nil, next: CGRect(x: 0, y: 0, width: 100, height: 100))
+        XCTAssertTrue(first.resize)
+        XCTAssertEqual(first.frame.width, 100)
+        let slide = AsyncFrameWriter.plan(last: first.frame, next: CGRect(x: 400, y: 0, width: 100, height: 100))
+        XCTAssertFalse(slide.resize, "a position ease must not write the size again")
+        XCTAssertEqual(slide.frame.minX, 400)
+        let grow = AsyncFrameWriter.plan(last: slide.frame, next: CGRect(x: 400, y: 0, width: 900, height: 100))
+        XCTAssertTrue(grow.resize)
+        XCTAssertEqual(grow.frame.width, 900, "a size change is written in full, not stepped 2 pt")
+    }
 }

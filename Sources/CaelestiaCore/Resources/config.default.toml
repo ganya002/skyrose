@@ -370,6 +370,9 @@ preset = "gabby-springy"
 # no snapshot, blur, fade or scale. "snapshot" is the old still-image cover, only if you set it.
 # "off" snaps to the final frame. Curve and speed: windowsIn / windowsMove / windowsOut below.
 windows = "live"
+# Keyboard resize and retile. Ease-out (Hyprland's default curve) for this many milliseconds.
+# The time does not grow with how far a window moves. 0 snaps. speed / globalMultiplier scale it.
+windowDurationMs = 150.0
 # Multiplier on every WM duration (1.0 = as configured).
 globalMultiplier = 1.0
 # Speed of every animation (windows, workspaces, shell): 2.0 = twice as fast, 0.5 = half speed.

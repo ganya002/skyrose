@@ -16,44 +16,33 @@ extension WindowManager {
             return
         }
         let now = (time ?? self.now()).timeIntervalSinceReferenceDate
-        if let previous = liveFrameStamp {
-            liveFrameStep = min(0.05, max(0, now - previous))
-        }
-        liveFrameStamp = now
-        let step = liveFrameStep
         for sample in liveResizeSchedule.samples(at: now) {
             guard handles[sample.id] != nil else {
                 liveResizeSchedule.remove(sample.id)
                 continue
             }
-            // macOS draws a size change by scaling the old buffer until the app paints.
-            // A step bigger than about 2pt shows up as a blurred frame (measured on this Mac:
-            // 2pt/16ms stays sharp, 6pt/16ms does not). Follow the spring, but never faster
-            // than that, and never catch up a late tick in one jump. Tests land on the final
-            // frame in one call; they do not take this path.
-            let shown = scheduling == .manual
-                ? sample.frame
-                : Self.slew(lastLiveFrame[sample.id], to: sample.frame, dt: step)
-            if let last = lastLiveFrame[sample.id], last.approximatelyEquals(shown, tolerance: 0.25),
-               !sample.frame.approximatelyEquals(shown, tolerance: 0.5) {
-                continue
+            // The sample is already the ease-out frame, or the cursor frame for a drag.
+            // Do not cap the step: a 2 pt limit made the duration grow with the distance.
+            let shown = sample.frame
+            let unchanged = lastLiveFrame[sample.id]?.approximatelyEquals(shown, tolerance: 0.25) == true
+            if !unchanged {
+                pushLiveFrame(sample.id, shown)
+                lastLiveFrame[sample.id] = shown
+                if let p = visiblePlacements[sample.id] {
+                    let border = Self.border(around: shown, matching: p)
+                    borderFrames[sample.id] = border
+                    decorations?.followLiveFrame(sample.id, border)
+                }
             }
-            if let last = lastLiveFrame[sample.id],
-               abs(shown.width - last.width) > 2.5 || abs(shown.height - last.height) > 2.5
-                || abs(shown.minX - last.minX) > 2.5 || abs(shown.minY - last.minY) > 2.5 {
-                Log.wm.notice("live jump #\(sample.id) \(Int(last.width))x\(Int(last.height)) -> \(Int(shown.width))x\(Int(shown.height))")
+            guard sample.finished else { continue }
+            if let track = liveResizeSchedule.tracks[sample.id] {
+                let started = track.sampler.startTime
+                let ms = max(0, Int(((now - started) * 1000).rounded()))
+                let kind = sample.snapped ? "snap" : "ease"
+                Log.wm.notice(
+                    "live anim #\(sample.id, privacy: .public) \(ms, privacy: .public)ms \(kind, privacy: .public) \(Int(track.from.width), privacy: .public)x\(Int(track.from.height), privacy: .public) -> \(Int(track.to.width), privacy: .public)x\(Int(track.to.height), privacy: .public) budget \(Int(track.sampler.spec.durationMs.rounded()), privacy: .public)ms"
+                )
             }
-            pushLiveFrame(sample.id, shown)
-            lastLiveFrame[sample.id] = shown
-            if let p = visiblePlacements[sample.id] {
-                let border = Self.border(around: shown, matching: p)
-                borderFrames[sample.id] = border
-                decorations?.followLiveFrame(sample.id, border)
-            }
-            // A direct drag stays on the cursor until the button comes up. A spring ends on `to`.
-            // The track stays while the slew has not reached the sample, so a fast spring
-            // finishes sharp instead of jumping.
-            guard sample.finished, shown.approximatelyEquals(sample.frame, tolerance: 0.5) else { continue }
             liveResizeSchedule.remove(sample.id)
             lastLiveFrame[sample.id] = nil
             liveGraceUntil[sample.id] = self.now().addingTimeInterval(0.4)
@@ -61,22 +50,11 @@ extension WindowManager {
         if liveResizeSchedule.isEmpty { stopLiveResizePump() }
     }
 
-    /// Largest size or position change that stays sharp on this Mac's window server.
-    static let sharpStep: Double = 2
-
-    /// Moves `from` toward `to` by at most 2pt per 16ms, and never more than 2pt in one tick.
-    static func slew(_ from: CGRect?, to: CGRect, dt: TimeInterval) -> CGRect {
-        guard let from else { return to }
-        let allowance = min(sharpStep, max(0.5, dt / 0.016 * sharpStep))
-        func axis(_ value: Double, _ was: Double) -> Double {
-            let d = value - was
-            if abs(d) <= allowance { return value }
-            return was + allowance * (d < 0 ? -1 : 1)
-        }
-        return CGRect(
-            x: axis(to.minX, from.minX), y: axis(to.minY, from.minY),
-            width: axis(to.width, from.width), height: axis(to.height, from.height)
-        )
+    /// Ease-out budget for a keyboard resize or retile. Reduce Motion snaps.
+    func currentLiveRetileSpec() -> AnimationSpec {
+        let system = config.animations.respectReduceMotion && NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if config.animations.reduceMotion || system { return .liveRetile(milliseconds: 0) }
+        return .liveRetile(milliseconds: config.animations.effectiveWindowDurationMs)
     }
 
     /// Real windows go out on a per-app queue. Test fakes are written here, on the caller.
@@ -85,7 +63,7 @@ extension WindowManager {
         if let ax = handle as? AXWindow {
             beginLiveFrames(ax)
             let element = ax.element
-            frameWriter.submit(id: id, pid: ax.pid, frame: frame) { element.setFrameFast($0) }
+            frameWriter.submit(id: id, pid: ax.pid, frame: frame) { element.setFrameFast($0, resize: $1) }
         } else {
             let got = setFrame(handle, frame)
             if learnMinSize(id, target: frame, readBack: got) { setNeedsLayout() }

@@ -403,6 +403,9 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     /// Window open/close/move/drag animations. Curves and speeds come from the preset and the
     /// `windowsIn` / `windowsMove` / `windowsOut` overrides.
     public var windows: WindowMode = .live
+    /// How long a keyboard resize or retile takes, in milliseconds. The clock does not grow with
+    /// how far a window moves. 0 snaps. `speed` and `globalMultiplier` scale it; 0 stays 0.
+    public var windowDurationMs: Double = 150
     /// Global multiplier on all durations (Hyprland global speed / shell durations.scale are
     /// applied separately inside the Motion tables).
     public var globalMultiplier: Double = 1.0
@@ -422,6 +425,14 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     public var durationFactor: Double {
         guard speed > 0, speed.isFinite else { return globalMultiplier }
         return globalMultiplier / speed
+    }
+
+    /// Wall-clock budget for a keyboard resize or retile. 0 snaps. Does not grow with distance.
+    public var effectiveWindowDurationMs: Double {
+        guard windowDurationMs.isFinite, windowDurationMs > 0 else { return 0 }
+        let scaled = windowDurationMs * durationFactor
+        guard scaled.isFinite, scaled > 0 else { return 0 }
+        return min(scaled, 10_000)
     }
 }
 
