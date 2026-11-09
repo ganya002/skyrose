@@ -9,7 +9,7 @@ Spec: `docs/PHASE-PROMPT-8-defaults-update.md`. Commit on `main` after each part
 | 8c. Starter wallpapers | done, none bundled (licensing) | "Phase 8 part 8c" |
 | 8d. Updater | done | "Phase 8 part 8d" |
 | 8e. Corner calibration | done | "Phase 8 part 8e" |
-| 8f. Release v0.3.0 | | |
+| 8f. Release v0.3.0 | done | tag v0.3.0 on e65f99b |
 
 ## Part 8a — Bibata cursor (done)
 
@@ -59,6 +59,20 @@ the same fullscreen outline as `frame calibrate`: all four corners, a slider or 
 0 for a square pair, saved under `[displays."<uuid>"]` and drawn live without restarting the WM.
 A notched built-in panel (safe area, or a gap between the auxiliary top areas) starts at 10 pt on
 top and square on the bottom. External screens start square. Not checked on the real displays.
+
+## Part 8f — release v0.3.0 (done)
+
+Release: https://github.com/ganya002/skyrose/releases/tag/v0.3.0
+Tag `v0.3.0` points at `e65f99b`. Tag `v0.2.0` still points at `1bf9a30` (the tag object is
+`c1ea513`; it was not moved). Apps were built with `scripts/build.sh` and signed with
+"Caelestia Local Signing". The zip is `SkyRose-0.3.0-arm64.zip` (SkyRose.app, SkyRose Settings.app,
+install.sh, uninstall.sh) plus detached `.sha256` files. `docs/caelestia-reference` is not in the zip.
+`/usr/bin/swift test`: 1106 tests, 0 failures.
+
+Not verified on this Mac, on purpose: the new apps were not copied over `~/Applications`, so the
+running WM stayed 0.2.0. No Dock change, no cursor change, no wallpaper copy, no desktop picture
+change, no updater install, and no live corner calibration (TestWindows was not opened for it).
+Uninstaller and installer checks stayed on `--dry-run` and a temporary HOME.
 
 # Phase 7: first ship, installer and uninstaller (started 2026-11-06)
 
