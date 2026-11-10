@@ -98,18 +98,26 @@ public final class BorderWindow: NSPanel, BorderSurface {
         "contents": NSNull(), "string": NSNull(), "hidden": NSNull(), "sublayers": NSNull(),
     ]
 
+    /// The panel around a ring, on whole points. The WindowServer rounds a window's origin to a
+    /// whole point, so a ring on a half point has to get that half point inside the panel.
+    static func panelFrame(around ring: CGRect, margin: CGFloat) -> CGRect {
+        let outer = ring.insetBy(dx: -margin, dy: -margin)
+        let x = outer.minX.rounded(.down), y = outer.minY.rounded(.down)
+        return CGRect(x: x, y: y, width: outer.maxX.rounded(.up) - x, height: outer.maxY.rounded(.up) - y)
+    }
+
     public func render(_ sample: BorderSample, target: BorderTarget, style: OverlayStyle) {
         let scale = ScreenSpace.scale(for: sample.frame)
         let ringRect = ScreenSpace.pixelAligned(ScreenSpace.cocoa(sample.frame), scale: scale)
-        let m = Self.margin
-        let windowRect = ringRect.insetBy(dx: -m, dy: -m)
+        let windowRect = Self.panelFrame(around: ringRect, margin: Self.margin)
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if frame != windowRect { setFrame(windowRect, display: false) }
         let bounds = CGRect(origin: .zero, size: windowRect.size)
         // bounds + position (never `frame`) because `content` carries the pop-in scale transform.
-        let inner = bounds.insetBy(dx: m, dy: m)
+        let inner = CGRect(x: ringRect.minX - windowRect.minX, y: ringRect.minY - windowRect.minY,
+                           width: ringRect.width, height: ringRect.height)
         content.bounds = CGRect(origin: .zero, size: inner.size)
         content.position = CGPoint(x: inner.midX, y: inner.midY)
         // A tab group's ring goes around the window only; its bar sits above, outside it.
