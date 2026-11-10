@@ -61,3 +61,41 @@ public struct CGWindowSnapshot: Equatable, Hashable, Sendable, Identifiable {
         current(onScreenOnly: true).filter(\.isNormalLayer)
     }
 }
+
+/// What the pointer is really over, read from the on-screen stack (front to back).
+public enum PointerHit: Equatable, Sendable {
+    /// The topmost normal window.
+    case window(CGWindowID)
+    /// System UI, a menu, a popover, a floating panel, or a window's border: focus stays put.
+    case blocked
+    /// The desktop.
+    case nothing
+}
+
+extension CGWindowSnapshot {
+    /// Owners whose high-layer windows are system UI even when they are not menu-level.
+    private static let systemOwners: Set<String> = [
+        "Dock", "Spotlight", "Control Center", "Notification Center", "SystemUIServer", "WindowManager", "MenuBarAgent",
+    ]
+
+    /// Layer 101 is `kCGPopUpMenuWindowLevel` (menus and popovers). Layers 1...24 are floating panels and the Dock.
+    /// Layers 25...100 from an ordinary app are not treated as UI: Hex keeps invisible overlays there.
+    private var isPointerUI: Bool {
+        layer >= 101 || (1...24).contains(layer) || Self.systemOwners.contains(ownerName)
+    }
+
+    /// Topmost-first hit test. `stack` excludes our own windows. A window covering nearly a whole
+    /// display above layer 0 is an overlay, not UI, so it is looked through.
+    public static func hit(at point: CGPoint, stack: [CGWindowSnapshot], borderWidth: CGFloat = 0, displayArea: CGFloat = 0) -> PointerHit {
+        for w in stack where w.alpha >= 0.05 && w.ownerName != "Window Server" && w.layer >= 0 {
+            if w.layer > 0 {
+                guard w.bounds.contains(point), w.isPointerUI else { continue }
+                if displayArea > 0, w.bounds.width * w.bounds.height >= displayArea * 0.6 { continue }
+                return .blocked
+            }
+            if w.bounds.contains(point) { return .window(w.id) }
+            if borderWidth > 0, w.bounds.insetBy(dx: -borderWidth, dy: -borderWidth).contains(point) { return .blocked }
+        }
+        return .nothing
+    }
+}

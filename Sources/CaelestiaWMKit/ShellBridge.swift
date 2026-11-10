@@ -28,9 +28,8 @@ public final class ShellBridge: ShellHost {
         state.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         controller = ShellController(state: state, host: nil)
         controller.host = self
-        wm.shellBlocksPointerFocus = { [weak controller] in
-            guard let controller else { return false }
-            return !controller.openDrawers.isEmpty || controller.popoutKind != nil
+        wm.shellBlocksPointerFocus = { [weak controller] point in
+            controller?.blocksPointerFocus(at: point) ?? false
         }
     }
 

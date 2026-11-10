@@ -5,13 +5,28 @@ Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit pe
 | Part | State | Commit |
 |---|---|---|
 | 1. Real Bongo Cat | done, sprite seen live; beats need a song | "Phase 9.5 part 1" |
-| 2. Hover focus | todo | |
+| 2. Hover focus | done, live with TestWindows | "Phase 9.5 part 2" |
 | 3. Lyrics | todo | |
 | 4. 1:1 polish | todo | |
 | 5. SIP-off daemon | todo | |
 
 References read: `docs/caelestia-reference` (the prompt says part10 has 66 images, it has 3), the capture README and brief,
 `caelestia-dots/shell` at fd630ffe. Clone it into a scratch folder; it is not in the repo.
+
+## Part 2 — hover focus follows the real stack
+
+Cause: `hoverTarget` picked by placement kind and largest id and ignored z-order. Hex's invisible
+near-full-screen windows (layers 25–27) were also in the placements.
+
+Now `CGWindowSnapshot.hit` walks CGWindowList front to back and answers window, blocked or nothing.
+Menus, popovers, Dock, Spotlight and system UI block, as do SkyRose panels and the border strip.
+Very large overlays above layer 0 are looked through. The stack is read again right before focus.
+Hover holds during a mouse button, a warp, a retile, and 0.3 s after a keyboard focus.
+
+Live test: one tiled and two offset floating TestWindows, 13 of 13 hover checks picked the topmost
+window, including a flick across a window that must not take focus. Stack order did not change.
+Recording: `~/Pictures/Screenshots/skyrose-1794312643.mov`, checked on a sheet at 2.5 fps plus a
+focus poll every ~50 ms. No before clip was recorded for this part.
 
 ## Part 1 — the real Bongo Cat
 

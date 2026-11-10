@@ -123,6 +123,13 @@ public final class ShellController {
     private var osdTimer = OSDTimer()
     public internal(set) var openDrawers: Set<Drawer> = []
 
+    /// A drawer or popout is open, or a toast sits under the point (top-left coordinates).
+    public func blocksPointerFocus(at point: CGPoint) -> Bool {
+        if !openDrawers.isEmpty || popoutKind != nil { return true }
+        guard let panel = toastPanel, panel.isVisible, let main = NSScreen.screens.first else { return false }
+        return panel.frame.contains(CGPoint(x: point.x, y: main.frame.height - point.y))
+    }
+
     // Services.
     public let audio = AudioService()
     public let brightness = BrightnessService()

@@ -293,6 +293,10 @@ public final class WindowManager {
     var ignorePointerFocusUntil = Date.distantPast
     /// Focus follows the pointer. The candidate and when the pointer arrived.
     var hoverFocus = HoverFocus()
+    /// Where the last warp left the pointer. Hover waits for real motion away from it.
+    var lastWarpPoint: CGPoint?
+    /// A keyboard or click focus just happened: hover keeps out of it until then.
+    var hoverHoldUntil = Date.distantPast
     var hoverTimer: Timer?
     /// Hover asked to focus this window without bringing it forward. Cleared once focus is applied.
     var hoverFocusWithoutRaise: WindowID?
@@ -302,7 +306,7 @@ public final class WindowManager {
     /// Secure Event Input is on (a password field). Hover must not steal focus.
     var secureInputActive = false
     /// SkyRose drawers, the launcher, or a bar popout are open.
-    var shellBlocksPointerFocus: () -> Bool = { false }
+    var shellBlocksPointerFocus: (CGPoint) -> Bool = { _ in false }
     /// Moves the pointer. Tests replace it; the real one disconnects the hardware mouse first so
     /// the warp is not a hover and the next physical move is not stuck.
     public var warpCursor: (CGPoint) -> Void = { point in
@@ -800,7 +804,12 @@ public final class WindowManager {
         systemFocus = f
         let keepOrder = hoverFocusWithoutRaise == f
         hoverFocusWithoutRaise = nil
-        if keepOrder { focusWithoutRaising(f, handle: handle) } else { handle.focus(raise: true) }
+        if keepOrder {
+            focusWithoutRaising(f, handle: handle)
+        } else {
+            handle.focus(raise: true)
+            hoverHoldUntil = now().addingTimeInterval(0.3)
+        }
         counters.focusCalls += 1
         warpCursorToFocus()
     }
@@ -836,6 +845,7 @@ public final class WindowManager {
             enabled: true, onVisibleDisplay: displays.contains { $0.frame.intersects(frame) }
         ) else { return }
         ignorePointerFocusUntil = now().addingTimeInterval(0.08)
+        lastWarpPoint = point
         lastPointerInWindow[id] = point
         warpCursor(point)
         Log.wm.notice("cursor warp #\(id, privacy: .public) \(Int(point.x), privacy: .public),\(Int(point.y), privacy: .public)")
@@ -847,16 +857,21 @@ public final class WindowManager {
         guard isManaging, config.wm.focusFollowsMouse else { return }
         rememberPointer(point)
         let delay = TimeInterval(config.wm.focusFollowsMouseDelayMs) / 1000
-        let over = window(at: point)
-        let blocked = hoverBlock(at: point, over: over)
+        var target = pointerTarget(at: point, fresh: false)
         let now = self.now().timeIntervalSinceReferenceDate
-        guard let id = hoverFocus.update(over: over, at: now, delay: delay, blocked: blocked) else {
+        guard let id = hoverFocus.update(over: target.window, at: now, delay: delay, blocked: target.block ?? hoverBlock(at: point, over: target.window)) else {
             armHoverTimer(delay: delay)
             return
         }
         hoverTimer?.invalidate()
         hoverTimer = nil
         guard id != state.focusedWindow else { return }
+        // The stack may have changed during the delay. Only the window on top right now gets focus.
+        target = pointerTarget(at: point, fresh: true)
+        guard target.window == id, target.block == nil else {
+            _ = hoverFocus.update(over: nil, at: now, delay: delay, blocked: nil)
+            return
+        }
         let raise = config.wm.raiseOnHover && isFloating(id)
         hoverFocusWithoutRaise = raise ? nil : id
         state.recordFocus(id, raise: raise)
@@ -864,41 +879,41 @@ public final class WindowManager {
         Log.wm.notice("hover focus #\(id, privacy: .public) raise \(raise, privacy: .public)")
     }
 
-    /// Fully transparent windows (Hex's invisible system dialogs sit on top of the whole
-    /// screen at alpha 0) are not what the pointer is over. A visible sheet still is, and
-    /// `hoverBlock` refuses to focus it.
-    private var invisibleHoverCache: (at: TimeInterval, ids: Set<WindowID>)?
+    /// CGWindowList is too slow for every mouse event, and the stack rarely changes between two.
+    private var pointerStackCache: (at: TimeInterval, stack: [CGWindowSnapshot])?
 
-    func window(at point: CGPoint) -> WindowID? {
-        Self.hoverTarget(at: point, placements: visiblePlacements, skipping: invisibleHoverIDs())
-    }
-
-    func invisibleHoverIDs() -> Set<WindowID> {
+    /// The window really on top under the point, or why focus must stay. A window the WM does not
+    /// place (a dialog of an untracked app, say) stops the search too: it is never looked through.
+    func pointerTarget(at point: CGPoint, fresh: Bool) -> (window: WindowID?, block: HoverFocus.Block?) {
         let t = now().timeIntervalSinceReferenceDate
-        if let cache = invisibleHoverCache, t - cache.at < 0.25 { return cache.ids }
-        let ids = Set(CGWindowSnapshot.current(onScreenOnly: true).filter { $0.alpha < 0.05 }.map(\.id))
-        invisibleHoverCache = (t, ids)
-        return ids
-    }
-
-    static func hoverTarget(
-        at point: CGPoint, placements: [WindowID: Placement], skipping: Set<WindowID>
-    ) -> WindowID? {
-        placements.filter { !$0.value.hidden && $0.value.frame.contains(point) && !skipping.contains($0.key) }
-            .max { a, b in
-                let rank: (Placement.Kind) -> Int = { $0 == .tiled ? 0 : 1 }
-                let ar = rank(a.value.kind), br = rank(b.value.kind)
-                if ar != br { return ar < br }
-                return a.key < b.key
-            }?.key
+        var stack = pointerStackCache?.stack
+        if fresh || stack == nil || t - (pointerStackCache?.at ?? 0) >= 0.06 {
+            stack = windowSystem.windowStack()
+            pointerStackCache = (t, stack ?? [])
+        }
+        let area = displays.first { $0.frame.contains(point) }.map { $0.frame.width * $0.frame.height } ?? 0
+        switch CGWindowSnapshot.hit(at: point, stack: stack ?? [], borderWidth: config.wm.bordersEnabled ? CGFloat(config.wm.borderSize) : 0, displayArea: area) {
+        case .nothing: return (nil, nil)
+        case .blocked: return (nil, .systemUI)
+        case .window(let id):
+            guard let placement = visiblePlacements[id], !placement.hidden else { return (nil, .systemUI) }
+            return (id, nil)
+        }
     }
 
     func hoverBlock(at point: CGPoint, over: WindowID?) -> HoverFocus.Block? {
         if drag != nil || !nativeDrags.isEmpty { return .drag }
-        if windowSystem.isLeftMouseDown { return .button }
+        if windowSystem.isMouseButtonDown { return .button }
         if now() < ignorePointerFocusUntil { return .warp }
+        if let warped = lastWarpPoint {
+            // Still where the warp left it: no real motion yet.
+            if hypot(point.x - warped.x, point.y - warped.y) < 1.5 { return .warp }
+            lastWarpPoint = nil
+        }
+        if now() < hoverHoldUntil { return .keyboard }
+        if windowAnimator?.isAnimating == true { return .retile }
         if secureInputActive { return .password }
-        if shellBlocksPointerFocus() { return .drawer }
+        if shellBlocksPointerFocus(point) { return .drawer }
         if let display = displays.first(where: { $0.frame.contains(point) }),
            point.y <= display.frame.minY + display.menuBarHeight + 1 { return .menuBar }
         if let over, let desc = descriptors[over] {
@@ -943,7 +958,7 @@ public final class WindowManager {
     /// Remembers where the pointer is, for the next `last` warp. A point from our own warp does not count.
     func rememberPointer(_ point: CGPoint) {
         guard now() >= ignorePointerFocusUntil else { return }
-        guard let id = visiblePlacements.first(where: { $0.value.frame.contains(point) })?.key else { return }
+        guard let id = pointerTarget(at: point, fresh: false).window else { return }
         lastPointerInWindow[id] = point
     }
 

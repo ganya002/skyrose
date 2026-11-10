@@ -1,5 +1,6 @@
 import CaelestiaCore
 import CaelestiaLayout
+import CaelestiaPlatform
 import XCTest
 
 @testable import CaelestiaWMKit
@@ -143,18 +144,74 @@ final class CursorFollowsFocusTests: XCTestCase {
         XCTAssertEqual(h.wm.state.focusedWindow, a.windowID, "a warp's move does not focus whatever it landed on")
     }
 
-    func testHoverLooksThroughAFullyTransparentWindow() {
-        func place(_ id: WindowID, _ frame: CGRect, _ kind: Placement.Kind) -> (WindowID, Placement) {
-            (id, Placement(window: id, frame: frame, borderFrame: frame, kind: kind))
-        }
-        let tiled = CGRect(x: 80, y: 60, width: 400, height: 300)
-        let cover = CGRect(x: 0, y: 0, width: 1400, height: 900)
-        let placements = Dictionary(uniqueKeysWithValues: [
-            place(1, tiled, .tiled),
-            place(2, cover, .floating),
-        ])
-        let spot = CGPoint(x: 200, y: 200)
-        XCTAssertEqual(WindowManager.hoverTarget(at: spot, placements: placements, skipping: [2]), 1)
-        XCTAssertEqual(WindowManager.hoverTarget(at: spot, placements: placements, skipping: []), 2)
+    /// A settled harness with two overlapping windows, `a` focused, and the pointer over both.
+    private func overlapping() throws -> (Harness, FakeWindow, FakeWindow, CGPoint) {
+        var config = Config()
+        config.wm.focusFollowsMouseDelayMs = 100
+        let h = Harness(config: config)
+        h.wm.warpCursor = { _ in }
+        let a = h.system.existing("a")
+        let b = h.system.existing("b")
+        h.system.cursorLocation = CGPoint(x: 2, y: 2)
+        h.start()
+        h.clock.now = h.clock.now.addingTimeInterval(1)
+        h.wm.state.recordFocus(a.windowID)
+        h.wm.setNeedsLayout()
+        h.settle()
+        h.clock.now = h.clock.now.addingTimeInterval(1)
+        let frame = try XCTUnwrap(h.wm.visiblePlacements[a.windowID]?.frame)
+        return (h, a, b, CGPoint(x: frame.midX + 20, y: frame.midY + 20))
+    }
+
+    private func hover(_ h: Harness, _ spot: CGPoint) {
+        h.wm.pointerMoved(at: spot)
+        h.clock.now = h.clock.now.addingTimeInterval(0.1)
+        h.wm.pointerMoved(at: spot)
+        h.settle()
+    }
+
+    func testHoverNeverFocusesTheWindowBehindTheTopOne() throws {
+        let (h, a, b, spot) = try overlapping()
+        // `b` has the larger id and sits behind `a`, which is what the old search got wrong.
+        h.system.stackOverride = [CGWindowSnapshot(id: a.windowID, pid: a.pid, bounds: CGRect(origin: .zero, size: CGSize(width: 4000, height: 4000))),
+                                  CGWindowSnapshot(id: b.windowID, pid: b.pid, bounds: CGRect(origin: .zero, size: CGSize(width: 4000, height: 4000)))]
+        hover(h, spot)
+        XCTAssertEqual(h.wm.state.focusedWindow, a.windowID)
+    }
+
+    func testTheStackIsReadAgainRightBeforeFocusing() throws {
+        let (h, a, b, spot) = try overlapping()
+        let cover = CGRect(origin: .zero, size: CGSize(width: 4000, height: 4000))
+        let top = CGWindowSnapshot(id: b.windowID, pid: b.pid, bounds: cover)
+        let other = CGWindowSnapshot(id: a.windowID, pid: a.pid, bounds: cover)
+        h.system.stackOverride = [top, other]
+        h.wm.pointerMoved(at: spot)
+        h.clock.now = h.clock.now.addingTimeInterval(0.1)
+        h.system.stackOverride = [other, top]   // `a` came to the front during the delay
+        h.wm.pointerMoved(at: spot)
+        h.settle()
+        XCTAssertEqual(h.wm.state.focusedWindow, a.windowID)
+    }
+
+    func testAMenuOverTheWindowHoldsFocus() throws {
+        let (h, a, b, spot) = try overlapping()
+        let cover = CGRect(origin: .zero, size: CGSize(width: 4000, height: 4000))
+        h.system.stackOverride = [CGWindowSnapshot(id: 77, pid: 9, layer: 101, bounds: CGRect(x: spot.x - 50, y: spot.y - 50, width: 200, height: 200)),
+                                  CGWindowSnapshot(id: b.windowID, pid: b.pid, bounds: cover)]
+        hover(h, spot)
+        XCTAssertEqual(h.wm.state.focusedWindow, a.windowID)
+    }
+
+    func testAKeyboardFocusHoldsHoverBriefly() throws {
+        let (h, a, b, spot) = try overlapping()
+        let cover = CGRect(origin: .zero, size: CGSize(width: 4000, height: 4000))
+        h.system.stackOverride = [CGWindowSnapshot(id: b.windowID, pid: b.pid, bounds: cover),
+                                  CGWindowSnapshot(id: a.windowID, pid: a.pid, bounds: cover)]
+        h.wm.hoverHoldUntil = h.clock.now.addingTimeInterval(0.3)
+        hover(h, spot)
+        XCTAssertEqual(h.wm.state.focusedWindow, a.windowID)
+        h.clock.now = h.clock.now.addingTimeInterval(0.3)
+        hover(h, spot)
+        XCTAssertEqual(h.wm.state.focusedWindow, b.windowID)
     }
 }

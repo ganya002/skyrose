@@ -7,7 +7,7 @@ import Foundation
 /// menu bar, a SkyRose drawer, or a fullscreen window on another Space holds focus where it is.
 public struct HoverFocus: Equatable, Sendable {
     public enum Block: String, Equatable, Sendable {
-        case off, drag, button, menu, popover, launcher, drawer, menuBar, sheet, password, otherSpaceFullscreen, warp
+        case off, drag, button, menu, popover, launcher, drawer, menuBar, sheet, password, otherSpaceFullscreen, warp, systemUI, retile, keyboard
     }
 
     public private(set) var window: UInt32?
