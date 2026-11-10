@@ -51,6 +51,10 @@ nothing was applied to Gabby's windows, Dock, cursor, wallpaper or desktop pictu
 
 ## Part 9j — smooth live resize (speed fix)
 
+Glide (`animations.windows = "snapshot"`) is the default again. Live stays available. Gabby's
+config already sets snapshot. A size change is still the real window under the cover, on the
+same fixed ease-out, so the still is not scaled.
+
 The 2 pt-per-tick cap (in the display-link slew and again in the per-app frame writer) made a
 resize take seconds, because the time grew with the distance. That cap is gone.
 

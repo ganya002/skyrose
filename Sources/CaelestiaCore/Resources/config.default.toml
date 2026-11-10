@@ -366,10 +366,10 @@ kittyFontSize = 13.0
 # "gabby-springy" (hypr-user.lua: riko spring, snappy bezier, speed 3.2), "caelestia-stock",
 # "reduced" or "off".
 preset = "gabby-springy"
-# Window animations in Standard mode. "live" (default) moves the real window every refresh:
-# no snapshot, blur, fade or scale. "snapshot" is the old still-image cover, only if you set it.
+# Window animations. "snapshot" (default, Glide) springs a still of each window on a cover.
+# "live" moves the real window every refresh: no snapshot, blur, fade or scale.
 # "off" snaps to the final frame. Curve and speed: windowsIn / windowsMove / windowsOut below.
-windows = "live"
+windows = "snapshot"
 # Keyboard resize and retile. Ease-out (Hyprland's default curve) for this many milliseconds.
 # The time does not grow with how far a window moves. 0 snaps. speed / globalMultiplier scale it.
 windowDurationMs = 150.0

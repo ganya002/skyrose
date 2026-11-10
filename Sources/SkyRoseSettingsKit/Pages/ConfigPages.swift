@@ -366,8 +366,8 @@ struct WindowsPage: View {
             CloseQuitsCard(store: store)
             Card {
                 SectionLabel(text: "Motion")
-                SettingRow(title: "Window animations", detail: "Live moves the real window. Glide is a still image and needs Screen Recording. Off snaps.", icon: "wand.and.rays") {
-                    PillSegmented(options: [(AnimationsConfig.WindowMode.live, "Live", nil), (.snapshot, "Glide", nil), (.off, "Off", nil)],
+                SettingRow(title: "Window animations", detail: "Glide is the default: a still of the window springs into place (needs Screen Recording). Live moves the real window. Off snaps.", icon: "wand.and.rays") {
+                    PillSegmented(options: [(AnimationsConfig.WindowMode.snapshot, "Glide", nil), (.live, "Live", nil), (.off, "Off", nil)],
                                   selection: store.binding(\.animations.windows, "animations.windows") { .string($0.rawValue) })
                 }
                 SettingRow(title: "Resize and retile", detail: "Ease-out time for a keyboard resize or retile. It stays the same however far a window moves. 0 snaps.", icon: "timer") {

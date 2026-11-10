@@ -391,10 +391,10 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     }
     /// How real windows animate in Standard mode (SIP on).
     public enum WindowMode: String, Codable, Sendable, CaseIterable {
-        /// The real window moves every refresh. No snapshot, blur, fade or scale. This is the default.
+        /// The real window moves every refresh. No snapshot, blur, fade or scale.
         case live
-        /// ScreenCaptureKit stills animate on an overlay cover while the real windows are moved
-        /// once underneath (needs Screen Recording; instant without it). Off unless set explicitly.
+        /// ScreenCaptureKit stills glide on an overlay cover while the real windows move
+        /// underneath (needs Screen Recording; instant without it). This is the default.
         case snapshot
         /// Windows snap to their final frame; only the borders fade.
         case off
@@ -402,7 +402,7 @@ public struct AnimationsConfig: Codable, Equatable, Sendable {
     public var preset: Preset = .gabbySpringy
     /// Window open/close/move/drag animations. Curves and speeds come from the preset and the
     /// `windowsIn` / `windowsMove` / `windowsOut` overrides.
-    public var windows: WindowMode = .live
+    public var windows: WindowMode = .snapshot
     /// How long a keyboard resize or retile takes, in milliseconds. The clock does not grow with
     /// how far a window moves. 0 snaps. `speed` and `globalMultiplier` scale it; 0 stays 0.
     public var windowDurationMs: Double = 150

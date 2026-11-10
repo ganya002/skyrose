@@ -77,9 +77,9 @@ final class ConfigWatcherDirectoryTests: XCTestCase {
 
     // MARK: animations.windows
 
-    func testWindowAnimationModeDefaultsToLive() throws {
-        XCTAssertEqual(Config().animations.windows, .live)
-        XCTAssertEqual(try ConfigLoader.loadDefaultResource().animations.windows, .live)
+    func testWindowAnimationModeDefaultsToGlide() throws {
+        XCTAssertEqual(Config().animations.windows, .snapshot)
+        XCTAssertEqual(try ConfigLoader.loadDefaultResource().animations.windows, .snapshot)
     }
 
     func testWindowsOffParses() throws {
