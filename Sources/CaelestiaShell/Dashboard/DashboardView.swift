@@ -20,6 +20,7 @@ public final class DashboardModel: ObservableObject {
     @Published public var bongoPaw: Int?
     @Published public var lyricLines: [LyricLine] = []
     @Published public var lyricNote: String = ""
+    @Published public var lyricClock = LyricClock()
     public init() {}
 }
 
@@ -541,29 +542,44 @@ private struct MediaTab: View {
     private func timeText(_ s: Double) -> String { String(format: "%d:%02d", Int(s) / 60, Int(s) % 60) }
 
     @ViewBuilder private func lyricList(_ m: MediaInfo) -> some View {
-        let current = Lyrics.index(of: model.lyricLines, at: m.position)
         if model.lyricLines.isEmpty {
             Text(model.lyricNote.isEmpty ? "No lyrics found" : model.lyricNote)
                 .font(theme.sans(13)).foregroundStyle(theme[.onSurfaceVariant])
         } else {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Array(model.lyricLines.enumerated()), id: \.offset) { index, line in
-                            Text(line.text)
-                                .font(theme.sans(index == current ? 16 : 13, weight: index == current ? .semibold : .regular))
-                                .foregroundStyle(index == current ? theme[.primary] : theme[.onSurfaceVariant])
-                                .id(index)
-                                .onTapGesture { model.onSeek(line.time) }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxHeight: 140)
-                .onChange(of: current) { _, index in
-                    if let index { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(index, anchor: .center) } }
-                }
+            // Ticks only while the song runs and the dashboard is open.
+            TimelineView(.periodic(from: .now, by: 0.2)) { context in
+                LyricList(model: model, current: Lyrics.index(of: model.lyricLines, at: model.lyricClock.position(at: context.date)))
             }
+        }
+    }
+}
+
+private struct LyricList: View {
+    @ObservedObject var model: DashboardModel
+    var current: Int?
+    @Environment(\.shellTheme) var theme
+
+    var body: some View {
+        let synced = Lyrics.isSynced(model.lyricLines)
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(model.lyricLines.enumerated()), id: \.offset) { index, line in
+                        Text(line.text)
+                            .font(theme.sans(index == current ? 16 : 13, weight: index == current ? .semibold : .regular))
+                            .foregroundStyle(index == current ? theme[.primary] : theme[.onSurfaceVariant])
+                            .animation(theme.small, value: current)
+                            .id(index)
+                            .onTapGesture { if synced { model.onSeek(line.time) } }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 140)
+            .onChange(of: current) { _, index in
+                if let index { withAnimation(theme.spatial) { proxy.scrollTo(index, anchor: .center) } }
+            }
+            .onChange(of: model.lyricLines) { _, _ in proxy.scrollTo(0, anchor: .top) }
         }
     }
 }

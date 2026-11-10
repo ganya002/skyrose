@@ -16,6 +16,7 @@ final class MediaStage {
     private let lyricsDirectory = Paths.appSupport.appendingPathComponent("lyrics", isDirectory: true)
 
     func sync(media: MediaInfo, dashboard: DashboardModel, config: DashboardConfig) {
+        dashboard.lyricClock = LyricClock(position: media.position, at: Date(), playing: media.isPlaying, duration: media.duration)
         guard dashboard.shown else {
             stopListening()
             return
@@ -29,7 +30,8 @@ final class MediaStage {
         guard config.lyrics, media.available, !media.title.isEmpty else {
             lyricTask?.cancel()
             dashboard.lyricLines = []
-            dashboard.lyricNote = media.available ? "" : ""
+            dashboard.lyricNote = ""
+            loadedKey = ""
             return
         }
         let track = LyricTrack(title: media.title, artist: media.artist, album: media.album, duration: media.duration)
@@ -92,14 +94,29 @@ final class MediaStage {
         detector = BeatDetector()
     }
 
+    /// The exact track first, then looser. A synced lyric wins over a plain one found earlier.
     private static func fetch(_ track: LyricTrack) async -> [LyricLine]? {
-        guard let url = Lyrics.request(for: track) else { return nil }
+        var plain: [LyricLine]?
+        for url in Lyrics.requests(for: track) {
+            guard let data = await body(of: url), let lines = Lyrics.fromLRCLIB(data) else { continue }
+            if Lyrics.isSynced(lines) { return lines }
+            plain = plain ?? lines
+        }
+        if let url = Lyrics.searchRequest(for: track), let data = await body(of: url),
+           let lines = Lyrics.fromSearch(data, duration: track.duration) {
+            if Lyrics.isSynced(lines) { return lines }
+            plain = plain ?? lines
+        }
+        return plain
+    }
+
+    private static func body(of url: URL) async -> Data? {
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
         request.setValue("SkyRose", forHTTPHeaderField: "User-Agent")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-        return Lyrics.fromLRCLIB(data)
+        return data
     }
 }
 

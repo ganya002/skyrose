@@ -34,6 +34,28 @@ public struct LyricTrack: Equatable, Sendable {
     }
 }
 
+/// Where a track is between position reports. Players report every couple of seconds, which is
+/// too coarse for a lyric line, so the time in between is counted here.
+public struct LyricClock: Equatable, Sendable {
+    public var position: Double
+    public var at: Date
+    public var playing: Bool
+    public var duration: Double
+
+    public init(position: Double = 0, at: Date = .distantPast, playing: Bool = false, duration: Double = 0) {
+        self.position = position
+        self.at = at
+        self.playing = playing
+        self.duration = duration
+    }
+
+    public func position(at now: Date) -> Double {
+        guard playing else { return position }
+        let moved = position + max(0, now.timeIntervalSince(at))
+        return duration > 0 ? min(moved, duration) : moved
+    }
+}
+
 public enum Lyrics {
     /// Parses LRC. Several timestamps on one line each become their own line. Tags like `[ar:]` are skipped.
     public static func parse(_ text: String) -> [LyricLine] {
@@ -59,10 +81,16 @@ public enum Lyrics {
 
     /// The line being sung at `time`, or nil before the first line.
     public static func index(of lines: [LyricLine], at time: TimeInterval) -> Int? {
-        guard !lines.isEmpty else { return nil }
+        guard isSynced(lines) else { return nil }
         var chosen: Int?
         for (i, line) in lines.enumerated() where line.time <= time + 0.05 { chosen = i }
         return chosen
+    }
+
+    /// Plain lyrics are stored as lines at 0, so they have no line to highlight or seek to.
+    public static func isSynced(_ lines: [LyricLine]) -> Bool {
+        guard let first = lines.first else { return false }
+        return lines.contains { $0.time != first.time }
     }
 
     /// `mm:ss`, `mm:ss.xx` or `mm:ss.xxx`.
@@ -74,29 +102,95 @@ public enum Lyrics {
         return minutes * 60 + secs
     }
 
-    /// LRCLIB `GET /api/get`. Duration is omitted when it is unknown.
-    public static func request(for track: LyricTrack) -> URL? {
-        var items = [
-            URLQueryItem(name: "track_name", value: track.title),
-            URLQueryItem(name: "artist_name", value: track.artist),
+    /// LRCLIB `GET /api/get`, most exact first. LRCLIB answers 404 when the album is wrong, and
+    /// players often report a different album (a single, a remaster, a browser's page title).
+    public static func requests(for track: LyricTrack) -> [URL] {
+        let title = cleanTitle(track.title)
+        let artist = cleanArtist(track.artist)
+        var urls = [get(title: track.title, artist: track.artist, album: track.album, duration: track.duration)]
+        urls.append(get(title: title, artist: artist, album: "", duration: track.duration))
+        urls.append(get(title: title, artist: artist, album: "", duration: 0))
+        var seen = Set<URL>()
+        return urls.compactMap { $0 }.filter { seen.insert($0).inserted }
+    }
+
+    /// LRCLIB `GET /api/search`, the last resort.
+    public static func searchRequest(for track: LyricTrack) -> URL? {
+        var c = URLComponents(string: "https://lrclib.net/api/search")
+        c?.queryItems = [
+            URLQueryItem(name: "track_name", value: cleanTitle(track.title)),
+            URLQueryItem(name: "artist_name", value: cleanArtist(track.artist)),
         ]
-        if !track.album.isEmpty { items.append(URLQueryItem(name: "album_name", value: track.album)) }
-        if track.duration >= 1 { items.append(URLQueryItem(name: "duration", value: String(Int(track.duration.rounded())))) }
+        return c?.url
+    }
+
+    private static func get(title: String, artist: String, album: String, duration: Double) -> URL? {
+        var items = [URLQueryItem(name: "track_name", value: title), URLQueryItem(name: "artist_name", value: artist)]
+        if !album.isEmpty { items.append(URLQueryItem(name: "album_name", value: album)) }
+        if duration >= 1 { items.append(URLQueryItem(name: "duration", value: String(Int(duration.rounded())))) }
         var c = URLComponents(string: "https://lrclib.net/api/get")
         c?.queryItems = items
         return c?.url
     }
 
-    /// Prefers synced LRC. A plain lyric becomes one line at 0. Empty is nil.
+    /// Drops what video sites add to a song's name: "(Official Video)", "[Lyrics]", "feat. …",
+    /// and an "Artist - " prefix.
+    public static func cleanTitle(_ raw: String) -> String {
+        var title = raw
+        let noise = "official|lyrics?|audio|video|visuali[sz]er|music video|remaster(ed)?|hd|4k|mv"
+        for pattern in ["[\\(\\[][^\\)\\]]*\\b(\(noise))\\b[^\\)\\]]*[\\)\\]]", "[\\(\\[]\\s*(feat\\.?|ft\\.?|with)\\s[^\\)\\]]*[\\)\\]]", "\\s(feat\\.?|ft\\.?)\\s.*$"] {
+            title = title.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        if let dash = title.range(of: " - ") { title = String(title[dash.upperBound...]) }
+        title = title.trimmingCharacters(in: .whitespaces)
+        return title.isEmpty ? raw : title
+    }
+
+    /// "Queen - Topic" and "QueenVEVO" are YouTube channel names. Only the first of several artists is kept.
+    public static func cleanArtist(_ raw: String) -> String {
+        var artist = raw.replacingOccurrences(of: "\\s*-\\s*Topic$", with: "", options: .regularExpression)
+        artist = artist.replacingOccurrences(of: "VEVO$", with: "", options: .regularExpression)
+        if let split = artist.range(of: "\\s*(,|&| x | feat\\.? | ft\\.? )\\s*", options: [.regularExpression, .caseInsensitive]) {
+            artist = String(artist[..<split.lowerBound])
+        }
+        artist = artist.trimmingCharacters(in: .whitespaces)
+        return artist.isEmpty ? raw : artist
+    }
+
+    /// Prefers synced LRC. Plain lyrics become lines at 0. Empty is nil.
     public static func fromLRCLIB(_ data: Data) -> [LyricLine]? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return lines(from: object)
+    }
+
+    /// The best hit of a search: synced and the right length first, else any plain lyric.
+    /// A synced lyric of another cut is left out, because its lines would be off.
+    public static func fromSearch(_ data: Data, duration: Double) -> [LyricLine]? {
+        guard let hits = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
+        var plain: [LyricLine]?
+        for hit in hits {
+            guard let found = lines(from: hit) else { continue }
+            if !isSynced(found) {
+                plain = plain ?? found
+                continue
+            }
+            let length = (hit["duration"] as? NSNumber)?.doubleValue ?? 0
+            if duration < 1 || length < 1 || abs(length - duration) <= 8 { return found }
+        }
+        return plain
+    }
+
+    private static func lines(from object: [String: Any]) -> [LyricLine]? {
         if let synced = object["syncedLyrics"] as? String {
             let lines = parse(synced)
             if !lines.isEmpty { return lines }
         }
         if let plain = object["plainLyrics"] as? String {
-            let text = plain.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !text.isEmpty { return [LyricLine(time: 0, text: text)] }
+            let lines = plain.split(whereSeparator: \.isNewline)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .map { LyricLine(time: 0, text: $0) }
+            if !lines.isEmpty { return lines }
         }
         return nil
     }
