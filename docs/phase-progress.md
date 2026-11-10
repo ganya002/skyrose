@@ -7,11 +7,25 @@ Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit pe
 | 1. Real Bongo Cat | done, sprite seen live; beats need a song | "Phase 9.5 part 1" |
 | 2. Hover focus | done, live with TestWindows | "Phase 9.5 part 2" |
 | 3. Lyrics | partial: built, states checked, not seen with a song | "Phase 9.5 part 3" |
-| 4. 1:1 polish | todo | |
+| 4. 1:1 polish | partial: motion done, side-by-side not complete | "Phase 9.5 part 4" |
 | 5. SIP-off daemon | todo | |
 
 References read: `docs/caelestia-reference` (the prompt says part10 has 66 images, it has 3), the capture README and brief,
 `caelestia-dots/shell` at fd630ffe. Clone it into a scratch folder; it is not in the repo.
+
+## Part 4 — 1:1 polish
+
+Already in place from Phase 6 and left alone: one SDF surface for the border and drawers, the jelly
+(stiffness 200, damping 16, 35 % cap), per-panel deformAmount, and a display link that pauses at rest.
+
+New here: each drawer opens and closes on its measured time (`CaelestiaTokens.DrawerMs`). Dashboard
+tabs have their own heights and the blob morphs between them on the spatial curve with a crossfade.
+The open sidebar pushes the session menu and the OSD left, and the OSD no longer hides for it.
+Content stays with the attached edge during a morph. The media tab's details are centred like the reference.
+
+Recording: `~/Pictures/Screenshots/skyrose-1794313186.mov`. Dashboard close measured about 150 ms.
+Still open: the surface-by-surface side-by-side against every reference image was not finished.
+No before clip was recorded for this part.
 
 ## Part 3 — lyrics after Caelestia's LyricList
 

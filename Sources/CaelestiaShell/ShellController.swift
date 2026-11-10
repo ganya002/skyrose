@@ -617,11 +617,13 @@ public final class ShellController {
             let size = CGSize(width: body.width, height: body.height + 2 * theme.frameRounding)
             panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), edge: .right,
                                                   room: theme.overshootRoom(depth: body.width)), display: false)
+            panel.shove = 0
             session.reset()
             hideOSD(animated: true)
             showSessionDim(id)
-            present(panel)
             session.shown = true
+            shoveBySidebar(panel)
+            present(panel)
         case .osd:
             showOSD(display: id)
             return
@@ -697,19 +699,35 @@ public final class ShellController {
     }
 
     /// Which edge each drawer slides from and its jelly (Caelestia ContentWindow.qml PanelBg).
-    static func blobStyle(_ name: String) -> (edge: ShellEdge, deform: Double) {
+    static func blobStyle(_ name: String) -> (edge: ShellEdge, deform: Double, ms: (open: Double, close: Double)) {
         let a = CaelestiaTokens.DeformAmount.self
+        let t = CaelestiaTokens.DrawerMs.self
         switch name {
-        case "launcher", "clipboard": return (.bottom, a.launcher)
-        case "wallpaper": return (.bottom, a.launcher)
-        case "dashboard": return (.top, a.dashboard)
-        case "session": return (.right, a.session)
-        case "osd": return (.right, a.osd)
-        case "sidebar": return (.right, a.sidebar)
-        case "utilities": return (.bottom, a.utilities)
-        case "popout": return (.left, a.popoutOpen)
-        default: return (.bottom, a.notifications)
+        case "launcher", "clipboard": return (.bottom, a.launcher, t.launcher)
+        case "wallpaper": return (.bottom, a.launcher, t.launcher)
+        case "dashboard": return (.top, a.dashboard, t.dashboard)
+        case "session": return (.right, a.session, t.session)
+        case "osd": return (.right, a.osd, t.other)
+        case "sidebar": return (.right, a.sidebar, t.sidebar)
+        case "utilities": return (.bottom, a.utilities, t.utilities)
+        case "popout": return (.left, a.popoutOpen, t.other)
+        default: return (.bottom, a.notifications, t.other)
         }
+    }
+
+    /// Moves `panel` clear of the open sidebar on its display, or back when the sidebar closes.
+    /// The surface morphs the drawer to the new place, so it looks shoved.
+    func shoveBySidebar(_ panel: ShellPanel) {
+        let target = sidebar.shown && sidebarPanel?.screen == panel.screen ? sidebar.width : 0
+        guard target != panel.shove else { return }
+        panel.setFrame(panel.frame.offsetBy(dx: panel.shove - target, dy: 0), display: false)
+        panel.shove = target
+        surface(for: panel)?.bodyChanged(panel)
+    }
+
+    func shoveRightDrawers() {
+        if session.shown, let p = sessionPanel { shoveBySidebar(p) }
+        if osd.shown, let p = osdPanel { shoveBySidebar(p) }
     }
 
     func makeDrawerPanel<V: View>(_ view: V, name: String, key: Bool, clickThrough: Bool = false) -> ShellPanel {
@@ -718,6 +736,7 @@ public final class ShellController {
         let style = Self.blobStyle(name)
         panel.blobEdge = style.edge
         panel.blobDeformAmount = style.deform
+        panel.blobMs = style.ms
         // Reports made before the host has its size (the first layout runs at .zero) are noise.
         weak var weakHost: NSView?
         let report: @MainActor (CGRect) -> Void = { [weak panel] r in
@@ -749,7 +768,7 @@ public final class ShellController {
     /// Hides a drawer panel: back into its edge on the liquid surface, else the panel fade.
     func retract(_ panel: ShellPanel, duration: Double, completion: (() -> Void)? = nil) {
         if let s = surface(for: panel), s.contains(panel) {
-            s.close(panel, completion: completion)
+            s.close(panel, seconds: theme.tokenSeconds(panel.blobMs.close), completion: completion)
         } else {
             panel.fadeOut(duration: duration, completion: completion)
         }
@@ -771,7 +790,7 @@ public final class ShellController {
         if let s = surface(for: panel) {
             // The panel may have moved displays: leave the old surface first.
             for f in frames.values where f.surface !== s { f.surface?.remove(panel) }
-            s.open(panel, edge: panel.blobEdge, deformAmount: panel.blobDeformAmount)
+            s.open(panel, edge: panel.blobEdge, deformAmount: panel.blobDeformAmount, seconds: theme.tokenSeconds(panel.blobMs.open))
             s.bodyChanged(panel)
         } else {
             panel.fadeIn(duration: theme.panelFadeInSeconds)
@@ -878,8 +897,11 @@ public final class ShellController {
         let reveal = bars[id]?.reveal.target ?? 0
         panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .right, barReveal: reveal), edge: .right,
                                               room: theme.overshootRoom(depth: body.width)), display: false)
-        if !panel.isVisible || !osd.shown { present(panel) }
+        panel.shove = 0
+        let wasShown = panel.isVisible && osd.shown
         osd.shown = true
+        shoveBySidebar(panel)
+        if !wasShown { present(panel) }
         openDrawers.insert(.osd)
         pokeOSD()
     }

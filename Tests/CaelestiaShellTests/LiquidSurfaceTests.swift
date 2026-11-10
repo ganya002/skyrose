@@ -145,3 +145,13 @@ final class ShellMotionTokenTests: XCTestCase {
         XCTAssertEqual(s.frameInner.minX, 60, accuracy: 1e-9, "the bar is the frame's left edge")
     }
 }
+
+extension LiquidSurfaceTests {
+    func testDrawersCloseFasterThanTheyOpenInTheMeasuredRange() {
+        for name in ["launcher", "dashboard", "sidebar", "utilities", "session", "osd", "popout", "notifications"] {
+            let ms = ShellController.blobStyle(name).ms
+            XCTAssertLessThan(ms.close, ms.open, name)
+            XCTAssertTrue((130.0...170.0).contains(ms.close * CaelestiaTokens.gabbyScale) || name == "utilities", name)
+        }
+    }
+}

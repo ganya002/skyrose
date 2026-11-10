@@ -65,7 +65,7 @@ public final class ScreenFrameWindow {
         s.shadowColor = RGBA(r: 0, g: 0, b: 0, alpha: theme.baseAlpha < 1 ? 0.35 : 0.5)
         s.reduceMotion = theme.reduceMotion
         s.openSeconds = theme.tokenSeconds(CaelestiaTokens.Duration.defaultSpatial)
-        s.closeSeconds = theme.tokenSeconds(CaelestiaTokens.Duration.defaultSpatial)
+        s.closeSeconds = theme.tokenSeconds(CaelestiaTokens.DrawerMs.other.close)
         s.morphSeconds = theme.tokenSeconds(CaelestiaTokens.Duration.defaultSpatial)
     }
 

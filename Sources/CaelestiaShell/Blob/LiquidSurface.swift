@@ -147,7 +147,7 @@ public final class LiquidSurface: NSView {
     }
 
     /// Opens `panel`'s drawer: ordered in at full alpha, its content hidden, then slid in.
-    public func open(_ panel: ShellPanel, edge: ShellEdge, deformAmount: Double) {
+    public func open(_ panel: ShellPanel, edge: ShellEdge, deformAmount: Double, seconds: Double? = nil) {
         let d: Drawer
         if let existing = drawer(for: panel) {
             d = existing
@@ -174,12 +174,12 @@ public final class LiquidSurface: NSView {
             panel.makeKey()
         }
         animateOffset(d, to: 0, curve: reduceMotion ? CaelestiaTokens.Curve.standard.bezier : openCurve,
-                      seconds: reduceMotion ? 0.12 : openSeconds)
+                      seconds: reduceMotion ? 0.12 : seconds ?? openSeconds)
     }
 
     /// Slides `panel`'s drawer back into its edge; `completion` runs (and the panel is ordered
     /// out) once it is fully hidden, unless it was reopened meanwhile.
-    public func close(_ panel: ShellPanel, completion: (() -> Void)? = nil) {
+    public func close(_ panel: ShellPanel, seconds: Double? = nil, completion: (() -> Void)? = nil) {
         guard let d = drawer(for: panel) else {
             panel.orderOut(nil)
             completion?()
@@ -189,7 +189,7 @@ public final class LiquidSurface: NSView {
         d.onHidden = completion
         if panel.isKeyWindow { panel.resignKey() }
         animateOffset(d, to: 1, curve: reduceMotion ? CaelestiaTokens.Curve.standard.bezier : closeCurve,
-                      seconds: reduceMotion ? 0.12 : closeSeconds)
+                      seconds: reduceMotion ? 0.12 : seconds ?? closeSeconds)
     }
 
     /// Removes `panel` at once (rebuilds, teardown).
@@ -353,8 +353,10 @@ public final class LiquidSurface: NSView {
             // Panel-local, y-up (AppKit layer space): slide + jelly about the body's centre.
             let h = host.bounds.height
             let centre = CGPoint(x: body.midX, y: h - body.midY)
-            let dx = shown.midX - actual.midX
-            let dy = -(shown.midY - actual.midY)
+            // Along the edge normal the content stays with the attached edge, so a tab that
+            // changes the drawer's depth does not push its content around.
+            let dx = d.edge == .left ? shown.minX - actual.minX : d.edge == .right ? shown.maxX - actual.maxX : shown.midX - actual.midX
+            let dy = -(d.edge == .top ? shown.minY - actual.minY : d.edge == .bottom ? shown.maxY - actual.maxY : shown.midY - actual.midY)
             let m = d.jelly.deform
             // y-up of a y-down symmetric matrix flips the off-diagonal term.
             var jm = CATransform3DIdentity

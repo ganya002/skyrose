@@ -251,15 +251,16 @@ extension ShellController {
         var frame = layout.drawerFrame(size: CGSize(width: width, height: inner.height - clear), edge: .right, barReveal: reveal)
         frame.origin.y = inner.minY
         panel.setFrame(DisplayLayout.withRoom(frame, edge: .right, room: theme.overshootRoom(depth: width)), display: false)
-        hideOSD(animated: true)
         present(panel)
         sidebar.shown = true
+        shoveRightDrawers()
         bluetooth.refresh()
     }
 
     func closeSidebar() {
         guard sidebar.shown else { return }
         sidebar.shown = false
+        shoveRightDrawers()
         openDrawers.remove(.utilities)
         dismissAfter(sidebarPanel) { [weak self] in self?.sidebar.shown == false }
     }

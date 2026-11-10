@@ -67,6 +67,18 @@ public enum CaelestiaTokens {
     /// Panel radius (`rounding.extraLarge`).
     public static let panelRadius: Double = 28
 
+    /// Drawer open and close times in ms, before `durations.scale`: the times measured on Gabby's
+    /// setup (full-2026-11-05, scale 0.8) divided by that scale.
+    public enum DrawerMs {
+        public static let launcher = (open: 475.0, close: 162.5)
+        public static let dashboard = (open: 650.0, close: 162.5)
+        public static let sidebar = (open: 287.5, close: 162.5)
+        public static let utilities = (open: 437.5, close: 150.0)
+        public static let session = (open: 225.0, close: 212.5)
+        /// Not measured on their own: the default open token and the middle of the close range.
+        public static let other = (open: Duration.defaultSpatial, close: 187.5)
+    }
+
     /// Upstream per-panel `deformAmount` (ContentWindow.qml PanelBg).
     public enum DeformAmount {
         public static let dashboard = 0.1

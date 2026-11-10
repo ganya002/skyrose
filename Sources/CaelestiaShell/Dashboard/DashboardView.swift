@@ -30,7 +30,7 @@ struct DashboardView: View {
     @Environment(\.shellTheme) var theme
     let fillet: Double
 
-    private var design: CGSize { ShellSizing.dashboardDesign }
+    private var design: CGSize { CGSize(width: ShellSizing.dashboardDesign.width, height: ShellSizing.dashboardHeight(model.tab)) }
 
     var body: some View {
         let s = model.scale
@@ -55,7 +55,7 @@ struct DashboardView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ForEach(DashboardTab.allCases, id: \.self) { tab in
-                    TabButton(tab: tab, selected: model.tab == tab) { withAnimation(theme.spatial) { model.tab = tab } }
+                    TabButton(tab: tab, selected: model.tab == tab) { withAnimation(theme.small) { model.tab = tab } }
                 }
             }
             .frame(height: 62)
@@ -506,9 +506,9 @@ private struct MediaTab: View {
                 ProgressArc(value: m.duration > 0 ? m.position / m.duration : 0, sweep: 300, lineWidth: 6).frame(width: 250, height: 250)
                 ArtworkView(url: m.available ? m.artworkPath : nil).clipShape(CookieShape(bumps: 12, depth: 0.05)).frame(width: 196, height: 196)
             }
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .center, spacing: 10) {
                 Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
-                    .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2)
+                    .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2).multilineTextAlignment(.center)
                 Text(m.available ? m.artist : "Nothing is playing").font(theme.sans(18)).foregroundStyle(theme[.primary]).lineLimit(1)
                 if !m.album.isEmpty { Text(m.album).font(theme.sans(15)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1) }
                 if m.available {
@@ -528,7 +528,7 @@ private struct MediaTab: View {
                     RoundIconButton(symbol: "forward.fill", size: 46, action: model.onNext)
                 }.padding(.top, 10)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
             VStack(spacing: 12) {
                 if state.config.dashboard.lyrics { LyricsColumn(model: model) }
                 if state.config.dashboard.bongoCat {
