@@ -48,6 +48,9 @@ public final class BorderWindow: NSPanel, BorderSurface {
 
     private let content = CALayer()
     private let ring = CALayer()
+    /// The outline. A shape stroke, not `CALayer.borderWidth`: the layer border thins out along
+    /// a long edge, so the right side faded while the top-left stayed solid.
+    private let stroke = CAShapeLayer()
     private var tabLayers: [(bg: CALayer, text: CATextLayer)] = []
     private var lastGroup: GroupBar?
     private var lastSize: CGSize = .zero
@@ -77,9 +80,13 @@ public final class BorderWindow: NSPanel, BorderSurface {
         content.masksToBounds = false
         ring.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         ring.cornerCurve = .circular
+        stroke.fillColor = nil
+        stroke.lineJoin = .round
+        stroke.isGeometryFlipped = true
         content.addSublayer(ring)
+        content.addSublayer(stroke)
         rootLayer.addSublayer(content)
-        for l in [content, ring] { l.actions = Self.noActions }
+        for l in [content, ring, stroke] { l.actions = Self.noActions }
     }
 
     public override var canBecomeKey: Bool { false }
@@ -107,12 +114,21 @@ public final class BorderWindow: NSPanel, BorderSurface {
         content.position = CGPoint(x: inner.midX, y: inner.midY)
         // A tab group's ring goes around the window only; its bar sits above, outside it.
         ring.frame = target.group == nil ? content.bounds : GroupBarGeometry.ring(in: content.bounds, style: style)
+        ring.borderWidth = 0
+        ring.cornerRadius = 0
         content.transform = sample.scale == 1 ? CATransform3DIdentity : CATransform3DMakeScale(sample.scale, sample.scale, 1)
         content.opacity = Float(sample.alpha)
-        ring.borderWidth = style.borderWidth
-        ring.cornerRadius = style.cornerRadius + style.borderWidth
-        ring.borderColor = Self.mix(style.inactive, style.active, sample.activeMix)
-        for l in [content, ring] { l.contentsScale = scale }
+        let line = CGFloat(style.borderWidth)
+        let windowRadii = target.corners ?? CornerRadii(uniform: style.cornerRadius)
+        // The ring is the window expanded by the border width. The stroke's inner edge sits on
+        // the window; its centreline is half a border out, so the corner stays concentric.
+        stroke.frame = ring.frame
+        stroke.lineWidth = line
+        stroke.strokeColor = Self.mix(style.inactive, style.active, sample.activeMix)
+        stroke.contentsScale = scale
+        let centreline = stroke.bounds.insetBy(dx: line / 2, dy: line / 2)
+        stroke.path = windowRadii.outset(by: style.borderWidth / 2).path(in: centreline)
+        for l in [content, ring, stroke] { l.contentsScale = scale }
         layoutGroupBar(target.group, size: ringRect.size, style: style, scale: scale)
         CATransaction.commit()
         // A new surface goes straight to its place in the stack (directly above its window),

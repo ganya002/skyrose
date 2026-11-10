@@ -33,14 +33,17 @@ public struct BorderTarget: Equatable, Sendable {
     public var motion: Motion
     /// Tab bar for a window that is a member of a tab group.
     public var group: GroupBar?
+    /// This window's real corner radii. Nil: use `OverlayStyle.cornerRadius`.
+    public var corners: CornerRadii?
 
-    public init(id: CGWindowID, frame: CGRect, isActive: Bool, appear: Appear = .popIn, motion: Motion = .animate, group: GroupBar? = nil) {
+    public init(id: CGWindowID, frame: CGRect, isActive: Bool, appear: Appear = .popIn, motion: Motion = .animate, group: GroupBar? = nil, corners: CornerRadii? = nil) {
         self.id = id
         self.frame = frame
         self.isActive = isActive
         self.appear = appear
         self.motion = motion
         self.group = group
+        self.corners = corners
     }
 }
 

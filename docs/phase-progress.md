@@ -7,7 +7,8 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | Part | State | Commit |
 |---|---|---|
 | 9i. Rock-solid tiling | done | "Phase 9 part 9i" |
-| 9j. Smooth live resize | redone, recorded | speed fix: fixed ease-out, no 2 pt cap |
+| 9j. Smooth live resize | redone, recorded | speed fix, then Glide restored as the default |
+| 9j2. Window borders | done, corners checked live | per-window SkyLight radii, even stroke |
 | 9a. Cursor follows focus | | |
 | 9b. Focus follows mouse | | |
 | 9c. Easy setup | | |
@@ -85,6 +86,25 @@ Clamshell on, SleepDisabled 1 the whole time.
   `docs/bugs/resize-drag-9j.mov`.
 
 The panel is 60 Hz (kitty's fastfetch still says 60 Hz). The recorder asked for up to 120.
+
+## Part 9j2 — borders that follow each window
+
+`SLSWindowIteratorGetCornerRadii` is in this Mac's SkyLight and works with SIP on. It returns four
+doubles per window. On 10 Nov every normal window asked (Firefox, T3 Code, Grok Bot, kitty, Finder,
+Safari, TestWindows, Teams, Hex) reported 16 pt on all four corners. SkyRose's own border panels and
+the menu bar report 0, so they stay square. The value is cached per window and size. If the symbol
+is missing, the border falls back to `windowRounding`.
+
+The outline is a shape stroke, not `CALayer.borderWidth`. The layer border was solid at the corner
+and about half as strong along the straight edge, which read as the right side fading out. The
+stroke's inner edge sits on the window and its centreline radius is the window radius plus half the
+border width, so the curve stays concentric. A square window (radius 0) stays square.
+
+Live corners, border pink and continuous through the turn, no gap of wallpaper at the curve:
+Firefox, kitty, Safari, Finder, TestWindows. Shots in `/tmp/b-tl.png`, `/tmp/b-tr.png`,
+`/tmp/corner-kitty-tl.png`, `/tmp/corner-kitty-tr.png`, `/tmp/corner-safari-br.png`,
+`/tmp/corner-finder-tl.png`, `/tmp/corner-finder-tr.png`, `/tmp/corner-test-wide.png`.
+Radius fitter tests: 5 passed. Not checked on an external display (none is attached).
 
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 
