@@ -90,13 +90,45 @@ public final class ShellPanel: NSPanel {
         }
     }
 
+    /// A new show cancels the deferred restore a hide queued. Without this, that restore puts
+    /// the layer back at full opacity one frame into the next open.
+    public func cancelHideRestore() { fadeGeneration += 1 }
+
+    /// Orders the panel out while it is still at the hidden end state. Restoring alpha and the
+    /// content transform to their rest values while the panel is ordered in is the one-frame
+    /// flash at the end of every drawer, OSD and menu: the window server composites that full
+    /// frame before `orderOut` takes effect. The rest pose is put back on the next turn, and
+    /// only if the panel is still hidden.
+    public func orderOutSettled() {
+        fadeGeneration += 1
+        let generation = fadeGeneration
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        alphaValue = 0
+        contentView?.layer?.opacity = 0
+        orderOut(nil)
+        CATransaction.commit()
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, !self.isVisible, self.fadeGeneration == generation else { return }
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                self.alphaValue = 1
+                if let layer = self.contentView?.layer {
+                    layer.opacity = 1
+                    layer.sublayerTransform = CATransform3DIdentity
+                }
+                CATransaction.commit()
+            }
+        }
+    }
+
     /// Fades the panel out and orders it out at the end (unless it was shown again meanwhile).
     public func fadeOut(duration: TimeInterval, completion: (() -> Void)? = nil) {
         fadeGeneration += 1
         let generation = fadeGeneration
         guard isVisible, duration > 0 else {
-            orderOut(nil)
-            alphaValue = 1
+            orderOutSettled()
             completion?()
             return
         }
@@ -106,8 +138,8 @@ public final class ShellPanel: NSPanel {
         let finish: @MainActor () -> Void = { [weak self] in
             guard !done, let self, self.fadeGeneration == generation else { return }
             done = true
-            self.orderOut(nil)
-            self.alphaValue = 1
+            // Still at alpha 0 here. orderOutSettled keeps it there until the panel is gone.
+            self.orderOutSettled()
             completion?()
         }
         NSAnimationContext.runAnimationGroup({ ctx in

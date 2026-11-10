@@ -13,7 +13,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9b. Focus follows mouse | | |
 | 9c. Easy setup | | |
 | 9d. SIP-off assistant | | |
-| 9e. End-of-animation flash | | |
+| 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
 | 9f. Menu bar off | | |
 | 9g. Clipboard history | | |
 | 9h. Bongo cat + lyrics | | |
@@ -105,6 +105,23 @@ Firefox, kitty, Safari, Finder, TestWindows. Shots in `/tmp/b-tl.png`, `/tmp/b-t
 `/tmp/corner-kitty-tl.png`, `/tmp/corner-kitty-tr.png`, `/tmp/corner-safari-br.png`,
 `/tmp/corner-finder-tl.png`, `/tmp/corner-finder-tr.png`, `/tmp/corner-test-wide.png`.
 Radius fitter tests: 5 passed. Not checked on an external display (none is attached).
+
+## Part 9e — no flash at the end of a shell animation
+
+Closing a drawer reset its layer to full opacity and the rest pose, then ordered the panel out.
+That committed a full frame of the open drawer before the window server dropped it. The same
+restore, if it landed during the next open, snapped the new animation to full size for a frame.
+`ShellPanel.orderOutSettled` now orders the panel out while alpha and the content layer are still
+0, and puts the rest pose back on the next turn only if the panel is still hidden. A show cancels
+that restore. Opening a liquid drawer applies the off-screen opacity before the panel is ordered in.
+
+Regression: `ShellPanelFadeTests` (3). Live recordings, no frame of the surface back at full size
+after it had left:
+
+- launcher `~/Pictures/Screenshots/skyrose-1794299268.mov`
+- volume popout `~/Pictures/Screenshots/skyrose-1794299270.mov` (frame 40 open, frame 82 gone)
+- dashboard `~/Pictures/Screenshots/skyrose-1794299272.mov` (frame 19 open; the close does not jump back)
+- session menu `~/Pictures/Screenshots/skyrose-1794299274.mov` (frame 30 open, frame 70 gone)
 
 # Phase 8: shipped defaults + updater (started 2026-11-09)
 

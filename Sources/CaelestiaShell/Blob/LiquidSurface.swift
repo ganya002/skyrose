@@ -162,9 +162,13 @@ public final class LiquidSurface: NSView {
         }
         d.shown = true
         d.onHidden = nil
+        // Drop a hide's deferred "back to full opacity" before this show, and put the content
+        // off-screen at opacity 0 before the panel is ordered in. Otherwise the first frame is
+        // the drawer at full size.
+        panel.cancelHideRestore()
+        applyContent(d)
         panel.alphaValue = 1
         if !panel.isVisible {
-            applyContent(d)
             if panel.acceptsKey { panel.makeKeyAndOrderFront(nil) } else { panel.orderFrontRegardless() }
         } else if panel.acceptsKey {
             panel.makeKey()
@@ -321,8 +325,9 @@ public final class LiquidSurface: NSView {
     private func finishIfHidden(_ d: Drawer) {
         guard !d.shown, d.offset >= 1, let i = drawers.firstIndex(where: { $0 === d }) else { return }
         drawers.remove(at: i)
-        resetContent(of: d.panel)
-        d.panel?.orderOut(nil)
+        // orderOut while the content is still slid away at opacity 0. Resetting the layer to
+        // the rest pose first painted one full frame of the open drawer.
+        d.panel?.orderOutSettled()
         let done = d.onHidden
         d.onHidden = nil
         done?()
