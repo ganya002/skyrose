@@ -106,6 +106,30 @@ final class TilingSolidityTests: XCTestCase {
         assertSolid(h, "wake")
     }
 
+    func testAHiddenWindowThatCameBackOnScreenIsParkedAgain() {
+        let h = Harness()
+        let a = h.system.existing("a")
+        let b = h.system.existing("b")
+        h.start()
+        h.wm.state.recordFocus(b.windowID)
+        h.wm.perform(Action(.workspaceMoveSilent, index: 3))
+        h.settle()
+        XCTAssertNotNil(h.wm.parked[b.windowID])
+        let spot = b.frame
+        XCTAssertFalse(h.wm.visiblePlacements.keys.contains(b.windowID))
+        h.clock.now = h.clock.now.addingTimeInterval(5)
+        b.frame = CGRect(x: 72, y: 622, width: 1377, height: 300)
+        h.wm.reconcileTiling()
+        h.settle()
+        XCTAssertEqual(b.frame.origin, spot.origin, "off screen again")
+        XCTAssertNotNil(h.wm.parked[b.windowID])
+        let writes = b.setPositionCount
+        h.wm.reconcileTiling()
+        h.settle()
+        XCTAssertEqual(b.setPositionCount, writes, "a parked window at its spot is left alone")
+        XCTAssertEqual(a.frame, h.wm.visiblePlacements[a.windowID]?.frame)
+    }
+
     func testAFloatThatResizedWithoutAnEventGetsItsBorderBackOnReconcile() {
         let h = Harness()
         let w = h.system.existing("floaty")

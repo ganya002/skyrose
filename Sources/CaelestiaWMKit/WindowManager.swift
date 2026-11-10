@@ -1423,6 +1423,7 @@ public final class WindowManager {
             drifted.append(id)
         }
         adoptFloatingFrames()
+        reparkDriftedWindows(at: moment)
         let tiled = visiblePlacements.values.filter { $0.kind == .tiled }
         let tiledList = Array(tiled)
         var overlap = false
@@ -1450,6 +1451,24 @@ public final class WindowManager {
         counters.reconciles += 1
         noteTiling("put \(drifted.count) window(s) back on their tiles")
         setNeedsLayout()
+    }
+
+    /// Frame events are ignored while a window is parked, so one that came back on screen by
+    /// itself (an app restoring its own frame) stayed over the visible workspace for good.
+    private func reparkDriftedWindows(at moment: Date) {
+        guard moment.timeIntervalSince(lastWorkspaceChange) >= Self.focusGuardInterval else { return }
+        for id in parked.keys where !staleParking.contains(id) {
+            guard let frame = handles[id]?.frame, !frame.isNull else { continue }
+            // A parked window keeps a sliver on the display, so only real overlap counts.
+            let onScreen = displays.contains { d in
+                let overlap = d.frame.intersection(frame)
+                return !overlap.isNull && overlap.width > 8 && overlap.height > 8
+            }
+            guard onScreen else { continue }
+            staleParking.insert(id)
+            noteTiling("put a hidden window back off screen")
+            setNeedsLayout()
+        }
     }
 
     /// A window that resizes itself right after it appears (before the WM is observing it) sends
