@@ -1,3 +1,25 @@
+# Phase 9.5: fixes + Caelestia polish (started 2026-11-10)
+
+Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit per part, not pushed.
+
+| Part | State | Commit |
+|---|---|---|
+| 1. Real Bongo Cat | done, sprite seen live; beats need a song | "Phase 9.5 part 1" |
+| 2. Hover focus | todo | |
+| 3. Lyrics | todo | |
+| 4. 1:1 polish | todo | |
+| 5. SIP-off daemon | todo | |
+
+References read: `docs/caelestia-reference` (the prompt says part10 has 66 images, it has 3), the capture README and brief,
+`caelestia-dots/shell` at fd630ffe. Clone it into a scratch folder; it is not in the repo.
+
+## Part 1 — the real Bongo Cat
+
+`assets/bongocat.gif` is 20 frames but only two poses, ten of each. `Resources/BongoCat` holds those two at 4x (800×504,
+edges redrawn so they stay clean), each with and without the red motion ticks. A detected beat shows the slap with ticks
+and swaps paw. 90 ms later the ticks go and the pose holds. Paused or nothing playing: the last pose, no ticks.
+Upstream only has the cat on the dashboard card, under the controls. The media tab copy follows `part10/media-player.png`.
+
 # Phase 9: focus, easy setup, tiling (started 2026-11-09)
 
 Spec: `docs/PHASE-PROMPT-9-focus-easy-setup.md`. Commit locally after each part. Push `main` and tag `v0.4.0` only at 9k. Do not move tags `v0.2.0` or `v0.3.0`.

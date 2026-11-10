@@ -465,10 +465,6 @@ struct MediaCard: View {
                     .clipShape(CookieShape(bumps: 10, depth: 0.05)).frame(width: 118, height: 118)
             }
             .padding(.top, 14)
-            if state.config.dashboard.bongoCat {
-                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
-                    .frame(width: 72, height: 48)
-            }
             Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
                 .font(theme.sans(15, weight: .semibold)).foregroundStyle(theme[.onSurface]).lineLimit(1)
             Text(m.available ? (m.artist.isEmpty ? "Unknown artist" : m.artist) : "Nothing playing")
@@ -482,7 +478,12 @@ struct MediaCard: View {
                 RoundIconButton(symbol: m.isPlaying ? "pause.fill" : "play.fill", size: 44, filled: true, action: model.onPlayPause)
                 RoundIconButton(symbol: "forward.fill", size: 36, action: model.onNext)
             }
-            .padding(.bottom, 16)
+            if state.config.dashboard.bongoCat {
+                // Under the controls, as in Caelestia's dashboard card.
+                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
+                    .frame(width: 124, height: 78)
+            }
+            Spacer(minLength: 0).frame(height: 12)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -510,9 +511,6 @@ private struct MediaTab: View {
                     .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2)
                 Text(m.available ? m.artist : "Nothing is playing").font(theme.sans(18)).foregroundStyle(theme[.primary]).lineLimit(1)
                 if !m.album.isEmpty { Text(m.album).font(theme.sans(15)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1) }
-                if state.config.dashboard.bongoCat {
-                    BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown).frame(width: 120, height: 72)
-                }
                 if state.config.dashboard.lyrics { lyricList(m) }
                 if m.available {
                     HStack {
@@ -532,6 +530,9 @@ private struct MediaTab: View {
                 }.padding(.top, 10)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            if state.config.dashboard.bongoCat {
+                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown).frame(width: 200, height: 126)
+            }
         }
         .padding(.horizontal, 26)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

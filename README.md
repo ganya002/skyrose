@@ -171,6 +171,7 @@ design), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (border over
 [Mousecape](https://github.com/alexzielenski/Mousecape) and
 [Bibata](https://github.com/ful1e5/Bibata_Cursor) (cursor). No code was copied from any of them.
 Material Symbols (Apache-2.0). TOMLKit (MIT).
+Bongo Cat sprite from Caelestia (caelestia-dots/shell, GPL-3.0); original Bongo Cat by StrayRogue & DitzyFlama.
 
 This project is licensed under **GPL-3.0** (see LICENSE): the shell layouts, the bongo-cat idea
 and the panel designs follow Caelestia closely enough that keeping the same license is the

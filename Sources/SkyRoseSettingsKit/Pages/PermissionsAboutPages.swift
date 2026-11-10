@@ -328,6 +328,7 @@ struct AboutPage: View {
 
     static let credits: [(String, String, String)] = [
         ("Caelestia", "The shell this is modelled on: bar, panels, colours and motion. GPL-3.0.", "https://github.com/caelestia-dots/shell"),
+        ("Bongo Cat", "Bongo Cat sprite from Caelestia (caelestia-dots/shell, GPL-3.0); original Bongo Cat by StrayRogue & DitzyFlama.", "https://github.com/caelestia-dots/shell"),
         ("Hyprland", "The tiling layout, the keybinds and the feel. BSD-3-Clause.", "https://hyprland.org"),
         ("Material Color Utilities", "Colours from the wallpaper. Apache-2.0.", "https://github.com/material-foundation/material-color-utilities"),
         ("AeroSpace and yabai", "Ideas for window management on macOS.", "https://github.com/nikitabobko/AeroSpace"),
