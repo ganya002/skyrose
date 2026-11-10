@@ -2,6 +2,24 @@ import XCTest
 @testable import CaelestiaCore
 
 final class SetupFlowTests: XCTestCase {
+    func testMenuBarPlan() {
+        XCTAssertFalse(MenuBarPlan.hides(.shown))
+        XCTAssertTrue(MenuBarPlan.hides(.auto))
+        XCTAssertTrue(MenuBarPlan.hides(.off))
+        XCTAssertTrue(MenuBarPlan.reserve(.shown))
+        XCTAssertTrue(MenuBarPlan.reserve(.auto))
+        XCTAssertFalse(MenuBarPlan.reserve(.off))
+    }
+
+    func testMenuBarChoiceRoundTrip() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("menu-bar-\(UUID().uuidString)")
+        let file = MenuBarChoiceStore.file(in: url)
+        XCTAssertNil(MenuBarChoiceStore.read(file))
+        try MenuBarChoiceStore.write(.off, to: file)
+        XCTAssertEqual(MenuBarChoiceStore.read(file), .off)
+        try? FileManager.default.removeItem(at: url)
+    }
+
     func testGuidedOrder() {
         XCTAssertEqual(OnboardingStep.guided, [.mode, .permissions, .tweaks, .extras, .done])
     }

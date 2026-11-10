@@ -125,7 +125,7 @@ extension ActionKind {
         case .brightnessUp, .brightnessDown, .mediaPlayPause, .mediaNext, .mediaPrev, .mediaStop, .audioToggleMute,
             .audioToggleMicMute, .audioVolumeUp, .audioVolumeDown, .osdLockKey:
             return .media
-        case .systemSleep, .clipboardOpen, .clipboardDelete, .clipboardTypeLatest, .emojiOpen, .notifyTest:
+        case .systemSleep, .clipboardOpen, .clipboardDelete, .clipboardTypeLatest, .emojiOpen, .notifyTest, .menuBarPeek:
             return .session
         case .wmPanic:
             return .safety

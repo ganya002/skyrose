@@ -59,6 +59,21 @@ final class DisplayCutoutTests: XCTestCase {
         XCTAssertEqual(taller.shownMenuBarHeight, 36)
     }
 
+    func testOffDropsTheMenuBarAndKeepsTheNotch() {
+        var f = notched(visibleTop: 924, autoHides: false)
+        f.menuBarOff = true
+        let d = info(f)
+        XCTAssertEqual(d.shownMenuBarHeight, 0)
+        XCTAssertEqual(d.menuBarHeight, 32, "the notch stays reserved")
+        XCTAssertFalse(d.topCutouts.isEmpty)
+        var plain = Facts(uuid: "ext", frame: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+                          visibleFrame: CGRect(x: 0, y: 0, width: 2560, height: 1415))
+        plain.menuBarOff = true
+        let external = info(plain)
+        XCTAssertEqual(external.shownMenuBarHeight, 0)
+        XCTAssertEqual(external.menuBarHeight, 0)
+    }
+
     func testAutoHiddenNotchedDetectsMenuBarRevealedByTopDiff() {
         let d = info(notched(visibleTop: 920, autoHides: true))
         XCTAssertEqual(d.shownMenuBarHeight, 36)

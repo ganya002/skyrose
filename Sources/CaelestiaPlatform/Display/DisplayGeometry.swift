@@ -31,16 +31,19 @@ public enum DisplayGeometry {
         public var menuBarAutoHides: Bool
         /// `CGDisplayIsBuiltin`.
         public var isBuiltIn: Bool
+        /// Settings › Appearance › Off. The notch is still reserved. The menu-bar strip is not.
+        public var menuBarOff: Bool
 
         public init(
             uuid: String, displayID: UInt32 = 0, name: String = "", frame: CGRect, visibleFrame: CGRect,
             safeAreaTop: Double = 0, scale: Double = 1, auxiliaryTopLeft: CGRect? = nil, auxiliaryTopRight: CGRect? = nil,
-            menuBarAutoHides: Bool = true, isBuiltIn: Bool = false
+            menuBarAutoHides: Bool = true, isBuiltIn: Bool = false, menuBarOff: Bool = false
         ) {
             self.isBuiltIn = isBuiltIn
             self.auxiliaryTopLeft = auxiliaryTopLeft
             self.auxiliaryTopRight = auxiliaryTopRight
             self.menuBarAutoHides = menuBarAutoHides
+            self.menuBarOff = menuBarOff
             self.uuid = uuid
             self.displayID = displayID
             self.name = name
@@ -84,11 +87,13 @@ public enum DisplayGeometry {
         } else {
             shown = topDiff
         }
-        let cutouts = shown > 0 ? [] : cutoutRects(s).map { converter.toTopLeft($0) }
+        let bar = s.menuBarOff ? s.safeAreaTop : menuBar
+        let shownBar = s.menuBarOff ? 0 : shown
+        let cutouts = shownBar > 0 ? [] : cutoutRects(s).map { converter.toTopLeft($0) }
         return DisplayInfo(
             id: s.uuid, displayID: s.displayID, name: s.name, frame: converter.toTopLeft(s.frame),
-            menuBarHeight: menuBar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero,
-            shownMenuBarHeight: shown, topCutouts: cutouts, isBuiltIn: s.isBuiltIn,
+            menuBarHeight: bar, dockInsets: dockInsets, scale: s.scale, isPrimary: s.frame.origin == .zero,
+            shownMenuBarHeight: shownBar, topCutouts: cutouts, isBuiltIn: s.isBuiltIn,
             hasNotch: panelHasNotch(safeAreaTop: s.safeAreaTop, auxiliaryTopLeft: s.auxiliaryTopLeft, auxiliaryTopRight: s.auxiliaryTopRight)
         )
     }

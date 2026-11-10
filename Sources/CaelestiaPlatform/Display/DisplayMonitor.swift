@@ -59,6 +59,7 @@ public final class DisplayMonitor: NSObject {
     /// Facts for every connected screen, primary first.
     public static func currentScreens() -> [DisplayGeometry.ScreenFacts] {
         let autoHides = UserDefaults.standard.bool(forKey: "_HIHideMenuBar")
+        let off = MenuBarChoiceStore.read(MenuBarChoiceStore.file(in: Paths.appSupport)) == .off
         return NSScreen.screens.map { screen in
             let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
             let displayID = number?.uint32Value ?? 0
@@ -67,7 +68,7 @@ public final class DisplayMonitor: NSObject {
                 frame: screen.frame, visibleFrame: screen.visibleFrame, safeAreaTop: screen.safeAreaInsets.top,
                 scale: screen.backingScaleFactor, auxiliaryTopLeft: screen.auxiliaryTopLeftArea,
                 auxiliaryTopRight: screen.auxiliaryTopRightArea, menuBarAutoHides: autoHides,
-                isBuiltIn: CGDisplayIsBuiltin(displayID) != 0
+                isBuiltIn: CGDisplayIsBuiltin(displayID) != 0, menuBarOff: off
             )
         }
     }

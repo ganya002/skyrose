@@ -1194,6 +1194,14 @@ linux       = "SUPER + SHIFT + L"
 description = "sleep (pmset sleepnow)"
 
 [[bind]]
+id          = "menuBar.peek"
+keys        = ["SUPER + SHIFT + B"]
+action      = "menuBar.peek"
+flags       = []
+linux       = ""
+description = "show Apple's menu bar for 5 seconds"
+
+[[bind]]
 id          = "clipboard.open"
 keys        = ["SUPER + V"]
 action      = "clipboard.open"

@@ -1,5 +1,6 @@
 import AppKit
 import CaelestiaCore
+import CaelestiaPlatform
 import CaelestiaServices
 import Combine
 import SwiftUI
@@ -922,6 +923,8 @@ public final class ShellController {
         case .notifsClear: clearNotifications()
         case .notifyTest:
             notify(title: "Test notification", body: "Sent from the keybind. Notifications from SkyRose appear here.", app: "skyrose-shell", icon: "info")
+        case .menuBarPeek:
+            SystemMenuBar.peek()
         case .shellKill: stop()
         case .shellRestart: restart()
         case .captureRegion: takeScreenshot(.region)

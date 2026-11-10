@@ -93,6 +93,7 @@ public enum ActionKind: String, Codable, Sendable, CaseIterable {
     case clipboardTypeLatest = "clipboard.typeLatest"
     case emojiOpen = "emoji.open"
     case notifyTest = "notify.test"
+    case menuBarPeek = "menuBar.peek"
 
     // Safety (fixed chord ⌃⌥⌘⇧Esc, not configurable away)
     case wmPanic = "wm.panic"

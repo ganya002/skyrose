@@ -85,7 +85,7 @@ let package = Package(
         ),
         .target(
             name: "CaelestiaShell",
-            dependencies: ["CaelestiaCore", "CaelestiaServices"],
+            dependencies: ["CaelestiaCore", "CaelestiaServices", "CaelestiaPlatform"],
             path: "Sources/CaelestiaShell",
             resources: [.copy("Resources")],
             swiftSettings: relaxed

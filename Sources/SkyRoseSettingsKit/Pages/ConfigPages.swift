@@ -76,6 +76,51 @@ struct ModePicker: View {
 
 // MARK: - Appearance
 
+/// Shown, auto-hide, or off. Off still lets macOS reveal the bar at the top edge when SIP is on.
+struct MenuBarCard: View {
+    @Environment(\.look) var look
+    @State private var choice: MenuBarChoice = .shown
+    @State private var note = ""
+
+    var body: some View {
+        Card {
+            SectionLabel(text: "Apple menu bar")
+            SettingRow(title: "Menu bar", detail: detail, icon: "menubar.rectangle") {
+                PillSegmented(options: [("shown", "Shown", nil), ("auto", "Auto-hide", nil), ("off", "Off", nil)],
+                              selection: Binding(get: { choice.rawValue }, set: { raw in
+                                  guard let next = MenuBarChoice(rawValue: raw) else { return }
+                                  choose(next)
+                              }))
+            }
+            HStack {
+                Text("Super+Shift+B shows it for 5 seconds, so menus stay reachable.").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+                Spacer()
+                PillButton(title: "Show for 5 seconds", icon: "eye", kind: .outline) { SystemMenuBar.peek(); note = "Shown for 5 seconds." }
+            }
+            if !note.isEmpty { Text(note).font(look.font(12)).foregroundStyle(look[.onSurfaceVariant]) }
+        }
+        .onAppear { choice = SystemMenuBar.current() }
+    }
+
+    var detail: String {
+        switch choice {
+        case .shown: return "Always visible."
+        case .auto: return "Hides until the pointer touches the top edge."
+        case .off: return "SkyRose uses the full height. With SIP on, the pointer at the top edge can still reveal Apple's bar."
+        }
+    }
+
+    func choose(_ next: MenuBarChoice) {
+        do {
+            try SystemMenuBar.apply(next)
+            choice = next
+            note = ""
+        } catch {
+            note = "Could not change the menu bar: \(error.localizedDescription)"
+        }
+    }
+}
+
 struct AppearancePage: View {
     @ObservedObject var store: SettingsStore
     @Environment(\.look) var look
@@ -84,7 +129,8 @@ struct AppearancePage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            PageHeader(title: "Appearance", subtitle: "Colours, wallpaper and the frame around your screen.")
+            PageHeader(title: "Appearance", subtitle: "Colours, wallpaper, the menu bar and the frame around your screen.")
+            MenuBarCard()
             Card {
                 SectionLabel(text: "Colours")
                 SettingRow(title: "Colour source", detail: store.config.appearance.schemeMode == "dynamic"

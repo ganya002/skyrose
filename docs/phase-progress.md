@@ -14,7 +14,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9c. Easy setup | done | one tour, Use recommended, doctor --fix, one Install button |
 | 9d. SIP-off assistant | done | steps for this Mac, copy and QR, no automation |
 | 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
-| 9f. Menu bar off | | |
+| 9f. Menu bar off | done | Shown, Auto-hide, Off; peek on Super+Shift+B |
 | 9g. Clipboard history | | |
 | 9h. Bongo cat + lyrics | | |
 | 9k. Release v0.4.0 | | |
@@ -182,6 +182,20 @@ on. After a reboot the existing status rows update by themselves. SkyRose does n
 Recovery, does not run `csrutil`, and does not change NVRAM.
 
 Tests: `SIPAssistantTests` (3). Nothing on this Mac's SIP or boot arguments was changed.
+
+## Part 9f — menu bar Shown, Auto-hide, or Off (done)
+
+Settings › Appearance has the three choices. Shown leaves the bar up. Auto-hide uses
+`_HIHideMenuBar`, so it returns when the pointer touches the top edge. Off does that and tells
+the layout not to reserve the bar. The notch is still reserved. The previous value is journaled,
+and uninstall puts it back. The choice is stored in Application Support, which uninstall removes.
+
+With SIP on, macOS can still show the bar at the top edge. The page says so. Super+Shift+B, and
+a button on that page, show the bar for 5 seconds so menus stay reachable. Nothing was changed
+on this Mac: the control was not used, and the mode file was not written.
+
+Tests: menu-bar plan and the mode file round trip, and a display with Off drops the bar inset
+while a notched screen keeps its 32 pt notch.
 
 ## Part 9e — no flash at the end of a shell animation
 
