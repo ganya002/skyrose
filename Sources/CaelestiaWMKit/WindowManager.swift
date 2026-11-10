@@ -1422,6 +1422,7 @@ public final class WindowManager {
             guard !frame.approximatelyEquals(target, tolerance: 2) else { continue }
             drifted.append(id)
         }
+        adoptFloatingFrames()
         let tiled = visiblePlacements.values.filter { $0.kind == .tiled }
         let tiledList = Array(tiled)
         var overlap = false
@@ -1449,6 +1450,20 @@ public final class WindowManager {
         counters.reconciles += 1
         noteTiling("put \(drifted.count) window(s) back on their tiles")
         setNeedsLayout()
+    }
+
+    /// A window that resizes itself right after it appears (before the WM is observing it) sends
+    /// no event, so its float frame, and the border drawn from it, keeps the size it was first seen at.
+    private func adoptFloatingFrames() {
+        guard drag == nil else { return }
+        for id in managedWindowIDs where isFloating(id) && parked[id] == nil && nativeDrags[id] == nil
+            && !liveResizeSchedule.contains(id) && windowAnimator?.isCovering(id) != true {
+            guard let frame = handles[id]?.frame, !frame.isNull, let known = floatingFrame(id),
+                  !frame.approximatelyEquals(known, tolerance: 2) else { continue }
+            state.setFloatingFrame(id, frame)
+            applied[id] = frame
+            setNeedsLayout()
+        }
     }
 
     func startReconcileTimer() {

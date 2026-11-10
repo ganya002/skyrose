@@ -106,6 +106,27 @@ final class TilingSolidityTests: XCTestCase {
         assertSolid(h, "wake")
     }
 
+    func testAFloatThatResizedWithoutAnEventGetsItsBorderBackOnReconcile() {
+        let h = Harness()
+        let w = h.system.existing("floaty")
+        h.start()
+        h.wm.state.recordFocus(w.windowID)
+        XCTAssertTrue(h.wm.perform(Action(.windowToggleFloat)))
+        h.settle()
+        XCTAssertTrue(h.wm.isFloating(w.windowID))
+        // The app shrinks itself with no notification (a window sizing itself as it appears).
+        let small = CGRect(x: 100, y: 120, width: 300, height: 200)
+        w.frame = small
+        h.wm.reconcileTiling()
+        h.settle()
+        XCTAssertEqual(h.wm.floatingFrame(w.windowID), small)
+        XCTAssertEqual(h.wm.borderFrames[w.windowID]?.insetBy(dx: 1, dy: 1), small, "the border is back on the window")
+        let writes = w.setFrameCount
+        h.wm.reconcileTiling()
+        h.settle()
+        XCTAssertEqual(w.setFrameCount, writes, "the window is left alone")
+    }
+
     func testAWindowThatAppearsWithoutAnEventIsTiledOnReconcile() {
         let h = Harness()
         h.start()
