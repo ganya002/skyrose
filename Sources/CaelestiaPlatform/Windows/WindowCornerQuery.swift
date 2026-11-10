@@ -3,6 +3,7 @@ import CoreFoundation
 import CoreGraphics
 import Darwin
 import Foundation
+import ScreenCaptureKit
 
 /// Per-window corner radii from SkyLight's window iterator.
 ///
@@ -46,9 +47,88 @@ public enum WindowCornerQuery {
     private static let lock = NSLock()
     private static var cache: [CGWindowID: (size: CGSize, radii: CornerRadii)] = [:]
 
+    // Windows SkyLight calls square, measured once. A borderless window with rounded content
+    // (SkyRose's own Settings, frameless apps) is a clear square to the WindowServer.
+    private static var measured: [CGWindowID: CornerRadii] = [:]
+    private static var measuring: Set<CGWindowID> = []
+    private static var attempts: [CGWindowID: Int] = [:]
+    private static let maxAttempts = 3
+
+    /// Radii for each id. `changed` runs (on any thread) when a measurement finishes.
+    public static func radii(for sizes: [CGWindowID: CGSize], changed: (@Sendable () -> Void)? = nil) -> [CGWindowID: CornerRadii] {
+        var result = reported(for: sizes)
+        var start: [CGWindowID] = []
+        lock.lock()
+        if measured.count > 512 { measured.removeAll() }
+        if attempts.count > 512 { attempts.removeAll() }
+        for (id, radii) in result where radii.isSquare {
+            if let shape = measured[id] {
+                result[id] = shape
+            } else if !measuring.contains(id), attempts[id, default: 0] < maxAttempts {
+                measuring.insert(id)
+                attempts[id, default: 0] += 1
+                start.append(id)
+            }
+        }
+        lock.unlock()
+        for id in start {
+            Task.detached(priority: .utility) {
+                // Give a new window a moment to draw.
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                let shape = await measure(id)
+                lock.lock()
+                measuring.remove(id)
+                if let shape { measured[id] = shape }
+                lock.unlock()
+                if shape != nil { changed?() }
+            }
+        }
+        return result
+    }
+
+    /// What the window itself looks like at its corners. Nil without Screen Recording, for a
+    /// window that cannot be captured, and for one with nothing drawn in a corner yet.
+    private static func measure(_ id: CGWindowID) async -> CornerRadii? {
+        guard CGPreflightScreenCaptureAccess(),
+              let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false),
+              let window = content.windows.first(where: { $0.windowID == id }),
+              window.frame.width > 1, window.frame.height > 1 else { return nil }
+        let config = SCStreamConfiguration()
+        let scale = backingScale(of: window.frame)
+        config.width = max(2, Int((window.frame.width * scale).rounded()))
+        config.height = max(2, Int((window.frame.height * scale).rounded()))
+        config.showsCursor = false
+        config.ignoreShadowsSingleWindow = true
+        config.captureResolution = .best
+        let filter = SCContentFilter(desktopIndependentWindow: window)
+        guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) else { return nil }
+        let width = image.width, height = image.height
+        var alpha = [UInt8](repeating: 0, count: width * height)
+        let drawn: Bool = alpha.withUnsafeMutableBytes { bytes in
+            guard let context = CGContext(data: bytes.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                                          bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(),
+                                          bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        return CornerRadiusFit.radii(alpha: alpha, width: width, height: height, scale: Double(width) / window.frame.width)
+    }
+
+    /// Pixels per point of the display the window is on. A window parked off every display
+    /// uses the main one.
+    private static func backingScale(of frame: CGRect) -> Double {
+        var display = CGMainDisplayID()
+        var found: UInt32 = 0
+        var hit: CGDirectDisplayID = 0
+        if CGGetDisplaysWithRect(frame, 1, &hit, &found) == .success, found > 0 { display = hit }
+        guard let mode = CGDisplayCopyDisplayMode(display), mode.width > 0 else { return 2 }
+        return Double(mode.pixelWidth) / Double(mode.width)
+    }
+
     /// Radii for each id, read once per size. A miss (no symbol, or the window is gone) is absent
     /// and the caller keeps `windowRounding`.
-    public static func radii(for sizes: [CGWindowID: CGSize]) -> [CGWindowID: CornerRadii] {
+    private static func reported(for sizes: [CGWindowID: CGSize]) -> [CGWindowID: CornerRadii] {
         var known: [CGWindowID: CornerRadii] = [:]
         var needed: [CGWindowID] = []
         lock.lock()

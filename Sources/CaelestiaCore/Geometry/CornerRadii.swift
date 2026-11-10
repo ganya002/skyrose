@@ -101,6 +101,46 @@ public enum CornerRadiusFit {
         return inside && outside ? guess : 0
     }
 
+    /// Radius in pixels from where the corner's diagonal enters the window. Real corners are
+    /// antialiased, so the top row starts well before `r`; the diagonal is one clean crossing.
+    /// Nil when the diagonal never enters the window (nothing drawn there).
+    public static func diagonalRadius(_ mask: Mask, threshold: UInt8 = 128) -> Double? {
+        let count = min(mask.width, mask.height)
+        guard count > 1, mask.alpha.count >= mask.width * mask.height else { return nil }
+        var d = 0
+        while d < count, !mask.opaque(d, d, at: threshold) { d += 1 }
+        guard d < count else { return nil }
+        if d == 0 { return 0 }
+        let before = Double(mask.alpha[(d - 1) * mask.width + d - 1])
+        let after = Double(mask.alpha[d * mask.width + d])
+        let t = after > before ? (Double(threshold) - before) / (after - before) : 0.5
+        let crossing = Double(d - 1) + t + 0.5
+        return crossing / (1 - 1 / 2.0.squareRoot())
+    }
+
+    /// All four radii, in points, from a whole window's alpha (row-major, y down). Nil when a
+    /// corner has nothing drawn yet or the shape is not a corner a border could follow.
+    public static func radii(alpha: [UInt8], width: Int, height: Int, scale: Double, maxPoints: Double = 64) -> CornerRadii? {
+        guard width > 1, height > 1, scale > 0, alpha.count >= width * height else { return nil }
+        let side = min(Int((maxPoints * scale).rounded(.up)), width / 2, height / 2)
+        guard side > 1 else { return nil }
+        func corner(flipX: Bool, flipY: Bool) -> Double? {
+            var cut = [UInt8](repeating: 0, count: side * side)
+            for y in 0..<side {
+                let row = flipY ? height - 1 - y : y
+                for x in 0..<side {
+                    cut[y * side + x] = alpha[row * width + (flipX ? width - 1 - x : x)]
+                }
+            }
+            guard let pixels = diagonalRadius(Mask(width: side, height: side, alpha: cut)) else { return nil }
+            let points = pixels / scale
+            return points <= maxPoints ? points : nil
+        }
+        guard let tl = corner(flipX: false, flipY: false), let tr = corner(flipX: true, flipY: false),
+              let br = corner(flipX: true, flipY: true), let bl = corner(flipX: false, flipY: true) else { return nil }
+        return CornerRadii(topLeft: tl, topRight: tr, bottomRight: br, bottomLeft: bl)
+    }
+
     /// A hard quarter-circle mask (no antialiasing) for tests. Radius `r` pixels, canvas `side`.
     public static func quarterCircle(radius r: Int, side: Int) -> Mask {
         var alpha = [UInt8](repeating: 0, count: side * side)

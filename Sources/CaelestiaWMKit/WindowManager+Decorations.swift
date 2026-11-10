@@ -159,7 +159,9 @@ extension WindowManager {
         guard let decorations else { return }
 
         let focused = state.focusedWindow
-        let corners = WindowCornerQuery.radii(for: borders.mapValues { CGSize(width: $0.width, height: $0.height) })
+        let corners = WindowCornerQuery.radii(for: borders.mapValues { CGSize(width: $0.width, height: $0.height) }) { [weak self] in
+            DispatchQueue.main.async { self?.setNeedsLayout() }
+        }
         var targets: [BorderTarget] = []
         for id in borders.keys.sorted() {
             guard let frame = borders[id] else { continue }
