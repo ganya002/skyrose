@@ -6,12 +6,23 @@ Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit pe
 |---|---|---|
 | 1. Real Bongo Cat | done, sprite seen live; beats need a song | "Phase 9.5 part 1" |
 | 2. Hover focus | done, live with TestWindows | "Phase 9.5 part 2" |
-| 3. Lyrics | todo | |
+| 3. Lyrics | partial: built, states checked, not seen with a song | "Phase 9.5 part 3" |
 | 4. 1:1 polish | todo | |
 | 5. SIP-off daemon | todo | |
 
 References read: `docs/caelestia-reference` (the prompt says part10 has 66 images, it has 3), the capture README and brief,
 `caelestia-dots/shell` at fd630ffe. Clone it into a scratch folder; it is not in the repo.
+
+## Part 3 — lyrics after Caelestia's LyricList
+
+The media tab now has Caelestia's right column: a Lyrics header over the list. The current line is
+primary and full size with a glow; other lines are outline, scaled to 74 %, and dimmer with distance.
+Rows are laid out at full size and only scaled, so nothing changes height when the line advances.
+A spring scrolls the list so the current line stays centred; a 10 % mask fades both edges. A click
+on a line seeks, and the lyric clock moves at once. Loading and "No lyrics found" match upstream.
+
+Checked by offscreen renders of first, middle, last, empty and loading. Not checked with a real
+song: no player was running, so the scroll spring and seek have not been recorded.
 
 ## Part 2 — hover focus follows the real stack
 

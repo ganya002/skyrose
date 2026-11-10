@@ -27,7 +27,12 @@ extension ShellController {
         dashboard.onPlayPause = { [weak self] in self?.media.playPause() }
         dashboard.onNext = { [weak self] in self?.media.next() }
         dashboard.onPrevious = { [weak self] in self?.media.previous() }
-        dashboard.onSeek = { [weak self] time in self?.media.seek(to: time) }
+        dashboard.onSeek = { [weak self] time in
+            self?.media.seek(to: time)
+            // Players report the new position late, and the lyric list should follow the click now.
+            self?.dashboard.lyricClock.position = time
+            self?.dashboard.lyricClock.at = Date()
+        }
 
         sidebar.onDismiss = { [weak self] id in self?.dismissNotification(id) }
         sidebar.onClear = { [weak self] in self?.clearNotifications() }

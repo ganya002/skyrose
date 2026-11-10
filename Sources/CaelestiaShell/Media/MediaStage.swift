@@ -44,7 +44,7 @@ final class MediaStage {
             return
         }
         dashboard.lyricLines = []
-        dashboard.lyricNote = "Looking up lyrics…"
+        dashboard.lyricNote = "Loading lyrics..."
         lyricTask = Task { [weak dashboard] in
             let lines = await Self.fetch(track)
             if Task.isCancelled { return }

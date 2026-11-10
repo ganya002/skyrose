@@ -503,15 +503,14 @@ private struct MediaTab: View {
         let m = state.media
         HStack(spacing: 28) {
             ZStack {
-                ProgressArc(value: m.duration > 0 ? m.position / m.duration : 0, sweep: 300, lineWidth: 6).frame(width: 300, height: 300)
-                ArtworkView(url: m.available ? m.artworkPath : nil).clipShape(CookieShape(bumps: 12, depth: 0.05)).frame(width: 236, height: 236)
+                ProgressArc(value: m.duration > 0 ? m.position / m.duration : 0, sweep: 300, lineWidth: 6).frame(width: 250, height: 250)
+                ArtworkView(url: m.available ? m.artworkPath : nil).clipShape(CookieShape(bumps: 12, depth: 0.05)).frame(width: 196, height: 196)
             }
             VStack(alignment: .leading, spacing: 10) {
                 Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
                     .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2)
                 Text(m.available ? m.artist : "Nothing is playing").font(theme.sans(18)).foregroundStyle(theme[.primary]).lineLimit(1)
                 if !m.album.isEmpty { Text(m.album).font(theme.sans(15)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1) }
-                if state.config.dashboard.lyrics { lyricList(m) }
                 if m.available {
                     HStack {
                         Text(timeText(m.position)); Spacer(); Text(timeText(m.duration))
@@ -530,9 +529,15 @@ private struct MediaTab: View {
                 }.padding(.top, 10)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if state.config.dashboard.bongoCat {
-                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown).frame(width: 200, height: 126)
+            VStack(spacing: 12) {
+                if state.config.dashboard.lyrics { LyricsColumn(model: model) }
+                if state.config.dashboard.bongoCat {
+                    BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
+                        .frame(width: state.config.dashboard.lyrics ? 150 : 200, height: state.config.dashboard.lyrics ? 95 : 126)
+                }
             }
+            .frame(width: 250)
+            .padding(.vertical, 22)
         }
         .padding(.horizontal, 26)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -542,47 +547,6 @@ private struct MediaTab: View {
 
     private func timeText(_ s: Double) -> String { String(format: "%d:%02d", Int(s) / 60, Int(s) % 60) }
 
-    @ViewBuilder private func lyricList(_ m: MediaInfo) -> some View {
-        if model.lyricLines.isEmpty {
-            Text(model.lyricNote.isEmpty ? "No lyrics found" : model.lyricNote)
-                .font(theme.sans(13)).foregroundStyle(theme[.onSurfaceVariant])
-        } else {
-            // Ticks only while the song runs and the dashboard is open.
-            TimelineView(.periodic(from: .now, by: 0.2)) { context in
-                LyricList(model: model, current: Lyrics.index(of: model.lyricLines, at: model.lyricClock.position(at: context.date)))
-            }
-        }
-    }
-}
-
-private struct LyricList: View {
-    @ObservedObject var model: DashboardModel
-    var current: Int?
-    @Environment(\.shellTheme) var theme
-
-    var body: some View {
-        let synced = Lyrics.isSynced(model.lyricLines)
-        ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(model.lyricLines.enumerated()), id: \.offset) { index, line in
-                        Text(line.text)
-                            .font(theme.sans(index == current ? 16 : 13, weight: index == current ? .semibold : .regular))
-                            .foregroundStyle(index == current ? theme[.primary] : theme[.onSurfaceVariant])
-                            .animation(theme.small, value: current)
-                            .id(index)
-                            .onTapGesture { if synced { model.onSeek(line.time) } }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxHeight: 140)
-            .onChange(of: current) { _, index in
-                if let index { withAnimation(theme.spatial) { proxy.scrollTo(index, anchor: .center) } }
-            }
-            .onChange(of: model.lyricLines) { _, _ in proxy.scrollTo(0, anchor: .top) }
-        }
-    }
 }
 
 // MARK: Performance tab
