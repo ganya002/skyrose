@@ -11,7 +11,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9j2. Window borders | done, corners checked live | per-window SkyLight radii, even stroke |
 | 9a. Cursor follows focus | done, live | keyboard focus warps to the window centre |
 | 9b. Focus follows mouse | done, live | hover focuses after the delay and does not raise |
-| 9c. Easy setup | | |
+| 9c. Easy setup | done | one tour, Use recommended, doctor --fix, one Install button |
 | 9d. SIP-off assistant | | |
 | 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
 | 9f. Menu bar off | | |
@@ -146,6 +146,31 @@ Tests: `HoverFocusTests` (4), `CursorFollowsFocusTests` (7, including the delay,
 raise, and looking through a fully transparent window). The lid was closed for the stack check.
 Clamshell stayed on and SleepDisabled stayed 1. TestWindows were opened for the check and then
 closed. Gabby's other apps were not closed.
+
+## Part 9c — one setup flow (done)
+
+First run is five steps: mode, permissions, one recommended setup, kitty and fonts, done. A progress
+bar shows which step this is. Every step can be skipped. Settings › General opens the same tour
+again. A lost permission still opens only that step, and closes itself once the grant is back.
+On a full first run, the permission step moves on by itself once the needed grants are in.
+Screen Recording, which macOS applies on the next launch, restarts SkyRose for you.
+
+The recommended step is one **Use recommended** button: hide the Dock (it keeps running), hide
+the menu bar automatically, set the Bibata cursor, copy a starter wallpaper and set it when
+SkyRose has never set one, and put screen corners back on automatic. Nothing is written until
+that click. The uninstaller can put the journaled changes back.
+
+`skyrose doctor --fix` writes a missing config, hides the Dock or menu bar again when SkyRose
+had done that and it came back, puts the cursor setting back to Bibata when it is empty, and
+removes a leftover socket when the WM is not running. A broken config file is left in place and
+explained. Permissions are explained too: SkyRose cannot tick those boxes.
+
+The installer window is one Install button. Command line and "open when finished" are under
+Advanced. A stopped install says what happened in plain words and offers **Fix it**, which runs
+the installer again.
+
+Tests: `SetupFlowTests` (5), `OnboardingTests` (7). The button was not clicked on this Mac, and
+`doctor --fix` was not run against Gabby's config, Dock, cursor or wallpaper.
 
 ## Part 9e — no flash at the end of a shell animation
 

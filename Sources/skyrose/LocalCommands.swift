@@ -13,7 +13,7 @@ enum LocalCommands {
         case .keysList:
             return keysList(json: invocation.json)
         case .doctor:
-            return Doctor(client: client, json: invocation.json).run()
+            return Doctor(client: client, json: invocation.json, fix: invocation.fix).run()
         case .uninstall(let flags):
             return Uninstaller(assumeYes: invocation.yes, flags: flags, client: client).run()
         case .shellStart:

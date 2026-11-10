@@ -100,6 +100,30 @@ struct PermissionCard: View {
 }
 
 /// Three small pictures of what to do in System Settings.
+/// The switch in the hint slides on its own, so the gesture is obvious.
+struct PermissionSwitchHint: View {
+    @Environment(\.look) var look
+    @State private var on = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            BrandIcon(which: .main, size: 22)
+            Text("SkyRose").font(look.font(11.5, .medium)).foregroundStyle(look[.onSurface])
+            Spacer()
+            Capsule().fill(on ? look[.primary] : look[.outlineVariant]).frame(width: 30, height: 18)
+                .overlay(alignment: on ? .trailing : .leading) {
+                    Circle().fill(look[.onPrimary]).frame(width: 14).padding(2)
+                }
+        }
+        .padding(8)
+        .onAppear {
+            guard !look.motion.reduceMotion else { on = true; return }
+            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { on = true }
+        }
+        .accessibilityLabel("Flip the SkyRose switch")
+    }
+}
+
 struct PermissionSteps: View {
     var permission: SkyRosePermission
     @Environment(\.look) var look
@@ -112,15 +136,8 @@ struct PermissionSteps: View {
             step(2, "Find SkyRose", "Not in the list? Click + and pick SkyRose in Applications.") {
                 miniApps
             }
-            step(3, "Turn it on", "This card turns green by itself. No need to come back and click.") {
-                HStack(spacing: 8) {
-                    BrandIcon(which: .main, size: 22)
-                    Text("SkyRose").font(look.font(11.5, .medium)).foregroundStyle(look[.onSurface])
-                    Spacer()
-                    Capsule().fill(look[.primary]).frame(width: 30, height: 18)
-                        .overlay(alignment: .trailing) { Circle().fill(look[.onPrimary]).frame(width: 14).padding(2) }
-                }
-                .padding(8)
+            step(3, "Turn it on", "Flip the switch. This card turns green by itself, and setup moves on.") {
+                PermissionSwitchHint()
             }
         }
     }

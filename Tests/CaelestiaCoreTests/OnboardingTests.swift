@@ -73,6 +73,7 @@ final class OnboardingTests: XCTestCase {
 
     func testRequestArgumentsAndParse() {
         XCTAssertEqual(OnboardingRequest.firstRun.arguments, ["--onboarding"])
+        XCTAssertEqual(OnboardingRequest.firstRun.steps, OnboardingStep.guided)
         XCTAssertEqual(OnboardingRequest.parse(["--onboarding"]), .firstRun)
         XCTAssertNil(OnboardingRequest.parse(["--other"]))
         let repair = OnboardingRequest.repair([.accessibility, .inputMonitoring])

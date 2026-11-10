@@ -73,6 +73,8 @@ public struct CLIInvocation: Equatable, Sendable {
     public var kind: Kind
     /// `--json`: print raw JSON instead of tables.
     public var json: Bool = false
+    /// `doctor --fix`: repair the safe items and explain the rest.
+    public var fix: Bool = false
     /// `--socket PATH`: talk to a different socket (tests, several users).
     public var socketPath: String?
     /// `--timeout SECONDS`: per-request timeout.
@@ -143,7 +145,7 @@ public enum CLIParser {
     /// Options that take a value.
     static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon"]
     /// Boolean options (long and short).
-    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check"]).union(uninstallFlags)
+    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix"]).union(uninstallFlags)
     /// Passed through to scripts/uninstall.sh.
     public static let uninstallFlags: Set<String> = ["--dry-run", "--remove-fonts", "--remove-config", "--remove-cert", "--no-color"]
 
@@ -161,6 +163,7 @@ public enum CLIParser {
         let tokens = try tokenize(argv)
         var inv = CLIInvocation(kind: .help(topic: nil))
         inv.json = tokens.has("--json")
+        inv.fix = tokens.has("--fix")
         inv.yes = tokens.has("--yes", "-y")
         inv.socketPath = tokens.options["--socket"]
         if let t = tokens.options["--timeout"] {
@@ -774,7 +777,7 @@ public enum CLIParser {
             ("wm panic | restore-all | quit", "Restore windows and stop managing / bring parked windows back / quit"),
             ("permissions status", "TCC permissions as the WM sees them"),
             ("permissions request <accessibility|inputMonitoring|screenRecording>", "Ask for one permission and open its System Settings pane"),
-            ("doctor [--json]", "Environment, permissions, versions, SIP status, conflicts"),
+            ("doctor [--json] [--fix]", "Environment, permissions, versions, SIP status, conflicts. --fix repairs what it safely can"),
             ("uninstall [--yes] [--dry-run] [--remove-fonts|config|cert]", "Run uninstall.sh: restore every setting, trash the apps (--dry-run: print only)"),
             ("cursor list | status | set <cape|default> | reset", "Session cursor theme (Mousecape capes); reset puts the macOS cursors back"),
             ("dock show | hide | status", "Keep the Dock from sliding out (it keeps running Mission Control); hide is journaled"),

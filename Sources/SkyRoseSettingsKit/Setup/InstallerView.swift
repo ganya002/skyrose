@@ -12,6 +12,7 @@ public struct InstallerView: View {
     var onClose: () -> Void
     @State private var commandLine = false
     @State private var openWhenDone = true
+    @State private var showAdvanced = false
 
     static let steps = SetupFlow.install
 
@@ -63,14 +64,19 @@ public struct InstallerView: View {
                 if script == nil {
                     SetupErrorCard(title: "The installer is missing", message: "install-release.sh was not found next to SkyRose.", detail: "")
                 }
-                Card {
-                    SettingRow(title: "Command line", detail: "Optional symlink at ~/.local/bin/skyrose. Off unless you turn it on.", icon: "terminal") {
-                        PillToggle(isOn: $commandLine, accessibilityLabel: "Install the command line")
+                DisclosureGroup(isExpanded: $showAdvanced) {
+                    Card {
+                        SettingRow(title: "Command line", detail: "Optional symlink at ~/.local/bin/skyrose. Off unless you turn it on.", icon: "terminal") {
+                            PillToggle(isOn: $commandLine, accessibilityLabel: "Install the command line")
+                        }
+                        SettingRow(title: "Open SkyRose when finished", detail: "On. First launch asks for the three permissions.", icon: "arrow.up.forward.app") {
+                            PillToggle(isOn: $openWhenDone, accessibilityLabel: "Open SkyRose")
+                        }
                     }
-                    SettingRow(title: "Open SkyRose when finished", detail: "First launch asks for Accessibility, Input Monitoring and Screen Recording.", icon: "arrow.up.forward.app") {
-                        PillToggle(isOn: $openWhenDone, accessibilityLabel: "Open SkyRose")
-                    }
+                } label: {
+                    Text("Advanced").font(look.font(14, .semibold)).foregroundStyle(look[.onSurface])
                 }
+                .accessibilityIdentifier("install.advanced")
             }
             .padding(.bottom, 16)
         }
@@ -106,7 +112,7 @@ public struct InstallerView: View {
                            subtitle: runner.stoppedEarly ? "Nothing after the last step ran."
                                : "Open SkyRose if it is not already open. Onboarding asks for the permissions it needs.")
                 if runner.stoppedEarly {
-                    SetupErrorCard(title: "Installer exited early", message: exitText, detail: p.output.suffix(6).joined(separator: "\n"))
+                    SetupErrorCard(title: "The install stopped", message: "SkyRose did not finish installing. Nothing after the last successful step was changed.", detail: p.output.suffix(6).joined(separator: "\n"), fixTitle: "Fix it", fix: start)
                 }
                 group("Needs you", p.items(.left) + p.items(.fail))
                 group(dryRun ? "Would do" : "Done", p.items(.done))

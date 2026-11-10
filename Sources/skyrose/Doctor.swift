@@ -2,12 +2,16 @@ import Darwin
 import Foundation
 import CaelestiaCore
 import CaelestiaIPC
+import CaelestiaPlatform
 
 /// `skyrose doctor`: environment, versions, SIP (read-only), config/keymap parse results,
 /// conflicts, socket state and — when the WM answers — its permission status.
+/// `--fix` repairs a missing config, a Dock or menu bar SkyRose hid that came back, an empty
+/// cursor setting, and a stale socket. Permissions are explained: macOS will not let SkyRose tick them.
 struct Doctor {
     let client: IPCClient
     let json: Bool
+    var fix: Bool = false
 
     enum Status: String {
         case ok, info, warn, fail
@@ -30,6 +34,7 @@ struct Doctor {
     }
 
     func run() -> Int32 {
+        let notes = fix ? apply(DoctorFix.plan(world())) : []
         var items: [Item] = []
         items.append(cli())
         items.append(system())
@@ -51,9 +56,11 @@ struct Doctor {
         if json {
             var o: [String: JSONValue] = [:]
             for i in items { o[i.name] = ["status": .string(i.status.rawValue), "detail": .string(i.detail), "data": i.data] }
+            if !notes.isEmpty { o["repairs"] = .array(notes.map(JSONValue.string)) }
             Console.out(JSONValue.object(o).prettyJSON)
         } else {
             Console.out("SkyRose — doctor")
+            if !notes.isEmpty { Console.out(notes.joined(separator: "\n")) }
             var t = TextTable(["", "ITEM", "DETAIL"], showsHeader: false)
             for i in items { t.addRow([i.status.mark, i.name, i.detail]) }
             Console.out(t.render(), terminator: "")
@@ -62,6 +69,78 @@ struct Doctor {
             Console.out(fails == 0 && warns == 0 ? "Everything looks fine." : "\(fails) problem(s), \(warns) warning(s).")
         }
         return items.contains { $0.status == .fail } ? ExitCode.failed : ExitCode.ok
+    }
+
+    func world() -> DoctorWorld {
+        let configURL = Paths.configFile
+        let exists = FileManager.default.fileExists(atPath: configURL.path)
+        var broken = false
+        if exists { broken = (try? ConfigLoader.loadDetailed(from: configURL)) == nil }
+        let journal = BackupJournal(url: Paths.restoreManifest)
+        let dockJournaled = (try? journal.firstEntry(domain: DockRemoval.domain, key: DockRemoval.delayKey)) != nil
+            || (try? journal.firstEntry(domain: DockRemoval.domain, key: "autohide")) != nil
+        let menuJournaled = (try? journal.firstEntry(domain: SystemTweaks.globalDomain, key: "_HIHideMenuBar")) != nil
+        let cursor = ConfigLoader.loadUserOrDefault().config.appearance.cursor
+        let library = CursorCapeLibrary()
+        let capeExists = library.url(for: cursor.isEmpty ? RecommendedSetup.cursorName : cursor) != nil
+        var st = stat()
+        let socketPresent = lstat(client.path.path, &st) == 0
+        let socketHealthy = socketPresent && (st.st_mode & mode_t(S_IFMT)) == mode_t(S_IFSOCK) && Int(st.st_mode & 0o777) == 0o600
+        let running = (try? client.hello(timeout: 1)) != nil
+        var missing: [String] = []
+        if running, let object = try? client.call(.permissionsStatus, timeout: 3).objectValue {
+            for (key, title) in [("accessibility", "Accessibility"), ("inputMonitoring", "Input Monitoring"), ("screenRecording", "Screen Recording")] {
+                if object[key]?.lenientBoolValue == false { missing.append(title) }
+            }
+        }
+        return DoctorWorld(
+            configExists: exists, configBroken: broken,
+            dockHidden: DockRemoval().isHidden(), dockJournaled: dockJournaled,
+            menuBarHidden: SystemTweaks().isOn(.menuBarAutoHide), menuBarJournaled: menuJournaled,
+            cursor: cursor, cursorCapeExists: capeExists,
+            socketPresent: socketPresent, socketHealthy: socketHealthy || !socketPresent, wmRunning: running,
+            missingPermissions: missing
+        )
+    }
+
+    /// Performs the safe repairs and returns one plain sentence each.
+    func apply(_ repairs: [DoctorRepair]) -> [String] {
+        repairs.map { repair in
+            switch repair {
+            case .writeDefaultConfig:
+                do {
+                    let text = try ConfigLoader.defaultResourceText()
+                    let url = Paths.configFile
+                    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try Data(text.utf8).write(to: url, options: .atomic)
+                    return "Wrote a config file at \(Environment.tilde(url))."
+                } catch {
+                    return "Could not write the config file: \(error.localizedDescription)"
+                }
+            case .rehideDock:
+                do { try DockRemoval().hide(); return "The Dock was showing again. It is hidden once more." }
+                catch { return "Could not hide the Dock: \(error.localizedDescription)" }
+            case .rehideMenuBar:
+                do { try SystemTweaks().apply(.menuBarAutoHide); return "The menu bar was showing again. It hides automatically once more." }
+                catch { return "Could not hide the menu bar: \(error.localizedDescription)" }
+            case .restoreDefaultCursor:
+                do {
+                    try ConfigFileEditor.set("cursor", to: ConfigFileEditor.string(RecommendedSetup.cursorName), inTable: "appearance", file: Paths.configFile)
+                    return "The cursor setting was empty. It is \(RecommendedSetup.cursorName) again. Restart SkyRose if the pointer has not changed."
+                } catch {
+                    return "Could not restore the cursor setting: \(error.localizedDescription)"
+                }
+            case .removeStaleSocket:
+                do {
+                    try FileManager.default.removeItem(at: client.path)
+                    return "Removed a leftover socket at \(Environment.tilde(client.path))."
+                } catch {
+                    return "Could not remove the leftover socket: \(error.localizedDescription)"
+                }
+            case .explain(let text):
+                return text
+            }
+        }
     }
 
     // MARK: Items

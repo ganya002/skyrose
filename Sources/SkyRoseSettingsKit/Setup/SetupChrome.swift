@@ -199,6 +199,8 @@ struct SetupErrorCard: View {
     var title: String
     var message: String
     var detail: String
+    var fixTitle: String? = nil
+    var fix: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -207,6 +209,10 @@ struct SetupErrorCard: View {
                 Text(title).font(look.font(16, .semibold)).foregroundStyle(look[.onSurface])
             }
             Text(message).font(look.font(13)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+            if let fixTitle, let fix {
+                PillButton(title: fixTitle, icon: "arrow.clockwise", kind: .filled, action: fix)
+                    .accessibilityIdentifier("setup.fix")
+            }
             if !detail.isEmpty {
                 ScrollView {
                     Text(detail).font(look.mono(11)).foregroundStyle(look[.onSurface])

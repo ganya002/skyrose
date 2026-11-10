@@ -1,6 +1,7 @@
 import AppKit
 import CaelestiaCore
 import CaelestiaPlatform
+import CaelestiaShell
 import SwiftUI
 
 /// The first-run tour (also re-runnable from Settings › General, and opened by the WM with just
@@ -11,6 +12,8 @@ public struct OnboardingView: View {
     var onFinish: () -> Void
     @State private var index = 0
     @State private var forward = true
+    /// Screen Recording was missing when this tour opened, so a new grant needs a relaunch.
+    @State private var wasMissingScreenRecording = false
 
     public init(store: SettingsStore, request: OnboardingRequest, startAt: OnboardingStep? = nil, onFinish: @escaping () -> Void) {
         self.store = store
@@ -48,13 +51,21 @@ public struct OnboardingView: View {
             footer(look)
         }
         .background(PanelBackground())
+        .onAppear { wasMissingScreenRecording = store.permissions?.screenRecording == false }
         .environment(\.look, look)
         .animation(look.motion.page, value: index)
         .frame(width: 780, height: 640)
         .onChange(of: permissionsReady) { _, ready in
-            // A lost grant came back: nothing left to do here.
-            guard isRepair, ready else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { if permissionsReady { finish() } }
+            // The cards turned green: move on. A repair has nowhere else to go, so it closes.
+            guard ready, step == .permissions else { return }
+            if store.permissions?.screenRecording == true, store.permissions?.isGranted(.screenRecording) == true,
+               SkyRosePermission.screenRecording.needsRestartAfterGrant, wasMissingScreenRecording {
+                store.restartSkyRose()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                guard permissionsReady, step == .permissions else { return }
+                if isRepair { finish() } else { go(1) }
+            }
         }
     }
 
@@ -74,7 +85,8 @@ public struct OnboardingView: View {
         case .welcome: WelcomeStep()
         case .mode: ModeStep(store: store)
         case .permissions: PermissionsStep(store: store, only: request.onlyPermissions, repair: isRepair)
-        case .tweaks: TweaksStep()
+        case .tweaks: RecommendedStep(store: store)
+        case .extras: ExtrasStep()
         case .kitty: OptionalSetupStep(title: "kitty profile", subtitle: "Adds one include line to kitty.conf so colours follow SkyRose. Skip if you do not use kitty.", command: ["kitty", "install"])
         case .fonts: OptionalSetupStep(title: "Fonts for other apps", subtitle: "Copies the SkyRose fonts into ~/Library/Fonts. Skip to keep them inside SkyRose only.", command: ["fonts", "install"])
         case .corners: CornersStep(store: store)
@@ -105,8 +117,7 @@ public struct OnboardingView: View {
         if index == steps.count - 1 { return isRepair ? "Done" : "Start using SkyRose" }
         if step == .welcome { return "Get started" }
         if step == .permissions, !permissionsReady { return "Skip for now" }
-        if step == .tweaks { return "Continue" }
-        if step == .kitty || step == .fonts || step == .corners { return "Skip" }
+        if step == .tweaks || step == .extras || step == .kitty || step == .fonts || step == .corners { return "Skip" }
         return "Next"
     }
 
@@ -219,141 +230,113 @@ struct PermissionsStep: View {
     }
 }
 
-/// The recommended macOS tweaks: what changes is shown first, nothing is written before a click,
-/// every change is recorded in the restore manifest and can be undone here.
-@MainActor
-final class TweaksModel: ObservableObject {
-    struct Row: Identifiable, Equatable {
-        var tweak: SystemTweak
-        var isOn: Bool
-        var changedBySkyRose: Bool
-        var id: SystemTweak.ID { tweak.id }
-    }
-
-    @Published var rows: [Row] = []
-    @Published var error: String?
-    let tweaks: SystemTweaks
-
-    init(tweaks: SystemTweaks = SystemTweaks()) {
-        self.tweaks = tweaks
-        reload()
-    }
-
-    func reload() {
-        rows = SystemTweak.all.map { Row(tweak: $0, isOn: tweaks.isOn($0), changedBySkyRose: tweaks.isChangedBySkyRose($0)) }
-    }
-
-    func apply(_ t: SystemTweak) {
-        do { try tweaks.apply(t); error = nil } catch { self.error = "\(t.title): \(error)" }
-        reload()
-    }
-
-    func undo(_ t: SystemTweak) {
-        do { try tweaks.undo(t); error = nil } catch { self.error = "\(t.title): \(error)" }
-        reload()
-    }
-}
-
-/// Recommended on the onboarding step. Nothing is written until Apply.
-struct DockRemovalCard: View {
+/// One button for the Dock, the menu bar, Bibata, a starter wallpaper and automatic corners.
+/// Nothing is written until that click. Each change is journaled, so Undo and the uninstaller can put it back.
+struct RecommendedStep: View {
+    @ObservedObject var store: SettingsStore
     @Environment(\.look) var look
-    @State private var hidden = false
-    @State private var error: String?
+    @State private var lines: [String] = []
+    @State private var failed = false
 
-    var body: some View {
-        Card {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "dock.rectangle").font(.system(size: 20)).foregroundStyle(look[.primary])
-                    .frame(width: 44, height: 44).background(Circle().fill(look[.primaryContainer].opacity(0.6)))
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Remove the Dock").font(look.font(15, .semibold)).foregroundStyle(look[.onSurface])
-                    Text("Recommended. The Dock never slides out. It keeps running, so Mission Control and Spaces stay. Undo puts your old Dock back.")
-                        .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 6) {
-                    if hidden {
-                        PillButton(title: "Undo", icon: "arrow.uturn.backward", kind: .outline) { toggle(false) }
-                    } else {
-                        PillButton(title: "Apply", kind: .filled) { toggle(true) }
-                            .accessibilityIdentifier("tweak.apply.dockRemoval")
-                    }
-                }
-            }
-            if let error { Text(error).font(look.font(12)).foregroundStyle(look[.error]) }
-        }
-        .onAppear { hidden = DockRemoval().isHidden() }
+    var pieces: [(String, String)] {
+        [
+            (RecommendedSetup.dockTitle, "The Dock never slides out. Mission Control and Spaces stay."),
+            (RecommendedSetup.menuBarTitle, "It slides away, and comes back when the pointer touches the top edge."),
+            (RecommendedSetup.cursorTitle, "SkyRose's pointer. The spinning wait cursor stays macOS's."),
+            (RecommendedSetup.wallpaperTitle, "A starter picture, only if SkyRose has not set one yet."),
+            (RecommendedSetup.cornersTitle, "The built-in screen follows its notch. Other screens stay square."),
+        ]
     }
-
-    func toggle(_ on: Bool) {
-        let removal = DockRemoval()
-        do {
-            if on { try removal.hide() } else { try removal.show() }
-            hidden = removal.isHidden()
-            error = nil
-        } catch { self.error = "\(error)" }
-    }
-}
-
-struct TweaksStep: View {
-    @StateObject private var model = TweaksModel()
-    @Environment(\.look) var look
 
     var body: some View {
         VStack(spacing: 16) {
-            StepHeader(title: "Recommended macOS tweaks",
-                       subtitle: "So the SkyRose bar and frame have the screen edges to themselves. Nothing changes until you click Apply, and Undo puts back what you had.")
-            ForEach(model.rows) { row in
-                Card {
-                    HStack(alignment: .top, spacing: 14) {
-                        Image(systemName: row.id == .dockAutoHide ? "dock.rectangle" : "menubar.rectangle")
-                            .font(.system(size: 20)).foregroundStyle(look[.primary])
-                            .frame(width: 44, height: 44).background(Circle().fill(look[.primaryContainer].opacity(0.6)))
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(row.tweak.title).font(look.font(15, .semibold)).foregroundStyle(look[.onSurface])
-                            Text(row.tweak.change).font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
-                            HStack(spacing: 8) {
-                                valuePill(row.isOn ? "Hides automatically" : "Always shown", active: false)
-                                if !row.isOn {
-                                    Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold)).foregroundStyle(look[.onSurfaceVariant])
-                                    valuePill("Hides automatically", active: true)
-                                }
-                            }
-                            Text("\(row.tweak.domain) \(row.tweak.key)").font(look.mono(10.5)).foregroundStyle(look[.onSurfaceVariant].opacity(0.8))
-                        }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 6) {
-                            if row.isOn {
-                                Label(row.changedBySkyRose ? "Applied" : "Already on", systemImage: "checkmark.circle.fill")
-                                    .font(look.font(12.5, .semibold)).foregroundStyle(look[.success])
-                                    .transition(.scale.combined(with: .opacity))
-                            } else {
-                                PillButton(title: "Apply", kind: .filled) { withAnimation(look.motion.pop) { model.apply(row.tweak) } }
-                                    .accessibilityIdentifier("tweak.apply.\(row.id.rawValue)")
-                            }
-                            if row.changedBySkyRose {
-                                PillButton(title: "Undo", icon: "arrow.uturn.backward", kind: .outline) { withAnimation(look.motion.pop) { model.undo(row.tweak) } }
-                                    .accessibilityIdentifier("tweak.undo.\(row.id.rawValue)")
+            StepHeader(title: "Use the recommended setup",
+                       subtitle: "One click. Skip leaves your Mac exactly as it is. You can run this tour again from Settings › General.")
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(pieces, id: \.0) { title, detail in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)).foregroundStyle(look[.primary])
+                                .frame(width: 22, height: 22).background(Circle().fill(look[.primaryContainer]))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(title).font(look.font(14, .semibold)).foregroundStyle(look[.onSurface])
+                                Text(detail).font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
                 }
             }
-            DockRemovalCard()
-            if let e = model.error {
-                Text(e).font(look.font(12)).foregroundStyle(look[.error])
+            PillButton(title: "Use recommended", icon: "sparkles", kind: .filled, action: apply)
+                .accessibilityIdentifier("tweak.useRecommended")
+            if !lines.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(lines, id: \.self) { Text($0).font(look.font(12.5)).foregroundStyle(failed ? look[.error] : look[.onSurfaceVariant]) }
+                }
+                if failed {
+                    PillButton(title: "Fix it", icon: "arrow.clockwise", kind: .tonal, action: apply)
+                }
             }
-            Text("Changes are recorded so the uninstaller can put them back.").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+            Text("Changes are recorded, so the uninstaller can put them back.").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
         }
-        .animation(look.motion.pop, value: model.rows)
-        .onAppear { model.reload() }
     }
 
-    func valuePill(_ text: String, active: Bool) -> some View {
-        Text(text).font(look.font(11.5, .medium))
-            .foregroundStyle(active ? look[.onPrimaryContainer] : look[.onSurfaceVariant])
-            .padding(.horizontal, 9).padding(.vertical, 3)
-            .background(Capsule().fill(active ? look[.primaryContainer] : look[.surfaceContainerHighest]))
+    func apply() {
+        var notes: [String] = []
+        var bad = false
+        func note(_ decision: RecommendedDecision, _ name: String, write: () throws -> String) {
+            switch decision {
+            case .already: notes.append("\(name): already set.")
+            case .skip(let why): notes.append("\(name): \(why)")
+            case .apply:
+                do { notes.append(try write()) } catch { bad = true; notes.append("\(name): \(error.localizedDescription)") }
+            }
+        }
+        note(RecommendedSetup.dock(hidden: DockRemoval().isHidden()), RecommendedSetup.dockTitle) {
+            try DockRemoval().hide()
+            return "\(RecommendedSetup.dockTitle): hidden."
+        }
+        let tweaks = SystemTweaks()
+        note(RecommendedSetup.menuBar(autoHides: tweaks.isOn(.menuBarAutoHide)), RecommendedSetup.menuBarTitle) {
+            try tweaks.apply(.menuBarAutoHide)
+            return "\(RecommendedSetup.menuBarTitle): hides automatically."
+        }
+        let cursor = store.config.appearance.cursor
+        let cape = CursorCapeLibrary().url(for: RecommendedSetup.cursorName) != nil
+        note(RecommendedSetup.cursor(configured: cursor, capeAvailable: cape), RecommendedSetup.cursorTitle) {
+            store.set("appearance.cursor", .string(RecommendedSetup.cursorName)) { $0.appearance.cursor = RecommendedSetup.cursorName }
+            return "\(RecommendedSetup.cursorTitle): SkyRose will use it."
+        }
+        let journal = BackupJournal(url: Paths.restoreManifest)
+        let alreadyWallpaper = ((try? journal.entries()) ?? []).contains { $0.kind == .wallpaper }
+        note(RecommendedSetup.wallpaper(alreadySet: alreadyWallpaper, bundled: StarterWallpapers.bundledFolder != nil), RecommendedSetup.wallpaperTitle) {
+            guard let bundled = StarterWallpapers.bundledFolder else { return "\(RecommendedSetup.wallpaperTitle): nothing bundled." }
+            let dest = Paths.home.appendingPathComponent("Pictures/Wallpapers/Static", isDirectory: true)
+            let report = try StarterWallpapers.install(bundled: bundled, destination: dest, journal: journal, hasSkyRoseWallpaper: false)
+            if let suggested = report.suggested {
+                var service = WallpaperService()
+                service.journal = journal
+                if let failure = service.apply(suggested) { bad = true; return "\(RecommendedSetup.wallpaperTitle): \(failure)" }
+                return "\(RecommendedSetup.wallpaperTitle): set."
+            }
+            return "\(RecommendedSetup.wallpaperTitle): pictures are in place."
+        }
+        note(RecommendedSetup.corners(displayCornerRadius: store.config.frame.displayCornerRadius), RecommendedSetup.cornersTitle) {
+            store.set("frame.displayCornerRadius", .number(-1)) { $0.frame.displayCornerRadius = -1 }
+            return "\(RecommendedSetup.cornersTitle): automatic."
+        }
+        lines = notes
+        failed = bad
+    }
+}
+
+/// kitty and fonts, both optional, on one step.
+struct ExtrasStep: View {
+    var body: some View {
+        VStack(spacing: 22) {
+            StepHeader(title: "kitty and fonts", subtitle: "Optional. Skip both if you do not want them. You can do either later from Settings › Terminal.")
+            OptionalSetupStep(title: "kitty profile", subtitle: "Adds one include line to kitty.conf so colours follow SkyRose.", command: ["kitty", "install"])
+            OptionalSetupStep(title: "Fonts for other apps", subtitle: "Copies the SkyRose fonts into ~/Library/Fonts.", command: ["fonts", "install"])
+        }
     }
 }
 

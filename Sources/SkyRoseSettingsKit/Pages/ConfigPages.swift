@@ -19,7 +19,7 @@ struct GeneralPage: View {
                 ModePicker(mode: store.binding(\.general.mode, "general.mode") { .string($0.rawValue) })
             }
             Card {
-                SettingRow(title: "Run the welcome tour again", detail: "Mode, permissions and the recommended macOS tweaks, step by step.", icon: "sparkles") {
+                SettingRow(title: "Run setup again", detail: "Mode, permissions, the recommended setup, then kitty and fonts. Every step can be skipped.", icon: "sparkles") {
                     PillButton(title: "Open", icon: "play.fill", kind: .tonal, action: onRunOnboarding)
                 }
                 SettingRow(title: "Config folder", detail: "~/.config/skyrose — the files these settings are saved in.", icon: "folder") {

@@ -152,14 +152,18 @@ public struct PermissionHistory: Codable, Equatable, Sendable {
 
 /// The onboarding steps, in order.
 public enum OnboardingStep: String, Codable, CaseIterable, Sendable {
-    case welcome, mode, permissions, tweaks, kitty, fonts, corners, done
+    case welcome, mode, permissions, tweaks, extras, kitty, fonts, corners, done
+
+    /// First run, in order: mode, permissions, one recommended-setup step, kitty and fonts, done.
+    public static let guided: [OnboardingStep] = [.mode, .permissions, .tweaks, .extras, .done]
 
     public var title: String {
         switch self {
         case .welcome: return "Welcome"
         case .mode: return "Pick a mode"
         case .permissions: return "Permissions"
-        case .tweaks: return "macOS tweaks"
+        case .tweaks: return "Recommended"
+        case .extras: return "kitty and fonts"
         case .kitty: return "kitty"
         case .fonts: return "Fonts"
         case .corners: return "Corners"
@@ -205,7 +209,7 @@ public struct OnboardingRequest: Equatable, Sendable {
     /// Permission step: only these permissions (a lost grant), or all three when empty.
     public var onlyPermissions: [SkyRosePermission]
 
-    public init(steps: [OnboardingStep] = OnboardingStep.allCases, onlyPermissions: [SkyRosePermission] = []) {
+    public init(steps: [OnboardingStep] = OnboardingStep.guided, onlyPermissions: [SkyRosePermission] = []) {
         self.steps = steps
         self.onlyPermissions = onlyPermissions
     }
