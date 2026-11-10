@@ -225,6 +225,7 @@ public final class ShellController {
         guard isRunning else { return }
         if servicesStarted {
             weatherController.configure(state.config.weather)
+            clipboard.setLimits(maxEntries: state.config.clipboard.maxEntries, maxBytes: state.config.clipboard.maxBytes)
             clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
         }
         closeDisabledDrawers()

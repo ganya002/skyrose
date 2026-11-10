@@ -17,6 +17,8 @@ public struct Config: Codable, Equatable, Sendable {
     public var dashboard: DashboardConfig
     /// Where the dashboard's weather comes from (`[weather]`, Open-Meteo).
     public var weather: WeatherConfig
+    /// Super+V history (`[clipboard]`). Stays on this Mac.
+    public var clipboard: ClipboardConfig
     /// SIP-off mode (`[sipOff]`): opt-in, needs the scripting addition loaded into the Dock.
     public var sipOff: SIPOffConfig
     /// Screenshot tool (`[capture]`).
@@ -35,13 +37,14 @@ public struct Config: Codable, Equatable, Sendable {
         animations: AnimationsConfig = AnimationsConfig(), dashboard: DashboardConfig = DashboardConfig(),
         frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
         general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig(),
-        weather: WeatherConfig = WeatherConfig(), sipOff: SIPOffConfig = SIPOffConfig(),
+        weather: WeatherConfig = WeatherConfig(), clipboard: ClipboardConfig = ClipboardConfig(), sipOff: SIPOffConfig = SIPOffConfig(),
         capture: CaptureConfig = CaptureConfig(), clamshell: ClamshellConfig = ClamshellConfig()
     ) {
         self.capture = capture
         self.clamshell = clamshell
         self.general = general
         self.weather = weather
+        self.clipboard = clipboard
         self.sipOff = sipOff
         self.shell = shell
         self.appRules = appRules
@@ -283,6 +286,15 @@ public struct ClamshellConfig: Codable, Equatable, Sendable {
     /// Hold a keep-awake (idle display sleep off) while the lid is closed.
     public var keepAwake: Bool = false
     public init() {}
+}
+
+/// How much the Super+V history keeps. The oldest goes first.
+public struct ClipboardConfig: Codable, Equatable, Sendable {
+    public var maxEntries: Int = 50
+    /// Copied images only; text is too small to matter.
+    public var maxSizeMB: Int = 32
+    public init() {}
+    public var maxBytes: Int { maxSizeMB * 1024 * 1024 }
 }
 
 /// Weather for the dashboard (Open-Meteo, no API key). Nothing is fetched until a city is set or

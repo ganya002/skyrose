@@ -10,6 +10,22 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(h.entries.map(\.text), ["two", "one"])
     }
 
+    func testNewLimitsDropTheOldestAndLeaveTheRest() {
+        var h = ClipboardHistory()
+        for word in ["one", "two", "three"] { h.record(text: word, imagePNG: nil, types: [], at: Date()) }
+        XCTAssertFalse(h.setLimits(maxEntries: 3, maxBytes: 1024))
+        XCTAssertTrue(h.setLimits(maxEntries: 2, maxBytes: 1024))
+        XCTAssertEqual(h.entries.map(\.text), ["three", "two"])
+    }
+
+    func testAConfigWithoutTheSectionGetsTheDefaultsAndBadLimitsAreRefused() throws {
+        let c = try ConfigLoader.parse(toml: "[wm]\ngapsOut = 14\n")
+        XCTAssertEqual(c.clipboard, ClipboardConfig())
+        var bad = c
+        bad.clipboard.maxEntries = 0
+        XCTAssertFalse(ConfigLoader.validate(bad).isEmpty)
+    }
+
     func testConcealedAndTransientNeverStored() {
         var h = ClipboardHistory()
         XCTAssertFalse(h.record(text: "hunter2", imagePNG: nil, types: [ClipboardHistory.concealedType], at: Date()))

@@ -209,6 +209,14 @@ bongoCat = true
 lyrics = true
 
 # =====================================================================================
+# Clipboard history (Super+V). Stored only on this Mac; passwords are never kept.
+# =====================================================================================
+[clipboard]
+maxEntries = 50
+# Copied images, in megabytes. The oldest image goes first.
+maxSizeMB = 32
+
+# =====================================================================================
 # Weather (dashboard card + Weather tab). Open-Meteo, no API key; pick the city in
 # Settings › Bar and Shell. Nothing is fetched and no values are shown until a city is set.
 # =====================================================================================

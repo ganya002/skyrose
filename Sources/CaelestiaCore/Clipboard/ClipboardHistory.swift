@@ -74,6 +74,16 @@ public struct ClipboardHistory: Codable, Equatable, Sendable {
 
     public mutating func clear() { entries = [] }
 
+    /// New limits from the config. Returns true if something had to go.
+    @discardableResult
+    public mutating func setLimits(maxEntries: Int, maxBytes: Int) -> Bool {
+        self.maxEntries = max(1, maxEntries)
+        self.maxBytes = max(1, maxBytes)
+        let before = entries.count
+        evict()
+        return entries.count != before
+    }
+
     public var imageBytes: Int { entries.reduce(0) { $0 + ($1.imagePNG?.count ?? 0) } }
 
     private mutating func evict() {

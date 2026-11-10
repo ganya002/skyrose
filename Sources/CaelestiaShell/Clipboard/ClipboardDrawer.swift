@@ -165,6 +165,10 @@ public final class ClipboardSession: ObservableObject {
         }
     }
 
+    public func setLimits(maxEntries: Int, maxBytes: Int) {
+        if history.setLimits(maxEntries: maxEntries, maxBytes: maxBytes) { persist() }
+    }
+
     func persist() { try? ClipboardArchive.save(history, to: directory) }
 
     func thumbnail(for entry: ClipboardEntry) -> NSImage? {
