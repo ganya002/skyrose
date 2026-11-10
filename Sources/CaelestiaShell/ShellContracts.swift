@@ -292,7 +292,7 @@ public struct LaunchableApp: Hashable, Sendable, Identifiable {
 
 /// Drawers the shell can open (Caelestia `drawers` IPC target names).
 public enum Drawer: String, CaseIterable, Sendable, Codable {
-    case launcher, dashboard, sidebar, session, osd, utilities, wallpaper
+    case launcher, dashboard, sidebar, session, osd, utilities, wallpaper, clipboard
 }
 
 /// What the shell asks the WM / services to do. Implemented by CaelestiaWMKit.

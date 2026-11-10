@@ -43,4 +43,32 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent(id.uuidString + ".png").path))
         try? FileManager.default.removeItem(at: dir)
     }
+
+    func testACopiedFileIsOneFileNotItsNameAndIcon() {
+        var h = ClipboardHistory()
+        XCTAssertTrue(h.record(text: "photo.png", imagePNG: Data([1]), types: [], at: Date(), files: ["/tmp/a/photo.png"]))
+        let entry = h.entries[0]
+        XCTAssertNil(entry.imagePNG)
+        XCTAssertNil(entry.text)
+        XCTAssertEqual(entry.preview, "photo.png")
+        XCTAssertTrue(h.record(text: nil, imagePNG: nil, types: [], at: Date(), files: ["/a/one", "/a/two", "/a/three"]))
+        XCTAssertEqual(h.entries[0].preview, "one and 2 more")
+    }
+
+    func testPasswordManagerTypesNeverStored() {
+        var h = ClipboardHistory()
+        for type in ClipboardHistory.blockedTypes {
+            XCTAssertFalse(h.record(text: "secret", imagePNG: nil, types: [type], at: Date()), type)
+        }
+        XCTAssertTrue(h.entries.isEmpty)
+    }
+
+    func testFilesSurviveAReload() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("clip-\(UUID().uuidString)", isDirectory: true)
+        var h = ClipboardHistory()
+        h.record(text: nil, imagePNG: nil, types: [], at: Date(timeIntervalSince1970: 1), files: ["/a/b.txt"])
+        try ClipboardArchive.save(h, to: dir)
+        XCTAssertEqual(ClipboardArchive.load(from: dir).entries.first?.files, ["/a/b.txt"])
+        try? FileManager.default.removeItem(at: dir)
+    }
 }

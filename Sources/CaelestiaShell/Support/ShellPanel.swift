@@ -154,6 +154,15 @@ public final class ShellPanel: NSPanel {
         }
     }
 
+    /// Sees every key before a focused text field does. A field editor keeps Delete and
+    /// Shift+Return for itself, so a list that needs those keys has to look first.
+    public var onKeyBeforeField: ((NSEvent) -> Bool)?
+
+    public override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, onKeyBeforeField?(event) == true { return }
+        super.sendEvent(event)
+    }
+
     public override func keyDown(with event: NSEvent) {
         if onKeyDown?(event) == true { return }
         super.keyDown(with: event)

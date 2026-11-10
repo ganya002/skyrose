@@ -134,6 +134,14 @@ extension WindowManager {
                 "counters": .object(counters.dictionary.mapValues { JSONValue($0) }),
             ]))
 
+        case .clipboard:
+            let kind: ActionKind = request.args["delete"]?.boolValue == true ? .clipboardDelete : .clipboardOpen
+            guard isManaging, onUnhandledAction != nil else {
+                return refused("the clipboard needs the shell, and the shell is off")
+            }
+            perform(Action(kind))
+            return ok()
+
         default:
             if let kind = command.equivalentAction {
                 var args = request.args.argValues

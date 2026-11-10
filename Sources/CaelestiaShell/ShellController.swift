@@ -55,6 +55,7 @@ public final class ShellController {
     /// The screenshot tool (capture.* binds, `skyrose screenshot`).
     public let screenshots = ScreenshotController()
     private var launcherPanel: ShellPanel?
+    private var clipboardPanel: ShellPanel?
     private var sessionPanel: ShellPanel?
     private var osdPanel: ShellPanel?
     private var toastPanel: ShellPanel?
@@ -198,8 +199,8 @@ public final class ShellController {
         for (_, b) in bars { b.close() }
         frames.removeAll()
         bars.removeAll()
-        for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
-        launcherPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
+        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
+        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
         dropPartTwoPanels()
         openDrawers.removeAll()
         for d in visibility.keys where visibility[d]?.isShown == true && visibility[d]?.persistent == false {
@@ -536,6 +537,7 @@ public final class ShellController {
         case .session: return m.isOn("session")
         case .osd: return m.isOn("osd")
         case .wallpaper: return m.isOn("wallpaperPicker")
+        case .clipboard: return m.isOn("launcher")
         }
     }
 
@@ -556,8 +558,26 @@ public final class ShellController {
         guard let id, let layout = layouts[id] else { return }
         let reveal = bars[id]?.reveal.target ?? 0
         switch d {
+        case .clipboard:
+            if openDrawers.contains(.session) { close(.session) }
+            if openDrawers.contains(.launcher) { close(.launcher) }
+            closeTransient()
+            let panel = clipboardPanel ?? makeDrawerPanel(ClipboardDrawerView(session: clipboard, fillet: theme.frameRounding), name: "clipboard", key: true)
+            clipboardPanel = panel
+            let body = ClipboardSession.bodySize
+            let size = CGSize(width: min(body.width + 2 * theme.frameRounding, layout.area.width), height: body.height)
+            panel.setFrame(DisplayLayout.withRoom(layout.drawerFrame(size: size, edge: .bottom, barReveal: reveal), edge: .bottom,
+                                                  room: theme.overshootRoom(depth: body.height)), display: false)
+            clipboard.prepare()
+            clipboard.onClose = { [weak self] in self?.close(.clipboard) }
+            panel.onKeyBeforeField = { [weak self] event in
+                MainActor.assumeIsolated { self?.clipboard.key(event) ?? false }
+            }
+            present(panel)
+            clipboard.shown = true
         case .launcher:
             if openDrawers.contains(.session) { close(.session) }
+            if openDrawers.contains(.clipboard) { close(.clipboard) }
             closeTransient()
             let panel = launcherPanel ?? makeDrawerPanel(LauncherView(model: launcher, fillet: theme.frameRounding), name: "launcher", key: true)
             launcherPanel = panel
@@ -627,6 +647,11 @@ public final class ShellController {
             }
             host?.shellKeyDrawerClosed(launched: false)
             dismiss(launcherPanel)
+        case .clipboard:
+            guard openDrawers.contains(.clipboard) else { return }
+            clipboard.shown = false
+            host?.shellKeyDrawerClosed(launched: false)
+            dismiss(clipboardPanel)
         case .session:
             guard openDrawers.contains(.session) else { return }
             session.shown = false
@@ -667,7 +692,7 @@ public final class ShellController {
     static func blobStyle(_ name: String) -> (edge: ShellEdge, deform: Double) {
         let a = CaelestiaTokens.DeformAmount.self
         switch name {
-        case "launcher": return (.bottom, a.launcher)
+        case "launcher", "clipboard": return (.bottom, a.launcher)
         case "wallpaper": return (.bottom, a.launcher)
         case "dashboard": return (.top, a.dashboard)
         case "session": return (.right, a.session)
@@ -725,8 +750,8 @@ public final class ShellController {
     private func rebuildDrawers() {
         closeAll()
         for f in frames.values { f.surface?.removeAll() }
-        for p in [launcherPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
-        launcherPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
+        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
+        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil
         dropPartTwoPanels()
     }
 
@@ -753,6 +778,7 @@ public final class ShellController {
         let reopened: () -> Bool = { [weak self] in
             guard let self else { return false }
             if panel === self.launcherPanel, self.launcher.shown { return true }
+            if panel === self.clipboardPanel, self.clipboard.shown { return true }
             if panel === self.sessionPanel, self.session.shown { return true }
             return false
         }
@@ -925,8 +951,10 @@ public final class ShellController {
         case .notifsClear: clearNotifications()
         case .notifyTest:
             notify(title: "Test notification", body: "Sent from the keybind. Notifications from SkyRose appear here.", app: "skyrose-shell", icon: "info")
-        case .clipboardOpen: clipboard.toggle()
-        case .clipboardDelete: clipboard.deleteSelected()
+        case .clipboardOpen: toggle(.clipboard)
+        case .clipboardDelete:
+            // Arch opens a delete picker: closed, this shows the list, and it never removes unseen.
+            if openDrawers.contains(.clipboard) { clipboard.deleteSelected() } else { open(.clipboard) }
         case .clipboardTypeLatest: clipboard.pasteNewest()
         case .menuBarPeek:
             SystemMenuBar.peek()
@@ -1042,6 +1070,7 @@ public final class ShellController {
         if let m = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] e in
             guard let self else { return }
             if self.openDrawers.contains(.launcher) { self.close(.launcher) }
+            if self.openDrawers.contains(.clipboard) { self.close(.clipboard) }
             if self.openDrawers.contains(.session) { self.close(.session) }
             self.closeTransient(includingSidebar: true)
             if e.type == .leftMouseDown { self.edgeDragBegin(NSEvent.mouseLocation) }
