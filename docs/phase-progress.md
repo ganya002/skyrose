@@ -17,7 +17,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9f. Menu bar off | done | Shown, Auto-hide, Off; peek on Super+Shift+B |
 | 9g. Clipboard history | done | Super+V, images, concealed items skipped |
 | 9h. Bongo cat + lyrics | done | beats from output audio, LRCLIB cache |
-| 9k. Release v0.4.0 | | |
+| 9k. Release v0.4.0 | done | tag v0.4.0 |
 
 ## Part 9i — rock-solid tiling (done)
 
@@ -227,6 +227,22 @@ line seeks Spotify or Music. Settings can turn lyrics off. A miss says "No lyric
 Tests: `LyricsTests` (5). LRC times, the line for a clock time, LRCLIB's synced-then-plain
 choice, the cache file, and three clicks in a silent buffer. Not tried live: no track was
 playing, and LRCLIB was not contacted from this Mac.
+
+## Part 9k — release v0.4.0 (done)
+
+Release: https://github.com/ganya002/skyrose/releases/tag/v0.4.0
+Tag `v0.4.0` is new. Tags `v0.2.0` (`1bf9a30`) and `v0.3.0` (`e65f99b`) were not moved.
+`/usr/bin/swift test`: 1172 tests, 0 failures. Apps built with `scripts/build.sh` and signed with
+"Caelestia Local Signing". The zip is `SkyRose-0.4.0-arm64.zip` (SkyRose.app, SkyRose Settings.app,
+install.sh, uninstall.sh) plus detached `.sha256` files. `docs/caelestia-reference` is not in the zip.
+
+A 0.3.0 `skyrose update --check` against a local copy of that zip reported v0.4.0. `skyrose update --yes`
+with `HOME` pointed at a temporary folder and `SKYROSE_INSTALL_SANDBOX=1` installed 0.4.0 there.
+The running window manager was left in place.
+
+Not done on this Mac: the new apps were not copied over `~/Applications`. The recommended-setup
+button, `doctor --fix`, the menu-bar control, and the clipboard picker were not used. No track was
+playing, so the cat and LRCLIB were not tried live. No Dock, cursor, wallpaper, or SIP change.
 
 ## Part 9e — no flash at the end of a shell animation
 

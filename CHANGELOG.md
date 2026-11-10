@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 (2026-11-10)
+
+Focus, a shorter setup, and a clipboard. https://github.com/ganya002/skyrose/releases/tag/v0.4.0
+
+- **Resize.** A keyboard or tiling resize finishes on a fixed ease-out (default 150 ms, scaled by `animations.speed`; 0 snaps). The size is committed once and only the origin eases, so the window stays sharp. A mouse-edge drag tracks the cursor. Glide (`animations.windows = "snapshot"`) is the default again.
+- **Borders.** Each window's own corner radius, read from SkyLight when SIP is on. The stroke is even on all four sides.
+- **No end flash.** Drawers and popouts are ordered out while they are still transparent, so they do not blink back for a frame.
+- **Cursor follows focus.** Keyboard, workspace, launcher and close focus move the pointer to the window. A click, a drag, a held button, or a pointer already inside the window does not. See docs/FOCUS.md.
+- **Focus follows mouse.** Hover focuses after `focusFollowsMouseDelayMs` (default 100). Floating windows are not raised unless `raiseOnHover` is on. Invisible overlays are not the window under the pointer.
+- **Setup.** First run is mode, permissions, one Use recommended button, then optional kitty and fonts. `skyrose doctor --fix` repairs a missing config, a Dock or menu bar SkyRose had hidden, an empty cursor setting, and a leftover socket. It cannot tick permission boxes. The installer is one Install button.
+- **SIP-off assistant.** Settings lists only this Mac's Recovery and Terminal steps, with Copy and a QR code. SkyRose still never changes SIP or NVRAM.
+- **Menu bar.** Settings › Appearance: Shown, Auto-hide, or Off. Off stops reserving the bar and keeps the notch. With SIP on, the top edge can still reveal Apple's bar. ⌥L⇧B shows it for 5 seconds.
+- **Clipboard.** ⌥V opens a local history of text and images. Return pastes, ⇧Return copies. Concealed and transient items are never stored. Uninstall removes the history.
+- **Media.** The dashboard cat follows system-output beats only while the dashboard is open. Synced lyrics come from LRCLIB and are cached on this Mac. Either can be turned off in Settings › Bar and Shell.
+- **Release zip** `SkyRose-0.4.0-arm64.zip` with the two apps, `install.sh`, and `uninstall.sh`, plus detached `.sha256` files. Signed with the local identity, not an Apple Developer ID, and not notarized. Tags `v0.2.0` and `v0.3.0` are unchanged.
+
 ## 0.3.0 (2026-11-09)
 
 Shipped defaults and an updater. https://github.com/ganya002/skyrose/releases/tag/v0.3.0

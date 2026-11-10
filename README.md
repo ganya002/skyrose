@@ -32,10 +32,13 @@ and apply live; when SkyRose is not running, Settings writes `~/.config/skyrose/
 directly. You can still edit the TOML files by hand (hot reload).
 
 **Onboarding** runs on first launch (re-run it from Settings > General or with `skyrose onboarding`):
-Welcome, Mode, Permissions (Accessibility, Input Monitoring, Screen Recording, with live status and
-a button that opens the exact System Settings pane), Recommended macOS tweaks (auto-hide Dock and
-menu bar; only on click, undoable, recorded in the restore manifest) and Done with a cheat sheet.
-If a permission is lost later, only that step is shown again.
+mode, permissions (Accessibility, Input Monitoring, Screen Recording, with live status and a button
+that opens the exact System Settings pane; the step moves on when they are granted), one
+**Use recommended** button (hide the Dock, auto-hide the menu bar, Bibata, a starter wallpaper,
+automatic corners; only on click, undoable, recorded in the restore manifest), then optional kitty
+and fonts, then a cheat sheet. If a permission is lost later, only that step is shown again.
+Focus behaviour is in [docs/FOCUS.md](docs/FOCUS.md). Settings › SIP-off mode walks through
+Enhanced mode and does not change SIP itself.
 
 **Modes.** `[general] mode = "full"` is the whole desktop. `mode = "wm"` is WM-only: tiling, keybinds
 and borders, with no bar, shell or frame. In full mode `[shell]` has an `enabled` switch and
@@ -72,8 +75,8 @@ create "SkyRose Local Signing".
 From a release, without Xcode (the hash is the `SkyRose-<version>-arm64.zip.sha256` file next to the zip):
 
 ```sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.3.0/install.sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.3.0/install.sh.sha256
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.4.0/install.sh
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.4.0/install.sh.sha256
 shasum -a 256 -c install.sh.sha256
 less install.sh
 sh install.sh --dry-run

@@ -17,7 +17,10 @@ the Dock. On a school-issued laptop, check the school's IT rules first; many for
 macOS updates can also break the SA until it is rebuilt.
 
 SkyRose **never** changes SIP, NVRAM or boot arguments itself. The steps below are
-done by you, by hand, in Recovery. Everything is reversible.
+done by you, by hand, in Recovery. Everything is reversible. Settings › SIP-off mode lists only
+the steps for this Mac (Apple Silicon includes the boot argument; Intel does not), with a Copy
+button on each command and a QR code of those commands. It does not open Recovery and it does
+not run them. After a reboot the status on that page updates by itself.
 
 ## Enabling (Apple Silicon)
 

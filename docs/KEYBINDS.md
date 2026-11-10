@@ -186,6 +186,7 @@ Every bind of the Hyprland setup (`Tests/fixtures/binds.json`, 153 entries) is l
 | Linux chord | Mac chord | Action | Flags | Description | Keymap chord | Bind id |
 |---|---|---|---|---|---|---|
 | `SUPER + SHIFT + L` | `⌥L ⇧ L` | `system.sleep` | locked | sleep (pmset sleepnow) | `SUPER + SHIFT + L` | `system.sleep` |
+|  | `⌥L ⇧ B` | `menuBar.peek` |  | show Apple's menu bar for 5 seconds | `SUPER + SHIFT + B` | `menuBar.peek` |
 | `SUPER + V` | `⌥L V` | `clipboard.open` |  | clipboard history picker | `SUPER + V` | `clipboard.open` |
 | `SUPER + ALT + V` | `⌥L ⌘L V` | `clipboard.delete` |  | delete from the clipboard history | `SUPER + ALT + V` | `clipboard.delete` |
 | `CTRL + ALT + SHIFT + V` | `⌃ ⇧ ⌘L V` | `clipboard.typeLatest` | locked | type the latest clipboard item after 0.5 s (for fields that block paste) | `CTRL + ALT + SHIFT + V` | `clipboard.typeLatest` |

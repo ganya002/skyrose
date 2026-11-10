@@ -169,9 +169,12 @@ final class OverlayIntegrationTests: XCTestCase {
         let a = h.system.existing("a")
         let b = h.system.existing("b")
         h.start()
+        // A warp ignores other focus for 80 ms. The test clock does not move on its own.
+        h.clock.now = h.clock.now.addingTimeInterval(1)
         _ = a.focus()
         h.settle()
         XCTAssertEqual(try XCTUnwrap(d.lastScene).borders.filter(\.isActive).map(\.id), [a.windowID])
+        h.clock.now = h.clock.now.addingTimeInterval(1)
         _ = b.focus()
         h.settle()
         XCTAssertEqual(try XCTUnwrap(d.lastScene).borders.filter(\.isActive).map(\.id), [b.windowID])
