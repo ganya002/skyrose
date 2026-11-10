@@ -82,6 +82,12 @@ final class ConfigWatcherDirectoryTests: XCTestCase {
         XCTAssertEqual(try ConfigLoader.loadDefaultResource().animations.windows, .snapshot)
     }
 
+    func testAnExistingConfigWithoutTheKeyGetsGlide() throws {
+        XCTAssertEqual(try ConfigLoader.parse(toml: "").animations.windows, .snapshot)
+        XCTAssertEqual(try ConfigLoader.parse(toml: "[wm]\ngapsOut = 14\n").animations.windows, .snapshot)
+        XCTAssertEqual(try ConfigLoader.parse(toml: "[animations]\nenabled = true\n").animations.windows, .snapshot)
+    }
+
     func testWindowsOffParses() throws {
         let c = try ConfigLoader.parse(toml: "[animations]\nwindows = \"off\"\n")
         XCTAssertEqual(c.animations.windows, .off)
