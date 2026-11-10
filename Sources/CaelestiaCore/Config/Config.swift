@@ -126,6 +126,8 @@ public struct WMConfig: Codable, Equatable, Sendable {
     public var dwindle: DwindleConfig = DwindleConfig()
     public var focusFollowsMouse: Bool = true
     public var focusFollowsMouseDelayMs: Int = 100
+    /// Hover raises a floating window above the others. Off by default, like Hyprland `follow_mouse = 1`.
+    public var raiseOnHover: Bool = false
     /// Keyboard focus moves the pointer onto the newly focused window. A click, a drag, or a
     /// hover does not: the pointer is already there, and warping it would loop.
     public var cursorFollowsFocus: Bool = true

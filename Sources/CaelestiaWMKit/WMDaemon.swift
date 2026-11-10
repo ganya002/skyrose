@@ -237,12 +237,16 @@ public final class WMDaemon {
         tap.onLeftMouse = { down, location in
             MainActor.assumeIsolated { down ? wm.pointerPressed(at: location) : wm.pointerReleased(at: location) }
         }
+        tap.onPointerMoved = { location in
+            MainActor.assumeIsolated { wm.pointerMoved(at: location) }
+        }
         let shell = shell
         tap.onMediaKey = { event in
             MainActor.assumeIsolated { shell?.controller.handleMediaKey(event) }
         }
         tap.onSecureInputChanged = { active, appName in
             Log.input.notice("secure input \(active ? "on" : "off", privacy: .public) (\(appName ?? "unknown", privacy: .public)): hotkeys \(active ? "paused" : "resumed", privacy: .public)")
+            MainActor.assumeIsolated { wm.secureInputActive = active }
         }
         do {
             try tap.start()

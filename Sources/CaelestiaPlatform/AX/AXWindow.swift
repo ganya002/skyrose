@@ -263,12 +263,13 @@ public final class AXWindow: Hashable, Identifiable, CustomStringConvertible {
         element.perform(kAXRaiseAction) == nil
     }
 
-    /// Makes this the app's focused + main window, raises it and activates the app.
+    /// Makes this the app's focused + main window and activates the app. Raises it only when asked:
+    /// hover focus leaves a floating window where it is in the stack.
     @discardableResult
-    public func focus() -> Bool {
+    public func focus(raise shouldRaise: Bool) -> Bool {
         var ok = appElement.setAttribute(kAXFocusedWindowAttribute, element.ref) == nil
         element.setBool(kAXMainAttribute, true)
-        ok = raise() && ok
+        if shouldRaise { ok = raise() && ok }
         if let app = NSRunningApplication(processIdentifier: pid), !app.isActive {
             // activateIgnoringOtherApps is a no-op since macOS 14; plain activation is honoured for
             // Accessibility-trusted clients, which is what AeroSpace relies on too.

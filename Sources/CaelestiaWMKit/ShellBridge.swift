@@ -28,6 +28,10 @@ public final class ShellBridge: ShellHost {
         state.reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         controller = ShellController(state: state, host: nil)
         controller.host = self
+        wm.shellBlocksPointerFocus = { [weak controller] in
+            guard let controller else { return false }
+            return !controller.openDrawers.isEmpty || controller.popoutKind != nil
+        }
     }
 
     /// Starts the shell, unless the config says WM-only mode or the shell is switched off (then

@@ -10,7 +10,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9j. Smooth live resize | redone, recorded | speed fix, then Glide restored as the default |
 | 9j2. Window borders | done, corners checked live | per-window SkyLight radii, even stroke |
 | 9a. Cursor follows focus | done, live | keyboard focus warps to the window centre |
-| 9b. Focus follows mouse | | |
+| 9b. Focus follows mouse | done, live | hover focuses after the delay and does not raise |
 | 9c. Easy setup | | |
 | 9d. SIP-off assistant | | |
 | 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
@@ -118,6 +118,34 @@ focus changes from that synthetic move for 80 ms.
 Live: Firefox centred at 413,494 and a kitty centred at 1108,494. `window focus left` logged
 `cursor warp #233 412,494`. `window focus right` logged `cursor warp #835 1107,494`. The pointer
 read back on those windows. Tests: `CursorWarpTests` (5), `CursorFollowsFocusTests` (4).
+
+## Part 9b — focus follows mouse (done)
+
+Hovering a tiled or floating window focuses it after `focusFollowsMouseDelayMs` (default 100,
+range 0…5000). Moving inside the same window does not restart the wait. `raiseOnHover` defaults
+off: the window is focused and left where it is in the stack. macOS raises a window when it
+becomes focused, so the windows that were already in front are raised back, front-most last.
+A drag, a held button, a warp, a password field, an open menu, a visible sheet, the menu bar,
+a SkyRose drawer or popout, Spotlight, the launcher, or a fullscreen window on another Space
+does not take focus. Fully transparent windows (Hex's invisible system dialogs cover this
+screen at alpha 0) are not the window under the pointer. The pointer is already inside the
+window, so cursor-follows-focus does not warp it.
+
+Settings › Windows has the toggle, a 0–500 ms delay slider, raise-on-hover, and a two-tile demo.
+
+Live, delay 100 ms (Gabby's config does not override it). Cursor posted to a point, then left there:
+
+- T3 Code at 200,500 (centre is about 760,494): `hover focus #89 raise false`. Cursor still 200,500.
+- TestWindow 1 at 760,494: `hover focus #1156 raise false`.
+- After TestWindow 1 was in front, hovering TestWindow 0 at 200,150 (its centre is 410,304):
+  `hover focus #1155 raise false`. Focus became 0x483. Stack stayed TestWindow 1 then
+  TestWindow 0. `raiseCalls` stayed 6. Cursor still 200,150.
+- Back to T3 at 1200,700: `hover focus #89 raise false`. Cursor still 1200,700.
+
+Tests: `HoverFocusTests` (4), `CursorFollowsFocusTests` (7, including the delay, no warp, no
+raise, and looking through a fully transparent window). The lid was closed for the stack check.
+Clamshell stayed on and SleepDisabled stayed 1. TestWindows were opened for the check and then
+closed. Gabby's other apps were not closed.
 
 ## Part 9e — no flash at the end of a shell animation
 

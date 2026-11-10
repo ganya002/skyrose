@@ -327,6 +327,49 @@ struct CornerRow: View {
     }
 }
 
+/// Two tiles. The one under the pointer lights up after the hover delay, the same wait the WM uses.
+struct HoverFocusDemo: View {
+    var delayMs: Int
+    @Environment(\.look) var look
+    @State private var over: Int?
+    @State private var focused = 0
+    @State private var arrived: Date?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            tile(0, title: "One")
+            tile(1, title: "Two")
+        }
+        .padding(.top, 4)
+        .onChange(of: over) { _, id in
+            arrived = id == nil ? nil : Date()
+            consider()
+        }
+    }
+
+    private func tile(_ n: Int, title: String) -> some View {
+        Text(title)
+            .font(look.font(13, .semibold))
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(focused == n ? look[.primaryContainer] : look[.surfaceContainerHighest]))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(focused == n ? look[.primary] : .clear, lineWidth: 2))
+            .onHover { inside in
+                if inside { over = n } else if over == n { over = nil }
+            }
+    }
+
+    private func consider() {
+        guard let id = over, let arrived else { return }
+        let wait = Double(delayMs) / 1000
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+            guard over == id, Date().timeIntervalSince(arrived) + 0.02 >= wait else { return }
+            focused = id
+        }
+    }
+}
+
 // MARK: - Windows
 
 struct WindowsPage: View {
@@ -373,6 +416,23 @@ struct WindowsPage: View {
                         PillSegmented(options: [(CursorWarpMode.center, "Centre", nil), (.last, "Last spot", nil)],
                                       selection: store.binding(\.wm.cursorWarpMode, "wm.cursorWarpMode") { .string($0.rawValue) })
                     }
+                }
+                SettingRow(title: "Focus follows mouse", detail: "Hovering a window focuses it after the delay. It does not raise a floating window unless you ask.", icon: "cursorarrow.motionlines") {
+                    PillToggle(isOn: store.bool(\.wm.focusFollowsMouse, "wm.focusFollowsMouse"), accessibilityLabel: "Focus follows mouse")
+                }
+                if store.config.wm.focusFollowsMouse {
+                    SettingRow(title: "Hover delay", detail: "How long the pointer rests before the window is focused.", icon: "timer") {
+                        PillSlider(value: Binding(
+                            get: { Double(store.config.wm.focusFollowsMouseDelayMs) },
+                            set: { ms in
+                                store.binding(\.wm.focusFollowsMouseDelayMs, "wm.focusFollowsMouseDelayMs") { .number(Double($0)) }
+                                    .wrappedValue = Int(ms.rounded())
+                            }), range: 0...500, step: 10, format: { "\(Int($0)) ms" }, onCommit: store.flush)
+                    }
+                    SettingRow(title: "Raise on hover", detail: "A hovered floating window comes to the front. Off keeps the stacking order.", icon: "square.2.layers.3d.top.filled") {
+                        PillToggle(isOn: store.bool(\.wm.raiseOnHover, "wm.raiseOnHover"), accessibilityLabel: "Raise on hover")
+                    }
+                    HoverFocusDemo(delayMs: store.config.wm.focusFollowsMouseDelayMs)
                 }
             }
             .animation(look.motion.page, value: store.config.wm.cursorFollowsFocus)

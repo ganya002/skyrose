@@ -62,8 +62,9 @@ final class FakeWindow: WindowHandle {
         return origin
     }
 
-    func focus() -> Bool {
+    func focus(raise: Bool) -> Bool {
         focusCount += 1
+        if raise { raiseCount += 1 }
         system?.focusedWindowID = windowID
         system?.queue(.focused(windowID))
         return true

@@ -291,6 +291,18 @@ public final class WindowManager {
     var lastPointerInWindow: [WindowID: CGPoint] = [:]
     /// A warp just happened. Focus and hover caused by that synthetic move are ignored until then.
     var ignorePointerFocusUntil = Date.distantPast
+    /// Focus follows the pointer. The candidate and when the pointer arrived.
+    var hoverFocus = HoverFocus()
+    var hoverTimer: Timer?
+    /// Hover asked to focus this window without bringing it forward. Cleared once focus is applied.
+    var hoverFocusWithoutRaise: WindowID?
+    /// Windows we raised back into place after a no-raise focus. Their focus echoes are ignored.
+    var orderRestoreEcho: Set<WindowID> = []
+    var orderRestoreEchoUntil = Date.distantPast
+    /// Secure Event Input is on (a password field). Hover must not steal focus.
+    var secureInputActive = false
+    /// SkyRose drawers, the launcher, or a bar popout are open.
+    var shellBlocksPointerFocus: () -> Bool = { false }
     /// Moves the pointer. Tests replace it; the real one disconnects the hardware mouse first so
     /// the warp is not a hover and the next physical move is not stuck.
     public var warpCursor: (CGPoint) -> Void = { point in
@@ -780,9 +792,27 @@ public final class WindowManager {
         }
         guard f != systemFocus, effects[f]?.noFocus != true, let handle = handles[f] else { return }
         systemFocus = f
-        handle.focus()
+        let keepOrder = hoverFocusWithoutRaise == f
+        hoverFocusWithoutRaise = nil
+        if keepOrder { focusWithoutRaising(f, handle: handle) } else { handle.focus(raise: true) }
         counters.focusCalls += 1
         warpCursorToFocus()
+    }
+
+    /// macOS raises a window when it becomes focused. Put the windows that were already in front
+    /// back, front-most last, so hover focus does not change the stack.
+    func focusWithoutRaising(_ id: WindowID, handle: any WindowHandle) {
+        let order = CGWindowSnapshot.current(onScreenOnly: true)
+            .filter { $0.alpha >= 0.05 && handles[$0.id] != nil }
+            .map(\.id)
+        handle.focus(raise: false)
+        guard let index = order.firstIndex(of: id), index > 0 else { return }
+        let above = Array(order[..<index])
+        orderRestoreEcho = Set(above)
+        orderRestoreEchoUntil = now().addingTimeInterval(0.2)
+        for other in above.reversed() {
+            handles[other]?.raise()
+        }
     }
 
     /// Keyboard, workspace, close and launcher focus move the pointer. A click, a drag, a held
@@ -803,6 +833,105 @@ public final class WindowManager {
         lastPointerInWindow[id] = point
         warpCursor(point)
         Log.wm.notice("cursor warp #\(id, privacy: .public) \(Int(point.x), privacy: .public),\(Int(point.y), privacy: .public)")
+    }
+
+    /// The pointer moved. Focus follows it after `focusFollowsMouseDelayMs`, unless something else
+    /// owns the pointer. Does not raise a floating window unless `raiseOnHover` is on.
+    public func pointerMoved(at point: CGPoint) {
+        guard isManaging, config.wm.focusFollowsMouse else { return }
+        rememberPointer(point)
+        let delay = TimeInterval(config.wm.focusFollowsMouseDelayMs) / 1000
+        let over = window(at: point)
+        let blocked = hoverBlock(at: point, over: over)
+        let now = self.now().timeIntervalSinceReferenceDate
+        guard let id = hoverFocus.update(over: over, at: now, delay: delay, blocked: blocked) else {
+            armHoverTimer(delay: delay)
+            return
+        }
+        hoverTimer?.invalidate()
+        hoverTimer = nil
+        guard id != state.focusedWindow else { return }
+        let raise = config.wm.raiseOnHover && isFloating(id)
+        hoverFocusWithoutRaise = raise ? nil : id
+        state.recordFocus(id, raise: raise)
+        setNeedsLayout()
+        Log.wm.notice("hover focus #\(id, privacy: .public) raise \(raise, privacy: .public)")
+    }
+
+    /// Fully transparent windows (Hex's invisible system dialogs sit on top of the whole
+    /// screen at alpha 0) are not what the pointer is over. A visible sheet still is, and
+    /// `hoverBlock` refuses to focus it.
+    private var invisibleHoverCache: (at: TimeInterval, ids: Set<WindowID>)?
+
+    func window(at point: CGPoint) -> WindowID? {
+        Self.hoverTarget(at: point, placements: visiblePlacements, skipping: invisibleHoverIDs())
+    }
+
+    func invisibleHoverIDs() -> Set<WindowID> {
+        let t = now().timeIntervalSinceReferenceDate
+        if let cache = invisibleHoverCache, t - cache.at < 0.25 { return cache.ids }
+        let ids = Set(CGWindowSnapshot.current(onScreenOnly: true).filter { $0.alpha < 0.05 }.map(\.id))
+        invisibleHoverCache = (t, ids)
+        return ids
+    }
+
+    static func hoverTarget(
+        at point: CGPoint, placements: [WindowID: Placement], skipping: Set<WindowID>
+    ) -> WindowID? {
+        placements.filter { !$0.value.hidden && $0.value.frame.contains(point) && !skipping.contains($0.key) }
+            .max { a, b in
+                let rank: (Placement.Kind) -> Int = { $0 == .tiled ? 0 : 1 }
+                let ar = rank(a.value.kind), br = rank(b.value.kind)
+                if ar != br { return ar < br }
+                return a.key < b.key
+            }?.key
+    }
+
+    func hoverBlock(at point: CGPoint, over: WindowID?) -> HoverFocus.Block? {
+        if drag != nil || !nativeDrags.isEmpty { return .drag }
+        if windowSystem.isLeftMouseDown { return .button }
+        if now() < ignorePointerFocusUntil { return .warp }
+        if secureInputActive { return .password }
+        if shellBlocksPointerFocus() { return .drawer }
+        if let display = displays.first(where: { $0.frame.contains(point) }),
+           point.y <= display.frame.minY + display.menuBarHeight + 1 { return .menuBar }
+        if let over, let desc = descriptors[over] {
+            if desc.subrole.contains("Menu") || desc.role == "AXMenu" { return .menu }
+            if desc.isDialogLike { return .sheet }
+            if desc.bundleID == "com.skyrose.mac" || desc.bundleID == "com.apple.Spotlight" { return .launcher }
+        }
+        if let focused = state.focusedWindow, focused != over {
+            if let desc = descriptors[focused], desc.isDialogLike || desc.bundleID == "com.apple.Spotlight"
+                || desc.bundleID == "com.skyrose.mac" || desc.subrole.contains("Menu") {
+                return .sheet
+            }
+            if let ws = state.workspace(of: focused),
+               state[ws]?.fullscreen == focused || descriptors[focused]?.isNativeFullscreen == true,
+               state.workspace(of: over ?? 0) != ws {
+                return .otherSpaceFullscreen
+            }
+        }
+        return nil
+    }
+
+    func armHoverTimer(delay: TimeInterval) {
+        guard scheduling == .mainQueue, let since = hoverFocus.since else {
+            hoverTimer?.invalidate()
+            hoverTimer = nil
+            return
+        }
+        let remain = delay - (now().timeIntervalSinceReferenceDate - since)
+        guard remain > 0 else { return }
+        hoverTimer?.invalidate()
+        let wait = max(0.01, remain)
+        let t = Timer(timeInterval: wait, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let point = self.windowSystem.cursorLocation else { return }
+                self.pointerMoved(at: point)
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        hoverTimer = t
     }
 
     /// Remembers where the pointer is, for the next `last` warp. A point from our own warp does not count.
@@ -999,6 +1128,7 @@ public final class WindowManager {
     private func systemFocusChanged(_ id: WindowID?) {
         // A warp can deliver a move. It must not focus whatever that move landed on.
         if let id, now() < ignorePointerFocusUntil, id != state.focusedWindow { return }
+        if let id, now() < orderRestoreEchoUntil, orderRestoreEcho.contains(id) { return }
         // Our own focus() echoes back. The pointer move, if any, already happened in syncFocus.
         if let id, id == state.focusedWindow {
             systemFocus = id

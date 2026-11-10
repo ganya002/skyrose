@@ -83,6 +83,7 @@ public final class EventTap: @unchecked Sendable {
     private var _onFired: (@Sendable ([Fired]) -> Void)?
     private var _onMediaKey: (@Sendable (MediaKeyEvent) -> Void)?
     private var _onLeftMouse: (@Sendable (_ down: Bool, _ location: CGPoint) -> Void)?
+    private var _onPointerMoved: (@Sendable (_ location: CGPoint) -> Void)?
     /// Media keys Caelestia handles itself are swallowed here (before the matcher) and handed to
     /// `onMediaKey`; nil: every media key goes to the matcher and on to macOS.
     public let mediaKeys = MediaKeyInterceptor()
@@ -139,6 +140,13 @@ public final class EventTap: @unchecked Sendable {
     public var onLeftMouse: (@Sendable (_ down: Bool, _ location: CGPoint) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return _onLeftMouse }
         set { lock.lock(); defer { lock.unlock() }; _onLeftMouse = newValue }
+    }
+
+    /// Pointer moved with no button down, on `queue`. Never swallowed. A warp does not call this:
+    /// the warp disconnects the hardware mouse, so it generates no move.
+    public var onPointerMoved: (@Sendable (_ location: CGPoint) -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onPointerMoved }
+        set { lock.lock(); defer { lock.unlock() }; _onPointerMoved = newValue }
     }
 
     /// Secure Event Input went on or off, on `queue`, with the owning app's name when known.
@@ -436,6 +444,15 @@ public final class EventTap: @unchecked Sendable {
             if let cb {
                 let down = type == .leftMouseDown, location = event.location
                 queue.async { cb(down, location) }
+            }
+        }
+        if type == .mouseMoved {
+            lock.lock()
+            let cb = _onPointerMoved
+            lock.unlock()
+            if let cb {
+                let location = event.location
+                queue.async { cb(location) }
             }
         }
         if type.rawValue == Self.systemDefinedEventType, let media = Self.mediaKeyEvent(event),

@@ -363,7 +363,9 @@ public enum ConfigLoader {
         nonNegative(wm.screenFrameInset, "wm.screenFrameInset")
         check(c.frame.displayCornerRadius <= FrameConfig.maxRadius, "frame.displayCornerRadius", "must be at most \(Int(FrameConfig.maxRadius)) (got \(c.frame.displayCornerRadius); negative = auto)")
         check(c.frame.displayBottomCornerRadius <= FrameConfig.maxRadius, "frame.displayBottomCornerRadius", "must be at most \(Int(FrameConfig.maxRadius)) (got \(c.frame.displayBottomCornerRadius); negative = auto)")
-        check(wm.focusFollowsMouseDelayMs >= 0, "wm.focusFollowsMouseDelayMs", "must be >= 0 (got \(wm.focusFollowsMouseDelayMs))")
+        check(
+            (0...5_000).contains(wm.focusFollowsMouseDelayMs), "wm.focusFollowsMouseDelayMs",
+            "must be between 0 and 5000 (got \(wm.focusFollowsMouseDelayMs))")
         check(wm.workspacesPerGroup >= 1, "wm.workspacesPerGroup", "must be >= 1 (got \(wm.workspacesPerGroup))")
         check(wm.workspaceGroups >= 1, "wm.workspaceGroups", "must be >= 1 (got \(wm.workspaceGroups))")
         check(

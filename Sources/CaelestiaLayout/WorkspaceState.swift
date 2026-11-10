@@ -519,11 +519,11 @@ public struct WorkspaceState: Sendable, Hashable, Codable {
     /// focusing a window under an open special closes that special unless the window is pinned).
     /// `unfullscreenOthers` implements `on_focus_under_fullscreen = 2`: another fullscreen or
     /// maximized window on the workspace drops that state.
-    public mutating func recordFocus(_ id: WindowID, unfullscreenOthers: Bool = false) {
+    public mutating func recordFocus(_ id: WindowID, unfullscreenOthers: Bool = false, raise: Bool = true) {
         guard let wsID = workspace(of: id) else { return }
         let display = workspaces[wsID]!.displayID
         workspaces[wsID]!.pushFocus(id)
-        workspaces[wsID]!.raiseFloating(id)
+        if raise { workspaces[wsID]!.raiseFloating(id) }
         if unfullscreenOthers {
             if let f = workspaces[wsID]!.fullscreen, f != id { workspaces[wsID]!.fullscreen = nil }
             if let m = workspaces[wsID]!.maximized, m != id { workspaces[wsID]!.maximized = nil }

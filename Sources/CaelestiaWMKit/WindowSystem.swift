@@ -19,7 +19,9 @@ public protocol WindowHandle: AnyObject {
     @discardableResult func setFrame(_ target: CGRect) -> CGRect
     /// Moves without resizing; returns the origin read back.
     @discardableResult func setPosition(_ origin: CGPoint) -> CGPoint
-    @discardableResult func focus() -> Bool
+    /// Keyboard focus. `raise` false still focuses the window but leaves it under whatever is already
+    /// above it (hover focus, unless `raiseOnHover`).
+    @discardableResult func focus(raise: Bool) -> Bool
     @discardableResult func raise() -> Bool
     @discardableResult func close() -> Bool
     func descriptor() -> WindowDescriptor
@@ -29,6 +31,8 @@ public protocol WindowHandle: AnyObject {
 
 extension WindowHandle {
     public func closeButtonFrame() -> CGRect? { nil }
+    @discardableResult
+    public func focus() -> Bool { focus(raise: true) }
 }
 
 /// What the window system reports to the manager (main thread).

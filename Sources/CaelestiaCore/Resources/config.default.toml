@@ -78,6 +78,8 @@ screenFrameInset = 10
 # Hyprland default follow-mouse focus.
 focusFollowsMouse = true
 focusFollowsMouseDelayMs = 100
+# Hover does not raise a floating window above the others (Hyprland follow_mouse = 1).
+raiseOnHover = false
 # Keyboard focus moves the pointer to that window. Clicks and drags do not.
 cursorFollowsFocus = true
 # "center" (the middle) or "last" (the last point inside that window).
