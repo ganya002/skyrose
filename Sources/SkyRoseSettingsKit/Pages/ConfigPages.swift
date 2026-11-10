@@ -756,6 +756,12 @@ struct ShellPage: View {
                             PillToggle(isOn: store.bool(m.0, m.1), enabled: store.config.shell.enabled, accessibilityLabel: m.2)
                         }
                     }
+                    SettingRow(title: "Bongo cat", detail: "Slaps along with whatever is playing. It listens only while the dashboard is open.", icon: "music.quarternote.3") {
+                        PillToggle(isOn: store.bool(\.dashboard.bongoCat, "dashboard.bongoCat"), enabled: store.config.shell.enabled, accessibilityLabel: "Bongo cat")
+                    }
+                    SettingRow(title: "Lyrics", detail: "Synced lines from LRCLIB, cached on this Mac. Only the track name, artist, album and length are sent.", icon: "text.quote") {
+                        PillToggle(isOn: store.bool(\.dashboard.lyrics, "dashboard.lyrics"), enabled: store.config.shell.enabled, accessibilityLabel: "Lyrics")
+                    }
                 }
                 WeatherSettingsCard(store: store, enabled: store.config.shell.enabled)
             }

@@ -203,6 +203,10 @@ showClockSeconds = true
 showBattery = true
 # "overview", "media", "performance" or "weather".
 defaultTab = "overview"
+# The cat on the media tab. It listens only while the dashboard is open.
+bongoCat = true
+# Synced lyrics from LRCLIB (artist, title, album, duration). Cached locally.
+lyrics = true
 
 # =====================================================================================
 # Weather (dashboard card + Weather tab). Open-Meteo, no API key; pick the city in

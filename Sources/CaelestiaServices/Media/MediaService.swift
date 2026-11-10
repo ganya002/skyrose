@@ -93,6 +93,15 @@ public final class MediaService {
 
     public init() {}
 
+    /// Moves the playing track when Spotify or Music is running. Other players have no seek.
+    public func seek(to seconds: Double) {
+        let player = MediaPlayer.allCases.first { $0.displayName == state.player && $0.isRunning }
+        guard let player else { return }
+        let t = max(0, seconds)
+        let script = "tell application \"\(player.displayName)\" to set player position to \(t)"
+        Task { _ = await scripts.run(script) }
+    }
+
     public func start() {
         guard !running else { return }
         running = true

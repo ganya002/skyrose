@@ -27,6 +27,7 @@ extension ShellController {
         dashboard.onPlayPause = { [weak self] in self?.media.playPause() }
         dashboard.onNext = { [weak self] in self?.media.next() }
         dashboard.onPrevious = { [weak self] in self?.media.previous() }
+        dashboard.onSeek = { [weak self] time in self?.media.seek(to: time) }
 
         sidebar.onDismiss = { [weak self] id in self?.dismissNotification(id) }
         sidebar.onClear = { [weak self] in self?.clearNotifications() }
@@ -103,6 +104,7 @@ extension ShellController {
         info.isPlaying = m.isPlaying; info.position = m.position; info.duration = m.duration
         info.artworkPath = m.artworkURL; info.player = m.player
         if info != state.media { state.media = info }
+        mediaStage.sync(media: info, dashboard: dashboard, config: state.config.dashboard)
     }
 
     private func applyBluetooth(_ b: BluetoothState) {
@@ -140,6 +142,7 @@ extension ShellController {
         present(panel)
         dashboard.shown = true
         media.isObserved = true
+        mediaStage.sync(media: state.media, dashboard: dashboard, config: state.config.dashboard)
         startStatsTimer()
         weatherController.refreshIfStale()
     }
@@ -224,6 +227,8 @@ extension ShellController {
         guard dashboard.shown else { return }
         dashboard.shown = false
         media.isObserved = false
+        mediaStage.stop()
+        dashboard.bongoPaw = nil
         stopStatsTimer()
         dismissAfter(dashboardPanel) { [weak self] in self?.dashboard.shown == false }
     }

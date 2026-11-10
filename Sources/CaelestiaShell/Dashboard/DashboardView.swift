@@ -15,6 +15,11 @@ public final class DashboardModel: ObservableObject {
     public var onPlayPause: () -> Void = {}
     public var onNext: () -> Void = {}
     public var onPrevious: () -> Void = {}
+    public var onSeek: (Double) -> Void = { _ in }
+    /// Which paw is down. Nil is the resting pose.
+    @Published public var bongoPaw: Int?
+    @Published public var lyricLines: [LyricLine] = []
+    @Published public var lyricNote: String = ""
     public init() {}
 }
 
@@ -459,6 +464,10 @@ struct MediaCard: View {
                     .clipShape(CookieShape(bumps: 10, depth: 0.05)).frame(width: 118, height: 118)
             }
             .padding(.top, 14)
+            if state.config.dashboard.bongoCat {
+                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
+                    .frame(width: 72, height: 48)
+            }
             Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
                 .font(theme.sans(15, weight: .semibold)).foregroundStyle(theme[.onSurface]).lineLimit(1)
             Text(m.available ? (m.artist.isEmpty ? "Unknown artist" : m.artist) : "Nothing playing")
@@ -500,6 +509,10 @@ private struct MediaTab: View {
                     .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2)
                 Text(m.available ? m.artist : "Nothing is playing").font(theme.sans(18)).foregroundStyle(theme[.primary]).lineLimit(1)
                 if !m.album.isEmpty { Text(m.album).font(theme.sans(15)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1) }
+                if state.config.dashboard.bongoCat {
+                    BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown).frame(width: 120, height: 72)
+                }
+                if state.config.dashboard.lyrics { lyricList(m) }
                 if m.available {
                     HStack {
                         Text(timeText(m.position)); Spacer(); Text(timeText(m.duration))
@@ -526,6 +539,33 @@ private struct MediaTab: View {
     }
 
     private func timeText(_ s: Double) -> String { String(format: "%d:%02d", Int(s) / 60, Int(s) % 60) }
+
+    @ViewBuilder private func lyricList(_ m: MediaInfo) -> some View {
+        let current = Lyrics.index(of: model.lyricLines, at: m.position)
+        if model.lyricLines.isEmpty {
+            Text(model.lyricNote.isEmpty ? "No lyrics found" : model.lyricNote)
+                .font(theme.sans(13)).foregroundStyle(theme[.onSurfaceVariant])
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(model.lyricLines.enumerated()), id: \.offset) { index, line in
+                            Text(line.text)
+                                .font(theme.sans(index == current ? 16 : 13, weight: index == current ? .semibold : .regular))
+                                .foregroundStyle(index == current ? theme[.primary] : theme[.onSurfaceVariant])
+                                .id(index)
+                                .onTapGesture { model.onSeek(line.time) }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 140)
+                .onChange(of: current) { _, index in
+                    if let index { withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(index, anchor: .center) } }
+                }
+            }
+        }
+    }
 }
 
 // MARK: Performance tab

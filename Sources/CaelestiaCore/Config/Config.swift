@@ -236,6 +236,10 @@ public struct DashboardConfig: Codable, Equatable, Sendable {
     public var showBattery: Bool = true
     /// "overview", "media" or "performance".
     public var defaultTab: String = "overview"
+    /// The media tab's cat, driven by the system audio while the dashboard is open.
+    public var bongoCat: Bool = true
+    /// Synced lyrics from LRCLIB while the dashboard is open.
+    public var lyrics: Bool = true
     public init() {}
 }
 

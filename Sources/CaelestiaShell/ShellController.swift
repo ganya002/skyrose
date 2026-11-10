@@ -97,6 +97,7 @@ public final class ShellController {
     public let liveWallpaper = LiveWallpaperController()
     let wallpaperColors = WallpaperColors()
     public let media = MediaService()
+    let mediaStage = MediaStage()
     public let clipboard = ClipboardSession()
     public let bluetooth = BluetoothService()
     public let keepAwake = KeepAwakeService()

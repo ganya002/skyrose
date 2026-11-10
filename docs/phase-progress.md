@@ -16,7 +16,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
 | 9f. Menu bar off | done | Shown, Auto-hide, Off; peek on Super+Shift+B |
 | 9g. Clipboard history | done | Super+V, images, concealed items skipped |
-| 9h. Bongo cat + lyrics | | |
+| 9h. Bongo cat + lyrics | done | beats from output audio, LRCLIB cache |
 | 9k. Release v0.4.0 | | |
 
 ## Part 9i — rock-solid tiling (done)
@@ -210,6 +210,23 @@ and 32 MB of images.
 
 Tests: `ClipboardHistoryTests` (4): order, repeats, concealed and transient, pause, eviction,
 and deleting an image removes its file. The picker was not opened on this Mac.
+
+## Part 9h — bongo cat and lyrics (done)
+
+The media tab shows a small cat. While the dashboard is open and something is playing, SkyRose
+listens to the system output with ScreenCaptureKit and the cat's paws come down on the beats.
+Closing the dashboard stops that listener. Nothing is playing: the cat sits still. Settings ›
+Bar and Shell can turn the cat off.
+
+Lyrics come from LRCLIB using the artist, title, album and duration. Synced lines are used when
+they exist, otherwise the plain lyric is one line. The result is cached in
+`~/Library/Application Support/SkyRose/lyrics`, which uninstall removes with the rest of
+Application Support. The current line is highlighted and the list scrolls to it. Clicking a
+line seeks Spotify or Music. Settings can turn lyrics off. A miss says "No lyrics found".
+
+Tests: `LyricsTests` (5). LRC times, the line for a clock time, LRCLIB's synced-then-plain
+choice, the cache file, and three clicks in a silent buffer. Not tried live: no track was
+playing, and LRCLIB was not contacted from this Mac.
 
 ## Part 9e — no flash at the end of a shell animation
 
