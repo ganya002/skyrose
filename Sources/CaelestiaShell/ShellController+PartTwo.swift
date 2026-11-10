@@ -58,6 +58,7 @@ extension ShellController {
     }
 
     func startPartTwoServices() {
+        clipboard.start()
         media.onChange = { [weak self] m in self?.applyMedia(m) }
         media.start()
         keepAwake.onChange = { [weak self] on in

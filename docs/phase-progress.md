@@ -15,7 +15,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9d. SIP-off assistant | done | steps for this Mac, copy and QR, no automation |
 | 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
 | 9f. Menu bar off | done | Shown, Auto-hide, Off; peek on Super+Shift+B |
-| 9g. Clipboard history | | |
+| 9g. Clipboard history | done | Super+V, images, concealed items skipped |
 | 9h. Bongo cat + lyrics | | |
 | 9k. Release v0.4.0 | | |
 
@@ -196,6 +196,20 @@ on this Mac: the control was not used, and the mode file was not written.
 
 Tests: menu-bar plan and the mode file round trip, and a display with Off drops the bar inset
 while a notched screen keeps its 32 pt notch.
+
+## Part 9g — clipboard history (done)
+
+Super+V opens a local history. Return pastes into the app that was focused (the panel does not
+take activation, then types ⌘V). Shift+Return copies only. Delete, and Super+Alt+V, remove the
+selected row. Pause and Clear are on the panel. Images are stored as PNG thumbnails in the list.
+
+Items marked `org.nspasteboard.ConcealedType` or `TransientType` are never stored, so password
+managers are skipped. History lives in `~/Library/Application Support/SkyRose/clipboard`.
+Uninstall removes Application Support, and with it the history. The default cap is 50 entries
+and 32 MB of images.
+
+Tests: `ClipboardHistoryTests` (4): order, repeats, concealed and transient, pause, eviction,
+and deleting an image removes its file. The picker was not opened on this Mac.
 
 ## Part 9e — no flash at the end of a shell animation
 

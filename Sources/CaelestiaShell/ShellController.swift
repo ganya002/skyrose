@@ -97,6 +97,7 @@ public final class ShellController {
     public let liveWallpaper = LiveWallpaperController()
     let wallpaperColors = WallpaperColors()
     public let media = MediaService()
+    public let clipboard = ClipboardSession()
     public let bluetooth = BluetoothService()
     public let keepAwake = KeepAwakeService()
     /// Lid state + the optional lid-closed keep-awake (`[clamshell]`).
@@ -923,6 +924,9 @@ public final class ShellController {
         case .notifsClear: clearNotifications()
         case .notifyTest:
             notify(title: "Test notification", body: "Sent from the keybind. Notifications from SkyRose appear here.", app: "skyrose-shell", icon: "info")
+        case .clipboardOpen: clipboard.toggle()
+        case .clipboardDelete: clipboard.deleteSelected()
+        case .clipboardTypeLatest: clipboard.pasteNewest()
         case .menuBarPeek:
             SystemMenuBar.peek()
         case .shellKill: stop()
