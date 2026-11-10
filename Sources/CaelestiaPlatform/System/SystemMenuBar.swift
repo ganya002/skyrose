@@ -38,6 +38,7 @@ public enum SystemMenuBar {
 
     /// Shows a hidden bar, then hides it again. A second peek restarts the wait.
     public static func peek(tweaks: SystemTweaks = SystemTweaks(), seconds: TimeInterval = peekSeconds) {
+        MenuBarOverride.peek(seconds: seconds)
         let hidden = tweaks.isOn(.menuBarAutoHide)
         guard hidden || peekPending else { return }
         if hidden {

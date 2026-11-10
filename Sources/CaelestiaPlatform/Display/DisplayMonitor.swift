@@ -25,6 +25,7 @@ public final class DisplayMonitor: NSObject {
     /// Takes the first snapshot and starts observing.
     public func start() {
         refresh(notify: false)
+        MenuBarOverride.onChange = { [weak self] in self?.refresh() }
         let workspace = NSWorkspace.shared.notificationCenter
         let distributed = DistributedNotificationCenter.default()
         observe(NotificationCenter.default, NSApplication.didChangeScreenParametersNotification)
@@ -59,7 +60,7 @@ public final class DisplayMonitor: NSObject {
     /// Facts for every connected screen, primary first.
     public static func currentScreens() -> [DisplayGeometry.ScreenFacts] {
         let autoHides = UserDefaults.standard.bool(forKey: "_HIHideMenuBar")
-        let off = MenuBarChoiceStore.read(MenuBarChoiceStore.file(in: Paths.appSupport)) == .off
+        let off = MenuBarOverride.isHidden || MenuBarChoiceStore.read(MenuBarChoiceStore.file(in: Paths.appSupport)) == .off
         return NSScreen.screens.map { screen in
             let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
             let displayID = number?.uint32Value ?? 0

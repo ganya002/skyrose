@@ -240,6 +240,7 @@ opacity = true             # wm.windowOpacity on non-fullscreen windows
 shadows = true             # false removes other apps' window shadows
 instantWorkspaces = true   # instant workspace switches, no slide
 pinOnTop = true            # pinned windows really stay on top
+hideMenuBar = true         # Apple's menu bar is gone, even at the top edge
 
 # =====================================================================================
 # Screenshots (skyrose screenshot region|freeze|window|full, Print/F13 binds)

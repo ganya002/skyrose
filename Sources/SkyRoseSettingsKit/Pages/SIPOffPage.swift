@@ -83,6 +83,7 @@ struct SIPOffPage: View {
                     feature("Window shadows", "Off removes the macOS shadow from other apps' windows.", "shadow", \.sipOff.shadows, "sipOff.shadows")
                     feature("Instant workspaces", "Switch workspaces at once, without the slide.", "bolt", \.sipOff.instantWorkspaces, "sipOff.instantWorkspaces")
                     feature("Pinned windows on top", "A pinned window really stays above the others.", "pin", \.sipOff.pinOnTop, "sipOff.pinOnTop")
+                    feature("No menu bar", "Apple's menu bar is gone, even at the top edge. Super+Shift+B still shows it for 5 seconds.", "menubar.rectangle", \.sipOff.hideMenuBar, "sipOff.hideMenuBar")
                 }
             }
             .animation(look.motion.page, value: store.config.sipOff.enabled)

@@ -262,6 +262,8 @@ public struct SIPOffConfig: Codable, Equatable, Sendable {
     public var instantWorkspaces: Bool = true
     /// Pinned windows are really always on top (floating window level).
     public var pinOnTop: Bool = true
+    /// Apple's menu bar is gone, even at the top edge. The peek shortcut still shows it.
+    public var hideMenuBar: Bool = true
     public init() {}
 }
 

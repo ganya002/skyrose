@@ -1390,6 +1390,7 @@ public final class WindowManager {
     /// that drifted. Idempotent when everything is already in place.
     public func noteSessionEvent(_ reason: String) {
         guard isManaging else { return }
+        MenuBarOverride.reassert()
         let before = managedWindowIDs.count
         adoptStrays()
         var drifted: [WindowID] = []

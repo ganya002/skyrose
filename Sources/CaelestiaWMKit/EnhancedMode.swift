@@ -31,6 +31,9 @@ public final class EnhancedMode {
     private var switchHidden: Set<CGWindowID> = []
     private var fullscreen: Set<CGWindowID> = []
     let manifest: RestoreManifest?
+    /// Tests replace it.
+    var applyMenuBar: (Bool) -> Void = { MenuBarOverride.set(hidden: $0) }
+    private var menuBarHidden = false
 
     public private(set) lazy var animator = EnhancedWindowAnimator(mode: self)
 
@@ -43,6 +46,7 @@ public final class EnhancedMode {
 
     public var canAnimate: Bool { active && config.animations && capabilities.contains(.transform) && capabilities.contains(.alpha) }
     public var instantWorkspaces: Bool { active && config.instantWorkspaces && capabilities.contains(.alpha) }
+    public var hidesMenuBar: Bool { active && config.hideMenuBar }
     public var status: String {
         if !config.enabled { return "off" }
         if !active { return "waiting for the scripting addition" }
@@ -60,6 +64,7 @@ public final class EnhancedMode {
             if active || client.isConnected { deactivate(reset: true) }
             probeTimer?.invalidate()
             probeTimer = nil
+            syncMenuBar()
             return
         }
         if !active { probe() }
@@ -76,6 +81,13 @@ public final class EnhancedMode {
             forgetSent()
             onChange?()
         }
+        syncMenuBar()
+    }
+
+    private func syncMenuBar() {
+        guard hidesMenuBar != menuBarHidden else { return }
+        menuBarHidden = hidesMenuBar
+        applyMenuBar(menuBarHidden)
     }
 
     /// Tries the socket; switches on when the SA answers.
@@ -84,6 +96,7 @@ public final class EnhancedMode {
         active = true
         capabilities = hello.capabilities
         forgetSent()
+        syncMenuBar()
         Log.wm.notice("SIP-off mode: scripting addition v\(hello.version, privacy: .public) loaded (\(hello.capabilities.names.joined(separator: ","), privacy: .public))")
         if !recordedUse {
             recordedUse = true
@@ -109,6 +122,7 @@ public final class EnhancedMode {
         active = false
         capabilities = []
         forgetSent()
+        syncMenuBar()
         if was {
             Log.wm.notice("SIP-off mode: scripting addition gone, back to the SIP-on paths")
             onChange?()

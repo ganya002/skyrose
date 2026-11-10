@@ -79,7 +79,9 @@ After this SkyRose falls back to Standard mode automatically; nothing else needs
   move: ζ 0.72; the WM's close action: shrink + fade 180 ms, then close). Instant workspaces:
   windows get alpha 0 just before being parked / unparked and their alpha back 60 ms later;
   the slide is skipped. Opacity: `wm.windowOpacity` on non-fullscreen windows. Pinned windows:
-  floating window level. `[sipOff]` switches each feature.
+  floating window level. Menu bar (`hideMenuBar`, on by default): Apple's menu bar is gone, even
+  at the top edge, while the helper answers. `menuBar.peek` (Super+Shift+B) shows it for 5 seconds.
+  No macOS setting is written, and quitting SkyRose brings it back. `[sipOff]` switches each feature.
 
 ## Window animation hook
 

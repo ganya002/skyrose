@@ -161,6 +161,27 @@ final class EnhancedModeTests: XCTestCase {
         return (EnhancedMode(client: SAClient(path: server.path), manifest: manifest), manifest)
     }
 
+    func testTheMenuBarIsGoneOnlyWhileTheHelperAnswersAndTheSwitchIsOn() {
+        let (mode, _) = makeMode()
+        var sent: [Bool] = []
+        mode.applyMenuBar = { sent.append($0) }
+        XCTAssertTrue(Config().sipOff.hideMenuBar)
+        mode.apply(config: config(enabled: true))
+        XCTAssertEqual(sent, [], "no helper yet: SIP-on behaviour")
+        server.start()
+        mode.apply(config: config(enabled: true))
+        XCTAssertTrue(mode.active)
+        XCTAssertEqual(sent, [true])
+        var off = config(enabled: true)
+        off.sipOff.hideMenuBar = false
+        mode.apply(config: off)
+        XCTAssertEqual(sent, [true, false], "the switch brings it back at once")
+        mode.apply(config: config(enabled: true))
+        XCTAssertEqual(sent, [true, false, true])
+        mode.shutdown()
+        XCTAssertEqual(sent, [true, false, true, false], "quit and panic bring it back")
+    }
+
     func testOffByDefaultAndWithoutTheSA() {
         XCTAssertFalse(Config().sipOff.enabled, "opt-in")
         let (mode, manifest) = makeMode()
