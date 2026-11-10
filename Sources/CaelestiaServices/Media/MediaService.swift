@@ -49,29 +49,29 @@ public enum MediaPlayer: String, CaseIterable, Sendable {
     }
 }
 
-/// Now-playing + transport control without private frameworks.
+/// Now-playing + transport control.
 ///
-/// macOS 15.4+ restricts `MediaRemote` (the framework behind the system "Now Playing" widget) to
-/// Apple-entitled processes, so a general now-playing feed is not available to this app. This
-/// service therefore reads **Spotify** and **Music** through AppleScript (Automation permission,
-/// prompted per app the first time) and shows `unavailableReason` when neither runs:
-/// "MediaRemote restricted on macOS 15.4+; using AppleScript for Spotify/Music".
+/// Spotify and Music are read through AppleScript (Automation permission, prompted per app the
+/// first time). Anything else that macOS reports in Now Playing, such as YouTube Music in a browser,
+/// comes from ``SystemNowPlaying``, because macOS 15.4+ keeps `MediaRemote` from ordinary apps.
 ///
 /// Players are never launched: `NSRunningApplication` is checked before any Apple event.
 /// Updates arrive instantly from the players' own distributed notifications
 /// (`com.spotify.client.PlaybackStateChanged`, `com.apple.Music.playerInfo`); the 2 s position
 /// refresh runs only while `isObserved` (the dashboard/media tab is open). Transport controls use
-/// AppleScript when a player runs and otherwise post the NX media keys through `postMediaKey`,
+/// AppleScript for those two and otherwise post the NX media keys through `postMediaKey`,
 /// which the WM may replace with its own event-tap poster.
 @MainActor
 public final class MediaService {
-    public static let mediaRemoteNote = "MediaRemote restricted on macOS 15.4+; using AppleScript for Spotify/Music"
+    public static let mediaRemoteNote = "Nothing is playing"
     public static let refreshInterval: TimeInterval = 2
 
     public private(set) var state = MediaState()
     public var onChange: ((MediaState) -> Void)?
     /// Media key poster used when no scriptable player is running.
     public var postMediaKey: (MediaKeyKind) -> Void = { MediaKeyPoster.post($0) }
+    /// Reads the system Now Playing item. Tests replace it.
+    var readSystemNowPlaying: () async -> MediaState? = { await SystemNowPlaying.read() }
 
     /// Set by the shell while the media card/tab is visible: enables the 2 s refresh.
     public var isObserved: Bool = false {
@@ -153,7 +153,9 @@ public final class MediaService {
     private enum Transport { case playPause, next, previous, stop }
 
     private func control(_ command: Transport) {
-        guard let player = activePlayer else {
+        // The track on screen came from a browser or another player: the media key reaches it.
+        let showingOther = !state.playerBundleID.isEmpty && MediaPlayer(rawValue: state.playerBundleID) == nil
+        guard !showingOther, let player = activePlayer else {
             switch command {
             case .playPause, .stop: postMediaKey(.play)
             case .next: postMediaKey(.next)
@@ -181,26 +183,37 @@ public final class MediaService {
 
     // MARK: Refresh
 
-    /// Re-reads the active player with AppleScript (off the main thread).
+    /// Re-reads the players (off the main thread). A scriptable player that is playing wins.
+    /// Otherwise the system Now Playing item does: that is a browser tab or any other player.
     public func refresh() {
-        guard let player = activePlayer else {
-            var s = MediaState()
-            s.unavailableReason = Self.mediaRemoteNote
-            publish(s)
-            return
-        }
+        let player = activePlayer
         Task { [weak self] in
             guard let self else { return }
-            let result = await self.scripts.run(Self.statusScript(for: player))
-            switch result {
-            case .success(let value):
-                var s = Self.parseStatus(value, player: player, previous: self.state)
-                if player == .music {
-                    s.artworkURL = await self.musicArtwork(for: s)
+            var scripted: MediaState?
+            var failure: AppleScriptRunner.Failure?
+            if let player {
+                switch await self.scripts.run(Self.statusScript(for: player)) {
+                case .success(let value):
+                    var s = Self.parseStatus(value, player: player, previous: self.state)
+                    if player == .music { s.artworkURL = await self.musicArtwork(for: s) }
+                    scripted = s
+                case .failure(let error):
+                    failure = error
                 }
+            }
+            if scripted?.isPlaying != true, let system = await self.readSystemNowPlaying(),
+               system.isPlaying || scripted?.available != true {
+                self.publish(system)
+                return
+            }
+            if let scripted {
+                self.publish(scripted)
+            } else if let failure, let player {
+                self.note(error: failure, player: player)
+            } else {
+                var s = MediaState()
+                s.unavailableReason = Self.mediaRemoteNote
                 self.publish(s)
-            case .failure(let error):
-                self.note(error: error, player: player)
             }
         }
     }

@@ -522,7 +522,7 @@ private struct MediaTab: View {
                     ProgressView(value: min(1, max(0, m.duration > 0 ? m.position / m.duration : 0))).tint(theme[.primary])
                     Text("Playing in \(m.player)").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
                 } else {
-                    Text("macOS only lets Apple's own processes read the system Now Playing feed, so SkyRose reads Spotify and Music directly. Start one of them to see it here.")
+                    Text("Start something in Spotify, Music, or a browser to see it here.")
                         .font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
                 }
                 HStack(spacing: 12) {
