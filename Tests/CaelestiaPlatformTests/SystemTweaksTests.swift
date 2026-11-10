@@ -113,4 +113,54 @@ final class SystemTweaksTests: XCTestCase {
         XCTAssertEqual(SystemTweak.all.map(\.id), [.dockAutoHide, .menuBarAutoHide])
         XCTAssertTrue(SystemTweak.all.allSatisfy(\.recommended))
     }
+    // MARK: Apple menu bar choice
+
+    private var menuDirectory: URL { journalURL.deletingPathExtension() }
+    private var hideFlag: Any? { store.values["NSGlobalDomain/_HIHideMenuBar"] }
+
+    @MainActor func testMenuBarWithNoSavedChoiceReportsWhatMacOSIsDoing() {
+        XCTAssertEqual(SystemMenuBar.current(tweaks: tweaks, directory: menuDirectory), .shown)
+        store.values["NSGlobalDomain/_HIHideMenuBar"] = true
+        XCTAssertEqual(SystemMenuBar.current(tweaks: tweaks, directory: menuDirectory), .auto)
+    }
+
+    @MainActor func testMenuBarChoiceSurvivesARestartAndYieldsToSystemSettings() throws {
+        try SystemMenuBar.apply(.off, tweaks: tweaks, directory: menuDirectory)
+        XCTAssertEqual(hideFlag as? Bool, true)
+        XCTAssertEqual(SystemMenuBar.current(tweaks: tweaks, directory: menuDirectory), .off, "read back from disk")
+        store.values["NSGlobalDomain/_HIHideMenuBar"] = false
+        XCTAssertEqual(SystemMenuBar.current(tweaks: tweaks, directory: menuDirectory), .shown)
+    }
+
+    @MainActor func testAutoHideToOffStillTellsTheWindowManager() throws {
+        try SystemMenuBar.apply(.auto, tweaks: tweaks, directory: menuDirectory)
+        activations = []
+        let writes = store.writes
+        try SystemMenuBar.apply(.off, tweaks: tweaks, directory: menuDirectory)
+        XCTAssertEqual(store.writes, writes, "the flag is already right")
+        XCTAssertEqual(activations.count, 1, "the layout inset changed even though the flag did not")
+        XCTAssertEqual(MenuBarChoiceStore.read(MenuBarChoiceStore.file(in: menuDirectory)), .off)
+    }
+
+    @MainActor func testPeekPutsAutoHideBackEvenWithNoSavedChoice() {
+        store.values["NSGlobalDomain/_HIHideMenuBar"] = true
+        SystemMenuBar.peek(tweaks: tweaks, seconds: 0.05)
+        XCTAssertEqual(hideFlag as? Bool, false, "shown during the peek")
+        RunLoop.main.run(until: Date().addingTimeInterval(0.25))
+        XCTAssertEqual(hideFlag as? Bool, true, "hidden again")
+    }
+
+    @MainActor func testPeekLeavesAShownBarAlone() {
+        SystemMenuBar.peek(tweaks: tweaks, seconds: 0.05)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        XCTAssertEqual(store.writes, 0)
+    }
+
+    @MainActor func testAChoiceMadeDuringAPeekIsNotUndoneByIt() throws {
+        store.values["NSGlobalDomain/_HIHideMenuBar"] = true
+        SystemMenuBar.peek(tweaks: tweaks, seconds: 0.05)
+        try SystemMenuBar.apply(.shown, tweaks: tweaks, directory: menuDirectory)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        XCTAssertEqual(hideFlag as? Bool, false)
+    }
 }
