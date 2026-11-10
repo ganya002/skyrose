@@ -128,8 +128,10 @@ private final class OutputTap: NSObject, SCStreamOutput, @unchecked Sendable {
 
     init(onSamples: @escaping @Sendable ([Float], Double) -> Void) { self.onSamples = onSamples }
 
+    private var stopped = false
+
     func start() async {
-        guard stream == nil else { return }
+        guard stream == nil, !stopped else { return }
         guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true),
               let display = content.displays.first else { return }
         let filter = SCContentFilter(display: display, excludingWindows: [])
@@ -144,10 +146,16 @@ private final class OutputTap: NSObject, SCStreamOutput, @unchecked Sendable {
         let stream = SCStream(filter: filter, configuration: cfg, delegate: nil)
         try? stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: queue)
         try? await stream.startCapture()
+        // Closed while the capture was starting: it must not keep listening.
+        if stopped {
+            try? await stream.stopCapture()
+            return
+        }
         self.stream = stream
     }
 
     func stop() {
+        stopped = true
         let stream = stream
         self.stream = nil
         Task { try? await stream?.stopCapture() }
