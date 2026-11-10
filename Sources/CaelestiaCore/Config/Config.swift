@@ -126,6 +126,11 @@ public struct WMConfig: Codable, Equatable, Sendable {
     public var dwindle: DwindleConfig = DwindleConfig()
     public var focusFollowsMouse: Bool = true
     public var focusFollowsMouseDelayMs: Int = 100
+    /// Keyboard focus moves the pointer onto the newly focused window. A click, a drag, or a
+    /// hover does not: the pointer is already there, and warping it would loop.
+    public var cursorFollowsFocus: Bool = true
+    /// `center` warps to the middle. `last` returns to the last point inside that window.
+    public var cursorWarpMode: CursorWarpMode = .center
     /// Hyprland input.focus_on_close = 1: focus the window under the cursor after a close.
     public var focusOnCloseUnderCursor: Bool = true
     /// Clicking the red close button on an app's last window quits the app (a normal quit, so

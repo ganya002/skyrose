@@ -363,6 +363,19 @@ struct WindowsPage: View {
                 }
             }
             .animation(look.motion.page, value: store.config.wm.bordersEnabled)
+            Card {
+                SectionLabel(text: "Pointer")
+                SettingRow(title: "Cursor follows focus", detail: "Keyboard focus moves the pointer onto that window. A click or a drag leaves it where it is.", icon: "cursorarrow") {
+                    PillToggle(isOn: store.bool(\.wm.cursorFollowsFocus, "wm.cursorFollowsFocus"), accessibilityLabel: "Cursor follows focus")
+                }
+                if store.config.wm.cursorFollowsFocus {
+                    SettingRow(title: "Warp to", detail: "The middle of the window, or the last point the pointer was inside it.", icon: "scope") {
+                        PillSegmented(options: [(CursorWarpMode.center, "Centre", nil), (.last, "Last spot", nil)],
+                                      selection: store.binding(\.wm.cursorWarpMode, "wm.cursorWarpMode") { .string($0.rawValue) })
+                    }
+                }
+            }
+            .animation(look.motion.page, value: store.config.wm.cursorFollowsFocus)
             CloseQuitsCard(store: store)
             Card {
                 SectionLabel(text: "Motion")

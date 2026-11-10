@@ -287,6 +287,17 @@ public final class WindowManager {
     var debugOverlayEnabled = false
     /// The focused window as of the last applied layout pass (what the screen shows).
     var focusShown: WindowID?
+    /// Last pointer position inside each window, for `cursorWarpMode = last`.
+    var lastPointerInWindow: [WindowID: CGPoint] = [:]
+    /// A warp just happened. Focus and hover caused by that synthetic move are ignored until then.
+    var ignorePointerFocusUntil = Date.distantPast
+    /// Moves the pointer. Tests replace it; the real one disconnects the hardware mouse first so
+    /// the warp is not a hover and the next physical move is not stuck.
+    public var warpCursor: (CGPoint) -> Void = { point in
+        CGAssociateMouseAndMouseCursorPosition(0)
+        CGWarpMouseCursorPosition(point)
+        CGAssociateMouseAndMouseCursorPosition(1)
+    }
     let scheduling: LayoutScheduling
     let now: () -> Date
     let startDate: Date
@@ -771,6 +782,34 @@ public final class WindowManager {
         systemFocus = f
         handle.focus()
         counters.focusCalls += 1
+        warpCursorToFocus()
+    }
+
+    /// Keyboard, workspace, close and launcher focus move the pointer. A click, a drag, a held
+    /// button, or a window on a display the user cannot see does not.
+    func warpCursorToFocus() {
+        guard config.wm.cursorFollowsFocus, drag == nil, nativeDrags.isEmpty else { return }
+        guard !windowSystem.isLeftMouseDown, now() >= ignorePointerFocusUntil else { return }
+        guard let id = state.focusedWindow else { return }
+        let frame = visiblePlacements[id]?.frame ?? handles[id]?.frame ?? .null
+        let cursor = windowSystem.cursorLocation
+        if let cursor { rememberPointer(cursor) }
+        guard let point = CursorWarp.destination(
+            frame: frame, mode: config.wm.cursorWarpMode, lastInside: lastPointerInWindow[id],
+            cursor: cursor, mouseDown: false, dragging: false,
+            enabled: true, onVisibleDisplay: displays.contains { $0.frame.intersects(frame) }
+        ) else { return }
+        ignorePointerFocusUntil = now().addingTimeInterval(0.08)
+        lastPointerInWindow[id] = point
+        warpCursor(point)
+        Log.wm.notice("cursor warp #\(id, privacy: .public) \(Int(point.x), privacy: .public),\(Int(point.y), privacy: .public)")
+    }
+
+    /// Remembers where the pointer is, for the next `last` warp. A point from our own warp does not count.
+    func rememberPointer(_ point: CGPoint) {
+        guard now() >= ignorePointerFocusUntil else { return }
+        guard let id = visiblePlacements.first(where: { $0.value.frame.contains(point) })?.key else { return }
+        lastPointerInWindow[id] = point
     }
 
     // MARK: - Displays
@@ -958,7 +997,13 @@ public final class WindowManager {
     }
 
     private func systemFocusChanged(_ id: WindowID?) {
-        systemFocus = id
+        // A warp can deliver a move. It must not focus whatever that move landed on.
+        if let id, now() < ignorePointerFocusUntil, id != state.focusedWindow { return }
+        // Our own focus() echoes back. The pointer move, if any, already happened in syncFocus.
+        if let id, id == state.focusedWindow {
+            systemFocus = id
+            return
+        }
         if let id { adoptIfManageable(id) }
         guard let id, isManaged(id), id != state.focusedWindow else { return }
         if parked[id] != nil, now().timeIntervalSince(lastWorkspaceChange) < Self.focusGuardInterval { return }
@@ -1295,6 +1340,7 @@ public final class WindowManager {
     /// The left button went down at `location` (event tap, main thread).
     public func pointerPressed(at location: CGPoint?) {
         lastPointerPress = location
+        if let location { rememberPointer(location) }
         if config.wm.closeQuitsApp, let location { noteCloseButtonPress(at: location) }
     }
 
@@ -1351,6 +1397,7 @@ public final class WindowManager {
 
     /// The left button was released: every native drag of a tiled window ends.
     public func pointerReleased(at location: CGPoint?) {
+        if let location { rememberPointer(location) }
         guard !nativeDrags.isEmpty else { return }
         for id in nativeDrags.keys.sorted() { finishNativeDrag(id, at: location) }
     }

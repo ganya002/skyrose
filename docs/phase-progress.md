@@ -9,7 +9,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9i. Rock-solid tiling | done | "Phase 9 part 9i" |
 | 9j. Smooth live resize | redone, recorded | speed fix, then Glide restored as the default |
 | 9j2. Window borders | done, corners checked live | per-window SkyLight radii, even stroke |
-| 9a. Cursor follows focus | | |
+| 9a. Cursor follows focus | done, live | keyboard focus warps to the window centre |
 | 9b. Focus follows mouse | | |
 | 9c. Easy setup | | |
 | 9d. SIP-off assistant | | |
@@ -105,6 +105,19 @@ Firefox, kitty, Safari, Finder, TestWindows. Shots in `/tmp/b-tl.png`, `/tmp/b-t
 `/tmp/corner-kitty-tl.png`, `/tmp/corner-kitty-tr.png`, `/tmp/corner-safari-br.png`,
 `/tmp/corner-finder-tl.png`, `/tmp/corner-finder-tr.png`, `/tmp/corner-test-wide.png`.
 Radius fitter tests: 5 passed. Not checked on an external display (none is attached).
+
+## Part 9a — cursor follows focus (done)
+
+Keyboard, workspace, close and launcher focus move the pointer to the newly focused window.
+`cursorFollowsFocus` defaults on. `cursorWarpMode` is `center` (the middle) or `last` (the last
+point inside that window). A click, a held button, a drag, a window that is not on a visible
+display, or a pointer that is already inside the window does not warp. The warp disconnects the
+hardware mouse (`CGAssociateMouseAndMouseCursorPosition`), moves, then reconnects, and ignores
+focus changes from that synthetic move for 80 ms.
+
+Live: Firefox centred at 413,494 and a kitty centred at 1108,494. `window focus left` logged
+`cursor warp #233 412,494`. `window focus right` logged `cursor warp #835 1107,494`. The pointer
+read back on those windows. Tests: `CursorWarpTests` (5), `CursorFollowsFocusTests` (4).
 
 ## Part 9e — no flash at the end of a shell animation
 

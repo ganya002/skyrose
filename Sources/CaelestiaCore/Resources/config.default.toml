@@ -78,6 +78,10 @@ screenFrameInset = 10
 # Hyprland default follow-mouse focus.
 focusFollowsMouse = true
 focusFollowsMouseDelayMs = 100
+# Keyboard focus moves the pointer to that window. Clicks and drags do not.
+cursorFollowsFocus = true
+# "center" (the middle) or "last" (the last point inside that window).
+cursorWarpMode = "center"
 # input.lua focus_on_close = 1: focus the window under the cursor after a close.
 focusOnCloseUnderCursor = true
 # SkyRose: the red close button on an app's last window quits the app (opt-in). A normal quit
