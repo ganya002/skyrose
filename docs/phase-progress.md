@@ -12,7 +12,7 @@ Order for this run: 9i, 9j, then 9a–9h, then 9k.
 | 9a. Cursor follows focus | done, live | keyboard focus warps to the window centre |
 | 9b. Focus follows mouse | done, live | hover focuses after the delay and does not raise |
 | 9c. Easy setup | done | one tour, Use recommended, doctor --fix, one Install button |
-| 9d. SIP-off assistant | | |
+| 9d. SIP-off assistant | done | steps for this Mac, copy and QR, no automation |
 | 9e. End-of-animation flash | done, recorded | hide stays at alpha 0 until ordered out |
 | 9f. Menu bar off | | |
 | 9g. Clipboard history | | |
@@ -171,6 +171,17 @@ the installer again.
 
 Tests: `SetupFlowTests` (5), `OnboardingTests` (7). The button was not clicked on this Mac, and
 `doctor --fix` was not run against Gabby's config, Dock, cursor or wallpaper.
+
+## Part 9d — SIP-off assistant (done)
+
+Settings › SIP-off mode walks through only the steps this Mac needs. Apple Silicon gets the
+`nvram` boot argument. Intel does not. Each command has a Copy button, and a QR code holds
+those commands so they can be read on a phone while the Mac is in Recovery. The red box says
+this lowers security, that school Macs often forbid it, and that SkyRose works with SIP fully
+on. After a reboot the existing status rows update by themselves. SkyRose does not open
+Recovery, does not run `csrutil`, and does not change NVRAM.
+
+Tests: `SIPAssistantTests` (3). Nothing on this Mac's SIP or boot arguments was changed.
 
 ## Part 9e — no flash at the end of a shell animation
 

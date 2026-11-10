@@ -1,6 +1,7 @@
 import AppKit
 import CaelestiaCore
 import CaelestiaPlatform
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 /// Settings › SIP-off mode: status, the sudo line that loads the scripting addition, the opt-in
@@ -85,6 +86,7 @@ struct SIPOffPage: View {
                 }
             }
             .animation(look.motion.page, value: store.config.sipOff.enabled)
+            SIPAssistantCard(readiness: readiness, loader: loadCommand)
             Card {
                 SectionLabel(text: "Turning SIP back on")
                 Text("1. Shut down, hold the power button until “Loading startup options”, choose Options › Continue.\n2. Utilities › Terminal: csrutil enable, then restart.\n3. In Terminal: sudo nvram -d boot-args, then restart.\nSkyRose switches back to its normal behaviour by itself; `skyrose wm panic` undoes every window change at once.")
@@ -114,7 +116,77 @@ struct SIPOffPage: View {
         }
     }
 
-    private func feature(_ title: String, _ detail: String, _ icon: String, _ key: WritableKeyPath<Config, Bool>, _ path: String) -> some View {
+}
+
+/// The steps for this Mac. Copy, or scan the code on a phone while the Mac is in Recovery.
+/// SkyRose does not run any of these commands.
+struct SIPAssistantCard: View {
+    var readiness: SIPOffReadiness
+    var loader: String?
+    @Environment(\.look) var look
+    @State private var copied = ""
+
+    var enabling: [SIPAssistantStep] { SIPAssistant.enable(appleSilicon: readiness.appleSilicon, loader: loader) }
+
+    var body: some View {
+        Card {
+            SectionLabel(text: readiness.appleSilicon ? "Walkthrough for this Apple Silicon Mac" : "Walkthrough for this Intel Mac")
+            Text(SIPAssistant.risk).font(look.font(12.5)).foregroundStyle(look[.onErrorContainer])
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(look[.errorContainer]))
+            Text(readiness.ready
+                 ? "This Mac already has the protections this mode needs. After a reboot, the status above updates by itself."
+                 : "After each restart, this page updates by itself. SkyRose never opens Recovery and never changes SIP.")
+                .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+            ForEach(Array(enabling.enumerated()), id: \.element.id) { index, step in
+                stepRow(index + 1, step)
+            }
+            if let image = SIPCode.image(SIPAssistant.script(enabling)) {
+                HStack(alignment: .center, spacing: 14) {
+                    Image(nsImage: image).interpolation(.none).frame(width: 96, height: 96)
+                    Text("Scan this with your phone before you restart. It is only the commands above, so you can read them while the Mac is in Recovery.")
+                        .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    func stepRow(_ n: Int, _ step: SIPAssistantStep) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(n). \(step.title)").font(look.font(13.5, .semibold)).foregroundStyle(look[.onSurface])
+            Text(step.detail).font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+            if let command = step.command {
+                HStack {
+                    Text(command).font(look.mono(11)).foregroundStyle(look[.onSurface]).textSelection(.enabled)
+                    Spacer()
+                    PillButton(title: copied == command ? "Copied" : "Copy", icon: "doc.on.doc", kind: .outline) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(command, forType: .string)
+                        copied = command
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum SIPCode {
+    static func image(_ text: String) -> NSImage? {
+        guard !text.isEmpty else { return nil }
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(text.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return nil }
+        let rep = NSCIImageRep(ciImage: output)
+        let image = NSImage(size: rep.size)
+        image.addRepresentation(rep)
+        return image
+    }
+}
+
+private extension SIPOffPage {
+    func feature(_ title: String, _ detail: String, _ icon: String, _ key: WritableKeyPath<Config, Bool>, _ path: String) -> some View {
         SettingRow(title: title, detail: detail, icon: icon) {
             PillToggle(isOn: store.bool(key, path), accessibilityLabel: title)
         }
