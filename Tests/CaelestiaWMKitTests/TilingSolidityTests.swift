@@ -106,6 +106,14 @@ final class TilingSolidityTests: XCTestCase {
         assertSolid(h, "wake")
     }
 
+    func testABorderFollowsTheWholePointWindowNotAHalfPointLayout() {
+        let frame = CGRect(x: 71.5, y: 53.5, width: 682, height: 881)
+        let placement = Placement(window: 1, frame: frame, borderFrame: frame.insetBy(dx: -1.5, dy: -1.5), kind: .tiled)
+        let window = WindowManager.whereMacOSPuts(frame)
+        XCTAssertEqual(window, CGRect(x: 72, y: 54, width: 682, height: 881))
+        XCTAssertEqual(WindowManager.border(around: window, matching: placement), window.insetBy(dx: -1.5, dy: -1.5))
+    }
+
     func testAHiddenWindowThatCameBackOnScreenIsParkedAgain() {
         let h = Harness()
         let a = h.system.existing("a")

@@ -565,7 +565,7 @@ public final class WindowManager {
         for id in handles.keys.sorted() {
             guard let handle = handles[id], let wsID = state.workspace(of: id) else { continue }
             if let p = visible[id] {
-                if p.kind != .fullscreen, p.borderFrame != p.frame, decorated(id) { borders[id] = p.borderFrame }
+                if p.kind != .fullscreen, p.borderFrame != p.frame, decorated(id) { borders[id] = Self.border(around: Self.whereMacOSPuts(p.frame), matching: p) }
                 let wasParked = parked[id] != nil
                 if applied[id] != p.frame { snapBacks[id] = 0 }
                 // A title-bar move waits for the drop. A resize is written every event, including
@@ -712,6 +712,12 @@ public final class WindowManager {
     }
 
     /// The border rect for a window that is visually at `window` while its slot is `p.frame`.
+    /// macOS keeps a window on whole points, so a tile asked for 71.5 sits at 72. The border has
+    /// to go around that window, not around the number the layout asked for.
+    static func whereMacOSPuts(_ frame: CGRect) -> CGRect {
+        CGRect(x: frame.minX.rounded(), y: frame.minY.rounded(), width: frame.width.rounded(), height: frame.height.rounded())
+    }
+
     static func border(around window: CGRect, matching p: Placement) -> CGRect {
         CGRect(
             x: window.minX + (p.borderFrame.minX - p.frame.minX),
