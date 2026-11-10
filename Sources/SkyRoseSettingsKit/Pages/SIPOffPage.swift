@@ -13,6 +13,8 @@ struct SIPOffPage: View {
     @State private var readiness = SIPOffReadiness()
     @State private var loaded: SAProtocol.Hello?
     @State private var copied = false
+    @State private var copiedDaemon: String?
+    @State private var daemonInstalled = SAClient.daemonInstalled
     private let poll = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     private var loadCommand: String? {
@@ -87,6 +89,16 @@ struct SIPOffPage: View {
                 }
             }
             .animation(look.motion.page, value: store.config.sipOff.enabled)
+            if let loader = daemonLoader {
+                Card {
+                    SectionLabel(text: "Load at boot")
+                    statusRow("Boot daemon", ok: daemonInstalled, detail: daemonInstalled ? "Installed: it loads the helper after login and when the Dock restarts, while SIP-off mode is on" : "Not installed: you load the helper by hand after each restart")
+                    Text("Optional. Paste into Terminal yourself: it asks for your password. A root-owned copy of the helper goes into /Library/Application Support/SkyRose, and a LaunchDaemon runs that copy. Run Install again after updating SkyRose. `skyrose wm panic` stops the helper until the next boot.")
+                        .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+                    daemonCommand("Install", SAClient.daemonCommand("install-sa-daemon.sh", loader: loader))
+                    daemonCommand("Remove", SAClient.daemonCommand("uninstall-sa-daemon.sh", loader: loader))
+                }
+            }
             SIPAssistantCard(readiness: readiness, loader: loadCommand)
             Card {
                 SectionLabel(text: "Turning SIP back on")
@@ -98,7 +110,28 @@ struct SIPOffPage: View {
         .onReceive(poll) { _ in refresh() }
     }
 
+    private var daemonLoader: URL? {
+        let sibling = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("SkyRose.app")
+        let app = FileManager.default.fileExists(atPath: sibling.path) ? sibling
+            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.skyrose.mac")
+        return SAClient.bundledLoader(appBundle: app)
+    }
+
+    private func daemonCommand(_ title: String, _ cmd: String) -> some View {
+        HStack {
+            Text(cmd).font(look.mono(11.5)).foregroundStyle(look[.onSurface]).textSelection(.enabled)
+                .lineLimit(2).padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(look[.surfaceContainerHighest]))
+            PillButton(title: copiedDaemon == title ? "Copied" : "Copy \(title.lowercased()) command", icon: copiedDaemon == title ? "checkmark" : "doc.on.doc", kind: .outline) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(cmd, forType: .string)
+                copiedDaemon = title
+            }
+        }
+    }
+
     private func refresh() {
+        daemonInstalled = SAClient.daemonInstalled
         DispatchQueue.global(qos: .utility).async {
             let r = SIPOffReadiness.current()
             let client = SAClient()

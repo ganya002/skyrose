@@ -8,10 +8,16 @@ Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit pe
 | 2. Hover focus | done, live with TestWindows | "Phase 9.5 part 2" |
 | 3. Lyrics | partial: built, states checked, not seen with a song | "Phase 9.5 part 3" |
 | 4. 1:1 polish | partial: motion done, side-by-side not complete | "Phase 9.5 part 4" |
-| 5. SIP-off daemon | todo | |
+| 5. SIP-off daemon | built, dry runs pass, never run with sudo | "Phase 9.5 part 5" |
 
 References read: `docs/caelestia-reference` (the prompt says part10 has 66 images, it has 3), the capture README and brief,
 `caelestia-dots/shell` at fd630ffe. Clone it into a scratch folder; it is not in the repo.
+
+## Part 5 — SIP-off boot daemon
+
+Scripts live in `Packaging/sa/` and ship in `Contents/Resources/sa/`. `test-sa-daemon.sh` covers the
+daemon's decisions, config parsing and both dry runs. The real install has not been run: it needs
+Gabby's sudo. The pause file `/tmp/skyrose-sa-paused-<uid>` keeps a panic to this session.
 
 ## Part 4 — 1:1 polish
 

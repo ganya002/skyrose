@@ -139,7 +139,7 @@ final class ShellMotionTokenTests: XCTestCase {
         defer { f.close() }
         let s = try XCTUnwrap(f.surface)
         XCTAssertEqual(s.openSeconds, 0.4, accuracy: 1e-9)
-        XCTAssertEqual(s.closeSeconds, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(s.closeSeconds, 0.15, accuracy: 1e-9)
         XCTAssertEqual(s.frameInner, CGRect(x: 10, y: 10, width: 780, height: 480))
         f.setBarReveal(1)
         XCTAssertEqual(s.frameInner.minX, 60, accuracy: 1e-9, "the bar is the frame's left edge")

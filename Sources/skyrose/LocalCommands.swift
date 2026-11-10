@@ -49,7 +49,7 @@ enum LocalCommands {
         return SAClient.bundledLoader(appBundle: app?.pathExtension == "app" ? app : Environment.wmAppURL)
     }
 
-    /// `skyrose sa status | load-command | reset`.
+    /// `skyrose sa status | load-command | reload | reset`.
     static func sa(_ verb: SAVerb, json: Bool) -> Int32 {
         let client = SAClient()
         let hello = client.connect()
@@ -64,6 +64,12 @@ enum LocalCommands {
                 ("socket", SAClient.socketPath()),
             ]
             if hello == nil, let loader = saLoader { rows.append(("load with", SAProtocol.loadCommand(loader: loader))) }
+            var boot = SAClient.daemonInstalled ? "installed" : "not installed"
+            if SAClient.daemonInstalled, let loader = saLoader,
+               !FileManager.default.contentsEqual(atPath: loader.path, andPath: SAClient.daemonLoader.path) {
+                boot += " (older than this SkyRose: run its install command again)"
+            }
+            rows.append(("boot daemon", boot))
             if json {
                 Console.out(JSONValue.object(Dictionary(rows.map { ($0.0, JSONValue.string($0.1)) }, uniquingKeysWith: { a, _ in a })).prettyJSON)
             } else {
@@ -75,6 +81,16 @@ enum LocalCommands {
                 Console.error("skyrose-sa-loader not found in SkyRose.app (rebuild with scripts/build.sh)")
                 return ExitCode.failed
             }
+            Console.out(SAProtocol.loadCommand(loader: loader))
+            return ExitCode.ok
+        case .reload:
+            let loader = SAClient.daemonInstalled ? SAClient.daemonLoader : saLoader
+            guard let loader else {
+                Console.error("skyrose-sa-loader not found in SkyRose.app (rebuild with scripts/build.sh)")
+                return ExitCode.failed
+            }
+            if hello != nil { Console.err("scripting addition is already loaded; loading it twice is not safe") ; return ExitCode.failed }
+            Console.err("Run this to load the helper again without a reboot:")
             Console.out(SAProtocol.loadCommand(loader: loader))
             return ExitCode.ok
         case .reset:
@@ -89,6 +105,7 @@ enum LocalCommands {
     /// `wm panic` also talks to the SA directly (works when the WM hangs or is gone): undo every
     /// window change and close its socket.
     static func neutraliseScriptingAddition() {
+        FileManager.default.createFile(atPath: SAClient.pausePath(), contents: nil)
         let client = SAClient()
         guard client.connect() != nil else { return }
         _ = client.reset()

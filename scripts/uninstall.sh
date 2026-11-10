@@ -1,6 +1,6 @@
 #!/bin/sh
-# SkyRose uninstaller. Puts the Mac back the way it was before SkyRose, as your normal user:
-# never sudo, never a password prompt.
+# SkyRose uninstaller. Puts the Mac back the way it was before SkyRose, as your normal user. The
+# one password prompt: if you installed the SIP-off boot daemon, it asks before removing it.
 #
 #   uninstall.sh [--dry-run] [--yes] [--remove-fonts] [--remove-config] [--remove-cert]
 #                [--no-color] [--progress] [-h]
@@ -27,7 +27,8 @@
 #       hidutil, wallpapers per display, and files SkyRose replaced. A failed restore keeps
 #       Application Support (the manifest stays) and the script exits non-zero
 #    4. lid-closed sleep back on (`pmset disablesleep 0`) only if SkyRose turned it off
-#    5. login item / launch agent com.skyrose.mac removed
+#    5. login item / launch agent com.skyrose.mac removed; SIP-off boot daemon removed (asks, and
+#       needs your password; without a terminal it prints the command to run instead)
 #    6. kitty profile removed (`skyrose kitty uninstall`), fonts (asked), ~/.config/skyrose (asked)
 #    7. SIP reminder if SkyRose's SIP-off mode was used and SIP is not fully back on. The script
 #       waits until it is acknowledged, and does not trash the apps or SkyRose's data before that
@@ -635,6 +636,18 @@ if [ -e /etc/sudoers.d/skyrose ]; then left "you installed SkyRose's sudo helper
 # 5. Login item
 
 stage login "Removing the login item"
+sa_daemon_plist=/Library/LaunchDaemons/com.skyrose.sa-loader.plist
+sa_daemon_remove="/Library/Application Support/SkyRose/uninstall-sa-daemon.sh"
+if [ ! -e "$sa_daemon_plist" ]; then
+  skip "no SIP-off boot daemon installed"
+elif [ "$DRY" = 1 ]; then
+  run sudo "$sa_daemon_remove"
+elif [ "$YES" = 0 ] && [ -t 0 ] && ask "Remove the SIP-off boot daemon? (asks for your password)" y && sudo "$sa_daemon_remove"; then
+  done_ "SIP-off boot daemon removed"
+else
+  left "the SIP-off boot daemon is still installed; remove it with: sudo '$sa_daemon_remove'"
+fi
+
 agent="$HOME/Library/LaunchAgents/com.skyrose.mac.plist"
 if launchctl print "gui/$(id -u)/com.skyrose.mac" >/dev/null 2>&1; then run launchctl bootout "gui/$(id -u)/com.skyrose.mac" >/dev/null 2>&1; done_ "launch agent com.skyrose.mac unloaded"; fi
 if [ -e "$agent" ]; then run to_trash "$agent" && done_ "~/Library/LaunchAgents/com.skyrose.mac.plist to the Trash"; fi

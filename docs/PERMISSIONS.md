@@ -44,6 +44,31 @@ When another app turns on Secure Event Input (password fields, Terminal "Secure 
 Entry", some password managers), macOS hides keystrokes from every event tap. Hotkeys pause
 until that app releases it; the OSD says which app holds it (see TROUBLESHOOTING.md).
 
+## SIP-off boot daemon (optional)
+
+Without it, the SIP-off helper has to be loaded by hand after every restart. The daemon does that
+for you. It is off until you install it yourself:
+
+```sh
+sudo /path/to/SkyRose.app/Contents/Resources/sa/install-sa-daemon.sh
+```
+
+Add `--dry-run` to see every step first; that needs no sudo. Settings › SIP-off mode has Copy
+buttons for this command and for the matching `uninstall-sa-daemon.sh`.
+
+- **What it installs.** `/Library/LaunchDaemons/com.skyrose.sa-loader.plist` (root:wheel 644) and
+  `/Library/Application Support/SkyRose/` with the loader, the helper and two scripts (root:wheel
+  755). launchd only ever runs that root-owned copy, never a file in your account. The installer
+  refuses to continue if those folders can be written by anyone but root.
+- **When it runs.** At boot as root. It waits for your Dock, loads the helper, and loads it again if
+  the Dock restarts. If SIP-off mode is off in Settings it exits at once. It reads your config with
+  your own rights, and that file only decides whether it runs.
+- **Risk.** A root daemon that injects code into the Dock lowers the Mac's security further on a
+  machine that already has SIP partly off. Install it only if you accept that.
+- **After an update.** Run the install command again. `skyrose sa status` says when the copy is old.
+- **`skyrose wm panic`** stops the helper for this session only; the next boot loads it again.
+  `skyrose sa reload` prints the sudo line that loads it sooner.
+
 ## What we never do
 
 - no `tccutil reset` / no automatic granting,

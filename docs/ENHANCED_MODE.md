@@ -106,5 +106,8 @@ implemented** in this build.
 
 ## Status
 
-Built and tested in this build: `skyrose sa status | load-command | reset`, Settings › SIP-off
+To skip the manual step after each restart, install the optional boot daemon: see "SIP-off boot
+daemon" in [PERMISSIONS.md](PERMISSIONS.md).
+
+Built and tested in this build: `skyrose sa status | load-command | reload | reset`, Settings › SIP-off
 mode, the showcase. See docs/phase-progress.md for what was live-tested on this Mac.

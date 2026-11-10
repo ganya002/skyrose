@@ -37,6 +37,7 @@ public enum CLILocalCommand: Equatable, Sendable {
 public enum SAVerb: String, Equatable, Sendable {
     case status
     case loadCommand = "load-command"
+    case reload
     case reset
 }
 
@@ -359,7 +360,7 @@ public enum CLIParser {
         case "sa":
             let verb = args.first ?? "status"
             guard let v = SAVerb(rawValue: verb) else {
-                throw CLIUsageError.unknownVerb(group: "sa", verb: verb, expected: ["status", "load-command", "reset"])
+                throw CLIUsageError.unknownVerb(group: "sa", verb: verb, expected: ["status", "load-command", "reload", "reset"])
             }
             try rejectExtra("sa \(verb)", Array(args.dropFirst()))
             inv.kind = .local(.sa(v))
@@ -783,7 +784,7 @@ public enum CLIParser {
             ("dock show | hide | status", "Keep the Dock from sliding out (it keeps running Mission Control); hide is journaled"),
             ("update [--check] [--yes]", "Look for a newer release; --yes downloads it, checks SHA-256, and replaces the apps"),
             ("fonts status | download | install | uninstall", "Arch font pack: download (checksummed, SkyRose only) / install into ~/Library/Fonts for kitty and other apps"),
-            ("sa status | load-command | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, undo everything it changed"),
+            ("sa status | load-command | reload | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, the sudo line to load it again now, undo everything it changed"),
             ("kitty status | install | uninstall", "SkyRose kitty profile: Gabby's Arch settings + live scheme colours (one include line in kitty.conf)"),
             ("version", "CLI and WM versions"),
         ]),
