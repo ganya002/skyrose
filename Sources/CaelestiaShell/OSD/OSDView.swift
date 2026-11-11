@@ -2,8 +2,8 @@ import AppKit
 import CaelestiaCore
 import SwiftUI
 
-/// Volume / brightness OSD (spec 5.9; Caelestia `osd`): two vertical sliders in a drawer on the
-/// right edge, shown on a change and hidden `hideDelay` after the last one.
+/// Volume / brightness OSD (spec 5.9; Caelestia `modules/osd`): the sliders stacked in a column in a
+/// drawer on the right edge, shown on a change and hidden `hideDelay` after the last one.
 @MainActor
 public final class OSDModel: ObservableObject {
     @Published public var shown = false
@@ -13,25 +13,45 @@ public final class OSDModel: ObservableObject {
     @Published public var brightnessAvailable = true
     /// The pointer is over the OSD: it stays.
     @Published public var hovered = false
-    public nonisolated static let hideDelay: TimeInterval = 1.5
+    /// Caelestia `osd.hideDelay` (2000 ms).
+    public nonisolated static let hideDelay: TimeInterval = 2
     public var onSetVolume: (Double) -> Void = { _ in }
     public var onSetBrightness: (Double) -> Void = { _ in }
+    /// One scroll step over a slider: +1 up, -1 down (Caelestia `incrementVolume` / brightness step).
+    public var onStepVolume: (Int) -> Void = { _ in }
+    public var onStepBrightness: (Int) -> Void = { _ in }
 
+    /// Caelestia `Tokens.sizes.osd` and the padding / spacing of `osd/Content.qml`.
     public static let sliderWidth: Double = 30
     public static let sliderHeight: Double = 150
-    public static let padding: Double = 10
-    public static let spacing: Double = 10
+    public static let padding: Double = 16
+    public static let spacing: Double = 12
+    /// `horizontalCenterOffset`: clamp(padding.large - border.thickness, 0, padding.large) / 2 with
+    /// Caelestia's 10 pt border. shortcut: fixed for the default border, recompute if the frame inset grows.
+    public static let centerOffset: Double = 3
 
     public init() {}
 
-    public var bodySize: CGSize {
-        let n = brightnessAvailable ? 2.0 : 1.0
-        return CGSize(width: n * Self.sliderWidth + (n - 1) * Self.spacing + 2 * Self.padding,
-                      height: Self.sliderHeight + 2 * Self.padding)
+    public var bodySize: CGSize { Self.size(sliders: brightnessAvailable ? 2 : 1) }
+
+    public static var maxBodySize: CGSize { size(sliders: 2) }
+
+    public static func size(sliders n: Int) -> CGSize {
+        let n = Double(n)
+        return CGSize(width: sliderWidth + padding + 2 * centerOffset,
+                      height: n * sliderHeight + (n - 1) * spacing + 2 * padding)
     }
 
-    public static var maxBodySize: CGSize {
-        CGSize(width: 2 * sliderWidth + spacing + 2 * padding, height: sliderHeight + 2 * padding)
+    /// Caelestia `Icons.getVolumeIcon`.
+    public nonisolated static func volumeIcon(_ value: Double, muted: Bool) -> String {
+        if muted { return "volume_off" }
+        if value >= 0.5 { return "volume_up" }
+        return value > 0 ? "volume_down" : "volume_mute"
+    }
+
+    /// Caelestia: `brightness_${round(value * 6) + 1}`.
+    public nonisolated static func brightnessIcon(_ value: Double) -> String {
+        "brightness_\(Int((min(1, max(0, value)) * 6).rounded()) + 1)"
     }
 }
 
@@ -58,15 +78,17 @@ struct OSDView: View {
             Spacer(minLength: 0)
             ZStack {
                 DrawerBackground(edge: .right, fillet: fillet, radius: theme.frameRounding, shown: model.shown, depth: size.width)
-                HStack(spacing: OSDModel.spacing) {
-                    OSDSlider(value: model.muted ? 0 : model.volume, icon: volumeIcon, onSet: model.onSetVolume)
+                VStack(spacing: OSDModel.spacing) {
+                    OSDSlider(value: model.volume, icon: OSDModel.volumeIcon(model.volume, muted: model.muted),
+                              onSet: model.onSetVolume, onStep: model.onStepVolume)
                         .accessibilityIdentifier("osd.volume")
                     if model.brightnessAvailable {
-                        OSDSlider(value: model.brightness, icon: model.brightness < 0.5 ? "sun.min.fill" : "sun.max.fill",
-                                  onSet: model.onSetBrightness)
+                        OSDSlider(value: model.brightness, icon: OSDModel.brightnessIcon(model.brightness),
+                                  onSet: model.onSetBrightness, onStep: model.onStepBrightness)
                             .accessibilityIdentifier("osd.brightness")
                     }
                 }
+                .offset(x: OSDModel.centerOffset)
                 .liquidContent(edge: .right, shown: model.shown, depth: size.width, theme: theme)
             }
             .frame(width: size.width, height: size.height + 2 * fillet)
@@ -74,39 +96,75 @@ struct OSDView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
     }
-
-    private var volumeIcon: String {
-        if model.muted || model.volume <= 0 { return "speaker.slash.fill" }
-        return model.volume < 0.5 ? "speaker.wave.1.fill" : "speaker.wave.2.fill"
-    }
 }
 
-/// A vertical pill slider: track in onSurface @ low alpha, fill in primary from the bottom,
-/// the icon inside the fill at the bottom (Caelestia `FilledSlider`).
+/// Caelestia `FilledSlider`: a full-round track (surfaceContainer), the part below the handle in
+/// secondary, and a round inverseSurface handle with the icon that shows the percentage while the
+/// value moves (500 ms after the last change). Drag anywhere; scroll steps the value.
 struct OSDSlider: View {
     var value: Double
     var icon: String
     var onSet: (Double) -> Void
+    var onStep: (Int) -> Void
     @Environment(\.shellTheme) var theme
+    @State private var moving = false
+    @State private var pressed = false
+    @State private var settle: DispatchWorkItem?
+    @State private var hovering = false
 
     var body: some View {
         GeometryReader { geo in
             let h = geo.size.height
             let w = geo.size.width
-            let fillH = max(w, h * min(1, max(0, value)))
-            ZStack(alignment: .bottom) {
-                Capsule().fill(theme[.onSurface].opacity(0.1))
-                Capsule().fill(theme[.primary]).frame(height: fillH)
-                MaterialIcon(icon, size: 13, weight: .semibold)
-                    .foregroundStyle(theme[.onPrimary])
-                    .frame(width: w, height: w)
+            let v = min(1, max(0, value))
+            let y = (1 - v) * (h - w)
+            ZStack(alignment: .top) {
+                Capsule().fill(theme[.surfaceContainer])
+                Capsule().fill(theme[.secondary]).frame(height: h - y).offset(y: y)
+                ZStack {
+                    Circle().fill(theme[.inverseSurface])
+                        .shadow(color: .black.opacity(hovering ? 0.3 : 0.2), radius: hovering ? 3 : 1.5, y: 1)
+                    Group {
+                        if moving {
+                            Text(verbatim: "\(Int((v * 100).rounded()))")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .monospacedDigit()
+                        } else {
+                            MaterialIcon(icon, size: 15)
+                        }
+                    }
+                    .foregroundStyle(theme[.inverseOnSurface])
+                    .offset(y: 1)
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+                }
+                .frame(width: w, height: w)
+                .offset(y: y)
+                .onHover { hovering = $0 }
             }
+            .animation(theme.token(.standard, ms: CaelestiaTokens.Duration.large), value: v)
+            .animation(theme.token(.standardDecel, ms: CaelestiaTokens.Duration.normal / 2), value: moving)
             .contentShape(Capsule())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { g in
-                onSet(min(1, max(0, 1 - g.location.y / h)))
-            })
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { g in
+                    pressed = true
+                    moving = true
+                    onSet(min(1, max(0, 1 - (g.location.y - w / 2) / (h - w))))
+                }
+                .onEnded { _ in pressed = false; settleSoon() })
+            .background(ScrollStepCatcher(onStep: { onStep(-$0) }))
         }
         .frame(width: OSDModel.sliderWidth, height: OSDModel.sliderHeight)
-        .animation(theme.spatial, value: value)
+        .onChange(of: value) { old, new in
+            guard abs(new - old) >= 0.01 else { return }
+            moving = true
+            settleSoon()
+        }
+    }
+
+    private func settleSoon() {
+        settle?.cancel()
+        let work = DispatchWorkItem { if !pressed { moving = false } }
+        settle = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
     }
 }

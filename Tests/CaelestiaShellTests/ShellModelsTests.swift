@@ -140,8 +140,8 @@ final class OSDTimerTests: XCTestCase {
         var t = OSDTimer()
         t.changed(at: 0)
         t.changed(at: 1)
-        XCTAssertFalse(t.shouldHide(at: 1 + 1.4, hovered: false))
-        XCTAssertTrue(t.shouldHide(at: 1 + 1.5, hovered: false))
+        XCTAssertFalse(t.shouldHide(at: 1 + OSDModel.hideDelay - 0.1, hovered: false))
+        XCTAssertTrue(t.shouldHide(at: 1 + OSDModel.hideDelay, hovered: false))
         t.reset()
         XCTAssertNil(t.lastChange)
         XCTAssertFalse(t.shouldHide(at: 1000, hovered: false))
@@ -156,12 +156,23 @@ final class OSDTimerTests: XCTestCase {
 
 @MainActor
 final class OSDModelTests: XCTestCase {
-    func testBodySize() {
+    func testBodySizeIsCaelestiaColumn() {
         let m = OSDModel()
-        XCTAssertEqual(m.bodySize, CGSize(width: 2 * 30 + 10 + 20, height: 170))
+        // 30 slider + 16 padding + 2 × 3 centre offset; 2 × 150 + 12 spacing + 2 × 16 padding.
+        XCTAssertEqual(m.bodySize, CGSize(width: 52, height: 344))
         m.brightnessAvailable = false
-        XCTAssertEqual(m.bodySize, CGSize(width: 50, height: 170))
-        XCTAssertEqual(OSDModel.maxBodySize, CGSize(width: 90, height: 170))
+        XCTAssertEqual(m.bodySize, CGSize(width: 52, height: 182))
+        XCTAssertEqual(OSDModel.maxBodySize, CGSize(width: 52, height: 344))
+    }
+
+    func testIconsFollowCaelestia() {
+        XCTAssertEqual(OSDModel.volumeIcon(0.8, muted: true), "volume_off")
+        XCTAssertEqual(OSDModel.volumeIcon(0.5, muted: false), "volume_up")
+        XCTAssertEqual(OSDModel.volumeIcon(0.2, muted: false), "volume_down")
+        XCTAssertEqual(OSDModel.volumeIcon(0, muted: false), "volume_mute")
+        XCTAssertEqual(OSDModel.brightnessIcon(0), "brightness_1")
+        XCTAssertEqual(OSDModel.brightnessIcon(0.5), "brightness_4")
+        XCTAssertEqual(OSDModel.brightnessIcon(1), "brightness_7")
     }
 }
 
