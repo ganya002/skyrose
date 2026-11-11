@@ -205,7 +205,9 @@ extension ShellController {
     /// column width, the controls' height. Cached per width (the probe lays out SwiftUI).
     func utilitiesSize(layout: DisplayLayout, reveal: Double) -> CGSize {
         let width = ShellSizing.sidebarWidth(inner: layout.inner(barReveal: reveal))
-        let key = "\(width)|\(sidebar.brightnessAvailable)"
+        // Everything that changes the controls' height: the recorder list and the lid line wrap.
+        let lid = state.clamshell.hasLid ? Clamshell.summary(state.clamshell, lid: state.lidSleep) : ""
+        let key = "\(width)|\(sidebar.brightnessAvailable)|\(min(3, state.recorder.recordings.count))|\(lid)"
         if let cached = utilitiesSizeCache[key] { return cached }
         let size = UtilitiesDrawerView.size(bodyWidth: width, fillet: theme.frameRounding, sidebar: sidebar, state: state, theme: theme)
         utilitiesSizeCache = [key: size]

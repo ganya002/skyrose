@@ -10,9 +10,9 @@ Resume here: read this table, then the newest section below.
 | A1 bongo + lyrics with a real song | closed by Gabby 2026-11-11 (no Spotify on this Mac: counted as checked; a live beat/lyrics run never happened) | |
 | A1 boot daemon sudo install | done 2026-11-11: Gabby installed it, rebooted; after boot `sa status` loaded with no password, log: loaded SkyRoseSA.dylib into the Dock (pid 717); all files root:wheel, not user-writable | |
 | A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | a972c5e, 00f10cc |
-| A3 Teams flicker | fix in (only re-raise visible overlapping windows), live Teams repro still open | 00f10cc |
+| A3 Teams flicker | done: Gabby checked Teams behind OneNote live, no flicker (no recording) | 00f10cc |
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
-| A5 v0.4.1 | | |
+| A5 v0.4.1 | in progress: version, CHANGELOG | |
 
 Phase S (SkyStore) runs as a subagent in ../skyrose-store (branch phase-skystore); merge after Phase W, before B.
 
