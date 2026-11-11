@@ -12,7 +12,7 @@ Resume here: read this table, then the newest section below.
 | A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | d873f84, bc3e828 |
 | A3 Teams flicker | done: Gabby checked Teams behind OneNote live, no flicker (no recording) | bc3e828 |
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
-| A5 v0.4.1 | in progress: version, CHANGELOG | |
+| A5 v0.4.1 | done: merged to main e4c0dee, tag v0.4.1, release with zip, install.sh, uninstall.sh and .sha256 files. 0.4.0 CLI reports the update; sandboxed `update --yes` installs 0.4.1. A part10 reference image had the Wi-Fi name filled out before the first push (unpushed history rewritten, hashes above updated). | e4c0dee |
 
 Phase S (SkyStore) runs as a subagent in ../skyrose-store (branch phase-skystore); merge after Phase W, before B.
 
