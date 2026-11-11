@@ -1,3 +1,96 @@
+# Master prompt run (started 2026-11-11)
+
+Spec: `docs/PHASE-PROMPT-MASTER.md` (overrides older prompts). Phase A on branch `phase-9.5`.
+Resume here: read this table, then the newest section below.
+
+| Item | State | Commits |
+|---|---|---|
+| 0. Commit prompts | done | 9ae3c6b |
+| A1 polish | surfaces fixed + recorder card, top-right notification drawer, drawer timings re-measured on H.264 clips; bar popouts have no capture (Phase B), Settings: no search field yet. See `docs/parity-progress.md` | aeaea90, 9d9b77c, 0250478, 7fff8aa, d5160a9, edda590, 8341436 |
+| A1 bongo + lyrics with a real song | closed by Gabby 2026-11-11 (no Spotify on this Mac: counted as checked; a live beat/lyrics run never happened) | |
+| A1 boot daemon sudo install | done 2026-11-11: Gabby installed it, rebooted; after boot `sa status` loaded with no password, log: loaded SkyRoseSA.dylib into the Dock (pid 717); all files root:wheel, not user-writable | |
+| A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | d873f84, bc3e828 |
+| A3 Teams flicker | done: Gabby checked Teams behind OneNote live, no flicker (no recording) | bc3e828 |
+| A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
+| A5 v0.4.1 | in progress: version, CHANGELOG | |
+
+Phase S (SkyStore) runs as a subagent in ../skyrose-store (branch phase-skystore); merge after Phase W, before B.
+
+Notes for a fresh session:
+- Tests: `/usr/bin/swift test` runs 9 XCTest bundles, 1226 tests; only the last bundle's summary is at the
+  tail, so sum the `*.xctest' passed` blocks.
+- The capture's .mp4 files are HEVC 4:4:4: AVFoundation cannot decode them (-12906); use the jpg frames.
+- Restart for testing: `dist/SkyRose.app/Contents/MacOS/skyrose restart`.
+- Caelestia source: clone `caelestia-dots/shell` into the scratchpad (fd630ff was used).
+
+# Phase 9.5: fixes + Caelestia polish (started 2026-11-10)
+
+Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit per part, not pushed.
+
+| Part | State | Commit |
+|---|---|---|
+| 1. Real Bongo Cat | done, sprite seen live; beats need a song | "Phase 9.5 part 1" |
+| 2. Hover focus | done, live with TestWindows | "Phase 9.5 part 2" |
+| 3. Lyrics | partial: built, states checked, not seen with a song | "Phase 9.5 part 3" |
+| 4. 1:1 polish | partial: motion done, side-by-side not complete | "Phase 9.5 part 4" |
+| 5. SIP-off daemon | built, dry runs pass, never run with sudo | "Phase 9.5 part 5" |
+
+References read: `docs/caelestia-reference` (the prompt says part10 has 66 images, it has 3), the capture README and brief,
+`caelestia-dots/shell` at fd630ffe. Clone it into a scratch folder; it is not in the repo.
+
+## Part 5 — SIP-off boot daemon
+
+Scripts live in `Packaging/sa/` and ship in `Contents/Resources/sa/`. `test-sa-daemon.sh` covers the
+daemon's decisions, config parsing and both dry runs. The real install has not been run: it needs
+Gabby's sudo. The pause file `/tmp/skyrose-sa-paused-<uid>` keeps a panic to this session.
+
+## Part 4 — 1:1 polish
+
+Already in place from Phase 6 and left alone: one SDF surface for the border and drawers, the jelly
+(stiffness 200, damping 16, 35 % cap), per-panel deformAmount, and a display link that pauses at rest.
+
+New here: each drawer opens and closes on its measured time (`CaelestiaTokens.DrawerMs`). Dashboard
+tabs have their own heights and the blob morphs between them on the spatial curve with a crossfade.
+The open sidebar pushes the session menu and the OSD left, and the OSD no longer hides for it.
+Content stays with the attached edge during a morph. The media tab's details are centred like the reference.
+
+Recording: `~/Pictures/Screenshots/skyrose-1794313186.mov`. Dashboard close measured about 150 ms.
+Still open: the surface-by-surface side-by-side against every reference image was not finished.
+No before clip was recorded for this part.
+
+## Part 3 — lyrics after Caelestia's LyricList
+
+The media tab now has Caelestia's right column: a Lyrics header over the list. The current line is
+primary and full size with a glow; other lines are outline, scaled to 74 %, and dimmer with distance.
+Rows are laid out at full size and only scaled, so nothing changes height when the line advances.
+A spring scrolls the list so the current line stays centred; a 10 % mask fades both edges. A click
+on a line seeks, and the lyric clock moves at once. Loading and "No lyrics found" match upstream.
+
+Checked by offscreen renders of first, middle, last, empty and loading. Not checked with a real
+song: no player was running, so the scroll spring and seek have not been recorded.
+
+## Part 2 — hover focus follows the real stack
+
+Cause: `hoverTarget` picked by placement kind and largest id and ignored z-order. Hex's invisible
+near-full-screen windows (layers 25–27) were also in the placements.
+
+Now `CGWindowSnapshot.hit` walks CGWindowList front to back and answers window, blocked or nothing.
+Menus, popovers, Dock, Spotlight and system UI block, as do SkyRose panels and the border strip.
+Very large overlays above layer 0 are looked through. The stack is read again right before focus.
+Hover holds during a mouse button, a warp, a retile, and 0.3 s after a keyboard focus.
+
+Live test: one tiled and two offset floating TestWindows, 13 of 13 hover checks picked the topmost
+window, including a flick across a window that must not take focus. Stack order did not change.
+Recording: `~/Pictures/Screenshots/skyrose-1794312643.mov`, checked on a sheet at 2.5 fps plus a
+focus poll every ~50 ms. No before clip was recorded for this part.
+
+## Part 1 — the real Bongo Cat
+
+`assets/bongocat.gif` is 20 frames but only two poses, ten of each. `Resources/BongoCat` holds those two at 4x (800×504,
+edges redrawn so they stay clean), each with and without the red motion ticks. A detected beat shows the slap with ticks
+and swaps paw. 90 ms later the ticks go and the pose holds. Paused or nothing playing: the last pose, no ticks.
+Upstream only has the cat on the dashboard card, under the controls. The media tab copy follows `part10/media-player.png`.
+
 # Phase 9: focus, easy setup, tiling (started 2026-11-09)
 
 Spec: `docs/PHASE-PROMPT-9-focus-easy-setup.md`. Commit locally after each part. Push `main` and tag `v0.4.0` only at 9k. Do not move tags `v0.2.0` or `v0.3.0`.

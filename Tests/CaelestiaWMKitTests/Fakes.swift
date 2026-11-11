@@ -105,6 +105,12 @@ final class FakeWindowSystem: WindowSystem {
     var cursorLocation: CGPoint?
     var underCursor: WindowID?
     var isLeftMouseDown = false
+    var isMouseButtonDown: Bool { isLeftMouseDown }
+    /// Set to control the stack. Otherwise the newest window is on top.
+    var stackOverride: [CGWindowSnapshot]?
+    func windowStack() -> [CGWindowSnapshot] {
+        stackOverride ?? windows.keys.sorted().reversed().map { CGWindowSnapshot(id: $0, pid: windows[$0]!.pid, bounds: windows[$0]!.frame) }
+    }
     var started = false
     /// What an app's own AX window list says (nil = unreadable).
     var appWindowCounts: [pid_t: Int] = [:]

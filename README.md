@@ -75,8 +75,8 @@ create "SkyRose Local Signing".
 From a release, without Xcode (the hash is the `SkyRose-<version>-arm64.zip.sha256` file next to the zip):
 
 ```sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.4.0/install.sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.4.0/install.sh.sha256
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.4.1/install.sh
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.4.1/install.sh.sha256
 shasum -a 256 -c install.sh.sha256
 less install.sh
 sh install.sh --dry-run
@@ -171,6 +171,7 @@ design), [JankyBorders](https://github.com/FelixKratz/JankyBorders) (border over
 [Mousecape](https://github.com/alexzielenski/Mousecape) and
 [Bibata](https://github.com/ful1e5/Bibata_Cursor) (cursor). No code was copied from any of them.
 Material Symbols (Apache-2.0). TOMLKit (MIT).
+Bongo Cat sprite from Caelestia (caelestia-dots/shell, GPL-3.0); original Bongo Cat by StrayRogue & DitzyFlama.
 
 This project is licensed under **GPL-3.0** (see LICENSE): the shell layouts, the bongo-cat idea
 and the panel designs follow Caelestia closely enough that keeping the same license is the

@@ -329,4 +329,6 @@ public protocol ShellActions: AnyObject {
 
 public enum SessionAction: String, Sendable, CaseIterable {
     case logout, shutdown, sleep, reboot, lock
+    /// Quit and start SkyRose itself (`skyrose restart`), not the Mac.
+    case restartSkyRose
 }

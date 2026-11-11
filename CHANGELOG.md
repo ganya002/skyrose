@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.1 (2026-11-11)
+
+The SIP-off helper without Terminal, a restart command, and a closer Caelestia look. https://github.com/ganya002/skyrose/releases/tag/v0.4.1
+
+- **SIP-off helper card.** When SIP-off mode is on and the helper is not loaded, a card offers Enable. It uses the standard macOS password prompt; SkyRose never sees the password. Root only runs a root-owned, signature-checked copy of the loader. "Do it in Terminal instead" opens the command with a Copy button. `skyrose sa enable` and Settings › SIP-off mode show the card again.
+- **Boot daemon (opt-in).** "Do this automatically every restart" installs a LaunchDaemon that loads the helper at boot. It runs as root; every file it uses is root-owned. Uninstall with `sudo /bin/sh "/Library/Application Support/SkyRose/uninstall-sa-daemon.sh"`.
+- **Menu bar in SIP-off mode** can be removed completely, and a peek puts it back.
+- **`skyrose restart`.** Quits SkyRose (windows restored), waits for it, and starts the same app again; starts it if it is not running. Also Settings › About › Restart, the session menu's last button, and `>restart` in the launcher. SkyRose is now always started by path, so a copy in another account is never launched.
+- **Hover focus** never raises or picks a window hidden behind the one under the pointer (no more Teams flicker behind OneNote).
+- **Caelestia parity.** Dashboard tabs, cards, media arc and calendar; launcher, sidebar and bar sizes and colours from the upstream source. Notifications and toasts grow out of the top-right corner of the frame. Utilities has a screen recorder card (status, timer, recent recordings); the `record.screen` bind now works. Drawer timings re-measured frame by frame on the reference recordings.
+- **Clipboard** picker rebuilt, with configurable limits. **Borders** follow windows that resize themselves and no longer shift by half a point. **Media**: browsers and other players through Now Playing, the bongo cat hears the kick in a full mix, lyrics found when the album name is wrong.
+- **Release zip** `SkyRose-0.4.1-arm64.zip` with the two apps, `install.sh`, and `uninstall.sh`, plus detached `.sha256` files. Signed with the local identity, not an Apple Developer ID, and not notarized. Earlier tags are unchanged.
+
 ## 0.4.0 (2026-11-10)
 
 Focus, a shorter setup, and a clipboard. https://github.com/ganya002/skyrose/releases/tag/v0.4.0

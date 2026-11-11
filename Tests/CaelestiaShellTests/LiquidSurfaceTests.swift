@@ -139,9 +139,20 @@ final class ShellMotionTokenTests: XCTestCase {
         defer { f.close() }
         let s = try XCTUnwrap(f.surface)
         XCTAssertEqual(s.openSeconds, 0.4, accuracy: 1e-9)
-        XCTAssertEqual(s.closeSeconds, 0.4, accuracy: 1e-9)
+        XCTAssertEqual(s.closeSeconds, 0.15, accuracy: 1e-9)
         XCTAssertEqual(s.frameInner, CGRect(x: 10, y: 10, width: 780, height: 480))
         f.setBarReveal(1)
         XCTAssertEqual(s.frameInner.minX, 60, accuracy: 1e-9, "the bar is the frame's left edge")
+    }
+}
+
+extension LiquidSurfaceTests {
+    func testDrawersCloseFasterThanTheyOpenInTheMeasuredRange() {
+        for name in ["launcher", "dashboard", "sidebar", "utilities", "session", "osd", "popout", "notifications"] {
+            let ms = ShellController.blobStyle(name).ms
+            XCTAssertLessThan(ms.close, ms.open, name)
+            // Closes on the H.264 clips: ~115–190 ms at Gabby's scale.
+            XCTAssertTrue((115.0...200.0).contains(ms.close * CaelestiaTokens.gabbyScale), name)
+        }
     }
 }

@@ -114,6 +114,9 @@ final class SessionModelTests: XCTestCase {
         XCTAssertEqual(SessionCommands.command(for: .sleep)?.path, "/usr/bin/pmset")
         XCTAssertEqual(SessionCommands.command(for: .sleep)?.args, ["sleepnow"])
         XCTAssertNil(SessionCommands.command(for: .lock))
+        let restart = SessionCommands.command(for: .restartSkyRose)
+        XCTAssertEqual(restart?.args, ["restart"])
+        XCTAssertTrue(restart?.path.hasSuffix("/skyrose") == true, "the bundled CLI, not one from PATH")
     }
 }
 
@@ -402,5 +405,27 @@ final class ScreenshotTextTests: XCTestCase {
         _ = q.add(Toast(kind: .success, title: "Screenshot taken", createdAt: 0, imagePath: "/tmp/x.png"))
         XCTAssertEqual(q.toasts.first?.imagePath, "/tmp/x.png")
         XCTAssertEqual(Toast(kind: .info, title: "t", createdAt: 0).imagePath, "")
+    }
+}
+
+@MainActor
+final class RecorderCardTests: XCTestCase {
+    func testRecordingsAreOursNewestFirst() {
+        let f = ["skyrose-100.mov", "notes.txt", "skyrose-200.mov", "other.mov", "skyrose-99.mov"].map { URL(fileURLWithPath: "/tmp/r/" + $0) }
+        XCTAssertEqual(ShellController.recordings(in: f).map(\.lastPathComponent), ["skyrose-200.mov", "skyrose-100.mov", "skyrose-99.mov"])
+    }
+
+    func testRecordingNames() {
+        XCTAssertEqual(UtilitiesSection.recordingName(URL(fileURLWithPath: "/r/clip.mov")), "clip")
+        let t = UtilitiesSection.recordingName(URL(fileURLWithPath: "/r/skyrose-1794392202.mov"))
+        XCTAssertEqual(t, Date(timeIntervalSince1970: 1794392202).formatted(date: .abbreviated, time: .shortened))
+    }
+
+    func testStatusCountsUp() {
+        var r = RecorderInfo()
+        XCTAssertEqual(UtilitiesSection.recorderStatus(r, now: Date()), "Ready")
+        r.state = .recording
+        r.startedAt = Date(timeIntervalSince1970: 0)
+        XCTAssertEqual(UtilitiesSection.recorderStatus(r, now: Date(timeIntervalSince1970: 65)), "Recording 1:05")
     }
 }

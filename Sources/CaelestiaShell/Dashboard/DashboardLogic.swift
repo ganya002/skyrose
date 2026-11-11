@@ -4,7 +4,7 @@ public enum DashboardTab: String, CaseIterable, Sendable {
     case overview, media, performance, weather
     public var title: String {
         switch self {
-        case .overview: return "Overview"
+        case .overview: return "Dashboard"
         case .media: return "Media"
         case .performance: return "Performance"
         case .weather: return "Weather"
@@ -12,10 +12,11 @@ public enum DashboardTab: String, CaseIterable, Sendable {
     }
     public var icon: String {
         switch self {
-        case .overview: return "square.grid.2x2.fill"
-        case .media: return "music.note.list"
-        case .performance: return "gauge.with.dots.needle.33percent"
-        case .weather: return "cloud.sun.fill"
+        // Material names, as in Caelestia's dashboard Content.qml.
+        case .overview: return "dashboard"
+        case .media: return "queue_music"
+        case .performance: return "speed"
+        case .weather: return "cloud"
         }
     }
     public init(config: String) { self = DashboardTab(rawValue: config.lowercased()) ?? .overview }
@@ -83,6 +84,12 @@ public enum CalendarGrid {
     public static func weekdayHeaders(calendar: Calendar = .current) -> [String] {
         let s = calendar.shortWeekdaySymbols
         return (0..<7).map { s[(calendar.firstWeekday - 1 + $0) % 7] }
+    }
+
+    /// True for the Saturday and Sunday columns (Calendar.qml tints them tertiary).
+    public static func isWeekend(column: Int, calendar: Calendar = .current) -> Bool {
+        let weekday = (calendar.firstWeekday - 1 + column) % 7  // 0 = Sunday
+        return weekday == 0 || weekday == 6
     }
 }
 

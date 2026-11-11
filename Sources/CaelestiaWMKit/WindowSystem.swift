@@ -64,6 +64,10 @@ public protocol WindowSystem: AnyObject {
     /// The left mouse button is held right now (the user may be dragging or resizing a window by
     /// its title bar or edge: frame changes then come from the user, not the app).
     var isLeftMouseDown: Bool { get }
+    /// Any mouse button is held right now.
+    var isMouseButtonDown: Bool { get }
+    /// On-screen windows front to back, without SkyRose's own.
+    func windowStack() -> [CGWindowSnapshot]
     /// The tracked window top-most under the pointer.
     func windowUnderCursor() -> WindowID?
     /// Finds a journaled window after a WM crash: by window id in its pid, else by bundle id and

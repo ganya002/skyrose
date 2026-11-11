@@ -81,7 +81,7 @@ title, 16 pt subtitle, 15 pt padding, 48 pt search pill, at most 7 visible rows.
   frequency (counts in `launcher-counts.json` in Application Support).
 - Apps scanned: `/Applications`, `~/Applications`, `/System/Applications` (+ Utilities), one
   sub-folder level.
-- `>` commands: `lock`, `sleep`, `shutdown`, `reboot`, `logout` go through the session menu's
+- `>` commands: `lock`, `sleep`, `shutdown`, `reboot`, `restart` (SkyRose itself), `logout` go through the session menu's
   confirm step. `scheme`, `wallpaper`, `variant`, `transparency`, `random`, `settings` only show
   an info toast ("later phase").
 - `=` or plain math is a calculator; Enter copies the result.
@@ -94,7 +94,9 @@ app you were in.
 
 Open: Ctrl+Option+Backspace (`session.toggle`), the bar's power button, or
 `skyrose shell session`. A pill on the right edge: Log out, Shut down, an image slot, Sleep,
-Restart (80 pt buttons, radius 22, spacing 15).
+Restart, then Restart SkyRose (80 pt buttons, radius 22, spacing 15). The last one is not in
+Caelestia: it runs the bundled `skyrose restart`, which quits SkyRose (windows restored) and starts
+the same app again.
 
 Every action needs a second press within 3 s (the button turns red with a check). Esc disarms,
 then closes. The image slot shows a drawn moon glyph; no character art is shipped.
@@ -112,8 +114,14 @@ test setup). The system volume/brightness keys still reach macOS, so Apple's own
 
 ## Toasts
 
-Top-right, up to 4 at once, 5 s each. A duplicate refreshes the existing toast instead of
-stacking.
+Toasts and notification popups (`skyrose notify`) share one drawer that grows down out of the
+frame's top-right corner as part of the liquid surface, like Caelestia's notifications module
+(Gabby's choice: Caelestia itself shows toasts as a card at the bottom-right). Up to 4 cards,
+newest on top, 5 s each; a duplicate refreshes instead of stacking; the drawer closes back into
+the frame once the last card expires. Measured on notification_popup.mp4: drawer 430 wide,
+padding 15 (left/bottom) and 5 (top/right), cards 410 wide with radius 20, a 42 pt icon circle,
+summary · time and a one-line body; open 375 ms × the shell scale (0.8) = 300 ms, as in the
+capture. Not ported: the expand chevron and swipe-to-dismiss (the drawer is click-through).
 
     skyrose shell toaster error|warn|info|success <title> <message> <icon>
 
@@ -142,7 +150,9 @@ frame stays click-through: the WM only watches the pointer.
 
 ## Sidebar and popouts (part 2)
 
-Right drawer: notification history, Keep awake, volume/brightness sliders, quick toggles. Real
+Right drawer: notification history, Keep awake, Screen recorder (full main display to the capture
+folder, timer while recording, the newest 3 recordings with Show in Finder / Move to Trash; same
+recorder as `record.screen` and `skyrose record`), volume/brightness sliders, quick toggles. Real
 toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (SkyRose toasts only), Keep awake (IOPM
 assertion; on a Mac with a lid it also sets `pmset disablesleep 1` while it runs, so it survives
 closing the lid), and on laptops a lid line with a **Clamshell** chip (lid closed keeps running on

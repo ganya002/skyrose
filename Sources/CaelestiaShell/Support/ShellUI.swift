@@ -37,34 +37,91 @@ struct CookieShape: Shape {
     }
 }
 
-/// An arc gauge: `sweep` degrees of track with the first `value` of it filled, opening at the bottom.
+/// Caelestia's M3 CircularProgress: from `start` (degrees, 0 = east, clockwise) `sweep` degrees.
+/// The filled part is `fg`; after a gap the rest of the track is secondaryContainer and ends in a
+/// small `fg` dot. `wavy` draws the filled part as a travelling sine wave (the media arc).
 struct ProgressArc: View {
     var value: Double
-    var sweep: Double = 270
-    var lineWidth: Double = 5
+    var sweep: Double = 360
+    var start: Double = -90
+    var lineWidth: Double = 6
+    var fg: ColorRole = .primary
+    var wavy = false
+    var waving = false
     @Environment(\.shellTheme) var theme
 
     var body: some View {
-        let start = 90 + (360 - sweep) / 2
-        ZStack {
-            Arc(start: start, sweep: sweep).stroke(theme[.onSurface].opacity(0.1), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-            Arc(start: start, sweep: max(0.5, sweep * min(1, max(0, value))))
-                .stroke(theme[.primary], style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        let v = min(1, max(1.0 / 360, value.isNaN ? 0 : value))
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            let amp = wavy ? lineWidth * 0.5 : 0
+            let r = (size - lineWidth * (1 + (wavy ? 1 : 0))) / 2
+            let gap = (8 + lineWidth) / max(1, r) * 180 / .pi
+            let restStart = start + v * sweep + gap
+            let rest = max(1.0 / 360, sweep * (1 - v) - gap * (sweep < 360 ? 1 : 2))
+            let visible = min(1, rest)
+            let c = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+            let dotAngle = (start + sweep - gap * (sweep < 360 ? 0 : 1)) * .pi / 180
+            ZStack {
+                Arc(center: c, radius: r, start: restStart, sweep: rest)
+                    .stroke(theme[.secondaryContainer], style: StrokeStyle(lineWidth: lineWidth * visible, lineCap: .round))
+                    .opacity(visible)
+                TimelineView(.animation(paused: !(wavy && waving))) { t in
+                    let phase = wavy ? t.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) / 2 : 0
+                    Wave(center: c, radius: r, start: start, full: sweep, value: v, amplitude: amp, phase: phase)
+                        .stroke(theme[fg], style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+                }
+                Circle().fill(theme[fg])
+                    .frame(width: min(4, lineWidth) * visible, height: min(4, lineWidth) * visible)
+                    .position(x: c.x + r * cos(dotAngle), y: c.y + r * sin(dotAngle))
+                    .opacity(visible)
+            }
         }
         .animation(theme.spatial, value: value)
     }
 
     struct Arc: Shape {
+        var center: CGPoint
+        var radius: Double
         var start: Double
         var sweep: Double
-        var animatableData: Double {
-            get { sweep }
-            set { sweep = newValue }
+        var animatableData: AnimatablePair<Double, Double> {
+            get { AnimatablePair(start, sweep) }
+            set { start = newValue.first; sweep = newValue.second }
         }
         func path(in rect: CGRect) -> Path {
             var p = Path()
-            let r = min(rect.width, rect.height) / 2
-            p.addArc(center: CGPoint(x: rect.midX, y: rect.midY), radius: r, startAngle: .degrees(start), endAngle: .degrees(start + sweep), clockwise: false)
+            p.addArc(center: center, radius: radius, startAngle: .degrees(start), endAngle: .degrees(start + sweep), clockwise: false)
+            return p
+        }
+    }
+
+    /// WavyLine.paintArc: r + amplitude·sin(8 waves over the full arc + phase), drawn to `value`.
+    struct Wave: Shape {
+        var center: CGPoint
+        var radius: Double
+        var start: Double
+        var full: Double
+        var value: Double
+        var amplitude: Double
+        var phase: Double
+        var animatableData: Double {
+            get { value }
+            set { value = newValue }
+        }
+        func path(in rect: CGRect) -> Path {
+            var p = Path()
+            let fullRad = full * .pi / 180, draw = fullRad * value
+            guard draw > 0, radius > 0 else { return p }
+            let n = max(64, Int((radius * draw).rounded(.up)))
+            for i in 0...n {
+                let d = draw * Double(i) / Double(n)
+                let phi = 8 * 2 * .pi * (d * radius) / (radius * fullRad) + phase * 2 * .pi
+                let r = radius + amplitude * sin(phi)
+                let th = start * .pi / 180 + d
+                let pt = CGPoint(x: center.x + r * cos(th), y: center.y + r * sin(th))
+                if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+            }
             return p
         }
     }
@@ -109,16 +166,24 @@ struct RoundIconButton: View {
     var symbol: String
     var size: Double = 36
     var filled = false
+    /// M3 tonal: secondaryContainer fill.
+    var tonal = false
+    /// Takes the spare width of its row (a pill), like IconButton's fillWidth.
+    var wide = false
     var action: () -> Void
     @State private var hover = false
     @Environment(\.shellTheme) var theme
 
     var body: some View {
+        let fg: Color = filled ? theme[.onPrimary] : tonal ? theme[.onSecondaryContainer] : theme[.onSurface]
+        let bg: Color = filled ? theme[.primary] : tonal ? theme[.secondaryContainer] : theme[.onSurface].opacity(0.12)
         Button(action: action) {
             MaterialIcon(symbol, size: size * 0.42, weight: .semibold)
-                .foregroundStyle(filled ? theme[.onPrimary] : theme[.onSurface])
-                .frame(width: size, height: size)
-                .background(Circle().fill(filled ? theme[.primary] : theme[.onSurface].opacity(hover ? 0.2 : 0.12)))
+                .foregroundStyle(fg)
+                .frame(width: wide ? nil : size, height: size)
+                .frame(maxWidth: wide ? .infinity : nil)
+                .background(Capsule().fill(bg).overlay(Capsule().fill(fg.opacity(hover ? 0.08 : 0))))
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }

@@ -30,6 +30,13 @@ public final class AXWindowSystem: WindowSystem {
     public var focusedWindowID: WindowID? { discovery.focusedWindowID }
     public var cursorLocation: CGPoint? { CGEvent(source: nil)?.location }
     public var isLeftMouseDown: Bool { CGEventSource.buttonState(.combinedSessionState, button: .left) }
+    public var isMouseButtonDown: Bool {
+        [CGMouseButton.left, .right, .center].contains { CGEventSource.buttonState(.combinedSessionState, button: $0) }
+    }
+    public func windowStack() -> [CGWindowSnapshot] {
+        let own = getpid()
+        return CGWindowSnapshot.current(onScreenOnly: true).filter { $0.pid != own }
+    }
 
     public func windowUnderCursor() -> WindowID? {
         cursorLocation.flatMap { discovery.windowUnder(point: $0) }?.windowID

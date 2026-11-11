@@ -20,6 +20,10 @@ public final class SidebarModel: ObservableObject {
     public var onClamshell: (Bool) -> Void = { _ in }
     public var onMute: () -> Void = {}
     public var onWallpaper: () -> Void = {}
+    /// Screen recorder: start / stop, show a recording in Finder, move one to the Trash.
+    public var onRecord: () -> Void = {}
+    public var onRevealRecording: (URL) -> Void = { _ in }
+    public var onTrashRecording: (URL) -> Void = { _ in }
     public init() {}
 }
 
@@ -84,18 +88,21 @@ private struct NotificationsSection: View {
                     .padding(.bottom, 52)
                 }
                 if !groups.isEmpty {
+                    // NotifDock: a square primaryContainer "clear_all" icon button in the corner.
                     Button(action: model.onClear) {
-                        HStack(spacing: 6) { MaterialIcon("delete", size: 12, weight: .semibold); Text("Clear all") }
-                            .font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onPrimaryContainer])
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(Capsule().fill(theme[.primaryContainer]))
+                        MaterialIcon("clear_all", size: 16, weight: .medium).foregroundStyle(theme[.onPrimaryContainer])
+                            .frame(width: 40, height: 40)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(theme[.primaryContainer]))
                     }
-                    .buttonStyle(.plain).padding(8).accessibilityIdentifier("sidebar.clearAll")
+                    .buttonStyle(.plain).padding(4).help("Clear all").accessibilityIdentifier("sidebar.clearAll")
                 }
             }
             .frame(maxHeight: .infinity)
         }
+        // The notification dock is its own card, like the utilities cards under it.
+        .padding(10)
         .frame(maxHeight: .infinity)
+        .shellCard(radius: 20)
     }
 }
 
@@ -153,9 +160,79 @@ struct UtilitiesSection: View {
     var body: some View {
         VStack(spacing: 8) {
             keepAwake
+            recorder
             sliders
             toggles
         }
+    }
+
+    /// Caelestia's screen recorder card: status, a start/stop button, the newest recordings.
+    private var recorder: some View {
+        let r = state.recorder
+        let recording = r.state == .recording
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                MaterialIcon("screen_record", size: 18)
+                    .foregroundStyle(recording ? theme[.onError] : theme[.onSurface]).frame(width: 40, height: 40)
+                    .background(Circle().fill(recording ? theme[.error] : theme[.onSurface].opacity(0.08)))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Screen recorder").font(theme.sans(14, weight: .medium)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        Text(Self.recorderStatus(r, now: ctx.date)).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).monospacedDigit()
+                    }
+                }
+                Spacer(minLength: 4)
+                Button(action: model.onRecord) {
+                    HStack(spacing: 6) {
+                        MaterialIcon(recording ? "stop" : "fullscreen", size: 14)
+                        Text(recording ? "Stop" : "Fullscreen").font(theme.sans(12, weight: .medium))
+                    }
+                    .foregroundStyle(recording ? theme[.onError] : theme[.onPrimaryContainer])
+                    .padding(.horizontal, 12).frame(height: 30)
+                    .background(Capsule().fill(recording ? theme[.error] : theme[.primaryContainer]))
+                }
+                .buttonStyle(.plain).help(recording ? "Stop and save the recording" : "Record the whole main display")
+                .accessibilityIdentifier("sidebar.recorder.toggle")
+            }
+            HStack(spacing: 8) {
+                MaterialIcon("list", size: 14).foregroundStyle(theme[.onSurfaceVariant])
+                Text("Recordings").font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface])
+            }
+            if r.recordings.isEmpty {
+                HStack(spacing: 6) {
+                    MaterialIcon("draft", size: 13)
+                    Text("No recordings found").font(theme.sans(12))
+                }
+                .foregroundStyle(theme[.onSurfaceVariant]).frame(maxWidth: .infinity)
+            } else {
+                ForEach(r.recordings.prefix(3), id: \.self) { url in
+                    HStack(spacing: 6) {
+                        Text(Self.recordingName(url)).font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
+                        Spacer(minLength: 4)
+                        Button { model.onRevealRecording(url) } label: { MaterialIcon("folder_open", size: 14).foregroundStyle(theme[.onSurface]) }
+                            .buttonStyle(.plain).help("Show in Finder")
+                        Button { model.onTrashRecording(url) } label: { MaterialIcon("delete", size: 14).foregroundStyle(theme[.onSurface]) }
+                            .buttonStyle(.plain).help("Move to Trash")
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10).shellCard(radius: 20)
+        .accessibilityIdentifier("sidebar.recorder")
+    }
+
+    /// `skyrose-<unix time>.mov` as its local date and time; any other name as is.
+    static func recordingName(_ url: URL) -> String {
+        let name = url.deletingPathExtension().lastPathComponent
+        guard let t = TimeInterval(name.dropFirst("skyrose-".count)) else { return name }
+        return Date(timeIntervalSince1970: t).formatted(date: .abbreviated, time: .shortened)
+    }
+
+    /// "Ready", or "Recording 1:05" while one runs.
+    static func recorderStatus(_ r: RecorderInfo, now: Date) -> String {
+        guard r.state == .recording, let start = r.startedAt else { return r.state == .unavailable ? (r.unavailableReason ?? "Unavailable") : "Ready" }
+        let s = max(0, Int(now.timeIntervalSince(start)))
+        return "Recording \(s / 60):" + String(format: "%02d", s % 60)
     }
 
     private var keepAwake: some View {
@@ -249,16 +326,18 @@ struct UtilitiesSection: View {
             }
             HStack(spacing: 8) {
                 ForEach(items) { t in
+                    // Toggles.qml: fixed-size icon buttons, round when off, rounded square when on.
                     Button { model.onToggle(t.id) } label: {
                         MaterialIcon(t.icon, size: 15, weight: .medium)
                             .foregroundStyle(t.active ? theme[.onPrimary] : theme[.onSurface])
-                            .frame(maxWidth: .infinity).frame(height: 44)
-                            .background(RoundedRectangle(cornerRadius: t.active ? 14 : 22, style: .continuous)
+                            .frame(width: 44, height: 44)
+                            .background(RoundedRectangle(cornerRadius: t.active ? 12 : 22, style: .continuous)
                                 .fill(t.active ? theme[.primary] : theme[.onSurface].opacity(0.08)))
                     }
                     .buttonStyle(.plain).help(t.label).accessibilityIdentifier("sidebar.toggle.\(t.id)")
                     .animation(theme.small, value: t.active)
                 }
+                Spacer(minLength: 0)
             }
         }
         .padding(12).shellCard(radius: 20)

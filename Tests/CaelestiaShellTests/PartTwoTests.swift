@@ -225,6 +225,11 @@ final class DashboardLogicTests: XCTestCase {
         monday.firstWeekday = 2
         XCTAssertEqual(CalendarGrid.weekdayHeaders(calendar: monday).first, monday.shortWeekdaySymbols[1])
         XCTAssertEqual(CalendarGrid.weekdayHeaders(calendar: cal).count, 7)
+        // Monday first: Sat and Sun are the last two columns. Sunday first: the first and last.
+        XCTAssertEqual((0..<7).filter { CalendarGrid.isWeekend(column: $0, calendar: monday) }, [5, 6])
+        var sunday = cal
+        sunday.firstWeekday = 1
+        XCTAssertEqual((0..<7).filter { CalendarGrid.isWeekend(column: $0, calendar: sunday) }, [0, 6])
     }
 
     func testTabsAndText() {

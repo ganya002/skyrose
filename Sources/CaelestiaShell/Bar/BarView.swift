@@ -243,15 +243,16 @@ struct ActiveWindowColumn: View {
                     Image(nsImage: icon).resizable().interpolation(.high).frame(width: 22, height: 22)
                 }
                 let title = window.title.isEmpty ? window.appName : window.title
+                // A 220×20 box rotated about its centre fills a 20×220 frame only when it is centred
+                // in it; leading-aligned text then reads from the top. ActiveWindow.qml: primary.
                 Text(title)
                     .font(theme.sans(13, weight: .medium))
-                    .foregroundStyle(theme[.onSurface])
+                    .foregroundStyle(theme[.primary])
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .frame(width: 220, alignment: .leading)
+                    .frame(width: 220, height: 20, alignment: .leading)
                     .rotationEffect(.degrees(90))
-                    .frame(width: 20, height: 220, alignment: .top)
-                    .clipped()
+                    .frame(width: 20, height: 220)
                     .accessibilityIdentifier("bar.activeWindow")
             }
         }

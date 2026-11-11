@@ -8,6 +8,14 @@ public enum ShellSizing {
     // Measured on 1-dashboard.jpg / 1-sidebar.jpg / 1-utilities.jpg (image px x 2 = pt, the
     // references were taken on a 5120 px wide display shown at half size).
     public static let dashboardDesign = CGSize(width: 860, height: 560)
+    /// The dashboard's height on each tab: the drawer morphs between them.
+    public static func dashboardHeight(_ tab: DashboardTab) -> Double {
+        switch tab {
+        case .overview, .weather: return dashboardDesign.height
+        case .media: return 460
+        case .performance: return 540
+        }
+    }
     public static let sidebarDesignWidth: Double = 400
     public static let popoutWidth: Double = 300
     public static let wallpaperStripHeight: Double = 196

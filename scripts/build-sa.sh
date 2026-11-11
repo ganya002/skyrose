@@ -14,4 +14,6 @@ FLAGS=(-arch arm64e -isysroot "$SDK" -mmacosx-version-min=14.0 -O2 -Wall -Wextra
   -framework CoreFoundation -framework CoreGraphics \
   -install_name "@rpath/SkyRoseSA.dylib" -o "$OUT/SkyRoseSA.dylib" "$SRC/payload.c"
 "$CC" "${FLAGS[@]}" -o "$OUT/skyrose-sa-loader" "$SRC/loader.c" "$SRC/trampoline.s"
+# The boot daemon's scripts ship next to the loader; the user runs the installer with sudo.
+for f in install-sa-daemon.sh uninstall-sa-daemon.sh skyrose-sa-daemon.sh com.skyrose.sa-loader.plist; do cp "$SRC/$f" "$OUT/$f"; done
 echo "    built $(basename "$OUT")/SkyRoseSA.dylib and skyrose-sa-loader (arm64e)"

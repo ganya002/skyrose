@@ -41,6 +41,7 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         LauncherCommand("sleep", "Put the Mac to sleep", icon: "bedtime", effect: .session(.sleep)),
         LauncherCommand("shutdown", "Shut down the Mac", icon: "power_settings_new", effect: .session(.shutdown)),
         LauncherCommand("reboot", "Restart the Mac", icon: "cached", effect: .session(.reboot)),
+        LauncherCommand("restart", "Restart SkyRose (windows are restored first)", icon: "restart_alt", effect: .session(.restartSkyRose)),
         LauncherCommand("logout", "Log out of the current session", icon: "logout", effect: .session(.logout)),
         LauncherCommand("settings", "Open SkyRose Settings", icon: "settings", effect: .openSettings),
     ]

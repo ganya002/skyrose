@@ -1,5 +1,6 @@
 import AppKit
 import CaelestiaCore
+import CaelestiaPlatform
 import Darwin
 import Foundation
 import IOKit.ps
@@ -60,10 +61,8 @@ enum Environment {
         }
     }
 
-    /// Location of the installed WM app, if Launch Services knows one.
-    static var wmAppURL: URL? {
-        NSWorkspace.shared.urlForApplication(withBundleIdentifier: wmBundleID)
-    }
+    /// The SkyRose.app this CLI belongs to, else the user's installed one (never another account's).
+    static var wmAppURL: URL? { SkyRoseApp.locate() }
 
     /// Location of SkyRose Settings: next to the app this CLI runs from, else Launch Services.
     static var settingsAppURL: URL? {

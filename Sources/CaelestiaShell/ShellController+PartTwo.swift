@@ -27,7 +27,12 @@ extension ShellController {
         dashboard.onPlayPause = { [weak self] in self?.media.playPause() }
         dashboard.onNext = { [weak self] in self?.media.next() }
         dashboard.onPrevious = { [weak self] in self?.media.previous() }
-        dashboard.onSeek = { [weak self] time in self?.media.seek(to: time) }
+        dashboard.onSeek = { [weak self] time in
+            self?.media.seek(to: time)
+            // Players report the new position late, and the lyric list should follow the click now.
+            self?.dashboard.lyricClock.position = time
+            self?.dashboard.lyricClock.at = Date()
+        }
 
         sidebar.onDismiss = { [weak self] id in self?.dismissNotification(id) }
         sidebar.onClear = { [weak self] in self?.clearNotifications() }
@@ -38,6 +43,11 @@ extension ShellController {
         sidebar.onKeepAwakeFor = { [weak self] d in self?.keepAwake.set(on: true, duration: d) }
         sidebar.onClamshell = { [weak self] on in self?.lidSleep.setClamshell(on) }
         sidebar.onWallpaper = { [weak self] in self?.open(.wallpaper) }
+        sidebar.onRecord = { [weak self] in self?.toggleRecording() }
+        sidebar.onRevealRecording = { url in NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        sidebar.onTrashRecording = { [weak self] url in
+            NSWorkspace.shared.recycle([url]) { _, _ in DispatchQueue.main.async { self?.refreshRecordings() } }
+        }
 
         popout.onSetOutput = { [weak self] id in
             self?.audio.setOutputDevice(id)
@@ -195,7 +205,9 @@ extension ShellController {
     /// column width, the controls' height. Cached per width (the probe lays out SwiftUI).
     func utilitiesSize(layout: DisplayLayout, reveal: Double) -> CGSize {
         let width = ShellSizing.sidebarWidth(inner: layout.inner(barReveal: reveal))
-        let key = "\(width)|\(sidebar.brightnessAvailable)"
+        // Everything that changes the controls' height: the recorder list and the lid line wrap.
+        let lid = state.clamshell.hasLid ? Clamshell.summary(state.clamshell, lid: state.lidSleep) : ""
+        let key = "\(width)|\(sidebar.brightnessAvailable)|\(min(3, state.recorder.recordings.count))|\(lid)"
         if let cached = utilitiesSizeCache[key] { return cached }
         let size = UtilitiesDrawerView.size(bodyWidth: width, fillet: theme.frameRounding, sidebar: sidebar, state: state, theme: theme)
         utilitiesSizeCache = [key: size]
@@ -246,15 +258,16 @@ extension ShellController {
         var frame = layout.drawerFrame(size: CGSize(width: width, height: inner.height - clear), edge: .right, barReveal: reveal)
         frame.origin.y = inner.minY
         panel.setFrame(DisplayLayout.withRoom(frame, edge: .right, room: theme.overshootRoom(depth: width)), display: false)
-        hideOSD(animated: true)
         present(panel)
         sidebar.shown = true
+        shoveRightDrawers()
         bluetooth.refresh()
     }
 
     func closeSidebar() {
         guard sidebar.shown else { return }
         sidebar.shown = false
+        shoveRightDrawers()
         openDrawers.remove(.utilities)
         dismissAfter(sidebarPanel) { [weak self] in self?.sidebar.shown == false }
     }
@@ -483,7 +496,7 @@ extension ShellController {
 
     public func setDoNotDisturb(_ on: Bool) {
         state.doNotDisturb = on
-        if on { toasts.queue = ToastQueue() }
+        if on { popups.queue = ToastQueue() }
     }
 
     // MARK: Notifications
@@ -514,7 +527,7 @@ extension ShellController {
         let n = ShellNotification(appName: app.isEmpty ? "skyrose-shell" : app, summary: title, body: body, icon: icon)
         notificationStore.add(n)
         notificationsChanged()
-        toast(.info, title: title, message: body, icon: icon, record: false)
+        toast(.info, title: title, message: body, icon: icon, record: false, popup: true)
         return n.id
     }
 

@@ -30,7 +30,7 @@ struct DashboardView: View {
     @Environment(\.shellTheme) var theme
     let fillet: Double
 
-    private var design: CGSize { ShellSizing.dashboardDesign }
+    private var design: CGSize { CGSize(width: ShellSizing.dashboardDesign.width, height: ShellSizing.dashboardHeight(model.tab)) }
 
     var body: some View {
         let s = model.scale
@@ -55,11 +55,13 @@ struct DashboardView: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ForEach(DashboardTab.allCases, id: \.self) { tab in
-                    TabButton(tab: tab, selected: model.tab == tab) { withAnimation(theme.spatial) { model.tab = tab } }
+                    TabButton(tab: tab, selected: model.tab == tab, indicator: tabIndicator) { withAnimation(theme.spatial) { model.tab = tab } }
                 }
             }
             .frame(height: 62)
-            Rectangle().fill(theme[.outlineVariant].opacity(0.5)).frame(height: 1).padding(.horizontal, 12)
+            .padding(.horizontal, 12)
+            // Tabs.qml: the separator sits right under the 3 pt indicator, full width, outlineVariant.
+            Rectangle().fill(theme[.outlineVariant]).frame(height: 1).padding(.horizontal, 12)
             Group {
                 switch model.tab {
                 case .overview: OverviewTab(model: model, state: state)
@@ -77,21 +79,34 @@ struct DashboardView: View {
         }
         .padding(.top, 8)
     }
+
+    @Namespace private var tabIndicator
 }
 
 private struct TabButton: View {
     var tab: DashboardTab
     var selected: Bool
+    var indicator: Namespace.ID
     var action: () -> Void
     @Environment(\.shellTheme) var theme
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                MaterialIcon(tab.icon, size: 15, weight: .medium)
-                Text(tab.title).font(theme.sans(13, weight: .medium))
-                Rectangle().fill(selected ? theme[.primary] : .clear).frame(height: 2).padding(.horizontal, 22)
+            VStack(spacing: 2) {
+                // Tabs.qml: icon.medium, filled only on the current tab; label in body text.
+                MaterialIcon(tab.icon, size: 15, fill: selected)
+                Text(tab.title).font(theme.sans(13))
+                    .padding(.bottom, 5)
+                    .overlay(alignment: .bottom) {
+                        // One indicator, label wide, 3 pt with a rounded top; it slides between tabs.
+                        if selected {
+                            UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3)
+                                .fill(theme[.primary]).frame(height: 3)
+                                .matchedGeometryEffect(id: "indicator", in: indicator)
+                        }
+                    }
             }
+            .frame(maxHeight: .infinity, alignment: .bottom)
             .foregroundStyle(selected ? theme[.primary] : theme[.onSurfaceVariant])
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -134,18 +149,19 @@ struct WeatherCard: View {
     var body: some View {
         Group {
             if let w = state.weather {
+                // SmallWeather.qml: outline icon in secondary, temperature primary DemiBold, description body small.
                 HStack(spacing: 20) {
-                    MaterialIcon(w.icon, size: 54, weight: .light)
+                    MaterialIcon(w.icon, size: 54, weight: .light, fill: false)
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(theme[.onSurface])
-                    VStack(spacing: 4) {
+                        .foregroundStyle(theme[.secondary])
+                    VStack(spacing: 2) {
                         Text(WeatherText.temperature(w.temperatureC, fahrenheit: state.config.weather.fahrenheit))
-                            .font(theme.sans(30, weight: .semibold)).foregroundStyle(theme[.primary])
+                            .font(theme.sans(28, weight: .semibold)).foregroundStyle(theme[.primary])
                         Text(w.description)
-                            .font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface]).multilineTextAlignment(.center)
-                        Text(w.location).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
+                            .font(theme.sans(12)).foregroundStyle(theme[.onSurface]).multilineTextAlignment(.center)
                     }
                 }
+                .help(w.location)
             } else {
                 WeatherPlaceholderText(status: state.weatherStatus, compact: true)
             }
@@ -346,18 +362,19 @@ struct ClockCard: View {
 
     var body: some View {
         let p = ClockParts.make(now, use24h: ClockParts.localeUses24h(), seconds: seconds)
+        // DateTime.qml: digits secondary DemiBold (28 Qt pt; 32 here matches the capture), dots and AM/PM primary.
         VStack(spacing: 6) {
-            Text(p.hours).font(theme.sans(32, weight: .bold))
+            Text(p.hours).font(theme.sans(32, weight: .semibold))
             dots
-            Text(p.minutes).font(theme.sans(32, weight: .bold))
+            Text(p.minutes).font(theme.sans(32, weight: .semibold))
             if let s = p.seconds {
                 dots
-                Text(s).font(theme.sans(32, weight: .bold)).foregroundStyle(theme[.tertiary])
+                Text(s).font(theme.sans(32, weight: .semibold))
             }
-            if let m = p.meridiem { Text(m).font(theme.sans(15, weight: .semibold)).foregroundStyle(theme[.onSurfaceVariant]) }
+            if let m = p.meridiem { Text(m).font(theme.sans(18, weight: .semibold)).foregroundStyle(theme[.primary]) }
         }
         .monospacedDigit()
-        .foregroundStyle(theme[.primary])
+        .foregroundStyle(theme[.secondary])
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .shellCard()
         .accessibilityIdentifier("dashboard.clock")
@@ -365,7 +382,7 @@ struct ClockCard: View {
 
     private var dots: some View {
         HStack(spacing: 3) { ForEach(0..<3, id: \.self) { _ in Circle().frame(width: 4, height: 4) } }
-            .foregroundStyle(theme[.onSurfaceVariant].opacity(0.6))
+            .foregroundStyle(theme[.primary])
     }
 }
 
@@ -383,22 +400,27 @@ struct CalendarCard: View {
                 arrow("chevron.left") { model.monthOffset -= 1 }
                 Spacer()
                 Button { model.monthOffset = 0 } label: {
-                    Text(start, format: .dateTime.month(.wide).year()).font(theme.sans(15, weight: .semibold)).foregroundStyle(theme[.onSurface])
+                    Text(start, format: .dateTime.month(.wide).year()).font(theme.sans(14, weight: .medium)).foregroundStyle(theme[.primary])
                 }.buttonStyle(.plain)
                 Spacer()
                 arrow("chevron.right") { model.monthOffset += 1 }
             }
             LazyVGrid(columns: cols, spacing: 4) {
                 // Header IDs must not collide with Day.id (0..<42) in the same grid, or SwiftUI drops week 1.
-                ForEach(Array(CalendarGrid.weekdayHeaders(calendar: cal).enumerated()), id: \.offset.headerID) { _, d in
-                    Text(d).font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onSurface])
+                // Calendar.qml: weekends tertiary, other days onSurfaceVariant, other months at 40 %,
+                // today on a primary "sunny" shape.
+                ForEach(Array(CalendarGrid.weekdayHeaders(calendar: cal).enumerated()), id: \.offset.headerID) { i, d in
+                    Text(d).font(theme.sans(12, weight: .medium))
+                        .foregroundStyle(CalendarGrid.isWeekend(column: i, calendar: cal) ? theme[.tertiary] : theme[.onSurface])
                 }
                 ForEach(weeks.flatMap { $0 }) { day in
+                    let weekend = CalendarGrid.isWeekend(column: day.offset % 7, calendar: cal)
                     ZStack {
-                        if day.isToday { CookieShape().fill(theme[.primaryContainer]).frame(width: 30, height: 30) }
+                        if day.isToday { CookieShape().fill(theme[.primary]).frame(width: 30, height: 30) }
                         Text("\(day.number)")
-                            .font(theme.sans(13, weight: day.isToday ? .bold : .medium))
-                            .foregroundStyle(day.isToday ? theme[.onPrimaryContainer] : (day.inMonth ? theme[.onSurface] : theme[.onSurfaceVariant].opacity(0.4)))
+                            .font(theme.sans(12, weight: day.isToday ? .medium : .regular))
+                            .foregroundStyle(day.isToday ? theme[.onPrimary] : (weekend ? theme[.tertiary] : theme[.onSurfaceVariant]))
+                            .opacity(day.isToday || day.inMonth ? 1 : 0.4)
                     }
                     .frame(height: 32)
                 }
@@ -427,9 +449,10 @@ struct GaugesCard: View {
         let mem = p.memoryTotalBytes > 0 ? Double(p.memoryUsedBytes) / Double(p.memoryTotalBytes) : 0
         let disk = p.storageTotalBytes > 0 ? Double(p.storageUsedBytes) / Double(p.storageTotalBytes) : 0
         VStack(spacing: 10) {
-            gauge("cpu", p.cpuPercent / 100, "CPU \(Int(p.cpuPercent.rounded()))%")
-            gauge("memorychip", mem, "Memory \(ShellText.bytesText(p.memoryUsedBytes)) of \(ShellText.bytesText(p.memoryTotalBytes))")
-            gauge("internaldrive", disk, "Storage \(ShellText.bytesText(p.storageUsedBytes)) of \(ShellText.bytesText(p.storageTotalBytes))")
+            // Resources.qml: CPU primary, memory tertiary, storage secondary; icon only, the value is the arc.
+            gauge("memory", .primary, p.cpuPercent / 100, "CPU \(Int(p.cpuPercent.rounded()))%")
+            gauge("memory_alt", .tertiary, mem, "Memory \(ShellText.bytesText(p.memoryUsedBytes)) of \(ShellText.bytesText(p.memoryTotalBytes))")
+            gauge("hard_drive", .secondary, disk, "Storage \(ShellText.bytesText(p.storageUsedBytes)) of \(ShellText.bytesText(p.storageTotalBytes))")
         }
         .padding(.vertical, 14).padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -437,15 +460,13 @@ struct GaugesCard: View {
         .accessibilityIdentifier("dashboard.gauges")
     }
 
-    private func gauge(_ icon: String, _ value: Double, _ help: String) -> some View {
+    private func gauge(_ icon: String, _ role: ColorRole, _ value: Double, _ help: String) -> some View {
         ZStack {
-            ProgressArc(value: value, sweep: 300, lineWidth: 5)
-            VStack(spacing: 1) {
-                MaterialIcon(icon, size: 15).foregroundStyle(theme[.onSurface])
-                Text("\(Int((value * 100).rounded()))%").font(theme.sans(10, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
-            }
+            ProgressArc(value: value, lineWidth: 6, fg: role)
+            MaterialIcon(icon, size: 21).foregroundStyle(theme[role])
         }
         .frame(width: 80, height: 80)
+        .accessibilityValue("\(Int((value * 100).rounded())) percent")
         .help(help)
     }
 }
@@ -458,31 +479,35 @@ struct MediaCard: View {
     var body: some View {
         let m = state.media
         let progress = m.duration > 0 ? m.position / m.duration : 0
+        // dash/Media.qml: a wavy 180° arc over the cover (the wave moves while playing), then
+        // title (primary), album (outline), artist (secondary), and a tonal ‹ / wide play / › row.
         VStack(spacing: 8) {
             ZStack {
-                ProgressArc(value: progress, sweep: 240, lineWidth: 4).frame(width: 156, height: 156)
+                ProgressArc(value: progress, sweep: 180, start: -180, lineWidth: 6, wavy: true, waving: m.isPlaying && model.shown)
+                    .frame(width: 170, height: 170)
                 ArtworkView(url: m.available ? m.artworkPath : nil)
-                    .clipShape(CookieShape(bumps: 10, depth: 0.05)).frame(width: 118, height: 118)
+                    .clipShape(CookieShape(bumps: 10, depth: 0.05)).frame(width: 128, height: 128)
             }
-            .padding(.top, 14)
-            if state.config.dashboard.bongoCat {
-                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
-                    .frame(width: 72, height: 48)
-            }
+            .padding(.top, 12)
             Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
-                .font(theme.sans(15, weight: .semibold)).foregroundStyle(theme[.onSurface]).lineLimit(1)
-            Text(m.available ? (m.artist.isEmpty ? "Unknown artist" : m.artist) : "Nothing playing")
-                .font(theme.sans(13)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
-            if m.available, !m.album.isEmpty {
-                Text(m.album).font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant].opacity(0.8)).lineLimit(1)
+                .font(theme.sans(14, weight: .medium)).foregroundStyle(theme[.primary]).lineLimit(1)
+            Text(m.available ? (m.album.isEmpty ? "Unknown album" : m.album) : "No media")
+                .font(theme.sans(12)).foregroundStyle(theme[.outline]).lineLimit(1)
+            Text(m.available ? (m.artist.isEmpty ? "Unknown artist" : m.artist) : "No media")
+                .font(theme.sans(14)).foregroundStyle(theme[.secondary]).lineLimit(1)
+            HStack(spacing: 4) {
+                RoundIconButton(symbol: "backward.fill", size: 40, tonal: true, action: model.onPrevious)
+                RoundIconButton(symbol: m.isPlaying ? "pause.fill" : "play.fill", size: 40, filled: m.isPlaying, tonal: !m.isPlaying, wide: true, action: model.onPlayPause)
+                RoundIconButton(symbol: "forward.fill", size: 40, tonal: true, action: model.onNext)
             }
+            .padding(.top, 4)
             Spacer(minLength: 0)
-            HStack(spacing: 8) {
-                RoundIconButton(symbol: "backward.fill", size: 36, action: model.onPrevious)
-                RoundIconButton(symbol: m.isPlaying ? "pause.fill" : "play.fill", size: 44, filled: true, action: model.onPlayPause)
-                RoundIconButton(symbol: "forward.fill", size: 36, action: model.onNext)
+            if state.config.dashboard.bongoCat {
+                // Under the controls, as in Caelestia's dashboard card.
+                BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
+                    .frame(width: 124, height: 78)
             }
-            .padding(.bottom, 16)
+            Spacer(minLength: 0).frame(height: 12)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -502,18 +527,14 @@ private struct MediaTab: View {
         let m = state.media
         HStack(spacing: 28) {
             ZStack {
-                ProgressArc(value: m.duration > 0 ? m.position / m.duration : 0, sweep: 300, lineWidth: 6).frame(width: 300, height: 300)
-                ArtworkView(url: m.available ? m.artworkPath : nil).clipShape(CookieShape(bumps: 12, depth: 0.05)).frame(width: 236, height: 236)
+                ProgressArc(value: m.duration > 0 ? m.position / m.duration : 0, sweep: 300, start: 120, lineWidth: 6).frame(width: 250, height: 250)
+                ArtworkView(url: m.available ? m.artworkPath : nil).clipShape(CookieShape(bumps: 12, depth: 0.05)).frame(width: 196, height: 196)
             }
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .center, spacing: 10) {
                 Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
-                    .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2)
+                    .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2).multilineTextAlignment(.center)
                 Text(m.available ? m.artist : "Nothing is playing").font(theme.sans(18)).foregroundStyle(theme[.primary]).lineLimit(1)
                 if !m.album.isEmpty { Text(m.album).font(theme.sans(15)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1) }
-                if state.config.dashboard.bongoCat {
-                    BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown).frame(width: 120, height: 72)
-                }
-                if state.config.dashboard.lyrics { lyricList(m) }
                 if m.available {
                     HStack {
                         Text(timeText(m.position)); Spacer(); Text(timeText(m.duration))
@@ -531,7 +552,16 @@ private struct MediaTab: View {
                     RoundIconButton(symbol: "forward.fill", size: 46, action: model.onNext)
                 }.padding(.top, 10)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            VStack(spacing: 12) {
+                if state.config.dashboard.lyrics { LyricsColumn(model: model) }
+                if state.config.dashboard.bongoCat {
+                    BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
+                        .frame(width: state.config.dashboard.lyrics ? 150 : 200, height: state.config.dashboard.lyrics ? 95 : 126)
+                }
+            }
+            .frame(width: 250)
+            .padding(.vertical, 22)
         }
         .padding(.horizontal, 26)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -541,47 +571,6 @@ private struct MediaTab: View {
 
     private func timeText(_ s: Double) -> String { String(format: "%d:%02d", Int(s) / 60, Int(s) % 60) }
 
-    @ViewBuilder private func lyricList(_ m: MediaInfo) -> some View {
-        if model.lyricLines.isEmpty {
-            Text(model.lyricNote.isEmpty ? "No lyrics found" : model.lyricNote)
-                .font(theme.sans(13)).foregroundStyle(theme[.onSurfaceVariant])
-        } else {
-            // Ticks only while the song runs and the dashboard is open.
-            TimelineView(.periodic(from: .now, by: 0.2)) { context in
-                LyricList(model: model, current: Lyrics.index(of: model.lyricLines, at: model.lyricClock.position(at: context.date)))
-            }
-        }
-    }
-}
-
-private struct LyricList: View {
-    @ObservedObject var model: DashboardModel
-    var current: Int?
-    @Environment(\.shellTheme) var theme
-
-    var body: some View {
-        let synced = Lyrics.isSynced(model.lyricLines)
-        ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(model.lyricLines.enumerated()), id: \.offset) { index, line in
-                        Text(line.text)
-                            .font(theme.sans(index == current ? 16 : 13, weight: index == current ? .semibold : .regular))
-                            .foregroundStyle(index == current ? theme[.primary] : theme[.onSurfaceVariant])
-                            .animation(theme.small, value: current)
-                            .id(index)
-                            .onTapGesture { if synced { model.onSeek(line.time) } }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(maxHeight: 140)
-            .onChange(of: current) { _, index in
-                if let index { withAnimation(theme.spatial) { proxy.scrollTo(index, anchor: .center) } }
-            }
-            .onChange(of: model.lyricLines) { _, _ in proxy.scrollTo(0, anchor: .top) }
-        }
-    }
 }
 
 // MARK: Performance tab

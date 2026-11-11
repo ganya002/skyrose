@@ -14,6 +14,8 @@ public enum CLILocalCommand: Equatable, Sendable {
     case uninstall(flags: [String])
     /// `shell -d`: launch the WM app and wait for its socket.
     case shellStart
+    /// `restart`: quit the WM, wait for it, start this CLI's SkyRose.app (or just start it).
+    case restart
     /// `shell help [target]`: print the Linux shell IPC targets and signatures.
     case shellTargets(String?)
     /// `migrate`: move a pre-rename Caelestia for Mac install to the SkyRose locations.
@@ -37,6 +39,7 @@ public enum CLILocalCommand: Equatable, Sendable {
 public enum SAVerb: String, Equatable, Sendable {
     case status
     case loadCommand = "load-command"
+    case reload
     case reset
 }
 
@@ -319,6 +322,9 @@ public enum CLIParser {
         case "uninstall":
             try rejectExtra("uninstall", args)
             inv.kind = .local(.uninstall(flags: uninstallFlags.sorted().filter { tokens.has($0) }))
+        case "restart":
+            try rejectExtra("restart", args)
+            inv.kind = .local(.restart)
         case "update":
             try rejectExtra("update", args)
             inv.kind = .local(.update(checkOnly: tokens.has("--check")))
@@ -358,8 +364,14 @@ public enum CLIParser {
             inv.kind = .local(.kitty(v))
         case "sa":
             let verb = args.first ?? "status"
+            if verb == "enable" {
+                // Asks the running SkyRose to show its "Finish hiding the menu bar" card.
+                try rejectExtra("sa enable", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.saEnable))
+                return inv
+            }
             guard let v = SAVerb(rawValue: verb) else {
-                throw CLIUsageError.unknownVerb(group: "sa", verb: verb, expected: ["status", "load-command", "reset"])
+                throw CLIUsageError.unknownVerb(group: "sa", verb: verb, expected: ["status", "load-command", "reload", "reset", "enable"])
             }
             try rejectExtra("sa \(verb)", Array(args.dropFirst()))
             inv.kind = .local(.sa(v))
@@ -772,9 +784,10 @@ public enum CLIParser {
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [
             ("query windows|workspaces|monitors|binds|state [--json]", "Inspect WM state (tables, or raw JSON with --json)"),
         ]),
-        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "permissions", "doctor", "uninstall", "cursor", "dock", "update", "kitty", "fonts", "sa", "version"], rows: [
+        HelpSection(title: "WM and diagnostics", topics: ["action", "dispatch", "wm", "restart", "permissions", "doctor", "uninstall", "cursor", "dock", "update", "kitty", "fonts", "sa", "version"], rows: [
             ("action <name> [key=value ...]", "Run any keymap action, e.g. action workspace.focus index=3"),
             ("wm panic | restore-all | quit", "Restore windows and stop managing / bring parked windows back / quit"),
+            ("restart", "Quit SkyRose (windows restored), wait for it, start it again from where this CLI is installed; starts it if not running"),
             ("permissions status", "TCC permissions as the WM sees them"),
             ("permissions request <accessibility|inputMonitoring|screenRecording>", "Ask for one permission and open its System Settings pane"),
             ("doctor [--json] [--fix]", "Environment, permissions, versions, SIP status, conflicts. --fix repairs what it safely can"),
@@ -783,7 +796,8 @@ public enum CLIParser {
             ("dock show | hide | status", "Keep the Dock from sliding out (it keeps running Mission Control); hide is journaled"),
             ("update [--check] [--yes]", "Look for a newer release; --yes downloads it, checks SHA-256, and replaces the apps"),
             ("fonts status | download | install | uninstall", "Arch font pack: download (checksummed, SkyRose only) / install into ~/Library/Fonts for kitty and other apps"),
-            ("sa status | load-command | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, undo everything it changed"),
+            ("sa status | load-command | reload | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, the sudo line to load it again now, undo everything it changed"),
+            ("sa enable", "SIP-off mode: show the card that loads the helper with the macOS password prompt"),
             ("kitty status | install | uninstall", "SkyRose kitty profile: Gabby's Arch settings + live scheme colours (one include line in kitty.conf)"),
             ("version", "CLI and WM versions"),
         ]),

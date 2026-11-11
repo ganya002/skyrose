@@ -38,8 +38,15 @@ not run them. After a reboot the status on that page updates by itself.
    Reboot.
 5. Open **SkyRose Settings › SIP-off mode**, press **What changes with SIP off?** and read it to
    the end (**I understand the risks** unlocks the switch), then switch **SIP-off mode** on.
-6. Load the scripting addition, once per boot, in Terminal (Settings shows this line with a
-   Copy button; `skyrose sa load-command` prints it):
+6. Load the scripting addition, once per boot. The easy way: SkyRose shows a **Finish hiding the
+   menu bar** card whenever SIP-off mode is on and the helper is not loaded (also from Settings ›
+   SIP-off mode › **Enable the helper**, or `skyrose sa enable`). **Enable** opens the standard
+   macOS password window; SkyRose never sees the password. Root then copies SkyRose.app into a
+   fresh root-only folder, checks that copy's signature against the running SkyRose, and runs only
+   the copied loader. **Do this automatically every restart** (off by default) also installs the
+   boot daemon from that verified copy; it runs as root at boot (see PERMISSIONS.md to remove it).
+   Or in Terminal (the card's **Do it in Terminal instead**, Settings' Copy button, or
+   `skyrose sa load-command`):
    ```
    sudo /path/to/SkyRose.app/Contents/Resources/sa/skyrose-sa-loader
    ```
@@ -106,5 +113,8 @@ implemented** in this build.
 
 ## Status
 
-Built and tested in this build: `skyrose sa status | load-command | reset`, Settings › SIP-off
+To skip the manual step after each restart, install the optional boot daemon: see "SIP-off boot
+daemon" in [PERMISSIONS.md](PERMISSIONS.md).
+
+Built and tested in this build: `skyrose sa status | load-command | reload | reset`, Settings › SIP-off
 mode, the showcase. See docs/phase-progress.md for what was live-tested on this Mac.

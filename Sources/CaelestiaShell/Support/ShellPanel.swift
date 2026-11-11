@@ -23,6 +23,10 @@ public final class ShellPanel: NSPanel {
     public var blobBody: CGRect? { didSet { if blobBody != oldValue { onBlobBodyChange?() } } }
     public var blobEdge: ShellEdge = .bottom
     public var blobDeformAmount: Double = 0.15
+    /// Open and close times in ms, before the duration scale.
+    public var blobMs = CaelestiaTokens.DrawerMs.other
+    /// How far the open sidebar has pushed this panel to the left.
+    var shove: Double = 0
     public var onBlobBodyChange: (() -> Void)?
     /// Escape / arrows while key (launcher and session menu install one).
     public var onKeyDown: ((NSEvent) -> Bool)?

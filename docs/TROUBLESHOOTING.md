@@ -28,6 +28,18 @@ config/keymap parse results, keybind conflicts and whether the WM answers on its
   `scripts/uninstall.sh --windows-only` does not exist yet.
 - The journal is `~/Library/Application Support/SkyRose/parked-windows.json`.
 
+## Restarting SkyRose
+
+`skyrose restart` quits SkyRose (every window is put back first), waits until it has exited, and
+starts the same SkyRose.app the CLI belongs to (dist/ or ~/Applications). If SkyRose is not running
+it just starts it. Also: Settings › About › Restart, the session menu's last button, or `>restart`
+in the launcher. The SIP-off helper lives in the Dock, so it stays loaded across restarts.
+`skyrose shell restart` only rebuilds the shell UI. If SkyRose does not quit within 20 s, run
+`skyrose wm panic`, then `skyrose restart`.
+
+SkyRose is always started by path, never by bundle id: Launch Services also lists copies in other
+accounts (e.g. an installer test under /Users/testuser) and could start one of those instead.
+
 ## "The bar is missing"
 
 - `bar.persistent = false` in your config (Gabby's Arch default): the bar slides in when the

@@ -67,6 +67,23 @@ public enum CaelestiaTokens {
     /// Panel radius (`rounding.extraLarge`).
     public static let panelRadius: Double = 28
 
+    /// Drawer open and close times in ms, before `durations.scale`. Re-measured frame by frame on the
+    /// H.264 clips of full-2026-11-05 (04-caelestia/*_open/close.mp4, scale 0.8) against SkyRose
+    /// recorded the same way: each token scaled by reference ÷ SkyRose visible time (2026-11-11).
+    public enum DrawerMs {
+        public static let launcher = (open: 400.0, close: 212.5)
+        public static let dashboard = (open: 525.0, close: 237.5)
+        public static let sidebar = (open: 287.5, close: 162.5)
+        public static let utilities = (open: 437.5, close: 150.0)
+        public static let session = (open: 225.0, close: 212.5)
+        /// osd_open.mp4: in over ~175 ms visible; out ~60 ms.
+        public static let osd = (open: 225.0, close: 187.5)
+        /// notification_popup.mp4: in over ~300 ms at Gabby's 0.8 scale.
+        public static let notifications = (open: 375.0, close: 187.5)
+        /// Not measured on their own: the default open token and the middle of the close range.
+        public static let other = (open: Duration.defaultSpatial, close: 187.5)
+    }
+
     /// Upstream per-panel `deformAmount` (ContentWindow.qml PanelBg).
     public enum DeformAmount {
         public static let dashboard = 0.1

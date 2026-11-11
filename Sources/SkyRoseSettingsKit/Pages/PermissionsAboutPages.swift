@@ -328,6 +328,7 @@ struct AboutPage: View {
 
     static let credits: [(String, String, String)] = [
         ("Caelestia", "The shell this is modelled on: bar, panels, colours and motion. GPL-3.0.", "https://github.com/caelestia-dots/shell"),
+        ("Bongo Cat", "Bongo Cat sprite from Caelestia (caelestia-dots/shell, GPL-3.0); original Bongo Cat by StrayRogue & DitzyFlama.", "https://github.com/caelestia-dots/shell"),
         ("Hyprland", "The tiling layout, the keybinds and the feel. BSD-3-Clause.", "https://hyprland.org"),
         ("Material Color Utilities", "Colours from the wallpaper. Apache-2.0.", "https://github.com/material-foundation/material-color-utilities"),
         ("AeroSpace and yabai", "Ideas for window management on macOS.", "https://github.com/nikitabobko/AeroSpace"),
@@ -350,6 +351,11 @@ struct AboutPage: View {
                 }
             }
             UpdateCard(store: store)
+            Card {
+                SettingRow(title: "Restart SkyRose", detail: "Quits SkyRose (your windows are put back first) and starts it again. Same as `skyrose restart`.", icon: "arrow.clockwise") {
+                    PillButton(title: store.wmRunning ? "Restart" : "Start", icon: "arrow.clockwise", kind: .tonal) { store.restartSkyRose() }
+                }
+            }
             Card {
                 SectionLabel(text: "Credits")
                 ForEach(Self.credits, id: \.0) { c in

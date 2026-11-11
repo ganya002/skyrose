@@ -75,77 +75,64 @@ public final class ToastModel: ObservableObject {
     public static let width: Double = 360
 }
 
+/// Notifications and toasts: one drawer that grows down out of the frame's top-right corner, part
+/// of the liquid surface (Caelestia's notifications module, measured on notification_popup.mp4:
+/// 430 wide, 15 pt padding left/bottom, 5 pt (padding − border) top/right, cards 10 apart).
 struct ToastsView: View {
     @ObservedObject var model: ToastModel
     @Environment(\.shellTheme) var theme
+    static let width: Double = 430
+    static let padding: Double = 15
+    static let edgePadding: Double = 5
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 8) {
+        VStack(alignment: .trailing, spacing: 10) {
             ForEach(model.queue.toasts) { toast in
                 ToastCard(toast: toast)
-                    .transition(theme.reduceMotion ? .opacity : .asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .scale(scale: 0.7, anchor: .trailing)).combined(with: .opacity),
-                        removal: .scale(scale: 0.7, anchor: .trailing).combined(with: .opacity)))
+                    .transition(theme.reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
             }
-            Spacer(minLength: 0)
         }
-        .padding(.top, 8)
-        .padding(.trailing, 8)
+        .padding(EdgeInsets(top: Self.edgePadding, leading: Self.padding, bottom: Self.padding, trailing: Self.edgePadding))
+        .frame(width: Self.width)
+        .background(DrawerBackground(edge: .top, fillet: 0, radius: theme.frameRounding, shown: !model.queue.isEmpty, depth: 120))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         .animation(theme.spatial, value: model.queue.toasts.map(\.id))
     }
 }
 
+/// One Caelestia notification card: icon circle, summary · time, a one-line body.
 struct ToastCard: View {
     var toast: Toast
     @Environment(\.shellTheme) var theme
 
     var body: some View {
-        let (bg, fg, accent) = colors
-        HStack(alignment: .top, spacing: 12) {
-            MaterialIcon(toast.icon.isEmpty ? toast.kind.defaultIcon : toast.icon, size: 18, weight: .semibold)
-                .foregroundStyle(accent)
-                .frame(width: 28, height: 28)
+        HStack(spacing: 12) {
+            if !toast.imagePath.isEmpty, let image = NSImage(contentsOfFile: toast.imagePath) {
+                Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
+                    .frame(width: 42, height: 42)
+                    .clipShape(Circle())
+                    .accessibilityIdentifier("toast.thumbnail")
+            } else {
+                MaterialIcon(toast.icon.isEmpty ? toast.kind.defaultIcon : toast.icon, size: 20)
+                    .foregroundStyle(toast.kind == .error ? theme[.onError] : theme[.onSecondaryContainer])
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(toast.kind == .error ? theme[.error] : theme[.secondaryContainer]))
+            }
             VStack(alignment: .leading, spacing: 2) {
-                Text(toast.title)
-                    .font(theme.sans(15, weight: .semibold))
-                    .foregroundStyle(fg)
-                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    Text(toast.title).font(theme.sans(15, weight: .medium)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                    Text("•  now").font(theme.sans(13)).foregroundStyle(theme[.onSurfaceVariant]).fixedSize()
+                }
                 if !toast.message.isEmpty {
-                    Text(toast.message)
-                        .font(theme.sans(13))
-                        .foregroundStyle(fg.opacity(0.8))
-                        .lineLimit(4)
+                    Text(toast.message).font(theme.sans(13.5)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
-            if !toast.imagePath.isEmpty, let image = NSImage(contentsOfFile: toast.imagePath) {
-                Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
-                    .frame(width: 72, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(theme[.outlineVariant], lineWidth: 1))
-                    .accessibilityIdentifier("toast.thumbnail")
-            }
         }
-        .padding(14)
-        .frame(width: ToastModel.width, alignment: .leading)
-        .background(
-            ZStack {
-                FrostedShape(shape: RoundedRectangle(cornerRadius: 17, style: .continuous), theme: theme,
-                             caps: NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20))
-                RoundedRectangle(cornerRadius: 17, style: .continuous).fill(bg)
-                RoundedRectangle(cornerRadius: 17, style: .continuous).strokeBorder(theme[.outlineVariant].opacity(0.5), lineWidth: 1)
-            }
-        )
+        .padding(10)
+        .frame(width: ToastsView.width - ToastsView.padding - ToastsView.edgePadding, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(toast.kind == .error ? theme[.secondaryContainer] : theme[.surfaceContainer].opacity(0.6)))
         .accessibilityIdentifier("toast.\(toast.kind.rawValue)")
-    }
-
-    private var colors: (Color, Color, Color) {
-        switch toast.kind {
-        case .error: return (theme[.errorContainer].opacity(0.85), theme[.onErrorContainer], theme[.error])
-        case .warn: return (theme[.surfaceContainer].opacity(0.6), theme[.onSurface], theme[.tertiary])
-        case .info: return (theme[.surfaceContainer].opacity(0.6), theme[.onSurface], theme[.primary])
-        case .success: return (theme[.successContainer].opacity(0.85), theme[.onSuccessContainer], theme[.success])
-        }
     }
 }

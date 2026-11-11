@@ -107,6 +107,13 @@ public final class WMDaemon {
     }
 
     /// Polls once a second until Accessibility is granted, then starts.
+    /// Tells the shell whether the "Finish hiding the menu bar" card is needed.
+    private func syncHelperCard() {
+        guard let controller = shell?.controller else { return }
+        if enhanced.active { controller.helperBecameActive() }
+        controller.setHelperNeeded(enhanced.config.enabled && !enhanced.active)
+    }
+
     private func waitForAccessibility() {
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.checkAccessibilityGranted() }
@@ -194,8 +201,17 @@ public final class WMDaemon {
                 self.wm.windowAnimator = next
             }
             self.wm.setNeedsLayout()
+            self.syncHelperCard()
         }
         enhanced.apply(config: wm.config)
+        shell.controller.onHelperLoaded = { [weak self] in
+            // Root just loaded the helper: look for it now instead of waiting for the 5 s probe.
+            for i in 1...12 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 * Double(i)) { self?.enhanced.probe() }
+            }
+        }
+        // Give the boot daemon (or an already loaded helper) a few probes before offering the card.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.syncHelperCard() }
         shell.controller.onSchemeChange = { [weak deco] scheme in
             deco?.apply(scheme: scheme)
             // The Settings app draws itself in the same colours (static or dynamic).
@@ -325,6 +341,7 @@ public final class WMDaemon {
                     self.decorations?.apply(config: config)
                     self.enhanced.apply(config: config)
                     self.shell?.apply(config: config)
+                    self.syncHelperCard()
                     self.cursors.update(identifier: config.appearance.cursor)
                 case .failed(let error, _):
                     Log.config.error("config.toml not applied: \(String(describing: error), privacy: .public)")
@@ -361,6 +378,7 @@ public final class WMDaemon {
         wm.apply(keymap: keymap)
         decorations?.apply(config: config)
         enhanced.apply(config: config)
+        syncHelperCard()
         // Fonts downloaded since start (Settings asks for a reload afterwards).
         if !FontStore.shared.registerForProcess().isEmpty { ShellTheme.fontsChanged() }
         shell?.apply(config: config)

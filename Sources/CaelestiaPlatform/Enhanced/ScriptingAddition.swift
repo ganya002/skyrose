@@ -88,6 +88,19 @@ public enum SAProtocol {
 public final class SAClient: @unchecked Sendable {
     public static func socketPath(uid: uid_t = getuid()) -> String { "/tmp/skyrose-sa-\(uid).socket" }
 
+    /// While this file exists the boot daemon leaves the Dock alone. /tmp is emptied at boot, so a
+    /// panic lasts for this session only.
+    public static func pausePath(uid: uid_t = getuid()) -> String { "/tmp/skyrose-sa-paused-\(uid)" }
+    public static let daemonPlist = "/Library/LaunchDaemons/com.skyrose.sa-loader.plist"
+    /// The root-owned copy the boot daemon runs.
+    public static let daemonLoader = URL(fileURLWithPath: "/Library/Application Support/SkyRose/skyrose-sa-loader")
+    public static var daemonInstalled: Bool { FileManager.default.fileExists(atPath: daemonPlist) }
+
+    /// The sudo line that installs or removes the boot daemon, next to `loader`.
+    public static func daemonCommand(_ script: String, loader: URL) -> String {
+        "sudo " + SAProtocol.shellQuote(loader.deletingLastPathComponent().appendingPathComponent(script).path)
+    }
+
     /// The loader and payload inside SkyRose.app (`Contents/Resources/sa/`).
     public static func bundledLoader(appBundle: URL? = nil) -> URL? {
         let candidates: [URL] = [
