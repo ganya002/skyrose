@@ -5,8 +5,8 @@ threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skys
 
 | Item | State | Commits |
 |---|---|---|
-| S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | (see git log) |
-| S2 Store drawer UI + Settings › SkyStore | | |
+| S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | 0308b49 |
+| S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | (see git log) |
 | S3 docs + index scaffold | | |
 | S4 live recording of the Store | deferred to the main agent at merge (see report) | |
 
