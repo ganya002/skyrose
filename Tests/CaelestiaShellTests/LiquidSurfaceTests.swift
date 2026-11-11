@@ -151,7 +151,8 @@ extension LiquidSurfaceTests {
         for name in ["launcher", "dashboard", "sidebar", "utilities", "session", "osd", "popout", "notifications"] {
             let ms = ShellController.blobStyle(name).ms
             XCTAssertLessThan(ms.close, ms.open, name)
-            XCTAssertTrue((130.0...170.0).contains(ms.close * CaelestiaTokens.gabbyScale) || name == "utilities", name)
+            // Closes on the H.264 clips: ~115–190 ms at Gabby's scale.
+            XCTAssertTrue((115.0...200.0).contains(ms.close * CaelestiaTokens.gabbyScale), name)
         }
     }
 }

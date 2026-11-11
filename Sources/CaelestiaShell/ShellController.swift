@@ -718,7 +718,7 @@ public final class ShellController {
         case "wallpaper": return (.bottom, a.launcher, t.launcher)
         case "dashboard": return (.top, a.dashboard, t.dashboard)
         case "session": return (.right, a.session, t.session)
-        case "osd": return (.right, a.osd, t.other)
+        case "osd": return (.right, a.osd, t.osd)
         case "sidebar": return (.right, a.sidebar, t.sidebar)
         case "utilities": return (.bottom, a.utilities, t.utilities)
         case "popout": return (.left, a.popoutOpen, t.other)

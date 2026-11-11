@@ -22,6 +22,23 @@ Colours differ by design: the scheme comes from each wallpaper.
 | Bar popouts | none usable: every `bar_hover_*.jpg` is the same frame with the bar hidden (the capture warped the cursor only); upstream `bar/popouts/*.qml` | blocked on reference | the only popout capture is `part10/wifi-popout.png`; audio/network/bluetooth popouts are rebuilt in Phase B (10b–10d) against it and the QML |
 | Settings | upstream `modules/nexus` (Caelestia's settings app; never captured on the Arch box) | compared from source | same structure (nav pane + pages + grouped rows on surfaceContainer). Not ported: Nexus's "Search settings" field in the nav pane and the icon next to each page title. When Settings is not frontmost it looks see-through: that is `sipOff.opacity` (inactive-window alpha, WM), not the Settings fill |
 
+## Drawer timing, re-measured on the H.264 clips (2026-11-11)
+
+Method: per-frame mean luma of a strip at each drawer's final edge and a box at its origin edge
+(scratchpad `probe`); visible time = first motion to last change. SkyRose recorded the same way
+(`screencapture -v`, Gabby's speed 1.5, times ×1.5 to compare at speed 1). Tokens were scaled by
+reference ÷ SkyRose where they differed by over 15 %, then re-recorded.
+
+| Drawer | Reference open / close (ms) | SkyRose before | SkyRose after | Token (base ms) |
+|---|---|---|---|---|
+| Dashboard | ~350 / ~183 | ~426 / ~125 | ~400 / ~200 | 650 → 525, 162.5 → 237.5 |
+| Launcher | ~333 / ~167 | ~400 / ~125 | 225–400 (list content makes the strip noisy) / ~175 | 475 → 400, 162.5 → 212.5 |
+| Sidebar | ~245 / ~115 | ~276 / ~125 | unchanged | 287.5 / 162.5 |
+| Utilities | ~350–380 | matches | unchanged | 437.5 / 150 |
+| Session | ~150 / ~133 (edge; the origin box also catches the screen dim) | ~126 / ~126 (origin, same caveat) | unchanged | 225 / 212.5 |
+| OSD | ~175 / ~60 | ~390 / ~75 | ~175 | new `osd` 225 / 187.5 (was the generic 500) |
+| Notifications | ~300 | ~300 | | 375 / 187.5 |
+
 Before stills (this session, not in git: personal screen content): `/tmp/sr-parity/{idle,dash,launcher,sidebar,session,osd,utilities}.png`.
 After: `/tmp/sr-parity/{dash3,sidebar2,bar2,toast2,popup,util-ready,util-rec,util-final}.png` and the clips `/tmp/sr-parity/{after-dashboard,popup}.mov`.
 
