@@ -9,11 +9,16 @@ public struct StoreIndex: Codable, Equatable, Sendable {
     public var schema: Int
     /// When the maintainer built it (ISO 8601); shown, not trusted for ordering.
     public var generated: String?
+    /// Raised by every `skystore build` and covered by the signature. SkyRose refuses an index
+    /// with a lower serial than one it already saw, so an old signed index cannot be replayed to
+    /// hide a revocation. Missing = 0 (indexes from before the field).
+    public var serial: Int?
     public var addons: [StoreEntry]
 
-    public init(addons: [StoreEntry], generated: String? = nil) {
+    public init(addons: [StoreEntry], generated: String? = nil, serial: Int? = nil) {
         schema = Self.schemaVersion
         self.generated = generated
+        self.serial = serial
         self.addons = addons
     }
 
@@ -142,9 +147,9 @@ public struct StoreVersion: Codable, Equatable, Sendable, Identifiable {
 public struct StoreSource: Sendable {
     /// Gabby's index. Must be HTTPS.
     public static let defaultIndexURL = "https://raw.githubusercontent.com/ganya002/skystore-index/main/index.json"
-    /// Base64 raw Ed25519 public keys SkyRose trusts. Empty until the maintainer key exists
-    /// (docs/SKYSTORE.md, "Maintainer setup"); until then every index is refused.
-    public static let trustedKeys: [String] = []
+    /// Base64 raw Ed25519 public keys SkyRose trusts: Gabby's maintainer key (2026-11-11; the private
+    /// half is kept offline, docs/SKYSTORE.md "Maintainer setup").
+    public static let trustedKeys: [String] = ["gfdvEbFkyU5rns7ZgFsTCxJWx8DVpyuCPpIL9njAtp4="]
     /// The largest bundle SkyStore downloads.
     public static let maxBundleBytes = 64 * 1_048_576
 
@@ -154,18 +159,24 @@ public struct StoreSource: Sendable {
     public var allowFileURLs: Bool
     /// Returns the bytes at a URL; replaced in tests.
     public var fetch: @Sendable (URL) throws -> Data
+    /// Where the highest index serial seen so far is kept (anti-replay); nil = no check.
+    public var serialFile: URL?
 
-    public init(indexURL: URL, keys: [String], allowFileURLs: Bool = false, fetch: @escaping @Sendable (URL) throws -> Data = StoreSource.download) {
+    public init(indexURL: URL, keys: [String], allowFileURLs: Bool = false, serialFile: URL? = nil,
+                fetch: @escaping @Sendable (URL) throws -> Data = StoreSource.download) {
         self.indexURL = indexURL
         self.keys = keys
         self.allowFileURLs = allowFileURLs
+        self.serialFile = serialFile
         self.fetch = fetch
     }
 
     /// From `[store]`: the configured index, and in creator mode the extra keys and file URLs.
     public static func from(_ c: StoreConfig) -> StoreSource {
         let url = URL(string: c.indexURL.isEmpty ? defaultIndexURL : c.indexURL) ?? URL(string: defaultIndexURL)!
-        return StoreSource(indexURL: url, keys: trustedKeys + (c.creatorMode ? c.trustedKeys : []), allowFileURLs: c.creatorMode)
+        // The local test index of creator mode keeps its own serials, apart from the real one's.
+        let serialFile = Paths.addonsDir.appendingPathComponent(c.creatorMode && !c.indexURL.isEmpty ? "index-serial-creator" : "index-serial")
+        return StoreSource(indexURL: url, keys: trustedKeys + (c.creatorMode ? c.trustedKeys : []), allowFileURLs: c.creatorMode, serialFile: serialFile)
     }
 
     public func check(_ url: URL) throws {
@@ -180,7 +191,19 @@ public struct StoreSource: Sendable {
         try check(indexURL)
         let data = try fetch(indexURL)
         let sig = try fetch(indexURL.deletingLastPathComponent().appendingPathComponent(indexURL.lastPathComponent + ".sig"))
-        return try StoreIndex.verified(data: data, signature: sig, keys: keys)
+        let index = try StoreIndex.verified(data: data, signature: sig, keys: keys)
+        try acceptSerial(index.serial ?? 0)
+        return index
+    }
+
+    /// Anti-replay: refuses a serial lower than the highest seen, else remembers it.
+    func acceptSerial(_ serial: Int) throws {
+        guard let serialFile else { return }
+        let seen = (try? String(contentsOf: serialFile, encoding: .utf8)).flatMap { Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0
+        guard serial >= seen else { throw StoreError.staleIndex(got: serial, seen: seen) }
+        guard serial > seen else { return }
+        try? FileManager.default.createDirectory(at: serialFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? "\(serial)\n".write(to: serialFile, atomically: true, encoding: .utf8)
     }
 
     /// Blocking HTTPS GET (60 s), or a local file read.

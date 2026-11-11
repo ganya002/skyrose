@@ -8,6 +8,8 @@ threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skys
 | S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | 0308b49 |
 | S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | bdc1ebb |
 | S3 docs (SKYSTORE.md, skystore-security.md) + index scaffold `~/Projects/skystore-index` (local commit 577901d, no remote) | done; e2e in a scratch home: tool-signed index verifies, install/disable/tamper OK | b9490e3 |
+| S5 Gabby's maintainer key built in; signed `serial` + anti-replay (index-serial); index tool raises serial (skystore-index e973cbd, not pushed); decisions in SKYSTORE.md (drawer + Settings fallback, builtins as first-party addons next, wallpaper stays) | done, 1279 tests 0 failures | (this commit) |
+| S6 clamshell + colour picker as first-party `feature` addons | next for SkyStore (Gabby, 2026-11-11), before third-party code addons | |
 | S4 live recording of the Store | deferred to the main agent at merge (see report); scripts/build.sh builds and signs, app never launched here | |
 
 Notes: no addons are made (spec). `StoreSource.trustedKeys` is empty until Gabby makes the key, so every

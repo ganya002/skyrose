@@ -57,10 +57,10 @@ final class SkyStoreTests: XCTestCase {
     }
 
     /// Writes and signs `index.json`; returns a source that trusts only the test key.
-    func publish(_ entries: [StoreEntry], signWith signer: Curve25519.Signing.PrivateKey? = nil, tamper: Bool = false) throws -> StoreSource {
+    func publish(_ entries: [StoreEntry], signWith signer: Curve25519.Signing.PrivateKey? = nil, tamper: Bool = false, serial: Int? = nil) throws -> StoreSource {
         let e = JSONEncoder()
         e.outputFormatting = [.sortedKeys]
-        let data = try e.encode(StoreIndex(addons: entries))
+        let data = try e.encode(StoreIndex(addons: entries, serial: serial))
         let url = tmp.appendingPathComponent("index.json")
         try (tamper ? data + Data(" ".utf8) : data).write(to: url)
         try (try (signer ?? key).signature(for: data)).base64EncodedString().write(to: tmp.appendingPathComponent("index.json.sig"), atomically: true, encoding: .utf8)
@@ -160,7 +160,25 @@ final class SkyStoreTests: XCTestCase {
         var source = try publish([])
         source.keys = []
         XCTAssertThrowsError(try source.loadIndex()) { XCTAssertEqual($0 as? StoreError, .noTrustedKey) }
-        XCTAssertTrue(StoreSource.trustedKeys.isEmpty || StoreSource.trustedKeys.allSatisfy { Data(base64Encoded: $0)?.count == 32 })
+        XCTAssertFalse(StoreSource.trustedKeys.isEmpty, "Gabby's maintainer key is built in")
+        XCTAssertTrue(StoreSource.trustedKeys.allSatisfy { Data(base64Encoded: $0).flatMap { try? Curve25519.Signing.PublicKey(rawRepresentation: $0) } != nil })
+    }
+
+    func testOlderIndexIsRefused() throws {
+        let serials = tmp.appendingPathComponent("serial")
+        var newer = try publish([], serial: 5)
+        newer.serialFile = serials
+        XCTAssertNoThrow(try newer.loadIndex())
+        XCTAssertNoThrow(try newer.loadIndex(), "the same index again is fine")
+        var replay = try publish([], serial: 4)
+        replay.serialFile = serials
+        XCTAssertThrowsError(try replay.loadIndex()) { XCTAssertEqual($0 as? StoreError, .staleIndex(got: 4, seen: 5)) }
+        var legacy = try publish([])
+        legacy.serialFile = serials
+        XCTAssertThrowsError(try legacy.loadIndex(), "no serial counts as 0")
+        var next = try publish([], serial: 6)
+        next.serialFile = serials
+        XCTAssertNoThrow(try next.loadIndex())
     }
 
     func testOnlyHTTPSOutsideCreatorMode() throws {

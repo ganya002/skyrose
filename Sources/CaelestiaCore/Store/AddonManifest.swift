@@ -302,6 +302,7 @@ public enum StoreError: Error, Equatable, Sendable, LocalizedError {
     case badIndex(String)
     case badSignature
     case noTrustedKey
+    case staleIndex(got: Int, seen: Int)
     case insecureURL(String)
     case download(String)
     case checksumMismatch(expected: String, got: String)
@@ -321,6 +322,7 @@ public enum StoreError: Error, Equatable, Sendable, LocalizedError {
         case .invalid(let issues): return "The addon is not valid: " + issues.joined(separator: "; ") + "."
         case .badIndex(let why): return "The SkyStore index could not be read: \(why)."
         case .badSignature: return "The SkyStore index signature is not valid. Nothing was changed."
+        case .staleIndex(let got, let seen): return "This SkyStore index (serial \(got)) is older than one SkyRose already saw (serial \(seen)): refused, it could hide a revocation."
         case .noTrustedKey: return "This SkyRose has no SkyStore signing key yet, so it cannot trust any index."
         case .insecureURL(let u): return "Refusing \(u): SkyStore only downloads over HTTPS."
         case .download(let why): return "The download failed: \(why)."

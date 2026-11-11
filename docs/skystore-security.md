@@ -141,6 +141,8 @@ See `REVIEWING.md` in the index repo.
   already runs as the user, so SkyStore does not try to defend against it.
 - **A stolen signing key** lets an attacker sign anything until a release removes that key.
   Keep the key offline, and rotate it as SKYSTORE.md describes.
-- **Rollback attacks**: an attacker could replay an older signed index to hide a revocation.
-  The index has a `generated` time. Refusing an index older than the last one seen is a planned
-  hardening step.
+- **Rollback attacks** (replaying an older signed index to hide a revocation) are refused: every
+  `build` raises the signed `serial`, SkyRose keeps the highest serial it has seen in
+  `addons/index-serial` and refuses any lower one (`StoreError.staleIndex`). A first install that
+  only ever sees a replayed index is not protected; HTTPS from GitHub covers that case. Creator
+  mode's local test index keeps its own counter (`index-serial-creator`).

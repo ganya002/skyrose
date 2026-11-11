@@ -48,13 +48,19 @@ wallpaper picker as a group called `SkyStore/<name>`.
 - Downloads are HTTPS only. The index is only fetched when you open the Store, or every 6 hours
   while at least one addon is installed (for the kill switch). With no addons, SkyRose never
   contacts the index on its own.
+- **No replays**: each index carries a signed `serial`; SkyRose refuses one older than an index it
+  already saw, so an old copy cannot hide a revocation.
 - **Kill switch**: the maintainers can revoke an addon or a single version in the index. SkyRose
   then switches it off, shows a toast, and it cannot be turned back on.
 - **Panic**: `skyrose wm panic` (and the panic chord) switches every addon off, even when the WM
   is hung. Turn them back on one by one with `skyrose store enable <id>` or in Installed.
 
-Files: `~/Library/Application Support/SkyRose/addons/` (`state.json`, one folder per addon
-version).
+Files: `~/Library/Application Support/SkyRose/addons/` (`state.json`, `index-serial`, one folder
+per addon version).
+
+Where it lives: the Store is a shell drawer (`>store`, `skyrose store`); Settings › SkyStore is
+the fallback (Open, Creator mode). Uninstalling or turning off a wallpaper addon that is the
+current wallpaper leaves the desktop as it is: the picture stays until you pick another one.
 
 ## Creator mode
 
@@ -129,29 +135,31 @@ other name.
 
 ## Maintainer setup (Gabby)
 
-The index lives in a public repo, `ganya002/skystore-index`. A local copy is at
-`~/Projects/skystore-index` (no remote yet). Its `README.md` and `REVIEWING.md` cover the
-review flow. To set it up:
+The index lives in the public repo `ganya002/skystore-index` (local copy `~/Projects/skystore-index`).
+Its `README.md` and `REVIEWING.md` cover the review flow. Done on 2026-11-11: repo created and
+pushed, signing key made (`~/.skystore/signing.key`, offline, backed up), public key
+`gfdvEbFkyU5rns7ZgFsTCxJWx8DVpyuCPpIL9njAtp4=` built into `StoreSource.trustedKeys`.
 
-1. On GitHub, create the **public** repo `ganya002/skystore-index` (empty, no README).
-2. `cd ~/Projects/skystore-index && git remote add origin git@github.com:ganya002/skystore-index.git && git push -u origin main`
-3. Make the signing key, outside any repo:
-   `mkdir -p ~/.skystore && swift tools/skystore.swift keygen ~/.skystore/signing.key`
-   Back the file up in your password manager. Never commit it or put it in CI.
-4. Paste the printed public key into `StoreSource.trustedKeys` in
-   `Sources/CaelestiaCore/Store/StoreIndex.swift` and ship a SkyRose release. Until then, every
-   SkyRose refuses every index (the Store says it is not set up).
-5. Publish: `swift tools/skystore.swift build && swift tools/skystore.swift sign ~/.skystore/signing.key`,
-   then commit `index.json` and `index.json.sig` together and push.
+Publish (use `/usr/bin/swift`: a swiftly toolchain earlier in PATH cannot import CryptoKit for
+scripts):
+
+    cd ~/Projects/skystore-index
+    /usr/bin/swift tools/skystore.swift build          # raises the signed serial
+    /usr/bin/swift tools/skystore.swift sign ~/.skystore/signing.key
+    /usr/bin/swift tools/skystore.swift verify gfdvEbFkyU5rns7ZgFsTCxJWx8DVpyuCPpIL9njAtp4=
+    git add index.json index.json.sig && git commit -m "Publish index" && git push
+
+Until a signed `index.json.sig` is pushed, SkyRose shows the Store as offline (the .sig is 404).
 
 Key rotation: add the new public key to `trustedKeys` next to the old one, ship a release, sign
 with the new key, then remove the old key in a later release. If the key leaks, ship a release
 without it at once. Old SkyRose versions keep trusting it until they update.
 
-## Builtin features as addons later (internal API design)
+## Builtin features as first-party addons (next, before any third-party code)
 
-Nothing is moved yet. Clamshell, the colour picker and keep-awake stay built in. When they are
-split out, the plan is:
+Decided 2026-11-11 (Gabby): the first code-carrying addons are SkyRose's own features, starting
+with clamshell and the colour picker, as first-party `feature` addons. Third-party code addons and
+their sandbox come only after that. Nothing is moved yet; the plan:
 
 - A new kind, `feature`. Its manifest names a feature id (`skyrose.clamshell`) and carries no code.
   Installing it **enables** a feature compiled into SkyRose, so no code is downloaded. Uninstalling
