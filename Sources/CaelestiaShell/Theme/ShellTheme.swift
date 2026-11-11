@@ -412,6 +412,14 @@ public enum ShellIcon {
         case "thermostat": return "thermometer.medium"
         case "coffee": return "cup.and.saucer.fill"
         case "screenshot_region", "screenshot_monitor": return "camera.viewfinder"
+        case "screen_record": return "record.circle"
+        case "fullscreen": return "arrow.up.left.and.arrow.down.right"
+        case "stop": return "stop.fill"
+        case "list": return "list.bullet"
+        case "unfold_more": return "chevron.up.chevron.down"
+        case "unfold_less": return "chevron.down.chevron.up"
+        case "folder_open": return "folder"
+        case "draft": return "doc"
         default:
             if let hit = fromSF.first(where: { $0.value.0 == material })?.key { return hit }
             return material

@@ -13,8 +13,6 @@ import Foundation
 public final class ShellBridge: ShellHost {
     public let state: ShellState
     public let controller: ShellController
-    /// Screen recording runs in this process, which already has the permission.
-    let movieRecorder = DisplayMovieRecorder()
     private weak var wm: WindowManager?
 
     public init(wm: WindowManager, scheme: Scheme = SchemeLoader.builtIn(named: "skyrose-dynamic-dark") ?? ShellTheme.gabby.scheme) {
@@ -176,18 +174,13 @@ public final class ShellBridge: ShellHost {
             controller.takeScreenshot(mode)
             return ok(.object(["mode": .string(mode.rawValue), "folder": .string(CaptureGeometry.folderURL(state.config.capture.folder).path)]))
         case .record:
-            if movieRecorder.isRecording {
-                let path = movieRecorder.outputURL?.path ?? ""
-                Task { await self.movieRecorder.stop() }
-                return ok(.object(["recording": .bool(false), "path": .string(path)]))
-            }
-            let folder = CaptureGeometry.folderURL(state.config.capture.folder)
-            Task { [weak self] in
-                guard let self else { return }
-                do { _ = try await self.movieRecorder.start(folder: folder) }
-                catch { Log.shell.error("record: \(error.localizedDescription, privacy: .public)") }
-            }
-            return ok(.object(["recording": .bool(true), "folder": .string(folder.path)]))
+            // The shell owns the recorder, so the utilities card shows the same state.
+            let recorder = controller.movieRecorder
+            let path = recorder.outputURL?.path ?? ""
+            let wasRecording = recorder.isRecording
+            controller.toggleRecording()
+            return wasRecording ? ok(.object(["recording": .bool(false), "path": .string(path)]))
+                : ok(.object(["recording": .bool(true), "folder": .string(controller.recordingsFolder.path)]))
         case .keepAwake:
             let ka = controller.keepAwake
             switch request.string("state") ?? "status" {

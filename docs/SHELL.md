@@ -150,7 +150,9 @@ frame stays click-through: the WM only watches the pointer.
 
 ## Sidebar and popouts (part 2)
 
-Right drawer: notification history, Keep awake, volume/brightness sliders, quick toggles. Real
+Right drawer: notification history, Keep awake, Screen recorder (full main display to the capture
+folder, timer while recording, the newest 3 recordings with Show in Finder / Move to Trash; same
+recorder as `record.screen` and `skyrose record`), volume/brightness sliders, quick toggles. Real
 toggles: Wi-Fi (CoreWLAN `setPower`), Do-not-disturb (SkyRose toasts only), Keep awake (IOPM
 assertion; on a Mac with a lid it also sets `pmset disablesleep 1` while it runs, so it survives
 closing the lid), and on laptops a lid line with a **Clamshell** chip (lid closed keeps running on

@@ -43,6 +43,11 @@ extension ShellController {
         sidebar.onKeepAwakeFor = { [weak self] d in self?.keepAwake.set(on: true, duration: d) }
         sidebar.onClamshell = { [weak self] on in self?.lidSleep.setClamshell(on) }
         sidebar.onWallpaper = { [weak self] in self?.open(.wallpaper) }
+        sidebar.onRecord = { [weak self] in self?.toggleRecording() }
+        sidebar.onRevealRecording = { url in NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        sidebar.onTrashRecording = { [weak self] url in
+            NSWorkspace.shared.recycle([url]) { _, _ in DispatchQueue.main.async { self?.refreshRecordings() } }
+        }
 
         popout.onSetOutput = { [weak self] id in
             self?.audio.setOutputDevice(id)

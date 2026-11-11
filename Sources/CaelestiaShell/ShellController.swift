@@ -55,6 +55,8 @@ public final class ShellController {
     public let popups = ToastModel()
     /// The screenshot tool (capture.* binds, `skyrose screenshot`).
     public let screenshots = ScreenshotController()
+    /// The screen recorder (utilities card, `record.screen`, `skyrose record`).
+    public let movieRecorder = DisplayMovieRecorder()
     private var launcherPanel: ShellPanel?
     private var clipboardPanel: ShellPanel?
     private var sessionPanel: ShellPanel?
@@ -572,6 +574,8 @@ public final class ShellController {
         let id = display ?? pointerDisplayID() ?? state.displays.first?.id
         guard let id, let layout = layouts[id] else { return }
         let reveal = bars[id]?.reveal.target ?? 0
+        // The recorder card lists the capture folder as it is now (sizes are measured on open).
+        if d == .utilities || d == .sidebar { refreshRecordings() }
         switch d {
         case .clipboard:
             if openDrawers.contains(.session) { close(.session) }
@@ -999,6 +1003,7 @@ public final class ShellController {
             SystemMenuBar.peek()
         case .shellKill: stop()
         case .shellRestart: restart()
+        case .recordScreen: toggleRecording()
         case .captureRegion: takeScreenshot(.region)
         case .captureFull: takeScreenshot(.full)
         case .captureFreeze: takeScreenshot(.freeze)

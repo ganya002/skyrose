@@ -3,8 +3,8 @@
 Each SkyRose surface was captured on the MacBook Air (1470×956 pt) and set next to its reference at
 the same scale (reference = `docs/caelestia-reference/shell/*` at 5120×1440 or the 2560×720 jpgs in
 `~/caelestia-ref/full-2026-11-05/04-caelestia/`). Exact values come from `caelestia-dots/shell` at
-`fd630ff`. The capture's .mp4 clips are HEVC 4:4:4, which macOS cannot decode (AVFoundation error
--12906) and ffmpeg is not allowed, so timing work uses the sampled `*_frames` and `scene.txt`.
+`fd630ff`. The capture's .mp4 clips are now H.264 (re-exported Nov 11), so timing is measured frame
+by frame with AVFoundation (scratchpad `probe`/`frame` tools: per-frame luma of a strip, single frames).
 Colours differ by design: the scheme comes from each wallpaper.
 
 | Surface | Reference | Status | Remaining diffs |
@@ -14,15 +14,15 @@ Colours differ by design: the scheme comes from each wallpaper.
 | Media card | `dash/Media.qml` | fixed | none major |
 | Launcher | `shell/launcher_opened.jpg`, `AppItem.qml` | fixed | none major |
 | Sidebar | `shell/1-sidebar.jpg`, `NotifDock.qml` | fixed | a collapsed group shows two lines, upstream one; extra macOS rows (timers, clamshell, sliders) stay |
-| Utilities | `shell/1-utilities.jpg` | partial | no Screen recorder card or Recordings list yet (the recorder exists as `skyrose record`) |
+| Utilities | `04-caelestia/utilities_opened.jpg` | fixed | Screen recorder card added (status + timer, Fullscreen/Stop, newest 3 recordings with Finder/Trash). Upstream also has Region and with-sound modes behind a menu and a collapsible list: our recorder only does the full main display, so no menu (no display-only controls) |
 | Bar | `04-caelestia/bar_hover_*.jpg` | fixed | the window title was invisible (clipped); now shows |
-| Toasts | `shell/toast_visible.jpg` | fixed | upstream draws the icon on a rounded square |
+| Toasts + notification popups | `04-caelestia/notification_popup.mp4`, `notification_visible.jpg`, `Notification.qml` | fixed | one drawer out of the top-right frame corner on the liquid surface (Gabby: toasts too, upstream keeps toasts as a bottom-right card). Measured: 430 wide, padding 15/5, card 410×61 r20, icon 42; open 300 ms (edge arrives at ~125 ms, wobble settles by ~300 ms) = ours at speed 1. No expand chevron / swipe (click-through) |
 | Session | `shell/1-session.jpg` | matches | the GIF is a moon on macOS (Phase 8 decision) |
 | OSD | `04-caelestia/osd_opened.jpg` | deferred | rebuilt in Part 10a against `part10/osd-volume-brightness.png` |
-| Bar popouts, notifications popup, Settings | `04-caelestia/bar_hover_*`, `notification_visible.jpg` | not compared yet | |
+| Bar popouts, Settings | `04-caelestia/bar_hover_*` | not compared yet | |
 
 Before stills (this session, not in git: personal screen content): `/tmp/sr-parity/{idle,dash,launcher,sidebar,session,osd,utilities}.png`.
-After: `/tmp/sr-parity/{dash3,sidebar2,bar2,toast2}.png` and the clip `/tmp/sr-parity/after-dashboard.mov`.
+After: `/tmp/sr-parity/{dash3,sidebar2,bar2,toast2,popup,util-ready,util-rec,util-final}.png` and the clips `/tmp/sr-parity/{after-dashboard,popup}.mov`.
 
 # Arch parity: progress (2026-11-05)
 
