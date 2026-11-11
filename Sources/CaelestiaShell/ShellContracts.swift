@@ -189,7 +189,22 @@ public struct MediaInfo: Hashable, Sendable {
     public var duration: Double = 0
     public var artworkPath: URL? = nil
     public var player: String = ""
+    public var playerBundleID: String = ""
+    /// Players with something to show (bundle id, name), for the player switch.
+    public var players: [MediaPlayerEntry] = []
+    /// Spotify and Music: seek and quit work. Other sources only take the media keys.
+    public var canSeek: Bool = false
+    public var canQuit: Bool = false
     public init() {}
+}
+
+public struct MediaPlayerEntry: Hashable, Sendable {
+    public var bundleID: String
+    public var name: String
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
 }
 
 public struct WeatherInfo: Hashable, Sendable {

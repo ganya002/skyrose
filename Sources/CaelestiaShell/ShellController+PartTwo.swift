@@ -27,6 +27,12 @@ extension ShellController {
         dashboard.onPlayPause = { [weak self] in self?.media.playPause() }
         dashboard.onNext = { [weak self] in self?.media.next() }
         dashboard.onPrevious = { [weak self] in self?.media.previous() }
+        dashboard.onRaisePlayer = { [weak self] in
+            self?.media.raise()
+            self?.closeDashboard()
+        }
+        dashboard.onSelectPlayer = { [weak self] id in self?.media.select(id) }
+        dashboard.onQuitPlayer = { [weak self] in self?.media.quitPlayer() }
         dashboard.onSeek = { [weak self] time in
             self?.media.seek(to: time)
             // Players report the new position late, and the lyric list should follow the click now.
@@ -114,6 +120,10 @@ extension ShellController {
         info.title = m.title; info.artist = m.artist; info.album = m.album
         info.isPlaying = m.isPlaying; info.position = m.position; info.duration = m.duration
         info.artworkPath = m.artworkURL; info.player = m.player
+        info.playerBundleID = m.playerBundleID
+        info.players = m.players.map { MediaPlayerEntry(bundleID: $0.bundleID, name: $0.name) }
+        info.canQuit = media.canQuit
+        info.canSeek = info.canQuit
         if info != state.media { state.media = info }
         mediaStage.sync(media: info, dashboard: dashboard, config: state.config.dashboard)
     }

@@ -16,6 +16,11 @@ public final class DashboardModel: ObservableObject {
     public var onNext: () -> Void = {}
     public var onPrevious: () -> Void = {}
     public var onSeek: (Double) -> Void = { _ in }
+    public var onRaisePlayer: () -> Void = {}
+    public var onSelectPlayer: (String) -> Void = { _ in }
+    public var onQuitPlayer: () -> Void = {}
+    /// The visualiser bars, in their own object so ~40 updates a second redraw only the ring.
+    public let visualiser = VisualiserModel()
     /// Which paw is down. Nil is the resting pose.
     @Published public var bongoPaw: Int?
     @Published public var lyricLines: [LyricLine] = []
@@ -65,7 +70,7 @@ struct DashboardView: View {
             Group {
                 switch model.tab {
                 case .overview: OverviewTab(model: model, state: state)
-                case .media: MediaTab(state: state, model: model)
+                case .media: MediaTabView(state: state, model: model)
                 case .performance: PerformanceTab(state: state)
                 case .weather: WeatherTab(state: state)
                 }
@@ -514,63 +519,6 @@ struct MediaCard: View {
         .shellCard(radius: 30)
         .accessibilityIdentifier("dashboard.media")
     }
-}
-
-// MARK: Media tab
-
-private struct MediaTab: View {
-    @ObservedObject var state: ShellState
-    @ObservedObject var model: DashboardModel
-    @Environment(\.shellTheme) var theme
-
-    var body: some View {
-        let m = state.media
-        HStack(spacing: 28) {
-            ZStack {
-                ProgressArc(value: m.duration > 0 ? m.position / m.duration : 0, sweep: 300, start: 120, lineWidth: 6).frame(width: 250, height: 250)
-                ArtworkView(url: m.available ? m.artworkPath : nil).clipShape(CookieShape(bumps: 12, depth: 0.05)).frame(width: 196, height: 196)
-            }
-            VStack(alignment: .center, spacing: 10) {
-                Text(m.available ? (m.title.isEmpty ? "Unknown title" : m.title) : "No media")
-                    .font(theme.sans(28, weight: .bold)).foregroundStyle(theme[.onSurface]).lineLimit(2).multilineTextAlignment(.center)
-                Text(m.available ? m.artist : "Nothing is playing").font(theme.sans(18)).foregroundStyle(theme[.primary]).lineLimit(1)
-                if !m.album.isEmpty { Text(m.album).font(theme.sans(15)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1) }
-                if m.available {
-                    HStack {
-                        Text(timeText(m.position)); Spacer(); Text(timeText(m.duration))
-                    }
-                    .font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant]).monospacedDigit().padding(.top, 8)
-                    ProgressView(value: min(1, max(0, m.duration > 0 ? m.position / m.duration : 0))).tint(theme[.primary])
-                    Text("Playing in \(m.player)").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
-                } else {
-                    Text("Start something in Spotify, Music, or a browser to see it here.")
-                        .font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
-                }
-                HStack(spacing: 12) {
-                    RoundIconButton(symbol: "backward.fill", size: 46, action: model.onPrevious)
-                    RoundIconButton(symbol: m.isPlaying ? "pause.fill" : "play.fill", size: 56, filled: true, action: model.onPlayPause)
-                    RoundIconButton(symbol: "forward.fill", size: 46, action: model.onNext)
-                }.padding(.top, 10)
-            }
-            .frame(maxWidth: .infinity)
-            VStack(spacing: 12) {
-                if state.config.dashboard.lyrics { LyricsColumn(model: model) }
-                if state.config.dashboard.bongoCat {
-                    BongoCat(paw: model.bongoPaw, playing: m.isPlaying && model.shown)
-                        .frame(width: state.config.dashboard.lyrics ? 150 : 200, height: state.config.dashboard.lyrics ? 95 : 126)
-                }
-            }
-            .frame(width: 250)
-            .padding(.vertical, 22)
-        }
-        .padding(.horizontal, 26)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .shellCard()
-        .accessibilityIdentifier("dashboard.mediaTab")
-    }
-
-    private func timeText(_ s: Double) -> String { String(format: "%d:%02d", Int(s) / 60, Int(s) % 60) }
-
 }
 
 // MARK: Performance tab
