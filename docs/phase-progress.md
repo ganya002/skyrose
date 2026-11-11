@@ -5,12 +5,12 @@ Resume here: read this table, then the newest section below.
 
 | Item | State | Commits |
 |---|---|---|
-| 0. Commit prompts | done | ffc9574 |
-| A1 polish | surfaces fixed + recorder card, top-right notification drawer, drawer timings re-measured on H.264 clips; bar popouts have no capture (Phase B), Settings: no search field yet. See `docs/parity-progress.md` | 6db5020, 0383a5a, 28b3def, c2aef00, f578311, 2a3bed1, f6591f8 |
+| 0. Commit prompts | done | 9ae3c6b |
+| A1 polish | surfaces fixed + recorder card, top-right notification drawer, drawer timings re-measured on H.264 clips; bar popouts have no capture (Phase B), Settings: no search field yet. See `docs/parity-progress.md` | aeaea90, 9d9b77c, 0250478, 7fff8aa, d5160a9, edda590, 8341436 |
 | A1 bongo + lyrics with a real song | closed by Gabby 2026-11-11 (no Spotify on this Mac: counted as checked; a live beat/lyrics run never happened) | |
 | A1 boot daemon sudo install | done 2026-11-11: Gabby installed it, rebooted; after boot `sa status` loaded with no password, log: loaded SkyRoseSA.dylib into the Dock (pid 717); all files root:wheel, not user-writable | |
-| A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | a972c5e, 00f10cc |
-| A3 Teams flicker | done: Gabby checked Teams behind OneNote live, no flicker (no recording) | 00f10cc |
+| A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | d873f84, bc3e828 |
+| A3 Teams flicker | done: Gabby checked Teams behind OneNote live, no flicker (no recording) | bc3e828 |
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
 | A5 v0.4.1 | in progress: version, CHANGELOG | |
 
