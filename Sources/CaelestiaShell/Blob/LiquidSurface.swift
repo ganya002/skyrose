@@ -137,6 +137,9 @@ public final class LiquidSurface: NSView {
         return d.offsetRunning || d.rectRunning || d.jelly.isActive
     }
 
+    /// Whether `panel` is open (or opening), not closing or gone.
+    public func isShown(_ panel: ShellPanel) -> Bool { drawer(for: panel)?.shown == true }
+
     /// Current offsetScale of `panel` (1 when not here). For tests and `query shell`.
     public func offsetScale(of panel: ShellPanel) -> Double { drawer(for: panel)?.offset ?? 1 }
 

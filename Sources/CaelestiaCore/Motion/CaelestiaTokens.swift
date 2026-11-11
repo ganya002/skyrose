@@ -76,6 +76,8 @@ public enum CaelestiaTokens {
         public static let utilities = (open: 437.5, close: 150.0)
         public static let session = (open: 225.0, close: 212.5)
         /// Not measured on their own: the default open token and the middle of the close range.
+        /// Measured on notification_popup.mp4: in over ~300 ms at Gabby's 0.8 scale.
+        public static let notifications = (open: 375.0, close: 187.5)
         public static let other = (open: Duration.defaultSpatial, close: 187.5)
     }
 

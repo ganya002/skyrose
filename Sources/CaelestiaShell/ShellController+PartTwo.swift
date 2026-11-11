@@ -489,7 +489,7 @@ extension ShellController {
 
     public func setDoNotDisturb(_ on: Bool) {
         state.doNotDisturb = on
-        if on { toasts.queue = ToastQueue(); popups.queue = ToastQueue() }
+        if on { popups.queue = ToastQueue() }
     }
 
     // MARK: Notifications

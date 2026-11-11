@@ -114,9 +114,14 @@ test setup). The system volume/brightness keys still reach macOS, so Apple's own
 
 ## Toasts
 
-Toasts stack up from the bottom-right corner (as in Caelestia), up to 4 at once, 5 s each. A
-duplicate refreshes the existing toast instead of stacking. Notification popups (`skyrose notify`)
-use the same cards but hang from the top-right, like Caelestia's notifications.
+Toasts and notification popups (`skyrose notify`) share one drawer that grows down out of the
+frame's top-right corner as part of the liquid surface, like Caelestia's notifications module
+(Gabby's choice: Caelestia itself shows toasts as a card at the bottom-right). Up to 4 cards,
+newest on top, 5 s each; a duplicate refreshes instead of stacking; the drawer closes back into
+the frame once the last card expires. Measured on notification_popup.mp4: drawer 430 wide,
+padding 15 (left/bottom) and 5 (top/right), cards 410 wide with radius 20, a 42 pt icon circle,
+summary · time and a one-line body; open 375 ms × the shell scale (0.8) = 300 ms, as in the
+capture. Not ported: the expand chevron and swipe-to-dismiss (the drawer is click-through).
 
     skyrose shell toaster error|warn|info|success <title> <message> <icon>
 

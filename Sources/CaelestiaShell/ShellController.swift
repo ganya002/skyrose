@@ -51,8 +51,7 @@ public final class ShellController {
     public let appWatcher = AppIndexWatcher()
     public let session = SessionModel()
     public let osd = OSDModel()
-    public let toasts = ToastModel()
-    /// Notification popups: same cards, top-right (Caelestia's notifications module).
+    /// Toasts and notification popups: one drawer out of the top-right corner.
     public let popups = ToastModel()
     /// The screenshot tool (capture.* binds, `skyrose screenshot`).
     public let screenshots = ScreenshotController()
@@ -60,7 +59,6 @@ public final class ShellController {
     private var clipboardPanel: ShellPanel?
     private var sessionPanel: ShellPanel?
     private var osdPanel: ShellPanel?
-    private var toastPanel: ShellPanel?
     private var popupPanel: ShellPanel?
     /// The SIP-off helper card (ShellController+HelperCard).
     public let helperCard = HelperCardModel()
@@ -136,7 +134,7 @@ public final class ShellController {
         if !openDrawers.isEmpty || popoutKind != nil { return true }
         guard let main = NSScreen.screens.first else { return false }
         let p = CGPoint(x: point.x, y: main.frame.height - point.y)
-        return [toastPanel, popupPanel].contains { $0?.isVisible == true && $0!.frame.contains(p) }
+        return popupPanel?.isVisible == true && popupPanel!.frame.contains(p)
     }
 
     // Services.
@@ -215,8 +213,8 @@ public final class ShellController {
         for (_, b) in bars { b.close() }
         frames.removeAll()
         bars.removeAll()
-        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel, popupPanel, helperPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
-        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil; popupPanel = nil; helperPanel = nil
+        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, popupPanel, helperPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
+        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; popupPanel = nil; helperPanel = nil
         dropPartTwoPanels()
         openDrawers.removeAll()
         for d in visibility.keys where visibility[d]?.isShown == true && visibility[d]?.persistent == false {
@@ -720,6 +718,7 @@ public final class ShellController {
         case "sidebar": return (.right, a.sidebar, t.sidebar)
         case "utilities": return (.bottom, a.utilities, t.utilities)
         case "popout": return (.left, a.popoutOpen, t.other)
+        case "popups": return (.top, a.notifications, t.notifications)
         default: return (.bottom, a.notifications, t.other)
         }
     }
@@ -786,8 +785,8 @@ public final class ShellController {
     private func rebuildDrawers() {
         closeAll()
         for f in frames.values { f.surface?.removeAll() }
-        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel, popupPanel, helperPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
-        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil; popupPanel = nil; helperPanel = nil
+        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, popupPanel, helperPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
+        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; popupPanel = nil; helperPanel = nil
         dropPartTwoPanels()
     }
 
@@ -943,10 +942,11 @@ public final class ShellController {
 
     // MARK: Toasts
 
-    /// A toast (bottom-right) or, with `popup`, a notification popup (top-right).
+    /// A toast or notification popup (`popup` only tells them apart in the log). Both land in the
+    /// top-right drawer, which grows out of the frame on the liquid surface.
     @discardableResult
     public func toast(_ kind: ToastKind, title: String, message: String, icon: String = "", record: Bool = true, imagePath: String = "", popup: Bool = false) -> UUID {
-        let model = popup ? popups : toasts
+        let model = popups
         let id = model.queue.add(Toast(kind: kind, title: title, message: message, icon: icon, createdAt: ProcessInfo.processInfo.systemUptime, imagePath: imagePath))
         if record { recordNotification(kind: kind, title: title, message: message, icon: icon) }
         guard isRunning, state.config.shell.isOn("notifications"), !state.doNotDisturb else {
@@ -955,27 +955,23 @@ public final class ShellController {
         }
         let displayID = pointerDisplayID() ?? state.displays.first?.id
         if let displayID, let layout = layouts[displayID] {
-            let existing = popup ? popupPanel : toastPanel
-            let panel = existing ?? makeDrawerPanel(ToastsView(model: model, fromBottom: !popup), name: popup ? "popups" : "toasts", key: false, clickThrough: true)
+            let panel = popupPanel ?? makeDrawerPanel(ToastsView(model: model), name: "popups", key: false, clickThrough: true)
             panel.level = ShellLevel.osd
-            if popup { popupPanel = panel } else { toastPanel = panel }
+            popupPanel = panel
             let inner = layout.inner(barReveal: bars[displayID]?.reveal.target ?? 0)
-            let w = ToastModel.width + 16
+            let w = ToastsView.width
             let h = min(520, inner.height)
-            // Toasts stack up from the bottom-right (utilities/toasts); popups hang from the top-right.
-            panel.setFrame(CGRect(x: inner.maxX - w, y: popup ? inner.maxY - h : inner.minY, width: w, height: h), display: false)
-            if !panel.isVisible { panel.contentView?.layoutSubtreeIfNeeded() }
-            panel.fadeIn(duration: theme.drawerOpenSeconds * 0.5)
+            let frame = CGRect(x: inner.maxX - w, y: inner.maxY - h, width: w, height: h)
+            if panel.frame != frame { panel.setFrame(frame, display: false) }
+            // Already out: the new card just grows the body (the surface morphs it).
+            let open = surface(for: panel).map { $0.isShown(panel) } ?? panel.isVisible
+            if !open { present(panel) }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + model.queue.timeout + 0.05) { [weak self] in
             guard let self else { return }
             model.queue.expire(at: ProcessInfo.processInfo.systemUptime)
-            if model.queue.isEmpty {
-                let p = popup ? self.popupPanel : self.toastPanel
-                DispatchQueue.main.asyncAfter(deadline: .now() + self.theme.drawerOpenSeconds + 0.05) {
-                    if model.queue.isEmpty { p?.fadeOut(duration: self.theme.drawerCloseSeconds) }
-                }
-            }
+            guard model.queue.isEmpty, let p = self.popupPanel else { return }
+            self.retract(p, duration: self.theme.drawerCloseSeconds)
         }
         return id
     }
