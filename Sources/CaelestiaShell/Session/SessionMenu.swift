@@ -6,7 +6,7 @@ import SwiftUI
 /// a second press within `armWindow` (the confirm step); Esc disarms, then closes.
 @MainActor
 public final class SessionModel: ObservableObject {
-    public static let actions: [SessionAction] = [.logout, .shutdown, .sleep, .reboot]
+    public static let actions: [SessionAction] = [.logout, .shutdown, .sleep, .reboot, .restartSkyRose]
     public static let armWindow: TimeInterval = 3
 
     @Published public var focused = 0
@@ -62,6 +62,7 @@ public final class SessionModel: ObservableObject {
         case .sleep: return "downloading"
         case .reboot: return "cached"
         case .lock: return "lock"
+        case .restartSkyRose: return "restart_alt"
         }
     }
 
@@ -72,6 +73,7 @@ public final class SessionModel: ObservableObject {
         case .sleep: return "Sleep"
         case .reboot: return "Restart"
         case .lock: return "Lock"
+        case .restartSkyRose: return "Restart SkyRose"
         }
     }
 
@@ -104,6 +106,7 @@ struct SessionView: View {
                         .frame(width: SessionModel.button, height: SessionModel.button)
                     button(.sleep)
                     button(.reboot)
+                    button(.restartSkyRose)
                 }
                 .liquidContent(edge: .right, shown: model.shown, depth: size.width, theme: theme)
             }
@@ -167,6 +170,10 @@ public enum SessionCommands {
         case .reboot: return ("/usr/bin/osascript", ["-e", "tell application \"System Events\" to restart"])
         case .sleep: return ("/usr/bin/pmset", ["sleepnow"])
         case .lock: return nil  // ⌃⌘Q, posted as a key event
+        case .restartSkyRose:
+            // The CLI next to this binary: it quits us, waits, and starts this same app again.
+            let cli = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("skyrose")
+            return cli.map { ($0.path, ["restart"]) }
         }
     }
 

@@ -114,6 +114,9 @@ final class SessionModelTests: XCTestCase {
         XCTAssertEqual(SessionCommands.command(for: .sleep)?.path, "/usr/bin/pmset")
         XCTAssertEqual(SessionCommands.command(for: .sleep)?.args, ["sleepnow"])
         XCTAssertNil(SessionCommands.command(for: .lock))
+        let restart = SessionCommands.command(for: .restartSkyRose)
+        XCTAssertEqual(restart?.args, ["restart"])
+        XCTAssertTrue(restart?.path.hasSuffix("/skyrose") == true, "the bundled CLI, not one from PATH")
     }
 }
 

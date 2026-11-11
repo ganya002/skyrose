@@ -18,6 +18,8 @@ enum LocalCommands {
             return Uninstaller(assumeYes: invocation.yes, flags: flags, client: client).run()
         case .shellStart:
             return ShellStarter(client: client, timeout: invocation.timeout ?? 15).run()
+        case .restart:
+            return Restarter(client: client, timeout: invocation.timeout ?? 15).run()
         case .shellTargets(let target):
             Console.out(CLIParser.shellTargetsHelp(target: target), terminator: "")
             return ExitCode.ok
@@ -311,9 +313,10 @@ struct ShellStarter {
             return ExitCode.failed
         }
         Console.out("Starting \(Environment.tilde(app)) …")
-        let launch = Environment.run("/usr/bin/open", ["-b", Environment.wmBundleID, "--background"], timeout: 30)
+        // By path: `open -b` may pick another account's copy.
+        let launch = Environment.run("/usr/bin/open", ["--background", app.path], timeout: 30)
         guard launch.status == 0 else {
-            Console.error("`open -b \(Environment.wmBundleID)` failed (\(launch.status)): \(launch.stderr.trimmingCharacters(in: .whitespacesAndNewlines))")
+            Console.error("`open \(app.path)` failed (\(launch.status)): \(launch.stderr.trimmingCharacters(in: .whitespacesAndNewlines))")
             return ExitCode.failed
         }
         let deadline = Date().addingTimeInterval(timeout)
@@ -328,6 +331,34 @@ struct ShellStarter {
         Console.error("the app launched but no IPC socket appeared at \(Environment.tilde(client.path)) within \(Int(timeout)) s.")
         Console.err("Check Console.app for 'com.skyrose.mac' messages, or run `skyrose doctor`.")
         return ExitCode.failed
+    }
+}
+
+/// `skyrose restart`: quit the WM (it restores every window first), wait until every SkyRose
+/// process is gone, then start this CLI's own SkyRose.app. Not running: just start it. The SIP-off
+/// helper lives in the Dock, so it stays loaded and the new WM reconnects to it.
+struct Restarter {
+    let client: IPCClient
+    let timeout: TimeInterval
+
+    func run() -> Int32 {
+        guard Environment.wmAppURL != nil else { return ShellStarter(client: client, timeout: timeout).run() }
+        let running = { NSRunningApplication.runningApplications(withBundleIdentifier: SkyRoseApp.bundleID).filter { !$0.isTerminated } }
+        if !running().isEmpty {
+            Console.out("Stopping SkyRose …")
+            if (try? client.send(IPCRequest(.wmQuit), timeout: 5)) == nil {
+                // No answer (hung or IPC gone): ask politely; never force-kill, its windows need restoring.
+                running().forEach { $0.terminate() }
+            }
+            let deadline = Date().addingTimeInterval(20)
+            while !running().isEmpty, Date() < deadline { usleep(200_000) }
+            if let left = running().first {
+                Console.error("SkyRose (pid \(left.processIdentifier)) did not quit within 20 s.")
+                Console.err("Run `skyrose wm panic`, then `skyrose restart` again.")
+                return ExitCode.failed
+            }
+        }
+        return ShellStarter(client: client, timeout: timeout).run()
     }
 }
 

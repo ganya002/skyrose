@@ -18,11 +18,7 @@ struct SIPOffPage: View {
     private let poll = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     private var loadCommand: String? {
-        let settingsApp = Bundle.main.bundleURL
-        let sibling = settingsApp.deletingLastPathComponent().appendingPathComponent("SkyRose.app")
-        let app = FileManager.default.fileExists(atPath: sibling.path) ? sibling
-            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.skyrose.mac")
-        return SAClient.bundledLoader(appBundle: app).map { SAProtocol.loadCommand(loader: $0) }
+        SAClient.bundledLoader(appBundle: SkyRoseApp.locate()).map { SAProtocol.loadCommand(loader: $0) }
     }
 
     var body: some View {
@@ -122,10 +118,7 @@ struct SIPOffPage: View {
     }
 
     private var daemonLoader: URL? {
-        let sibling = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("SkyRose.app")
-        let app = FileManager.default.fileExists(atPath: sibling.path) ? sibling
-            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.skyrose.mac")
-        return SAClient.bundledLoader(appBundle: app)
+        SAClient.bundledLoader(appBundle: SkyRoseApp.locate())
     }
 
     private func daemonCommand(_ title: String, _ cmd: String) -> some View {

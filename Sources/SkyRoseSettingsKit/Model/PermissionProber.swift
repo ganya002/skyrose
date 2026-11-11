@@ -1,5 +1,6 @@
 import AppKit
 import CaelestiaCore
+import CaelestiaPlatform
 import Foundation
 
 /// Reads SkyRose's permissions without the WM: launches `SkyRose.app --permissions-probe <file>`
@@ -22,9 +23,7 @@ public final class PermissionProber {
 
     /// SkyRose.app next to Settings (dist/), else wherever Launch Services has it.
     public nonisolated static func defaultAppURL() -> URL? {
-        let sibling = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("SkyRose.app")
-        if FileManager.default.fileExists(atPath: sibling.path) { return sibling }
-        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.skyrose.mac")
+        SkyRoseApp.locate()
     }
 
     /// One probe; `completion` gets nil when SkyRose.app is missing or the probe did not answer

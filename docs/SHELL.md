@@ -81,7 +81,7 @@ title, 16 pt subtitle, 15 pt padding, 48 pt search pill, at most 7 visible rows.
   frequency (counts in `launcher-counts.json` in Application Support).
 - Apps scanned: `/Applications`, `~/Applications`, `/System/Applications` (+ Utilities), one
   sub-folder level.
-- `>` commands: `lock`, `sleep`, `shutdown`, `reboot`, `logout` go through the session menu's
+- `>` commands: `lock`, `sleep`, `shutdown`, `reboot`, `restart` (SkyRose itself), `logout` go through the session menu's
   confirm step. `scheme`, `wallpaper`, `variant`, `transparency`, `random`, `settings` only show
   an info toast ("later phase").
 - `=` or plain math is a calculator; Enter copies the result.
@@ -94,7 +94,9 @@ app you were in.
 
 Open: Ctrl+Option+Backspace (`session.toggle`), the bar's power button, or
 `skyrose shell session`. A pill on the right edge: Log out, Shut down, an image slot, Sleep,
-Restart (80 pt buttons, radius 22, spacing 15).
+Restart, then Restart SkyRose (80 pt buttons, radius 22, spacing 15). The last one is not in
+Caelestia: it runs the bundled `skyrose restart`, which quits SkyRose (windows restored) and starts
+the same app again.
 
 Every action needs a second press within 3 s (the button turns red with a check). Esc disarms,
 then closes. The image slot shows a drawn moon glyph; no character art is shipped.

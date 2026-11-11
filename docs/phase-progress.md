@@ -9,16 +9,16 @@ Resume here: read this table, then the newest section below.
 | A1 polish | surfaces fixed, see `docs/parity-progress.md`; record card still missing | 6db5020, 0383a5a, 28b3def |
 | A1 bongo + lyrics with a real song | waiting for Gabby (Spotify) | |
 | A1 boot daemon sudo install | waiting for Gabby (sudo) | |
-| A2 helper card | next | |
-| A3 Teams flicker | | |
-| A4 restart | | |
+| A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | a972c5e, 00f10cc |
+| A3 Teams flicker | fix in (only re-raise visible overlapping windows), live Teams repro still open | 00f10cc |
+| A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
 | A5 v0.4.1 | | |
 
 Notes for a fresh session:
 - Tests: `/usr/bin/swift test` runs 9 XCTest bundles, 1226 tests; only the last bundle's summary is at the
   tail, so sum the `*.xctest' passed` blocks.
 - The capture's .mp4 files are HEVC 4:4:4: AVFoundation cannot decode them (-12906); use the jpg frames.
-- Restart for testing: `skyrose wm quit`, wait for SkyRoseWM to exit, `open dist/SkyRose.app`.
+- Restart for testing: `dist/SkyRose.app/Contents/MacOS/skyrose restart`.
 - Caelestia source: clone `caelestia-dots/shell` into the scratchpad (fd630ff was used).
 
 # Phase 9.5: fixes + Caelestia polish (started 2026-11-10)

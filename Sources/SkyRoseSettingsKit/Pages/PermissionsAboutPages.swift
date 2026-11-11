@@ -352,6 +352,11 @@ struct AboutPage: View {
             }
             UpdateCard(store: store)
             Card {
+                SettingRow(title: "Restart SkyRose", detail: "Quits SkyRose (your windows are put back first) and starts it again. Same as `skyrose restart`.", icon: "arrow.clockwise") {
+                    PillButton(title: store.wmRunning ? "Restart" : "Start", icon: "arrow.clockwise", kind: .tonal) { store.restartSkyRose() }
+                }
+            }
+            Card {
                 SectionLabel(text: "Credits")
                 ForEach(Self.credits, id: \.0) { c in
                     HStack(alignment: .top) {
