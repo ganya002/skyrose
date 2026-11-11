@@ -34,6 +34,7 @@ Resume here: read this table, then the newest section below.
 | A5 v0.4.1 | done: merged to main e4c0dee, tag v0.4.1, release with zip, install.sh, uninstall.sh and .sha256 files. 0.4.0 CLI reports the update; sandboxed `update --yes` installs 0.4.1. A part10 reference image had the Wi-Fi name filled out before the first push (unpushed history rewritten, hashes above updated). | e4c0dee |
 | W. CatWMKit swap | **blocked**, waiting for Per (Gabby, 2026-11-11). Branch `phase-w` (pushed, docs only): `docs/catwm-requests.md`, `docs/catwm-migration.md`. Old WM untouched. | b32f0fb |
 | S merge | merged into main 18119e5; 1282 tests, 0 failures; Store recorded live | 18119e5 |
+| B 10a OSD | done: Caelestia column layout, handle with % while moving, scroll, 2 s hide; seen live (`~/Pictures/Screenshots/skyrose-osd-1794410476*.png/.mov`). Drag and scroll not tried live (no pointer synthesis). Also fixed a clamshell IPC crash (585f21c) | 1de22b7 |
 
 Phase S merged. Next: Phase B (`docs/PHASE-PROMPT-10-controls.md`), then back to W when CatWM can hold windows.
 
