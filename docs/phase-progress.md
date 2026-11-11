@@ -10,7 +10,7 @@ threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skys
 | S3 docs (SKYSTORE.md, skystore-security.md) + index scaffold `~/Projects/skystore-index` (local commit 577901d, no remote) | done; e2e in a scratch home: tool-signed index verifies, install/disable/tamper OK | e7fffbf |
 | S5 Gabby's maintainer key built in; signed `serial` + anti-replay (index-serial); index tool raises serial (skystore-index e973cbd, not pushed); decisions in SKYSTORE.md (drawer + Settings fallback, builtins as first-party addons next, wallpaper stays) | done, 1279 tests 0 failures | (this commit) |
 | S6 clamshell + colour picker as first-party `feature` addons | next for SkyStore (Gabby, 2026-11-11), before third-party code addons | |
-| S4 live recording of the Store | deferred to the main agent at merge (see report); scripts/build.sh builds and signs, app never launched here | |
+| S4 live recording of the Store | done at merge: `~/Pictures/Screenshots/skyrose-store-1794410118.mov` + `.png`, opened and closed with `skyrose store`; Featured tab shows "The index is empty" (no trusted index yet) | (merge) |
 
 Notes: no addons are made (spec). `StoreSource.trustedKeys` is empty until Gabby makes the key, so every
 index is refused until then (the Store says so). E2E without touching the real home: run the CLI with
@@ -32,8 +32,10 @@ Resume here: read this table, then the newest section below.
 | A3 Teams flicker | done: Gabby checked Teams behind OneNote live, no flicker (no recording) | bc3e828 |
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
 | A5 v0.4.1 | done: merged to main e4c0dee, tag v0.4.1, release with zip, install.sh, uninstall.sh and .sha256 files. 0.4.0 CLI reports the update; sandboxed `update --yes` installs 0.4.1. A part10 reference image had the Wi-Fi name filled out before the first push (unpushed history rewritten, hashes above updated). | e4c0dee |
+| W. CatWMKit swap | **blocked**, waiting for Per (Gabby, 2026-11-11). Branch `phase-w` (pushed, docs only): `docs/catwm-requests.md`, `docs/catwm-migration.md`. Old WM untouched. | b32f0fb |
+| S merge | merged into main 18119e5; 1282 tests, 0 failures; Store recorded live | 18119e5 |
 
-Phase S (SkyStore) runs as a subagent in ../skyrose-store (branch phase-skystore); merge after Phase W, before B.
+Phase S merged. Next: Phase B (`docs/PHASE-PROMPT-10-controls.md`), then back to W when CatWM can hold windows.
 
 Notes for a fresh session:
 - Tests: `/usr/bin/swift test` runs 9 XCTest bundles, 1226 tests; only the last bundle's summary is at the
