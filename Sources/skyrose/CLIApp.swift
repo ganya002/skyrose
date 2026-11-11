@@ -59,7 +59,12 @@ struct CLIApp {
             return LocalCommands.run(command, invocation: invocation, client: client)
         case .ipc(let request):
             let code = send(request, invocation: invocation, client: client)
-            if request.knownCommand == .wmPanic { LocalCommands.neutraliseScriptingAddition() }
+            if request.knownCommand == .wmPanic {
+                LocalCommands.neutraliseScriptingAddition()
+                // Also when the WM hangs or is gone: no addon content until switched back on.
+                let n = AddonStore().disableAll()
+                if n > 0 { Console.err("SkyStore: \(n) addon\(n == 1 ? "" : "s") switched off (skyrose store enable <id> turns one back on)") }
+            }
             return code
         }
     }

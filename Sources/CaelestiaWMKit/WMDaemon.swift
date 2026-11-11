@@ -156,7 +156,10 @@ public final class WMDaemon {
         wm.onLayoutApplied = { [weak shell] in shell?.sync() }
         wm.shellResponder = { [weak shell] request, command in shell?.respond(to: request, command: command) }
         // Lid-closed sleep back to stock: panic always, quit when SkyRose set it.
-        wm.onPanic = { [weak shell] in shell?.controller.lidSleep.releaseForPanic() }
+        wm.onPanic = { [weak shell] in
+            shell?.controller.lidSleep.releaseForPanic()
+            AddonStore().disableAll()
+        }
         wm.onUnhandledAction = { [weak self, weak shell] action in
             if AppLauncher.handle(action, apps: self?.wm.config.apps ?? AppsConfig()) { return }
             if shell?.handle(action) != true {

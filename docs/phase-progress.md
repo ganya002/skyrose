@@ -1,3 +1,22 @@
+# Phase S: SkyStore (worktree ../skyrose-store, branch phase-skystore, started 2026-11-11)
+
+Spec: `docs/PHASE-PROMPT-MASTER.md` › PHASE S. Store only, no addons. User doc `docs/SKYSTORE.md`,
+threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skystore-index` (no remote).
+
+| Item | State | Commits |
+|---|---|---|
+| S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | d9c0a22 |
+| S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | fb734d8 |
+| S3 docs (SKYSTORE.md, skystore-security.md) + index scaffold `~/Projects/skystore-index` (local commit 577901d, no remote) | done; e2e in a scratch home: tool-signed index verifies, install/disable/tamper OK | e7fffbf |
+| S5 Gabby's maintainer key built in; signed `serial` + anti-replay (index-serial); index tool raises serial (skystore-index e973cbd, not pushed); decisions in SKYSTORE.md (drawer + Settings fallback, builtins as first-party addons next, wallpaper stays) | done, 1279 tests 0 failures | (this commit) |
+| S6 clamshell + colour picker as first-party `feature` addons | next for SkyStore (Gabby, 2026-11-11), before third-party code addons | |
+| S4 live recording of the Store | deferred to the main agent at merge (see report); scripts/build.sh builds and signs, app never launched here | |
+
+Notes: no addons are made (spec). `StoreSource.trustedKeys` is empty until Gabby makes the key, so every
+index is refused until then (the Store says so). E2E without touching the real home: run the CLI with
+`CFFIXED_USER_HOME=<scratch> HOME=<scratch>` (HOME alone is not honoured). Never run `wm panic` for a test:
+it also neutralises the live scripting addition.
+
 # Master prompt run (started 2026-11-11)
 
 Spec: `docs/PHASE-PROMPT-MASTER.md` (overrides older prompts). Phase A on branch `phase-9.5`.

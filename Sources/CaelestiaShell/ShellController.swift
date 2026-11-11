@@ -90,6 +90,9 @@ public final class ShellController {
     var dimPanel: ShellPanel?
     var popoutPanel: ShellPanel?
     var wallpaperPanel: ShellPanel?
+    /// SkyStore (ShellController+Store).
+    public let store = StoreModel()
+    var storePanel: ShellPanel?
     public internal(set) var popoutKind: PopoutKind?
     var popoutDisplay: String?
     /// The popout was opened by hovering a bar item (it closes when the pointer leaves the bar
@@ -555,6 +558,7 @@ public final class ShellController {
         case .osd: return m.isOn("osd")
         case .wallpaper: return m.isOn("wallpaperPicker")
         case .clipboard: return m.isOn("launcher")
+        case .store: return true
         }
     }
 
@@ -651,6 +655,7 @@ public final class ShellController {
             guard !openDrawers.contains(.sidebar) else { return }
             openUtilities(id, layout: layout, reveal: reveal)
         case .wallpaper: openWallpaper(id, layout: layout, reveal: reveal)
+        case .store: openStore(id, layout: layout, reveal: reveal)
         }
         launcherDisplay = id
         openDrawers.insert(d)
@@ -692,6 +697,7 @@ public final class ShellController {
                 closeUtilities()
             }
         case .wallpaper: closeWallpaper()
+        case .store: closeStore()
         }
         openDrawers.remove(d)
         hoverOpened.remove(d)
@@ -715,7 +721,7 @@ public final class ShellController {
         let t = CaelestiaTokens.DrawerMs.self
         switch name {
         case "launcher", "clipboard": return (.bottom, a.launcher, t.launcher)
-        case "wallpaper": return (.bottom, a.launcher, t.launcher)
+        case "wallpaper", "store": return (.bottom, a.launcher, t.launcher)
         case "dashboard": return (.top, a.dashboard, t.dashboard)
         case "session": return (.right, a.session, t.session)
         case "osd": return (.right, a.osd, t.osd)
@@ -818,6 +824,7 @@ public final class ShellController {
             guard let self else { return false }
             if panel === self.launcherPanel, self.launcher.shown { return true }
             if panel === self.clipboardPanel, self.clipboard.shown { return true }
+            if panel === self.storePanel, self.store.shown { return true }
             if panel === self.sessionPanel, self.session.shown { return true }
             return false
         }
@@ -1115,6 +1122,7 @@ public final class ShellController {
             guard let self else { return }
             if self.openDrawers.contains(.launcher) { self.close(.launcher) }
             if self.openDrawers.contains(.clipboard) { self.close(.clipboard) }
+            if self.openDrawers.contains(.store) { self.close(.store) }
             if self.openDrawers.contains(.session) { self.close(.session) }
             self.closeTransient(includingSidebar: true)
             if e.type == .leftMouseDown { self.edgeDragBegin(NSEvent.mouseLocation) }

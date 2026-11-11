@@ -132,6 +132,14 @@ struct AppearancePage: View {
     @Environment(\.look) var look
     @State private var wallpaperGroups: [WallpaperLibrary.Group] = []
     @State private var calibrationDisplays: [DisplayInfo] = []
+    /// Schemes from enabled SkyStore addons (`<id>/<stem>`).
+    @State private var addonSchemes: [AddonScheme] = []
+
+    struct AddonScheme: Identifiable {
+        var id: String
+        var title: String
+        var scheme: Scheme?
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -149,6 +157,11 @@ struct AppearancePage: View {
                         ForEach(SchemeLoader.builtInNames, id: \.self) { name in
                             SchemeSwatch(name: name, selected: SchemeLoader.canonicalName(store.config.appearance.theme) == name) {
                                 store.set("appearance.theme", .string(name), update: { $0.appearance.theme = name })
+                            }
+                        }
+                        ForEach(addonSchemes) { a in
+                            SchemeSwatch(name: a.id, scheme: a.scheme, title: a.title, selected: store.config.appearance.theme == a.id) {
+                                store.set("appearance.theme", .string(a.id), update: { $0.appearance.theme = a.id })
                             }
                         }
                     }
@@ -219,8 +232,9 @@ struct AppearancePage: View {
             }
         }
         .onAppear {
-            wallpaperGroups = WallpaperLibrary.scan(folder: WallpaperLibrary.folderURL(store.config.appearance.wallpaperFolder)).groups
+            wallpaperGroups = WallpaperLibrary.withAddons(WallpaperLibrary.scan(folder: WallpaperLibrary.folderURL(store.config.appearance.wallpaperFolder))).groups
             calibrationDisplays = DisplayInfo.all()
+            addonSchemes = AddonStore().schemes().map { AddonScheme(id: $0.theme, title: $0.title, scheme: try? SchemeLoader.load(from: $0.url)) }
         }
     }
 
@@ -235,11 +249,14 @@ struct AppearancePage: View {
 
 struct SchemeSwatch: View {
     var name: String
+    /// Given for an addon scheme; built-ins are looked up by name.
+    var scheme: Scheme? = nil
+    var title: String? = nil
     var selected: Bool
     var action: () -> Void
     @Environment(\.look) var look
     var body: some View {
-        let s = SchemeLoader.builtIn(named: name)
+        let s = scheme ?? SchemeLoader.builtIn(named: name)
         Button(action: action) {
             VStack(spacing: 8) {
                 HStack(spacing: 0) {
@@ -249,7 +266,7 @@ struct SchemeSwatch: View {
                 }
                 .frame(height: 38)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                Text(SchemeLoader.builtInTitles[name] ?? name).font(look.font(11.5, selected ? .semibold : .regular))
+                Text(title ?? SchemeLoader.builtInTitles[name] ?? name).font(look.font(11.5, selected ? .semibold : .regular))
                     .foregroundStyle(selected ? look[.onSurface] : look[.onSurfaceVariant]).lineLimit(1)
             }
             .padding(8)

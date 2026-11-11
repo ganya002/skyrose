@@ -25,6 +25,8 @@ public struct Config: Codable, Equatable, Sendable {
     public var capture: CaptureConfig
     /// Lid-closed behaviour (`[clamshell]`).
     public var clamshell: ClamshellConfig
+    /// SkyStore (`[store]`): where the index comes from and creator mode.
+    public var store: StoreConfig
     public var frame: FrameConfig
     /// Per-display overrides keyed by stable display id (CGDisplayCreateUUIDFromDisplayID).
     public var displays: [String: DisplayOverride]
@@ -38,8 +40,9 @@ public struct Config: Codable, Equatable, Sendable {
         frame: FrameConfig = FrameConfig(), displays: [String: DisplayOverride] = [:], appRules: [String: String] = [:],
         general: GeneralConfig = GeneralConfig(), shell: ShellModulesConfig = ShellModulesConfig(),
         weather: WeatherConfig = WeatherConfig(), clipboard: ClipboardConfig = ClipboardConfig(), sipOff: SIPOffConfig = SIPOffConfig(),
-        capture: CaptureConfig = CaptureConfig(), clamshell: ClamshellConfig = ClamshellConfig()
+        capture: CaptureConfig = CaptureConfig(), clamshell: ClamshellConfig = ClamshellConfig(), store: StoreConfig = StoreConfig()
     ) {
+        self.store = store
         self.capture = capture
         self.clamshell = clamshell
         self.general = general
@@ -287,6 +290,17 @@ public struct CaptureConfig: Codable, Equatable, Sendable {
 public struct ClamshellConfig: Codable, Equatable, Sendable {
     /// Hold a keep-awake (idle display sleep off) while the lid is closed.
     public var keepAwake: Bool = false
+    public init() {}
+}
+
+/// SkyStore. Creator mode (Settings › SkyStore) unlocks `skyrose store new|validate|pack|submit`
+/// and, for a local test index only, `file://` URLs and `trustedKeys`.
+public struct StoreConfig: Codable, Equatable, Sendable {
+    public var creatorMode: Bool = false
+    /// The signed index; empty = Gabby's (`StoreSource.defaultIndexURL`). HTTPS only outside creator mode.
+    public var indexURL: String = ""
+    /// Extra base64 Ed25519 public keys, honoured only in creator mode (a creator's own test index).
+    public var trustedKeys: [String] = []
     public init() {}
 }
 
@@ -549,6 +563,8 @@ public enum Paths {
     /// Windows the user floated or tiled, keyed by app + window identity, across restarts.
     public static var userFloatLedger: URL { appSupport.appendingPathComponent("user-float.json") }
     public static var workspaceAssignments: URL { appSupport.appendingPathComponent("workspace-assignments.json") }
+    /// Installed SkyStore addons and their state (`AddonStore`).
+    public static var addonsDir: URL { appSupport.appendingPathComponent("addons", isDirectory: true) }
     public static var logsDir: URL { home.appendingPathComponent("Library/Logs/SkyRose", isDirectory: true) }
     public static var kittyConfigDir: URL { home.appendingPathComponent(".config/kitty", isDirectory: true) }
     public static var kittyThemeFile: URL { home.appendingPathComponent(".config/kitty/skyrose-theme.conf") }

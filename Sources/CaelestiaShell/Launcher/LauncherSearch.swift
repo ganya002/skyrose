@@ -44,6 +44,7 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         LauncherCommand("restart", "Restart SkyRose (windows are restored first)", icon: "restart_alt", effect: .session(.restartSkyRose)),
         LauncherCommand("logout", "Log out of the current session", icon: "logout", effect: .session(.logout)),
         LauncherCommand("settings", "Open SkyRose Settings", icon: "settings", effect: .openSettings),
+        LauncherCommand("store", "Browse, install and update addons (SkyStore)", icon: "storefront", effect: .drawer(.store)),
     ]
 }
 

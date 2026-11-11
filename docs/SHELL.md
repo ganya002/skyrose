@@ -162,6 +162,11 @@ app's existing support folder; latest 100, rewritten atomically on every change,
 empties it). Bar status icons (audio, network, Bluetooth, battery) open popouts on click;
 `shell drawers toggle popout.audio|network|bluetooth|battery` does the same.
 
+## SkyStore
+
+A bottom drawer like the launcher (`>store`, `skyrose store`, Settings › SkyStore): browse,
+install, update and remove addons. See [SKYSTORE.md](SKYSTORE.md).
+
 ## Wallpaper and dynamic colours (part 2)
 
 `>wallpaper` / `shell drawers toggle wallpaper` open a thumbnail strip of `appearance.wallpaperFolder`.
@@ -174,7 +179,7 @@ static. Config reload applies it live.
 
     skyrose shell launcher | session | kill | restart
     skyrose shell dashboard | sidebar | clear-notifs
-    skyrose shell drawers toggle <name> | isOpen <name> | list   (launcher, session, osd, dashboard, sidebar, wallpaper, popout.<kind>)
+    skyrose shell drawers toggle <name> | isOpen <name> | list   (launcher, session, osd, dashboard, sidebar, wallpaper, store, popout.<kind>)
     skyrose notify <title> [body] [--app NAME] [--icon ICON]
     skyrose wallpaper set <file> | get | list | random
     skyrose shell toaster.<level> ...

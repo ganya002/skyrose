@@ -6,11 +6,11 @@ import SwiftUI
 /// Shell part 2: dashboard, sidebar (notifications + utilities), bar popouts, wallpaper picker and
 /// dynamic colours.
 extension ShellController {
-    var partTwoPanels: [ShellPanel?] { [dashboardPanel, sidebarPanel, utilitiesPanel, popoutPanel, wallpaperPanel, dimPanel] }
+    var partTwoPanels: [ShellPanel?] { [dashboardPanel, sidebarPanel, utilitiesPanel, popoutPanel, wallpaperPanel, dimPanel, storePanel] }
 
     func dropPartTwoPanels() {
-        dashboardPanel = nil; sidebarPanel = nil; utilitiesPanel = nil; popoutPanel = nil; wallpaperPanel = nil; dimPanel = nil
-        dashboard.shown = false; sidebar.shown = false; utilities.shown = false; popout.shown = false; wallpaperPicker.shown = false
+        dashboardPanel = nil; sidebarPanel = nil; utilitiesPanel = nil; popoutPanel = nil; wallpaperPanel = nil; dimPanel = nil; storePanel = nil
+        dashboard.shown = false; sidebar.shown = false; utilities.shown = false; popout.shown = false; wallpaperPicker.shown = false; store.shown = false
         hoverOpened.removeAll()
         hoverPending = nil
         popoutKind = nil
@@ -70,6 +70,7 @@ extension ShellController {
 
     func startPartTwoServices() {
         clipboard.start()
+        startStore()
         media.onChange = { [weak self] m in self?.applyMedia(m) }
         media.start()
         keepAwake.onChange = { [weak self] on in

@@ -23,7 +23,7 @@ public final class WallpaperService {
     public func scan(folder: String, completion: @escaping @MainActor (WallpaperLibrary.ScanResult) -> Void) {
         let url = WallpaperLibrary.folderURL(folder)
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = WallpaperLibrary.scan(folder: url)
+            let result = WallpaperLibrary.withAddons(WallpaperLibrary.scan(folder: url))
             DispatchQueue.main.async { MainActor.assumeIsolated { completion(result) } }
         }
     }

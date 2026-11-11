@@ -348,6 +348,13 @@ public final class SettingsStore: ObservableObject {
         }
     }
 
+    /// Opens the Store drawer in the running SkyRose.
+    public func openStore() {
+        connection.call(.shellDrawersToggle, args: ["drawer": .string("store")]) { [weak self] r in
+            if case .failure(let e) = r { self?.message = e.description }
+        }
+    }
+
     public func runAction(_ name: String) {
         connection.call(.action, args: ["action": .string(name)]) { [weak self] r in
             if case .failure(let e) = r { self?.message = e.description }
