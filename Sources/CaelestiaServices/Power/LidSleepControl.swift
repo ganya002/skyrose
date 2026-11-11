@@ -11,7 +11,7 @@ public protocol SleepSwitch: Sendable {
 
 /// Clamshell Toggle's `Power.swift`, ported: `pmset -g` to read, `sudo -n pmset disablesleep 0|1` to
 /// set. `-n` means sudo never prompts: without the scoped sudoers rule it fails at once.
-/// Processes run on a private serial queue (the caller blocks on it, the main run loop is not spun).
+/// Processes run on a private serial queue; the caller blocks without spinning its run loop.
 public struct PmsetSleepSwitch: SleepSwitch {
     private static let queue = DispatchQueue(label: "skyrose.lidsleep")
 
@@ -38,10 +38,14 @@ public struct PmsetSleepSwitch: SleepSwitch {
             p.standardOutput = out
             p.standardError = err
             p.standardInput = FileHandle.nullDevice
+            // Not `waitUntilExit()`: it spins the caller's run loop, so a second IPC call ran on the
+            // main thread inside this `sync` and trapped re-entering the queue.
+            let exited = DispatchSemaphore(value: 0)
+            p.terminationHandler = { _ in exited.signal() }
             do { try p.run() } catch { return (-1, "", error.localizedDescription) }
             let o = out.fileHandleForReading.readDataToEndOfFile()
             let e = err.fileHandleForReading.readDataToEndOfFile()
-            p.waitUntilExit()
+            exited.wait()
             return (p.terminationStatus, String(decoding: o, as: UTF8.self), String(decoding: e, as: UTF8.self))
         }
     }
