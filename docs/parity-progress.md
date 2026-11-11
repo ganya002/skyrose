@@ -19,7 +19,8 @@ Colours differ by design: the scheme comes from each wallpaper.
 | Toasts + notification popups | `04-caelestia/notification_popup.mp4`, `notification_visible.jpg`, `Notification.qml` | fixed | one drawer out of the top-right frame corner on the liquid surface (Gabby: toasts too, upstream keeps toasts as a bottom-right card). Measured: 430 wide, padding 15/5, card 410×61 r20, icon 42; open 300 ms (edge arrives at ~125 ms, wobble settles by ~300 ms) = ours at speed 1. No expand chevron / swipe (click-through) |
 | Session | `shell/1-session.jpg` | matches | the GIF is a moon on macOS (Phase 8 decision) |
 | OSD | `04-caelestia/osd_opened.jpg` | deferred | rebuilt in Part 10a against `part10/osd-volume-brightness.png` |
-| Bar popouts, Settings | `04-caelestia/bar_hover_*` | not compared yet | |
+| Bar popouts | none usable: every `bar_hover_*.jpg` is the same frame with the bar hidden (the capture warped the cursor only); upstream `bar/popouts/*.qml` | blocked on reference | the only popout capture is `part10/wifi-popout.png`; audio/network/bluetooth popouts are rebuilt in Phase B (10b–10d) against it and the QML |
+| Settings | upstream `modules/nexus` (Caelestia's settings app; never captured on the Arch box) | compared from source | same structure (nav pane + pages + grouped rows on surfaceContainer). Not ported: Nexus's "Search settings" field in the nav pane and the icon next to each page title. When Settings is not frontmost it looks see-through: that is `sipOff.opacity` (inactive-window alpha, WM), not the Settings fill |
 
 Before stills (this session, not in git: personal screen content): `/tmp/sr-parity/{idle,dash,launcher,sidebar,session,osd,utilities}.png`.
 After: `/tmp/sr-parity/{dash3,sidebar2,bar2,toast2,popup,util-ready,util-rec,util-final}.png` and the clips `/tmp/sr-parity/{after-dashboard,popup}.mov`.
