@@ -359,8 +359,14 @@ public enum CLIParser {
             inv.kind = .local(.kitty(v))
         case "sa":
             let verb = args.first ?? "status"
+            if verb == "enable" {
+                // Asks the running SkyRose to show its "Finish hiding the menu bar" card.
+                try rejectExtra("sa enable", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.saEnable))
+                return inv
+            }
             guard let v = SAVerb(rawValue: verb) else {
-                throw CLIUsageError.unknownVerb(group: "sa", verb: verb, expected: ["status", "load-command", "reload", "reset"])
+                throw CLIUsageError.unknownVerb(group: "sa", verb: verb, expected: ["status", "load-command", "reload", "reset", "enable"])
             }
             try rejectExtra("sa \(verb)", Array(args.dropFirst()))
             inv.kind = .local(.sa(v))
@@ -785,6 +791,7 @@ public enum CLIParser {
             ("update [--check] [--yes]", "Look for a newer release; --yes downloads it, checks SHA-256, and replaces the apps"),
             ("fonts status | download | install | uninstall", "Arch font pack: download (checksummed, SkyRose only) / install into ~/Library/Fonts for kitty and other apps"),
             ("sa status | load-command | reload | reset", "SIP-off mode: is the scripting addition loaded, the sudo line that loads it, the sudo line to load it again now, undo everything it changed"),
+            ("sa enable", "SIP-off mode: show the card that loads the helper with the macOS password prompt"),
             ("kitty status | install | uninstall", "SkyRose kitty profile: Gabby's Arch settings + live scheme colours (one include line in kitty.conf)"),
             ("version", "CLI and WM versions"),
         ]),

@@ -62,6 +62,11 @@ public final class ShellController {
     private var osdPanel: ShellPanel?
     private var toastPanel: ShellPanel?
     private var popupPanel: ShellPanel?
+    /// The SIP-off helper card (ShellController+HelperCard).
+    public let helperCard = HelperCardModel()
+    var helperPanel: ShellPanel?
+    /// Root loaded the helper: the WM should probe for it now.
+    public var onHelperLoaded: () -> Void = {}
     // Part 2.
     public let dashboard = DashboardModel()
     public let sidebar = SidebarModel()
@@ -210,8 +215,8 @@ public final class ShellController {
         for (_, b) in bars { b.close() }
         frames.removeAll()
         bars.removeAll()
-        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel, popupPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
-        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil; popupPanel = nil
+        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel, popupPanel, helperPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
+        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil; popupPanel = nil; helperPanel = nil
         dropPartTwoPanels()
         openDrawers.removeAll()
         for d in visibility.keys where visibility[d]?.isShown == true && visibility[d]?.persistent == false {
@@ -781,8 +786,8 @@ public final class ShellController {
     private func rebuildDrawers() {
         closeAll()
         for f in frames.values { f.surface?.removeAll() }
-        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel, popupPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
-        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil; popupPanel = nil
+        for p in [launcherPanel, clipboardPanel, sessionPanel, osdPanel, toastPanel, popupPanel, helperPanel] + partTwoPanels { p?.orderOut(nil); p?.close() }
+        launcherPanel = nil; clipboardPanel = nil; sessionPanel = nil; osdPanel = nil; toastPanel = nil; popupPanel = nil; helperPanel = nil
         dropPartTwoPanels()
     }
 

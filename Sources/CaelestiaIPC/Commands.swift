@@ -255,6 +255,8 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case wmPanic = "wm.panic"
     case wmRestoreAll = "wm.restoreAll"
     case wmQuit = "wm.quit"
+    /// Shows the "Finish hiding the menu bar" card (SIP-off helper, admin prompt).
+    case saEnable = "sa.enable"
     case permissionsStatus = "permissions.status"
     /// Shows the macOS prompt for one permission from the WM process (so SkyRose appears in the
     /// System Settings list), then opens its pane.
@@ -445,6 +447,8 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
             return IPCCommandSpec(.wm, "Bring every parked/off-screen window back on screen without quitting.")
         case .wmQuit:
             return IPCCommandSpec(.wm, "Restore windows and quit the WM.")
+        case .saEnable:
+            return IPCCommandSpec(.wm, "Show the card that loads the SIP-off helper behind the macOS password prompt.")
         case .permissionsStatus:
             return IPCCommandSpec(.wm, "TCC permission status as the WM sees it.", returns: "{accessibility, inputMonitoring, screenRecording, automation: bool|string}")
         case .permissionsRequest:

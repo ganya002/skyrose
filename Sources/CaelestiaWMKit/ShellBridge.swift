@@ -148,6 +148,7 @@ public final class ShellBridge: ShellHost {
         case .wallpaperRandom:
             controller.randomWallpaper()
             return ok()
+        case .saEnable: controller.requestHelperCard(); return ok()
         case .shellKill: controller.stop(); return ok()
         case .shellRestart: controller.restart(); return ok()
         case .shellToasterError: return toast(.error)

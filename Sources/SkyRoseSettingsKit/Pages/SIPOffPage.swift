@@ -52,9 +52,20 @@ struct SIPOffPage: View {
                 }
                 statusRow("Scripting addition", ok: loaded != nil,
                           detail: loaded.map { "Loaded in the Dock: " + $0.capabilities.names.joined(separator: ", ") } ?? "Not loaded")
+                if loaded == nil, readiness.ready, store.config.sipOff.enabled {
+                    HStack(spacing: 10) {
+                        PillButton(title: "Enable the helper", icon: "lock.open", kind: .filled) {
+                            // SkyRose shows its card and the macOS password prompt; nothing here sees the password.
+                            store.connection.call(.saEnable) { _ in }
+                        }
+                        .accessibilityIdentifier("sipOff.enableHelper")
+                        Text("Asks for your password in the standard macOS window.")
+                            .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
+                    }
+                }
                 if loaded == nil, readiness.ready, let cmd = loadCommand {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Load it once per boot: paste this into Terminal. It asks for your password and only loads SkyRose's helper into your Dock.")
+                        Text("Or load it in Terminal (once per boot): paste this. It asks for your password and only loads SkyRose's helper into your Dock.")
                             .font(look.font(12)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
                         HStack {
                             Text(cmd).font(look.mono(11.5)).foregroundStyle(look[.onSurface]).textSelection(.enabled)
