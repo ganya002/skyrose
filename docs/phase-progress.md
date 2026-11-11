@@ -14,6 +14,8 @@ Resume here: read this table, then the newest section below.
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
 | A5 v0.4.1 | done: merged to main e4c0dee, tag v0.4.1, release with zip, install.sh, uninstall.sh and .sha256 files. 0.4.0 CLI reports the update; sandboxed `update --yes` installs 0.4.1. A part10 reference image had the Wi-Fi name filled out before the first push (unpushed history rewritten, hashes above updated). | e4c0dee |
 
+| W. CatWMKit swap | **blocked** (branch `phase-w`, docs only, old WM untouched): CatWMKit's public API can't leave SkyRose's parked workspace windows alone; with `windows.desktops` off it moves them back to their tiles, and `windows.desktops` on means macOS Desktops (changes the feel). Needs Request 1 in `docs/catwm-requests.md` from Per, or Gabby's OK to switch workspaces to macOS Desktops. Link check passed: URL dep at a6a6cb6 (Apache-2.0 LICENSE added upstream) resolves only CatWM, builds in ~26 s. | 53a4264 |
+
 Phase S (SkyStore) runs as a subagent in ../skyrose-store (branch phase-skystore); merge after Phase W, before B.
 
 Notes for a fresh session:
