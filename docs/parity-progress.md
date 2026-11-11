@@ -1,3 +1,29 @@
+# Surface parity, Phase 9.5 A1 (2026-11-11)
+
+Each SkyRose surface was captured on the MacBook Air (1470×956 pt) and set next to its reference at
+the same scale (reference = `docs/caelestia-reference/shell/*` at 5120×1440 or the 2560×720 jpgs in
+`~/caelestia-ref/full-2026-11-05/04-caelestia/`). Exact values come from `caelestia-dots/shell` at
+`fd630ff`. The capture's .mp4 clips are HEVC 4:4:4, which macOS cannot decode (AVFoundation error
+-12906) and ffmpeg is not allowed, so timing work uses the sampled `*_frames` and `scene.txt`.
+Colours differ by design: the scheme comes from each wallpaper.
+
+| Surface | Reference | Status | Remaining diffs |
+|---|---|---|---|
+| Dashboard tabs | `shell/dashboard_opened.jpg`, `Tabs.qml` | fixed | none major |
+| Dashboard cards | same, `dash/*.qml` | fixed | user card keeps an initial (no face picker); location moved to a tooltip |
+| Media card | `dash/Media.qml` | fixed | none major |
+| Launcher | `shell/launcher_opened.jpg`, `AppItem.qml` | fixed | none major |
+| Sidebar | `shell/1-sidebar.jpg`, `NotifDock.qml` | fixed | a collapsed group shows two lines, upstream one; extra macOS rows (timers, clamshell, sliders) stay |
+| Utilities | `shell/1-utilities.jpg` | partial | no Screen recorder card or Recordings list yet (the recorder exists as `skyrose record`) |
+| Bar | `04-caelestia/bar_hover_*.jpg` | fixed | the window title was invisible (clipped); now shows |
+| Toasts | `shell/toast_visible.jpg` | fixed | upstream draws the icon on a rounded square |
+| Session | `shell/1-session.jpg` | matches | the GIF is a moon on macOS (Phase 8 decision) |
+| OSD | `04-caelestia/osd_opened.jpg` | deferred | rebuilt in Part 10a against `part10/osd-volume-brightness.png` |
+| Bar popouts, notifications popup, Settings | `04-caelestia/bar_hover_*`, `notification_visible.jpg` | not compared yet | |
+
+Before stills (this session, not in git: personal screen content): `/tmp/sr-parity/{idle,dash,launcher,sidebar,session,osd,utilities}.png`.
+After: `/tmp/sr-parity/{dash3,sidebar2,bar2,toast2}.png` and the clip `/tmp/sr-parity/after-dashboard.mov`.
+
 # Arch parity: progress (2026-11-05)
 
 Phase brief: make SkyRose match Gabby's Arch Hyprland + Caelestia setup

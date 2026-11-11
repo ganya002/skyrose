@@ -489,7 +489,7 @@ extension ShellController {
 
     public func setDoNotDisturb(_ on: Bool) {
         state.doNotDisturb = on
-        if on { toasts.queue = ToastQueue() }
+        if on { toasts.queue = ToastQueue(); popups.queue = ToastQueue() }
     }
 
     // MARK: Notifications
@@ -520,7 +520,7 @@ extension ShellController {
         let n = ShellNotification(appName: app.isEmpty ? "skyrose-shell" : app, summary: title, body: body, icon: icon)
         notificationStore.add(n)
         notificationsChanged()
-        toast(.info, title: title, message: body, icon: icon, record: false)
+        toast(.info, title: title, message: body, icon: icon, record: false, popup: true)
         return n.id
     }
 

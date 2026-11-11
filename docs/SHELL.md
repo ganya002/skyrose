@@ -112,8 +112,9 @@ test setup). The system volume/brightness keys still reach macOS, so Apple's own
 
 ## Toasts
 
-Bottom-right (as in Caelestia), up to 4 at once, 5 s each. A duplicate refreshes the existing toast instead of
-stacking.
+Toasts stack up from the bottom-right corner (as in Caelestia), up to 4 at once, 5 s each. A
+duplicate refreshes the existing toast instead of stacking. Notification popups (`skyrose notify`)
+use the same cards but hang from the top-right, like Caelestia's notifications.
 
     skyrose shell toaster error|warn|info|success <title> <message> <icon>
 

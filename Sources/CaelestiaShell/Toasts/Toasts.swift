@@ -77,21 +77,24 @@ public final class ToastModel: ObservableObject {
 
 struct ToastsView: View {
     @ObservedObject var model: ToastModel
+    /// Toasts: anchored to the bottom, newest nearest the corner. Popups: from the top, newest first.
+    var fromBottom = true
     @Environment(\.shellTheme) var theme
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Spacer(minLength: 0)
-            ForEach(model.queue.toasts) { toast in
+            if fromBottom { Spacer(minLength: 0) }
+            ForEach(fromBottom ? model.queue.toasts.reversed() : model.queue.toasts) { toast in
                 ToastCard(toast: toast)
                     .transition(theme.reduceMotion ? .opacity : .asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .scale(scale: 0.7, anchor: .trailing)).combined(with: .opacity),
                         removal: .scale(scale: 0.7, anchor: .trailing).combined(with: .opacity)))
             }
+            if !fromBottom { Spacer(minLength: 0) }
         }
-        .padding(.bottom, 8)
+        .padding(fromBottom ? .bottom : .top, 8)
         .padding(.trailing, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: fromBottom ? .bottomTrailing : .topTrailing)
         .animation(theme.spatial, value: model.queue.toasts.map(\.id))
     }
 }
