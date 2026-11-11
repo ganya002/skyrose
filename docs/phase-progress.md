@@ -6,9 +6,14 @@ threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skys
 | Item | State | Commits |
 |---|---|---|
 | S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | 0308b49 |
-| S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | (see git log) |
-| S3 docs + index scaffold | | |
+| S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | bdc1ebb |
+| S3 docs (SKYSTORE.md, skystore-security.md) + index scaffold `~/Projects/skystore-index` (local commit 577901d, no remote) | done; e2e in a scratch home: tool-signed index verifies, install/disable/tamper OK | (see git log) |
 | S4 live recording of the Store | deferred to the main agent at merge (see report) | |
+
+Notes: no addons are made (spec). `StoreSource.trustedKeys` is empty until Gabby makes the key, so every
+index is refused until then (the Store says so). E2E without touching the real home: run the CLI with
+`CFFIXED_USER_HOME=<scratch> HOME=<scratch>` (HOME alone is not honoured). Never run `wm panic` for a test:
+it also neutralises the live scripting addition.
 
 # Master prompt run (started 2026-11-11)
 

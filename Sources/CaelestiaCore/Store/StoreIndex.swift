@@ -175,6 +175,8 @@ public struct StoreSource: Sendable {
 
     /// The signed index.
     public func loadIndex() throws -> StoreIndex {
+        // No key: nothing could be trusted, so nothing is fetched.
+        guard !keys.isEmpty else { throw StoreError.noTrustedKey }
         try check(indexURL)
         let data = try fetch(indexURL)
         let sig = try fetch(indexURL.deletingLastPathComponent().appendingPathComponent(indexURL.lastPathComponent + ".sig"))

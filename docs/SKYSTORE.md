@@ -1,0 +1,174 @@
+# SkyStore
+
+SkyStore is where you browse, install, update and remove optional addons for SkyRose. This
+release installs **data addons**: colour schemes and wallpapers. Addons that run code (widgets,
+bar modules, keymaps, split-out features) are designed but not installable yet. See
+[skystore-security.md](skystore-security.md) for why.
+
+## Using the Store
+
+Open it with `>store` in the launcher, `skyrose store`, `skyrose shell drawers toggle store`, or
+Settings › SkyStore › Open. It rises from the bottom of the screen like the launcher, with the
+same blob motion and colours.
+
+- **Featured**: what the maintainers picked (or everything, when nothing is featured).
+- **Categories**: one shelf per category (Colour scheme, Wallpapers, …).
+- **Search**: type in the pill at the bottom. It searches names, authors, summaries and categories.
+- **Installed**: every addon, its version and state, with Turn on/off and Uninstall.
+- **Updates**: addons with a newer version, one at a time or all at once.
+- **Detail page** (click a card): screenshots, description, permissions, version history, and
+  the Install / Update / Uninstall button. Esc goes back, then closes.
+
+Install shows a progress bar: checking, downloading, verifying, unpacking, installing. If a step
+fails, nothing changes. A failed update leaves the old version installed and working.
+
+Uninstall and any new permissions need a second press. The button changes to "Remove?" or
+"Allow N new permissions" first.
+
+Installed schemes appear in Settings › Appearance next to the built-in ones. Their names look like
+`dev.someone.rose-pine/rose-pine` (`appearance.theme`). Installed wallpapers appear in the
+wallpaper picker as a group called `SkyStore/<name>`.
+
+### Command line
+
+    skyrose store                       open the Store
+    skyrose store list [--json]         installed addons and their state
+    skyrose store refresh               fetch the index, apply revocations, list updates
+    skyrose store install <id> [--yes]  install (--yes allows new permissions without asking)
+    skyrose store update [id] [--yes]   update one addon or all of them
+    skyrose store uninstall <id>
+    skyrose store enable|disable <id>
+
+### Safety
+
+- The index is signed. SkyRose only trusts the keys built into it. An index with a bad signature
+  is refused and nothing changes.
+- Each version in the index lists its bundle's SHA-256. The bundle must match, and every file in
+  it must match the SHA-256 in the bundle's own manifest.
+- Downloads are HTTPS only. The index is only fetched when you open the Store, or every 6 hours
+  while at least one addon is installed (for the kill switch). With no addons, SkyRose never
+  contacts the index on its own.
+- **Kill switch**: the maintainers can revoke an addon or a single version in the index. SkyRose
+  then switches it off, shows a toast, and it cannot be turned back on.
+- **Panic**: `skyrose wm panic` (and the panic chord) switches every addon off, even when the WM
+  is hung. Turn them back on one by one with `skyrose store enable <id>` or in Installed.
+
+Files: `~/Library/Application Support/SkyRose/addons/` (`state.json`, one folder per addon
+version).
+
+## Creator mode
+
+Off by default. Turn it on in Settings › SkyStore › Creator mode, or with
+`skyrose config set store.creatorMode true`.
+
+    skyrose store new dev.you.my-theme [--kind scheme|wallpaper]
+    skyrose store validate [dir]
+    skyrose store pack [dir]
+    skyrose store submit [dir] --repo you/my-addons [--yes]
+
+1. `new` creates a folder with `manifest.json`. A scheme addon also gets a copy of SkyRose
+   Default in `schemes/` to edit. For a wallpaper addon, put images or videos in `wallpapers/`
+   and list them in `entry.wallpapers`.
+2. Fill in `author` and `summary`. Add screenshots (PNG or JPEG) and list them in `screenshots`.
+3. `validate` checks the manifest, the permissions, the files (schemes must parse, wallpapers
+   must be jpg/png/heic/webp/mp4/mov/m4v, at most 200 files and 64 MB), and whether a packed
+   bundle still matches its `.sha256`.
+4. `pack` writes `dist/<id>-<version>.skyaddon` (a zip with the manifest and every file's
+   SHA-256) and `dist/<id>-<version>.skyaddon.sha256`.
+5. `submit` packs again and prints two steps. With `--yes` it runs both:
+   - `gh release create <id>-v<version> …` uploads the bundle to **your** repo with your own `gh`
+     login.
+   - A GitHub link opens the "new file" page of `ganya002/skystore-index` with
+     `submissions/<id>-<version>.json` already filled in. GitHub forks the index for you and
+     opens the pull request.
+
+SkyRose never stores a GitHub token. A person reviews every submission. Nothing is published
+automatically.
+
+To test against your own index, creator mode also accepts `store.indexURL = "file:///…/index.json"`
+and your own public keys in `store.trustedKeys`. Sign it with the index tools (below).
+
+## Formats
+
+### manifest.json (in every bundle)
+
+    {
+      "schema": 1,
+      "id": "dev.you.rose-pine",            // reverse-DNS, lower case
+      "name": "Rose Pine",                  // at most 40 characters
+      "author": "You",
+      "version": "1.0.0",                   // numeric, 1 to 4 parts
+      "minSkyRose": "0.4.0",
+      "kind": "scheme",                     // scheme | wallpaper (keymap | widget | feature: not yet)
+      "summary": "Soho vibes",              // at most 120 characters
+      "description": "…",                   // optional
+      "licence": "MIT",                     // SPDX id
+      "homepage": "https://…",              // optional, https
+      "permissions": [],                    // must be empty for data kinds
+      "entry": { "schemes": ["schemes/rose-pine.toml"] },   // or { "wallpapers": [...] }
+      "icon": "icon.png",                   // optional, in the bundle
+      "screenshots": ["screenshots/1.png"],
+      "files": { "schemes/rose-pine.toml": "<sha256>", … }  // written by pack
+    }
+
+Permissions are written `name` or `name:scope`: `network:<host>`, `files:<path>`, `notifications`,
+`media`, `clipboard`, `keybinds`, `windows`. They are for code addons, and SkyRose refuses any
+other name.
+
+### index.json (+ index.json.sig)
+
+    { "schema": 1, "generated": "…", "addons": [ {
+        "id", "name", "author", "summary", "description", "kind", "category",
+        "icon": "https://…", "screenshots": ["https://…"], "licence", "homepage",
+        "featured": true, "revoked": "reason (kill switch)",
+        "versions": [ { "version", "minSkyRose", "url": "https://…/<id>-<v>.skyaddon",
+                        "sha256", "size", "permissions": [], "released": "2026-11-11",
+                        "notes", "revoked": "reason" } ] } ] }
+
+`index.json.sig` is the base64 Ed25519 signature of the exact bytes of `index.json`.
+
+## Maintainer setup (Gabby)
+
+The index lives in a public repo, `ganya002/skystore-index`. A local copy is at
+`~/Projects/skystore-index` (no remote yet). Its `README.md` and `REVIEWING.md` cover the
+review flow. To set it up:
+
+1. On GitHub, create the **public** repo `ganya002/skystore-index` (empty, no README).
+2. `cd ~/Projects/skystore-index && git remote add origin git@github.com:ganya002/skystore-index.git && git push -u origin main`
+3. Make the signing key, outside any repo:
+   `mkdir -p ~/.skystore && swift tools/skystore.swift keygen ~/.skystore/signing.key`
+   Back the file up in your password manager. Never commit it or put it in CI.
+4. Paste the printed public key into `StoreSource.trustedKeys` in
+   `Sources/CaelestiaCore/Store/StoreIndex.swift` and ship a SkyRose release. Until then, every
+   SkyRose refuses every index (the Store says it is not set up).
+5. Publish: `swift tools/skystore.swift build && swift tools/skystore.swift sign ~/.skystore/signing.key`,
+   then commit `index.json` and `index.json.sig` together and push.
+
+Key rotation: add the new public key to `trustedKeys` next to the old one, ship a release, sign
+with the new key, then remove the old key in a later release. If the key leaks, ship a release
+without it at once. Old SkyRose versions keep trusting it until they update.
+
+## Builtin features as addons later (internal API design)
+
+Nothing is moved yet. Clamshell, the colour picker and keep-awake stay built in. When they are
+split out, the plan is:
+
+- A new kind, `feature`. Its manifest names a feature id (`skyrose.clamshell`) and carries no code.
+  Installing it **enables** a feature compiled into SkyRose, so no code is downloaded. Uninstalling
+  it disables the feature. The Store becomes the switchboard for optional parts.
+- Each such feature conforms to one small protocol in `CaelestiaShell`:
+
+      protocol ShellFeature: AnyObject {
+          static var id: String { get }                        // "skyrose.clamshell"
+          static var permissions: [AddonPermission] { get }    // shown in the Store
+          func start(host: ShellFeatureHost)                   // bar items, sidebar tiles, binds
+          func stop()                                          // panic / disable / uninstall
+      }
+
+  `ShellFeatureHost` exposes only what the shell already offers drawers (toasts, a sidebar tile,
+  a bar status icon, action handlers). `ShellController` keeps a registry
+  `[String: ShellFeature.Type]` and starts the ones `AddonStore` lists as enabled `feature` addons.
+- Panic and revocation use the same path as data addons: `AddonStore.disableAll()` and
+  `applyRevocations(_:)` change the state, and the registry stops what is no longer enabled.
+- Real third-party code addons run **out of process** (see the security doc). They get the same
+  host API over a socket that is limited to their declared permissions.
