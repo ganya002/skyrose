@@ -1,4 +1,4 @@
-# SkyRose MASTER PROMPT: finish 9.5, then Part 10, then the site
+# SkyRose MASTER PROMPT: finish 9.5, then CatWM, then Part 10, then the site
 
 Repo: ~/Projects/caelestia-mac. This file is the single source of truth and overrides older prompts where they conflict. Work top to bottom. Commit after every numbered item, keep docs/phase-progress.md updated so a fresh session (or a different agent) can resume exactly where you stopped if you hit a usage limit.
 
@@ -70,6 +70,38 @@ Today a restart needs `skyrose wm panic` plus `open dist/SkyRose.app`, and `shel
 ### A5: Release v0.4.1
 Build, `/usr/bin/swift test` with 0 failures, run the live checks, update CHANGELOG and the docs, then merge, push (see Git rules) and publish release v0.4.1 like the previous ones. Check `skyrose update` from 0.4.0.
 
+## PHASE W: swap SkyRose's window manager for CatWMKit (do after Phase A / v0.4.1, before Phase B)
+Gabby gave the go on Nov 11, 2026. This REPLACES the "do not touch the WM" rule for this phase only. Afterwards the WM is CatWMKit and the rule becomes "don't fork CatWM's internals; configure and wrap it".
+
+CatWM is by Gabby's friend **Per William Krogstad-Østensen (GitHub: noxaur)**, https://github.com/noxaur/CatWM (public repo; Per gave Gabby permission to use it in SkyRose). A local clone is at `~/Projects/CatWM` (main @ ef3dfa8). Its push URL is deliberately disabled.
+- **NEVER push, open PRs, open issues, create branches or tags, or comment on noxaur/CatWM.** Gabby is a contributor there, but nothing from us goes to that repo. Don't edit files in ~/Projects/CatWM either. If CatWM needs a change, write it up in docs/catwm-requests.md for Gabby to pass to Per, and work around it on our side.
+- Read first: `docs/internals/embedding.md`, `Examples/EmbedHost/`, `Clients/schema.json`, `docs/internals/config.md`, `docs/internals/animation.md`, `docs/internals/motion-and-operators.md`, AGENTS.md and CLAUDE.md in the CatWM clone.
+
+### What to build
+- Link the `CatWMKit` static library (`.package(name: "CatWM", path: "../CatWM")`) and run ONE `CatWMEngine` inside SkyRose, configured from SkyRose's own config, with storage name e.g. `skyrose` so it never touches Gabby's own CatWM files.
+- **Use only the parts we want.** In embedded mode every `features` leaf is off until turned on, so turn on only what replaces SkyRose's current tiling: `windows.tiling` (+ the layouts that match SkyRose's dwindle/master behaviour), and `windows.desktops` only if it beats SkyRose's current workspaces without changing how they feel. Leave CatWM's GUI, window mode (⌘+Tab), overview, templates, notifications, socket and the `catwm` CLI OFF unless a part is clearly better and invisible to the user. `presentation` and `input.cursorActions` are unavailable in embedded mode anyway.
+- **Keybinds stay EXACTLY as they are now.** SkyRose keeps owning the keymap (keymap.toml, `skyrose keys`, every current bind incl. Super/Option-as-Super). Turn CatWM's `input.keys` OFF and map SkyRose's bind actions to `engine.perform(...)` commands from schema.json. `skyrose window …` / `skyrose ws …` CLI commands keep working with the same names and output, now backed by the engine. Write a table in docs/catwm-migration.md: every old WM bind/command, then the CatWM command it maps to, then "verified live". Nothing may be dropped. If CatWM has no equivalent, keep SkyRose's implementation for that one action.
+- **Visuals stay exactly the same.** Gaps, borders (rose/active colours, the pink glow), rounding, the screen frame and the shell stay pixel-identical. CatWM draws nothing in embedded mode; SkyRose keeps drawing everything.
+- **Our own window animations.** Write SkyRose's window animations (open, close, move, swap, resize, float, fullscreen, workspace switch) on top of the engine's events/frames, matching the current SkyRose feel and Gabby's prefs: windows visibly grow smoothly when resized (not an instant size with only the origin easing), within the windowDurationMs budget (~250 ms at speed 1, 100 ms with his speed 1.5), always sharp and fully visible, and an app that can't keep up falls back to instant-size for that app only. Glide (animations.windows = "snapshot") stays the default, with live resize as an option. Use CatWM's motion/animation hooks if they help, but the curves and timings are ours. Reference: 03-animations/ in ~/caelestia-ref/full-2026-11-05 (now H.264 video), plus the current SkyRose behaviour (record it BEFORE you remove anything).
+- Focus: keep SkyRose's fixed hover-to-focus (A3, topmost-only, never raise through) unless CatWM's focus-follows-mouse is equal or better. Keyboard focus, warps (9a) and mouse_refocus behaviour must feel the same.
+- Per-app rules (`skyrose rules`, rules.toml, [appRules]), TestWindows, `skyrose wm panic` (must also stop the engine and put every window back), onboarding permissions and the uninstaller keep working.
+- Delete the old SkyRose tiling/animation code only after the engine path passes everything (principle: migrate callers, then delete). Keep the WM behind one interface so the shell never imports CatWMKit directly.
+- Make sure Gabby's standalone /Applications/CatWM.app can't fight SkyRose: detect it running, warn in the UI and docs, and never kill it yourself.
+
+### Credit Per
+- README (a Credits section near the top): "Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur), https://github.com/noxaur/CatWM, used with permission."
+- The About page in Settings, the CREDITS file, the CHANGELOG entry, and the site later (Phase C).
+- Carry over CatWM's ThirdPartyNotices (WhichSpace MIT, noswoosh MIT, plus Sparkle, mackeys-sdk and PermissionFlow if they get linked) into our notices.
+
+### Licence and dependency (resolved Nov 11, 2026)
+Gabby confirmed in chat that Per gave permission for SkyRose to use CatWM. Pushing and releasing this phase is allowed per the normal Git rules (still never push to noxaur/CatWM).
+- Import it as a normal SwiftPM package by URL, so fresh installs and builds fetch it automatically: `.package(url: "https://github.com/noxaur/CatWM", revision: "<pinned commit>")` (or a tag/`from:` if Per tags releases), depending on the `CatWMKit` product. Commit Package.resolved. Use the local `~/Projects/CatWM` clone only for reading, never as the path dependency in a commit.
+- noxaur/CatWM is PUBLIC (since Nov 11, 2026), so the URL dependency works for everyone, CI included. If it still has no LICENSE file, add a line to docs/catwm-requests.md asking Per to add one (MIT or GPL-3.0); permission is already given.
+- Add "Used with permission from Per William Krogstad-Østensen" to CREDITS, and add CatWM's ThirdPartyNotices.
+
+### Verify
+Build, `/usr/bin/swift test` with 0 failures (update the WM tests to the engine, don't delete coverage), then live tests with TestWindows only: every bind in the migration table, every layout, float/fullscreen/pin/center, multi-window workspaces, special workspace, app rules, panic. Record before (old WM) and after (CatWM) clips of the same actions and compare them frame by frame. They should feel the same, minus the bugs. List any bugs that the swap fixed or introduced.
+
 ---
 
 ## PHASE B: Part 10 controls, release v0.5.0
@@ -90,6 +122,20 @@ Do everything in `~/Projects/archify-site/PHASE-PROMPT.md` (including its Nov 9 
 - Push after the phase per the Git rules (the site goes to its own public repo, as that prompt says).
 
 ---
+
+## PHASE S: SkyStore (run IN PARALLEL as a subagent, starting now)
+Spin up a subagent for this in its own git worktree (`git worktree add ../skyrose-store -b phase-skystore`) so it never clashes with the main work. Merge it after Phase W, before Phase B. The same hard rules apply. Build the store only, and don't make any addons for it yet.
+
+**What it is:** an App-Store-like place inside SkyRose where people browse, install, update and remove optional features and addons. Later this covers things like clamshell, the colour picker, keep-awake, themes, widgets, bar modules and wallpapers. There's also an opt-in creator mode for people who want to make and upload their own.
+
+- **Addon format:** design a manifest (id, name, author, version, min SkyRose version, permissions it needs, entry points, icon, screenshots, licence, checksum/signature). Decide which kinds are safe as data-only addons (themes, schemes, wallpapers, layouts, keymaps, config/QML-like declarative widgets) and which need code. Code addons must go through a clear permission model, run out of process where possible, and get no access beyond what's declared. Document the threat model in docs/skystore-security.md.
+- **Builtin features become installable later:** design the internal API so clamshell, the colour picker and similar features could be split into addons, but DON'T move any of them yet.
+- **Store UI:** a Caelestia-styled Store page in SkyRose with Featured, Categories, Search, Installed and Updates sections, detail pages with screenshots, permissions and version history, and one-click install, update and uninstall with progress and rollback. Use the same design language, motion and metaball feel as the rest of the shell.
+- **Backend:** start simple and free. A public index repo (e.g. `ganya002/skystore-index`, JSON index plus addons as release assets, checksums required) that SkyRose fetches over HTTPS and verifies. Don't create the GitHub repo or anything external yourself. Scaffold it locally under ../skystore-index and tell Gabby exactly what to create.
+- **Creator mode (opt-in, off by default, Settings › SkyStore › Creator mode):** `skyrose store new` scaffolds an addon, `skyrose store validate` lints the manifest, permissions and checksum, `skyrose store pack` builds the upload bundle, and the upload flow opens a pre-filled PR to the index repo through the user's own GitHub login (gh or the browser). Never store tokens yourself. Submissions are reviewed by a human before they appear, with no auto-publish.
+- **Safety:** signature/checksum verification on install, a permission prompt on install and update when permissions grow, a kill switch (the index can mark an addon as revoked, and SkyRose disables it), and `skyrose wm panic` also disables all addons.
+- **Tests:** manifest parsing, verification failures, install/update/rollback with a local fake index, and the permission diff. Record the Store UI live, and leave it empty or with clearly-labelled dummy entries only in tests.
+- **Report:** the design decisions, what's built, what Gabby must create (repos, signing key), and open questions.
 
 ## Report (after each phase, before starting the next)
 For each item: Done / Partial / Blocked, commits, the pushed hash, test counts, the recordings you checked (paths), side-by-side notes, what Gabby must do himself (exact commands), and what was NOT verified. Then continue with the next phase unless something needs Gabby.
