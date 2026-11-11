@@ -8,7 +8,7 @@ Resume here: read this table, then the newest section below.
 | 0. Commit prompts | done | ffc9574 |
 | A1 polish | surfaces fixed + recorder card, top-right notification drawer, drawer timings re-measured on H.264 clips; bar popouts have no capture (Phase B), Settings: no search field yet. See `docs/parity-progress.md` | 6db5020, 0383a5a, 28b3def, c2aef00, f578311, 2a3bed1, f6591f8 |
 | A1 bongo + lyrics with a real song | closed by Gabby 2026-11-11 (no Spotify on this Mac: counted as checked; a live beat/lyrics run never happened) | |
-| A1 boot daemon sudo install | waiting for Gabby (sudo) | |
+| A1 boot daemon sudo install | done 2026-11-11: Gabby installed it, rebooted; after boot `sa status` loaded with no password, log: loaded SkyRoseSA.dylib into the Dock (pid 717); all files root:wheel, not user-writable | |
 | A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | a972c5e, 00f10cc |
 | A3 Teams flicker | fix in (only re-raise visible overlapping windows), live Teams repro still open | 00f10cc |
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
