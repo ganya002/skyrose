@@ -1,3 +1,4 @@
+import CaelestiaCore
 import Foundation
 
 /// Wallpaper folder scanning and small pure helpers (the picker and `skyrose wallpaper list`).
@@ -83,6 +84,14 @@ public enum WallpaperLibrary {
         visit(folder, name: "", depth: 0)
         let urls = groups.flatMap(\.urls)
         return ScanResult(urls: urls, groups: groups, message: urls.isEmpty ? "No wallpapers in \(folder.path)" : nil)
+    }
+
+    /// `result` plus one group per enabled SkyStore wallpaper addon (after the folder's own).
+    public static func withAddons(_ result: ScanResult, store: AddonStore = AddonStore()) -> ScanResult {
+        let extra = store.wallpaperGroups().map { Group(name: $0.title, urls: $0.urls) }
+        guard !extra.isEmpty else { return result }
+        let groups = result.groups + extra
+        return ScanResult(urls: groups.flatMap(\.urls), groups: groups, message: nil)
     }
 
     /// A stable cache key for a thumbnail (FNV-1a over path, modification time and size).

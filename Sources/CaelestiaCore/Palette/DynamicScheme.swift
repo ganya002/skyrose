@@ -92,9 +92,10 @@ public enum SchemeResolver {
     public static let staticMode = "static"
     public static let dynamicMode = "dynamic"
 
-    /// The static scheme named by `appearance.theme` (periwinkle SkyRose Dynamic by default).
+    /// The static scheme named by `appearance.theme` (periwinkle SkyRose Dynamic by default): a
+    /// built-in name, or `<addon id>/<scheme>` from an enabled SkyStore addon.
     public static func staticScheme(_ a: AppearanceConfig) -> Scheme? {
-        SchemeLoader.builtIn(named: a.theme) ?? SchemeLoader.builtIn(named: "skyrose-dynamic")
+        SchemeLoader.builtIn(named: a.theme) ?? AddonStore().scheme(named: a.theme) ?? SchemeLoader.builtIn(named: "skyrose-dynamic")
     }
 
     public static func isDynamic(_ a: AppearanceConfig) -> Bool { a.schemeMode.lowercased() == dynamicMode }

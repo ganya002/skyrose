@@ -8,6 +8,26 @@ final class SkyRoseCLITests: XCTestCase {
         return try XCTUnwrap(inv.request, "\(argv) -> \(inv.kind)")
     }
 
+    func testStoreVerbs() throws {
+        func local(_ argv: [String]) throws -> CLILocalCommand? {
+            if case .local(let c) = try CLIParser.parse(argv).kind { return c }
+            return nil
+        }
+        let open = try request(["store"])
+        XCTAssertEqual(open.knownCommand, .shellDrawersToggle)
+        XCTAssertEqual(open.string("drawer"), "store")
+        XCTAssertEqual(try local(["store", "install", "dev.a.b"]), .store(.install("dev.a.b")))
+        XCTAssertEqual(try local(["store", "update"]), .store(.update(nil)))
+        XCTAssertEqual(try local(["store", "remove", "dev.a.b"]), .store(.uninstall("dev.a.b")))
+        XCTAssertEqual(try local(["store", "new", "dev.a.b", "--kind", "wallpaper"]), .store(.new(id: "dev.a.b", kind: "wallpaper")))
+        XCTAssertEqual(try local(["store", "submit", "--repo", "me/addons"]), .store(.submit(nil, repo: "me/addons")))
+        XCTAssertEqual(try local(["store", "pack", "dir"]), .store(.pack("dir")))
+        XCTAssertThrowsError(try CLIParser.parse(["store", "install"]))
+        XCTAssertThrowsError(try CLIParser.parse(["store", "new", "dev.a.b", "--kind", "widget"]))
+        XCTAssertThrowsError(try CLIParser.parse(["store", "frobnicate"]))
+        XCTAssertTrue(CLIParser.usage(for: "store").contains("store validate"))
+    }
+
     func testConfigGet() throws {
         XCTAssertEqual(try request(["config", "get"]).knownCommand, .configGet)
         XCTAssertNil(try request(["config", "get"]).string("path"))

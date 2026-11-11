@@ -1,3 +1,15 @@
+# Phase S: SkyStore (worktree ../skyrose-store, branch phase-skystore, started 2026-11-11)
+
+Spec: `docs/PHASE-PROMPT-MASTER.md` › PHASE S. Store only, no addons. User doc `docs/SKYSTORE.md`,
+threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skystore-index` (no remote).
+
+| Item | State | Commits |
+|---|---|---|
+| S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | (see git log) |
+| S2 Store drawer UI + Settings › SkyStore | | |
+| S3 docs + index scaffold | | |
+| S4 live recording of the Store | deferred to the main agent at merge (see report) | |
+
 # Master prompt run (started 2026-11-11)
 
 Spec: `docs/PHASE-PROMPT-MASTER.md` (overrides older prompts). Phase A on branch `phase-9.5`.

@@ -39,6 +39,8 @@ enum LocalCommands {
             return fonts(verb, json: invocation.json)
         case .sa(let verb):
             return sa(verb, json: invocation.json)
+        case .store(let verb):
+            return store(verb, invocation: invocation, client: client)
         }
     }
 

@@ -261,6 +261,14 @@ overrideSystemShortcuts = false  # true also binds macOS's ⇧⌘3 / ⇧⌘4 / �
 keepAwake = false          # true: no idle display sleep while running lid-closed
 
 # =====================================================================================
+# SkyStore (skyrose store, Settings › SkyStore). See docs/SKYSTORE.md.
+# =====================================================================================
+[store]
+creatorMode = false        # true: skyrose store new|validate|pack|submit, plus the two keys below
+indexURL = ""              # "" = the official signed index (HTTPS); file:// only in creator mode
+trustedKeys = []           # extra Ed25519 public keys (base64), creator mode only
+
+# =====================================================================================
 # Bar (shell.json bar.*)
 # =====================================================================================
 [bar]

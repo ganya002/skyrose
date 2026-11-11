@@ -34,6 +34,20 @@ public enum CLILocalCommand: Equatable, Sendable {
     case fonts(FontsVerb)
     /// `sa status | load-command | reset`: the SIP-off scripting addition in the Dock.
     case sa(SAVerb)
+    /// `store …`: SkyStore addons (docs/SKYSTORE.md).
+    case store(StoreVerb)
+}
+
+/// `skyrose store <verb>`. `new`, `validate`, `pack` and `submit` need creator mode.
+public enum StoreVerb: Equatable, Sendable {
+    case list, refresh
+    case install(String), update(String?), uninstall(String), enable(String), disable(String)
+    case new(id: String, kind: String)
+    /// Folders default to the current directory.
+    case validate(String?), pack(String?)
+    case submit(String?, repo: String?)
+
+    public static let names = ["list", "refresh", "install", "update", "uninstall", "enable", "disable", "new", "validate", "pack", "submit"]
 }
 
 public enum SAVerb: String, Equatable, Sendable {
@@ -146,7 +160,7 @@ public enum CLIParser {
     public static let programName = "skyrose"
 
     /// Options that take a value.
-    static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon"]
+    static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon", "--kind", "--repo"]
     /// Boolean options (long and short).
     static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix"]).union(uninstallFlags)
     /// Passed through to scripts/uninstall.sh.
@@ -375,6 +389,8 @@ public enum CLIParser {
             }
             try rejectExtra("sa \(verb)", Array(args.dropFirst()))
             inv.kind = .local(.sa(v))
+        case "store":
+            inv.kind = try parseStore(args, tokens)
         case "version":
             try rejectExtra("version", args)
             inv.kind = .version
@@ -382,6 +398,40 @@ public enum CLIParser {
             throw CLIUsageError.unknownCommand(group)
         }
         return inv
+    }
+
+    /// `store` alone opens the Store drawer in the running SkyRose.
+    static func parseStore(_ args: [String], _ tokens: Tokens) throws -> CLIInvocation.Kind {
+        guard let verb = args.first else { return .ipc(IPCRequest(.shellDrawersToggle, args: ["drawer": .string("store")])) }
+        let rest = Array(args.dropFirst())
+        func one(_ name: String) throws -> String {
+            guard let v = rest.first else { throw CLIUsageError.missingArgument(command: "store \(verb)", name: name) }
+            try rejectExtra("store \(verb)", Array(rest.dropFirst()))
+            return v
+        }
+        func optional() throws -> String? {
+            try rejectExtra("store \(verb)", Array(rest.dropFirst()))
+            return rest.first
+        }
+        switch verb {
+        case "list": try rejectExtra("store list", rest); return .local(.store(.list))
+        case "refresh": try rejectExtra("store refresh", rest); return .local(.store(.refresh))
+        case "install": return .local(.store(.install(try one("id"))))
+        case "update": return .local(.store(.update(try optional())))
+        case "uninstall", "remove": return .local(.store(.uninstall(try one("id"))))
+        case "enable": return .local(.store(.enable(try one("id"))))
+        case "disable": return .local(.store(.disable(try one("id"))))
+        case "new":
+            let kind = tokens.options["--kind"] ?? "scheme"
+            guard ["scheme", "wallpaper"].contains(kind) else {
+                throw CLIUsageError.invalidArgument(command: "store new", name: "--kind", value: kind, expected: "scheme | wallpaper")
+            }
+            return .local(.store(.new(id: try one("id"), kind: kind)))
+        case "validate": return .local(.store(.validate(try optional())))
+        case "pack": return .local(.store(.pack(try optional())))
+        case "submit": return .local(.store(.submit(try optional(), repo: tokens.options["--repo"])))
+        default: throw CLIUsageError.unknownVerb(group: "store", verb: verb, expected: StoreVerb.names)
+        }
     }
 
     // MARK: - Tokenizer
@@ -780,6 +830,19 @@ public enum CLIParser {
             ("settings", "Open SkyRose Settings"),
             ("onboarding", "Run the first-run onboarding again"),
             ("migrate", "Move a pre-rename Caelestia for Mac install to the SkyRose folders (runs by itself on first launch)"),
+        ]),
+        HelpSection(title: "SkyStore", topics: ["store"], rows: [
+            ("store", "Open the Store in the running SkyRose"),
+            ("store list [--json]", "Installed addons, their state, and updates"),
+            ("store refresh", "Fetch the signed index: apply revocations, list updates"),
+            ("store install <id> [--yes]", "Download, verify (signature + SHA-256) and install; --yes allows new permissions"),
+            ("store update [id] [--yes]", "Update one addon or all; asks again when permissions grow"),
+            ("store uninstall <id>", "Remove an addon and its files"),
+            ("store enable | disable <id>", "Switch an addon on or off (after a panic, all are off)"),
+            ("store new <id> [--kind scheme|wallpaper]", "Creator mode: scaffold an addon folder"),
+            ("store validate [dir]", "Creator mode: lint the manifest, permissions, files and checksum"),
+            ("store pack [dir]", "Creator mode: build dist/<id>-<version>.skyaddon and its .sha256"),
+            ("store submit [dir] --repo <owner/name> [--yes]", "Creator mode: the gh release line and a pre-filled PR to the index (--yes runs/opens them)"),
         ]),
         HelpSection(title: "Queries (like hyprctl -j)", topics: ["query", "q"], rows: [
             ("query windows|workspaces|monitors|binds|state [--json]", "Inspect WM state (tables, or raw JSON with --json)"),
