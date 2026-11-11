@@ -81,17 +81,17 @@ struct ToastsView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
+            Spacer(minLength: 0)
             ForEach(model.queue.toasts) { toast in
                 ToastCard(toast: toast)
                     .transition(theme.reduceMotion ? .opacity : .asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .scale(scale: 0.7, anchor: .trailing)).combined(with: .opacity),
                         removal: .scale(scale: 0.7, anchor: .trailing).combined(with: .opacity)))
             }
-            Spacer(minLength: 0)
         }
-        .padding(.top, 8)
+        .padding(.bottom, 8)
         .padding(.trailing, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .animation(theme.spatial, value: model.queue.toasts.map(\.id))
     }
 }

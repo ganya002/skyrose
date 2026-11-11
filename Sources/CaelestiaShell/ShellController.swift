@@ -950,7 +950,8 @@ public final class ShellController {
             let inner = layout.inner(barReveal: bars[displayID]?.reveal.target ?? 0)
             let w = ToastModel.width + 16
             let h = min(520, inner.height)
-            panel.setFrame(CGRect(x: inner.maxX - w, y: inner.maxY - h, width: w, height: h), display: false)
+            // Bottom-right, like Caelestia's utilities/toasts (they stack upward from the corner).
+            panel.setFrame(CGRect(x: inner.maxX - w, y: inner.minY, width: w, height: h), display: false)
             if !panel.isVisible { panel.contentView?.layoutSubtreeIfNeeded() }
             panel.fadeIn(duration: theme.drawerOpenSeconds * 0.5)
         }

@@ -112,7 +112,7 @@ test setup). The system volume/brightness keys still reach macOS, so Apple's own
 
 ## Toasts
 
-Top-right, up to 4 at once, 5 s each. A duplicate refreshes the existing toast instead of
+Bottom-right (as in Caelestia), up to 4 at once, 5 s each. A duplicate refreshes the existing toast instead of
 stacking.
 
     skyrose shell toaster error|warn|info|success <title> <message> <icon>
