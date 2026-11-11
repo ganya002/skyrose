@@ -5,9 +5,9 @@ threat model `docs/skystore-security.md`. Local index scaffold: `~/Projects/skys
 
 | Item | State | Commits |
 |---|---|---|
-| S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | 0308b49 |
-| S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | bdc1ebb |
-| S3 docs (SKYSTORE.md, skystore-security.md) + index scaffold `~/Projects/skystore-index` (local commit 577901d, no remote) | done; e2e in a scratch home: tool-signed index verifies, install/disable/tamper OK | b9490e3 |
+| S1 engine: manifest, policy, permissions, signed index, install/update/rollback, revocation, panic, creator, CLI | done, 31 tests | d9c0a22 |
+| S2 Store drawer UI (shell, bottom blob like the launcher) + Settings › SkyStore + `>store` | done, 7 model tests; not seen live (no launching here) | fb734d8 |
+| S3 docs (SKYSTORE.md, skystore-security.md) + index scaffold `~/Projects/skystore-index` (local commit 577901d, no remote) | done; e2e in a scratch home: tool-signed index verifies, install/disable/tamper OK | e7fffbf |
 | S5 Gabby's maintainer key built in; signed `serial` + anti-replay (index-serial); index tool raises serial (skystore-index e973cbd, not pushed); decisions in SKYSTORE.md (drawer + Settings fallback, builtins as first-party addons next, wallpaper stays) | done, 1279 tests 0 failures | (this commit) |
 | S6 clamshell + colour picker as first-party `feature` addons | next for SkyStore (Gabby, 2026-11-11), before third-party code addons | |
 | S4 live recording of the Store | deferred to the main agent at merge (see report); scripts/build.sh builds and signs, app never launched here | |
@@ -24,12 +24,12 @@ Resume here: read this table, then the newest section below.
 
 | Item | State | Commits |
 |---|---|---|
-| 0. Commit prompts | done | ffc9574 |
-| A1 polish | surfaces fixed, see `docs/parity-progress.md`; record card still missing | 6db5020, 0383a5a, 28b3def |
+| 0. Commit prompts | done | 9ae3c6b |
+| A1 polish | surfaces fixed, see `docs/parity-progress.md`; record card still missing | aeaea90, 9d9b77c, 0250478 |
 | A1 bongo + lyrics with a real song | waiting for Gabby (Spotify) | |
 | A1 boot daemon sudo install | waiting for Gabby (sudo) | |
-| A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | a972c5e, 00f10cc |
-| A3 Teams flicker | fix in (only re-raise visible overlapping windows), live Teams repro still open | 00f10cc |
+| A2 helper card | done: Gabby loaded it from the card (recorded, `sa status` loaded); boot-daemon toggle untested | d873f84, bc3e828 |
+| A3 Teams flicker | fix in (only re-raise visible overlapping windows), live Teams repro still open | bc3e828 |
 | A4 restart | done: CLI, Settings › About, session menu, `>restart`; no keybind (Gabby: CLI/Settings/launcher are enough). Stray copy = separate `testuser` account, now never launched (start by path) | (this commit) |
 | A5 v0.4.1 | | |
 
