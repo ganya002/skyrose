@@ -1,3 +1,26 @@
+# Master prompt run (started 2026-11-11)
+
+Spec: `docs/PHASE-PROMPT-MASTER.md` (overrides older prompts). Phase A on branch `phase-9.5`.
+Resume here: read this table, then the newest section below.
+
+| Item | State | Commits |
+|---|---|---|
+| 0. Commit prompts | done | ffc9574 |
+| A1 polish | surfaces fixed, see `docs/parity-progress.md`; record card still missing | 6db5020, 0383a5a, 28b3def |
+| A1 bongo + lyrics with a real song | waiting for Gabby (Spotify) | |
+| A1 boot daemon sudo install | waiting for Gabby (sudo) | |
+| A2 helper card | next | |
+| A3 Teams flicker | | |
+| A4 restart | | |
+| A5 v0.4.1 | | |
+
+Notes for a fresh session:
+- Tests: `/usr/bin/swift test` runs 9 XCTest bundles, 1226 tests; only the last bundle's summary is at the
+  tail, so sum the `*.xctest' passed` blocks.
+- The capture's .mp4 files are HEVC 4:4:4: AVFoundation cannot decode them (-12906); use the jpg frames.
+- Restart for testing: `skyrose wm quit`, wait for SkyRoseWM to exit, `open dist/SkyRose.app`.
+- Caelestia source: clone `caelestia-dots/shell` into the scratchpad (fd630ff was used).
+
 # Phase 9.5: fixes + Caelestia polish (started 2026-11-10)
 
 Spec: `docs/PHASE-PROMPT-9.5-fixes-polish.md`. Branch `phase-9.5`, one commit per part, not pushed.
