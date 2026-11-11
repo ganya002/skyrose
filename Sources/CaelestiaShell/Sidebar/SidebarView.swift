@@ -84,18 +84,21 @@ private struct NotificationsSection: View {
                     .padding(.bottom, 52)
                 }
                 if !groups.isEmpty {
+                    // NotifDock: a square primaryContainer "clear_all" icon button in the corner.
                     Button(action: model.onClear) {
-                        HStack(spacing: 6) { MaterialIcon("delete", size: 12, weight: .semibold); Text("Clear all") }
-                            .font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onPrimaryContainer])
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(Capsule().fill(theme[.primaryContainer]))
+                        MaterialIcon("clear_all", size: 16, weight: .medium).foregroundStyle(theme[.onPrimaryContainer])
+                            .frame(width: 40, height: 40)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(theme[.primaryContainer]))
                     }
-                    .buttonStyle(.plain).padding(8).accessibilityIdentifier("sidebar.clearAll")
+                    .buttonStyle(.plain).padding(4).help("Clear all").accessibilityIdentifier("sidebar.clearAll")
                 }
             }
             .frame(maxHeight: .infinity)
         }
+        // The notification dock is its own card, like the utilities cards under it.
+        .padding(10)
         .frame(maxHeight: .infinity)
+        .shellCard(radius: 20)
     }
 }
 
@@ -249,16 +252,18 @@ struct UtilitiesSection: View {
             }
             HStack(spacing: 8) {
                 ForEach(items) { t in
+                    // Toggles.qml: fixed-size icon buttons, round when off, rounded square when on.
                     Button { model.onToggle(t.id) } label: {
                         MaterialIcon(t.icon, size: 15, weight: .medium)
                             .foregroundStyle(t.active ? theme[.onPrimary] : theme[.onSurface])
-                            .frame(maxWidth: .infinity).frame(height: 44)
-                            .background(RoundedRectangle(cornerRadius: t.active ? 14 : 22, style: .continuous)
+                            .frame(width: 44, height: 44)
+                            .background(RoundedRectangle(cornerRadius: t.active ? 12 : 22, style: .continuous)
                                 .fill(t.active ? theme[.primary] : theme[.onSurface].opacity(0.08)))
                     }
                     .buttonStyle(.plain).help(t.label).accessibilityIdentifier("sidebar.toggle.\(t.id)")
                     .animation(theme.small, value: t.active)
                 }
+                Spacer(minLength: 0)
             }
         }
         .padding(12).shellCard(radius: 20)

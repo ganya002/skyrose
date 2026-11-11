@@ -396,6 +396,8 @@ public enum ShellIcon {
         case "opacity": return "drop.halffull"
         case "shuffle": return "shuffle"
         case "apps": return "square.grid.2x2"
+        case "dashboard": return "square.grid.2x2"
+        case "clear_all": return "trash"
         case "bedtime", "dark_mode": return "moon"
         case "clear_day", "light_mode": return "sun.max.fill"
         case "clear_night": return "moon.stars.fill"

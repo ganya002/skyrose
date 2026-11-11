@@ -363,10 +363,10 @@ struct LauncherRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            icon.frame(width: 32, height: 32)
+            icon.frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.title)
-                    .font(theme.sans(20))
+                    .font(theme.sans(19))
                     .foregroundStyle(theme[.onSurface])
                     .lineLimit(1)
                 Text(item.subtitle)
