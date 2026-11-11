@@ -11,7 +11,10 @@ final class HelperLoaderTests: XCTestCase {
         let lines = s.components(separatedBy: "\n")
         let stage = lines.firstIndex { $0.contains("mktemp -d /private/var/tmp/") }!
         let copy = lines.firstIndex { $0.hasPrefix("ditto ") }!
+        let own = lines.firstIndex { $0 == #"chown -R root:wheel "$STAGE""# }!
+        let readable = lines.firstIndex { $0 == #"chmod 755 "$STAGE""# }!
         let verify = lines.firstIndex { $0.hasPrefix("codesign --verify --strict -R=") }!
+        XCTAssertTrue(copy < own && own < verify && readable < verify, "root owns the copy before it is checked; the Dock can read it")
         let load = lines.firstIndex { $0.contains("skyrose-sa-loader") }!
         XCTAssertTrue(stage < copy && copy < verify && verify < load, "copy, then verify the copy, then run it")
         XCTAssertTrue(lines[load].contains("\"$SA/skyrose-sa-loader\""), "never the user's own copy")

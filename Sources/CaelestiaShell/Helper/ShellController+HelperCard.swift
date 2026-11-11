@@ -45,7 +45,9 @@ extension ShellController {
             guard let id, let layout = layouts[id] else { return }
             let inner = layout.inner(barReveal: 0)
             let w = 480.0, h = 360.0
-            panel.setFrame(CGRect(x: inner.midX - w / 2, y: inner.maxY - h, width: w, height: h), display: false)
+            // Below the notch, like the dashboard's clearance.
+            let clearance = layout.topClearance(minX: inner.midX - w / 2, maxX: inner.midX + w / 2)
+            panel.setFrame(CGRect(x: inner.midX - w / 2, y: inner.maxY - clearance - h, width: w, height: h), display: false)
             panel.contentView?.layoutSubtreeIfNeeded()
             panel.fadeIn(duration: 0.01)
         } else if let panel = helperPanel {

@@ -809,6 +809,7 @@ public final class WindowManager {
         } else {
             handle.focus(raise: true)
             hoverHoldUntil = now().addingTimeInterval(0.3)
+            Log.wm.notice("focus #\(f, privacy: .public) with raise")
         }
         counters.focusCalls += 1
         warpCursorToFocus()
@@ -817,16 +818,33 @@ public final class WindowManager {
     /// macOS raises a window when it becomes focused. Put the windows that were already in front
     /// back, front-most last, so hover focus does not change the stack.
     func focusWithoutRaising(_ id: WindowID, handle: any WindowHandle) {
-        let order = CGWindowSnapshot.current(onScreenOnly: true)
-            .filter { $0.alpha >= 0.05 && handles[$0.id] != nil }
-            .map(\.id)
+        let stack = windowSystem.windowStack()
         handle.focus(raise: false)
-        guard let index = order.firstIndex(of: id), index > 0 else { return }
-        let above = Array(order[..<index])
+        let above = Self.windowsToRestore(above: id, stack: stack, frame: visiblePlacements[id]?.frame) { other in
+            guard handles[other] != nil, let p = visiblePlacements[other] else { return nil }
+            return p.hidden ? nil : p.frame
+        }
+        Log.wm.notice("hover focus #\(id, privacy: .public) without raise; restore \(above.map { String($0) }.joined(separator: ","), privacy: .public)")
+        guard !above.isEmpty else { return }
         orderRestoreEcho = Set(above)
         orderRestoreEchoUntil = now().addingTimeInterval(0.2)
         for other in above.reversed() {
             handles[other]?.raise()
+        }
+    }
+
+    /// The windows to raise again after focusing `id` without raising it: managed, shown on this
+    /// workspace, above `id` in the stack and overlapping it. Raising anything else (a parked window
+    /// of another workspace, an invisible helper, a window off to the side) would flash that app
+    /// in front for a moment, which is the Teams flicker.
+    nonisolated static func windowsToRestore(above id: WindowID, stack: [CGWindowSnapshot], frame: CGRect?,
+                                             visibleFrame: (WindowID) -> CGRect?) -> [WindowID] {
+        guard let frame, let index = stack.firstIndex(where: { $0.id == id }) else { return [] }
+        return stack[..<index].compactMap { w -> WindowID? in
+            guard w.layer == 0, w.alpha >= 0.05, let f = visibleFrame(w.id),
+                  f.intersection(frame).width > 1, f.intersection(frame).height > 1,
+                  w.bounds.intersection(frame).width > 1, w.bounds.intersection(frame).height > 1 else { return nil }
+            return w.id
         }
     }
 
@@ -876,7 +894,9 @@ public final class WindowManager {
         hoverFocusWithoutRaise = raise ? nil : id
         state.recordFocus(id, raise: raise)
         setNeedsLayout()
-        Log.wm.notice("hover focus #\(id, privacy: .public) raise \(raise, privacy: .public)")
+        let top = (pointerStackCache?.stack ?? []).filter { $0.bounds.contains(point) }.prefix(4)
+            .map { "#\($0.id) \($0.ownerName) L\($0.layer) a\(String(format: "%.2f", $0.alpha))" }.joined(separator: " > ")
+        Log.wm.notice("hover focus #\(id, privacy: .public) raise \(raise, privacy: .public) at \(Int(point.x), privacy: .public),\(Int(point.y), privacy: .public) stack \(top, privacy: .public) from #\(self.systemFocus ?? 0, privacy: .public)")
     }
 
     /// CGWindowList is too slow for every mouse event, and the stack rarely changes between two.

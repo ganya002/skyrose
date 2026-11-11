@@ -26,10 +26,14 @@ public enum HelperLoader {
             "APP=\(q(app.path))",
             "case \"$APP\" in /*.app) ;; *) echo 'not an app bundle' >&2; exit 64 ;; esac",
             "[ -d \"$APP\" ] && [ ! -L \"$APP\" ] || { echo 'SkyRose.app is missing' >&2; exit 66; }",
-            // mktemp -d makes a 0700 root-owned folder; nothing the user runs can write into it.
+            // A root-owned folder the user can read (the Dock runs as the user and must open the
+            // dylib) but not write. ditto as root keeps the user as owner, so take the copy over.
             "STAGE=$(mktemp -d /private/var/tmp/skyrose-helper.XXXXXX)",
             "trap 'rm -rf \"$STAGE\"' EXIT",
             "ditto \"$APP\" \"$STAGE/SkyRose.app\"",
+            "chown -R root:wheel \"$STAGE\"",
+            "chmod -R go-w \"$STAGE\"",
+            "chmod 755 \"$STAGE\"",
             "codesign --verify --strict -R=\(q(requirement)) \"$STAGE/SkyRose.app\" || { echo 'the app signature does not match the running SkyRose' >&2; exit 65; }",
             "SA=\"$STAGE/SkyRose.app/Contents/Resources/sa\"",
             "if nc -z -U \(q(socket)) 2>/dev/null; then echo 'already loaded'; else SUDO_UID=\(uid) \"$SA/skyrose-sa-loader\"; fi",
