@@ -84,4 +84,19 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingRequest.parse(only.arguments), only)
         XCTAssertEqual(OnboardingRequest.parse(["--onboarding", "--repair"]), .repair([]))
     }
+
+    func testLocationAndBluetoothAreOptionalAndOldSnapshotsDecode() throws {
+        XCTAssertFalse(SkyRosePermission.location.isRequired(in: .full))
+        XCTAssertFalse(SkyRosePermission.bluetooth.isRequired(in: .full))
+        let old = Data(#"{"accessibility":true,"inputMonitoring":true,"screenRecording":false}"#.utf8)
+        let s = try JSONDecoder().decode(PermissionSnapshot.self, from: old)
+        XCTAssertFalse(s.location)
+        XCTAssertFalse(s.bluetooth)
+        let all = PermissionSnapshot(accessibility: true, inputMonitoring: true, screenRecording: true, location: true, bluetooth: true)
+        XCTAssertEqual(all.granted, Set(SkyRosePermission.allCases))
+        XCTAssertEqual(all.simulatingMissing([.location]).granted, Set(SkyRosePermission.allCases).subtracting([.location]))
+        XCTAssertEqual(PermissionSnapshot.parseSimulated("location,bluetooth"), [.location, .bluetooth])
+        XCTAssertEqual(SkyRosePermission.location.settingsURL.absoluteString, "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
+    }
+
 }

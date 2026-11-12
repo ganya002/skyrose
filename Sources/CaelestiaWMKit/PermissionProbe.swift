@@ -22,9 +22,17 @@ public enum PermissionProbe {
             let kind = Permissions.Kind(rawValue: arguments[r + 1]) {
             _ = Permissions.request(kind)
         }
+        if let r = arguments.firstIndex(of: requestFlag), r + 1 < arguments.count,
+            let kind = Permissions.Kind(rawValue: arguments[r + 1]), kind == .location || kind == .bluetooth {
+            // The answer to these prompts arrives later: wait for it (up to a minute).
+            let deadline = Date().addingTimeInterval(60)
+            while Permissions.undecided(kind), Date() < deadline {
+                RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            }
+        }
         let s = Permissions.status()
         let snapshot = PermissionSnapshot(accessibility: s.accessibility, inputMonitoring: s.inputMonitoring,
-                                          screenRecording: s.screenRecording)
+                                          screenRecording: s.screenRecording, location: s.location, bluetooth: s.bluetooth)
         let data = (try? encode(snapshot)) ?? Data("{}".utf8)
         if i + 1 < arguments.count, !arguments[i + 1].hasPrefix("--") {
             let url = URL(fileURLWithPath: arguments[i + 1])

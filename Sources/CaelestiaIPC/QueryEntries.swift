@@ -422,13 +422,18 @@ public struct PermissionsStatusEntry: Codable, Hashable, Sendable {
     public var accessibility: Bool
     public var inputMonitoring: Bool
     public var screenRecording: Bool
+    public var location: Bool
+    public var bluetooth: Bool
     /// Automation targets probed so far, by bundle id.
     public var automation: [String: Bool]
     /// Standard / Enhanced and whether the scripting addition is loaded.
     public var mode: String
     public var enhancedLoaded: Bool
 
-    public init(accessibility: Bool, inputMonitoring: Bool, screenRecording: Bool, automation: [String: Bool] = [:], mode: String = "standard", enhancedLoaded: Bool = false) {
+    public init(accessibility: Bool, inputMonitoring: Bool, screenRecording: Bool, location: Bool = false, bluetooth: Bool = false,
+                automation: [String: Bool] = [:], mode: String = "standard", enhancedLoaded: Bool = false) {
+        self.location = location
+        self.bluetooth = bluetooth
         self.accessibility = accessibility
         self.inputMonitoring = inputMonitoring
         self.screenRecording = screenRecording

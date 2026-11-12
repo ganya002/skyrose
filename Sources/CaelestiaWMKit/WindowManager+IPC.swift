@@ -112,15 +112,18 @@ extension WindowManager {
             return ok()
         case .permissionsRequest:
             guard let name = request.string("kind"), let kind = Permissions.Kind(rawValue: name) else {
-                return refused("kind must be accessibility, inputMonitoring or screenRecording")
+                return refused("kind must be accessibility, inputMonitoring, screenRecording, location or bluetooth")
             }
+            let undecided = Permissions.undecided(kind)
             let granted = Permissions.request(kind)
-            if request.bool("open") ?? true, !granted { Permissions.openSettings(for: kind) }
+            // Location/Bluetooth: the first time, macOS shows its own prompt instead.
+            if request.bool("open") ?? true, !granted, !undecided { Permissions.openSettings(for: kind) }
             return ok(.object(["granted": .bool(granted)]))
         case .permissionsStatus:
             let s = permissionSnapshot()
             return encoded(PermissionsStatusEntry(
-                accessibility: s.accessibility, inputMonitoring: s.inputMonitoring, screenRecording: s.screenRecording
+                accessibility: s.accessibility, inputMonitoring: s.inputMonitoring, screenRecording: s.screenRecording,
+                location: s.location, bluetooth: s.bluetooth
             ))
         case .doctor:
             return ok(.object([
@@ -156,7 +159,8 @@ extension WindowManager {
     /// The three permissions as this process has them, minus simulated losses.
     public func permissionSnapshot() -> PermissionSnapshot {
         let s = Permissions.status()
-        return PermissionSnapshot(accessibility: s.accessibility, inputMonitoring: s.inputMonitoring, screenRecording: s.screenRecording)
+        return PermissionSnapshot(accessibility: s.accessibility, inputMonitoring: s.inputMonitoring, screenRecording: s.screenRecording,
+                                  location: s.location, bluetooth: s.bluetooth)
             .simulatingMissing(simulatedMissingPermissions)
     }
 
