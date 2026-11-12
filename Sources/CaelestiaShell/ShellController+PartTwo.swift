@@ -69,6 +69,20 @@ extension ShellController {
         popout.onDisconnect = { [weak self] in self?.wifiDisconnect() }
         popout.onForget = { [weak self] ssid in self?.wifiForget(ssid) }
         popout.onAllowLocation = { [weak self] in self?.allowLocation() }
+        popout.onBluetoothPower = { [weak self] on in self?.bluetoothPower(on) }
+        popout.onBluetoothDevice = { [weak self] d in
+            guard let self else { return }
+            if d.connected { self.bluetooth.disconnect(d.address) } else { self.bluetooth.connect(d.address) }
+        }
+        popout.onBluetoothForget = { [weak self] d in self?.bluetooth.forget(d.address) }
+        popout.onBluetoothScan = { [weak self] in
+            guard let self else { return }
+            if self.bluetooth.scanning { self.bluetooth.stopScan() } else { self.bluetooth.startScan() }
+        }
+        popout.onBluetoothPair = { [weak self] d in self?.bluetooth.pair(d.address) }
+        popout.onBluetoothPIN = { [weak self] pin in self?.bluetooth.sendPIN(pin) }
+        popout.onBluetoothConfirm = { [weak self] ok in self?.bluetooth.confirm(ok) }
+        popout.onBluetoothCancel = { [weak self] in self?.bluetooth.cancelPairing() }
         popout.onOpenSettings = { [weak self] kind in self?.openSettings(for: kind) }
 
         wallpaperPicker.onPick = { [weak self] url in self?.transitionWallpaper(url) }
@@ -92,7 +106,13 @@ extension ShellController {
             // A keep-awake also survives closing the lid (SleepDisabled 1 while it runs).
             if self.state.clamshell.hasLid { self.lidSleep.setKeepAwake(on) }
         }
-        bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b) }
+        bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b); self?.resizePopout() }
+        bluetooth.onJob = { [weak self] j in self?.popout.btJob = j; self?.resizePopout() }
+        bluetooth.onNearby = { [weak self] list, scanning in
+            self?.popout.btNearby = list
+            self?.popout.btScanning = scanning
+            self?.resizePopout()
+        }
         bluetooth.start()
         clamshell.onChange = { [weak self] f in self?.state.clamshell = f }
         clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
@@ -137,6 +157,8 @@ extension ShellController {
         state.status.bluetoothAvailable = b.unavailableReason == nil
         state.status.bluetoothOn = b.poweredOn
         state.status.bluetoothDevices = b.connectedDevices
+        state.status.bluetoothPaired = b.paired
+        popout.btPairedCount = b.paired.count
     }
 
     // MARK: Drawers
@@ -336,7 +358,7 @@ extension ShellController {
         openPopout(kind, display: display, layout: layout, anchorMidY: midY)
         popoutByHover = false
         // The Wi-Fi panel has a password field: it takes the keyboard.
-        if kind == .network, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
+        if kind == .network || kind == .bluetooth, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
     }
 
     /// `shell drawers toggle popout.audio|network|bluetooth|battery`: toggles a bar popout without a click.
@@ -400,7 +422,7 @@ extension ShellController {
         popout.expanded = true
         openPopout(kind, display: id, layout: layout, anchorMidY: anchor)
         popoutByHover = false
-        if kind == .network, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
+        if kind == .network || kind == .bluetooth, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
     }
 
     public func openPopout(_ kind: PopoutKind, display: String, layout: DisplayLayout, anchorMidY: Double) {
@@ -415,7 +437,11 @@ extension ShellController {
         popout.kind = kind
         if kind == .activeWindow { capturePreview() }
         if kind == .audio { popout.devices = audio.outputDevices() }
-        if kind == .bluetooth { bluetooth.refresh() }
+        if kind == .bluetooth {
+            bluetooth.refresh()
+            bluetooth.refreshBatteries()
+            if !popout.expanded, bluetooth.scanning { bluetooth.stopScan() }
+        }
         if kind == .network {
             popout.networks = []; popout.scanMessage = nil; popout.passwordFor = nil; popout.wifiJob = .idle
             popout.locationMissing = false
@@ -454,6 +480,7 @@ extension ShellController {
 
     public func closePopout() {
         guard popoutKind != nil else { return }
+        if popoutKind == .bluetooth, bluetooth.scanning { bluetooth.stopScan() }
         popoutByHover = false
         popoutLeaveTimer?.invalidate()
         popoutLeaveTimer = nil
@@ -567,6 +594,12 @@ extension ShellController {
         }
     }
 
+    // MARK: Bluetooth (panel and `skyrose bluetooth`)
+
+    public func bluetoothPower(_ on: Bool) {
+        do { try bluetooth.setPower(on) } catch { toast(.error, title: "Bluetooth", message: error.localizedDescription) }
+    }
+
     /// Asks for Location (macOS's own prompt the first time, the System Settings pane after).
     func allowLocation() {
         if Permissions.undecided(.location) { _ = Permissions.request(.location) } else { Permissions.openSettings(for: .location) }
@@ -580,7 +613,7 @@ extension ShellController {
     func quickToggle(_ id: String) {
         switch id {
         case "wifi": setWifi(!state.status.wifiEnabled)
-        case "bluetooth": bluetooth.openSettings()
+        case "bluetooth": bluetoothPower(!state.status.bluetoothOn)
         case "dnd": setDoNotDisturb(!state.doNotDisturb)
         case "darkmode":
             if let url = URL(string: "x-apple.systempreferences:com.apple.Appearance-Settings.extension") { openURL(url) }

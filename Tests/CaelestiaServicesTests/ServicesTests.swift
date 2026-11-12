@@ -62,6 +62,26 @@ final class ServicesTests: XCTestCase {
         XCTAssertNil(NetworkState.frequency(channel: 0, band: 5))
     }
 
+    func testBluetoothBatteriesKindsAndAddresses() {
+        let json = """
+        {"SPBluetoothDataType":[{"device_connected":[{"AirPods":{"device_address":"aa-bb-cc-dd-ee-ff","device_batteryLevelLeft":"80%","device_batteryLevelRight":"75 %","device_batteryLevelCase":"40%"}},
+          {"Mouse":{"device_address":"11:22:33:44:55:66","device_batteryLevelMain":"55%"}}],
+          "device_not_connected":[{"WH":{"device_address":"77:88:99:AA:BB:CC"}}]}]}
+        """
+        let b = BluetoothDevice.batteries(fromProfilerJSON: Data(json.utf8))
+        XCTAssertEqual(b["AA:BB:CC:DD:EE:FF"], ["left": 80, "right": 75, "case": 40])
+        XCTAssertEqual(b["11:22:33:44:55:66"], ["main": 55])
+        XCTAssertNil(b["77:88:99:AA:BB:CC"])
+        XCTAssertEqual(BluetoothDevice.batteries(fromProfilerJSON: Data("nope".utf8)), [:])
+        let buds = BluetoothDevice(address: "A", name: "AirPods", connected: true, kind: "headphones", battery: b["AA:BB:CC:DD:EE:FF"]!)
+        XCTAssertEqual(BluetoothDevice.batteryText(buds), "L 80% R 75% Case 40%")
+        XCTAssertEqual(BluetoothDevice.kind(major: 0x04, minor: 0x06), "headphones")
+        XCTAssertEqual(BluetoothDevice.kind(major: 0x05, minor: 0x10), "keyboard")
+        XCTAssertEqual(BluetoothDevice.kind(major: 0x05, minor: 0x20), "mouse")
+        XCTAssertEqual(BluetoothDevice.kind(major: 0x02, minor: 0), "phone")
+        XCTAssertEqual(BluetoothDevice.normalised("aa-bb"), "AA:BB")
+    }
+
     func testStorageRoundTripAndCorruptFile() throws {
         struct State: Codable, Equatable { var dnd: Bool; var count: Int }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("svc-\(UUID().uuidString).json")

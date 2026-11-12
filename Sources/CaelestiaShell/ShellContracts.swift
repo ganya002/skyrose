@@ -2,6 +2,7 @@ import Foundation
 import CoreGraphics
 import Combine
 import CaelestiaCore
+import CaelestiaServices
 
 /// Everything the shell draws comes from this observable state. The WM (CaelestiaWMKit) owns it
 /// and mutates it on the main actor; the shell never calls into the WM except through
@@ -137,6 +138,7 @@ public struct StatusInfo: Hashable, Sendable {
     public var bluetoothAvailable: Bool = false
     public var bluetoothOn: Bool = false
     public var bluetoothDevices: [String] = []
+    public var bluetoothPaired: [BluetoothDevice] = []
     public var hasBattery: Bool = false
     public var batteryPercent: Int = 0
     public var batteryCharging: Bool = false

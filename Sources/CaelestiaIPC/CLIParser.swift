@@ -352,6 +352,18 @@ public enum CLIParser {
             inv.kind = .local(.update(checkOnly: tokens.has("--check")))
         case "wifi":
             inv.kind = .local(.wifi(try parseWifi(args, tokens)))
+        case "bluetooth", "bt":
+            let verb = args.first ?? "status"
+            switch verb {
+            case "status", "on", "off":
+                try rejectExtra("bluetooth \(verb)", Array(args.dropFirst()))
+                inv.kind = .ipc(IPCRequest(.bluetooth, args: ["action": .string(verb)]))
+            case "connect", "disconnect":
+                guard args.count >= 2 else { throw CLIUsageError.missingArgument(command: "bluetooth \(verb)", name: "device") }
+                inv.kind = .ipc(IPCRequest(.bluetooth, args: ["action": .string(verb), "device": .string(args.dropFirst().joined(separator: " "))]))
+            default:
+                throw CLIUsageError.unknownVerb(group: "bluetooth", verb: verb, expected: ["status", "on", "off", "connect", "disconnect"])
+            }
         case "dock":
             let verb = args.first ?? "status"
             guard let v = DockVerb(rawValue: verb) else {
@@ -835,7 +847,7 @@ public enum CLIParser {
             ("frame calibrate [display]", "Tune the frame's corner radii by eye (slider or ↑↓ ±0.5, ⇧ ±0.1, 0 square, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
             ("corners calibrate [display]", "Same as frame calibrate"),
         ]),
-        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell", "wifi"], rows: [
+        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell", "wifi", "bluetooth"], rows: [
             ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
             ("record [-s] [-r]", "Start/stop the screen recorder (-s: system sound, -r: region)"),
             ("clipboard [-d]", "Open clipboard history (-d: delete mode)"),
@@ -849,6 +861,8 @@ public enum CLIParser {
             ("wifi [status | on | off | scan | disconnect]", "Wi-Fi status, power, nearby networks (scan needs Location for the names)"),
             ("wifi connect <ssid> [--password-stdin]", "Join a network: known and open ones directly, else the password from stdin or a hidden prompt (never stored)"),
             ("wifi forget <ssid>", "Remove a known network (macOS asks for an administrator)"),
+            ("bluetooth [status | on | off]", "Bluetooth power and paired devices with battery"),
+            ("bluetooth connect|disconnect <name or address>", "Connect or disconnect a paired device (pairing is in the bar's Bluetooth panel)"),
         ]),
         HelpSection(title: "Keys and config", topics: ["keys", "rules", "config", "settings", "onboarding", "migrate"], rows: [
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),

@@ -64,6 +64,19 @@ public final class PopoutModel: ObservableObject {
     public var onDisconnect: () -> Void = {}
     public var onForget: (String) -> Void = { _ in }
     public var onAllowLocation: () -> Void = {}
+    @Published public var btJob: BluetoothJob = .idle
+    @Published public var btNearby: [BluetoothDevice] = []
+    @Published public var btScanning = false
+    public var onBluetoothPower: (Bool) -> Void = { _ in }
+    public var onBluetoothDevice: (BluetoothDevice) -> Void = { _ in }
+    public var onBluetoothForget: (BluetoothDevice) -> Void = { _ in }
+    public var onBluetoothScan: () -> Void = {}
+    public var onBluetoothPair: (BluetoothDevice) -> Void = { _ in }
+    public var onBluetoothPIN: (String) -> Void = { _ in }
+    public var onBluetoothConfirm: (Bool) -> Void = { _ in }
+    public var onBluetoothCancel: () -> Void = {}
+    /// Paired devices the panel shows (set with the status; sizes the window).
+    public var btPairedCount = 0
     /// The window the active-window popout shows, and its captured preview.
     @Published public var window: ActiveWindowInfo?
     @Published public var preview: CGImage?
@@ -85,7 +98,17 @@ public final class PopoutModel: ObservableObject {
             guard expanded else { return 96 }
             return 222 + Double(min(networks.count, 6)) * 40 + (scanMessage == nil ? 0 : 44) + (locationMissing ? 34 : 0)
                 + (passwordFor == nil ? 0 : 92) + (wifiJob == .idle ? 0 : 24)
-        case .bluetooth: return 150
+        case .bluetooth:
+            guard expanded else { return 60 + Double(max(1, min(btPairedCount, 4))) * 30 }
+            var h = 214 + Double(min(btPairedCount, 5)) * 42
+            if btScanning || !btNearby.isEmpty { h += 26 + Double(min(btNearby.count, 5)) * 36 }
+            switch btJob {
+            case .idle: break
+            case .pin: h += 96
+            case .confirm: h += 84
+            default: h += 24
+            }
+            return h
         case .battery: return 170
         case .activeWindow: return 74 + Self.previewHeight
         }
@@ -448,20 +471,192 @@ private struct BluetoothPopout: View {
     @Environment(\.shellTheme) var theme
 
     var body: some View {
+        if model.expanded { BluetoothPanel(model: model, state: state) } else { summary }
+    }
+
+    /// Hover: the radio and what is connected, with battery.
+    private var summary: some View {
+        let s = state.status
+        let connected = s.bluetoothPaired.filter(\.connected)
+        return VStack(alignment: .leading, spacing: 12) {
+            if !s.bluetoothAvailable {
+                line("No Bluetooth controller")
+            } else if !s.bluetoothOn {
+                line("Bluetooth is off")
+            } else if connected.isEmpty {
+                line("Bluetooth on, nothing connected")
+            } else {
+                ForEach(connected.prefix(4)) { d in
+                    line(d.name + (BluetoothText.battery(d).map { ": \($0)" } ?? ""))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 12).padding(.top, 4)
+        .accessibilityIdentifier("popout.bluetooth")
+    }
+
+    private func line(_ text: String) -> some View {
+        Text(text).font(theme.sans(14)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+    }
+}
+
+enum BluetoothText {
+    /// "80%", or "L 80% R 75% Case 40%" for earbuds.
+    static func battery(_ d: BluetoothDevice) -> String? {
+        let t = BluetoothDevice.batteryText(d)
+        return t.isEmpty ? nil : t
+    }
+
+    static func icon(_ kind: String) -> String {
+        switch kind {
+        case "headphones": return "headphones"
+        case "keyboard": return "keyboard"
+        case "mouse": return "computermouse"
+        case "phone": return "iphone"
+        case "computer": return "laptopcomputer"
+        case "speaker": return "hifispeaker"
+        default: return "dot.radiowaves.left.and.right"
+        }
+    }
+}
+
+/// The full Bluetooth panel (a click on the bar's Bluetooth icon).
+private struct BluetoothPanel: View {
+    @ObservedObject var model: PopoutModel
+    @ObservedObject var state: ShellState
+    @Environment(\.shellTheme) var theme
+    @State private var pin = ""
+    @FocusState private var pinFocused: Bool
+
+    var body: some View {
         let s = state.status
         VStack(alignment: .leading, spacing: 10) {
             PopHeader(icon: "dot.radiowaves.left.and.right", title: "Bluetooth",
                       subtitle: !s.bluetoothAvailable ? "No Bluetooth controller" : (s.bluetoothOn ? "On" : "Off"))
-            if s.bluetoothDevices.isEmpty {
-                Text(s.bluetoothOn ? "No connected devices" : "Turn Bluetooth on in System Settings").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
-            }
-            ForEach(s.bluetoothDevices.prefix(5), id: \.self) { d in
-                HStack { MaterialIcon("checkmark.circle.fill", size: 13).foregroundStyle(theme[.primary]); Text(d).font(theme.sans(13)).foregroundStyle(theme[.onSurface]).lineLimit(1); Spacer() }
+            if s.bluetoothAvailable {
+                HStack {
+                    Text("Bluetooth").font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface])
+                    Spacer()
+                    Toggle("", isOn: Binding(get: { s.bluetoothOn }, set: { model.onBluetoothPower($0) })).toggleStyle(.switch).labelsHidden().tint(theme[.primary])
+                        .accessibilityLabel("Bluetooth")
+                }
+                job
+                if s.bluetoothOn {
+                    if s.bluetoothPaired.isEmpty {
+                        Text("No paired devices").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
+                    }
+                    ForEach(s.bluetoothPaired.prefix(5)) { d in pairedRow(d) }
+                    Button(action: model.onBluetoothScan) {
+                        HStack { Text(model.btScanning ? "Looking for devices… (stop)" : "Pair new device"); Spacer(); MaterialIcon("plus", size: 12, weight: .medium) }
+                            .font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.primary])
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
+                    }.buttonStyle(.plain)
+                    if model.btScanning || !model.btNearby.isEmpty {
+                        Text(model.btNearby.isEmpty ? "Put the device in pairing mode…" : "Nearby").font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                        ForEach(model.btNearby.prefix(5)) { d in nearbyRow(d) }
+                    }
+                }
             }
             Spacer(minLength: 0)
             SettingsLink(title: "Open Bluetooth settings") { model.onOpenSettings(.bluetooth) }
         }
+        .animation(theme.small, value: model.btJob)
+        .animation(theme.small, value: model.btNearby)
         .accessibilityIdentifier("popout.bluetooth")
+    }
+
+    private func busy(_ d: BluetoothDevice) -> Bool {
+        switch model.btJob {
+        case .connecting(let n), .disconnecting(let n), .removing(let n), .pairing(let n): return n == d.name
+        default: return false
+        }
+    }
+
+    private func pairedRow(_ d: BluetoothDevice) -> some View {
+        HStack(spacing: 8) {
+            Button { model.onBluetoothDevice(d) } label: {
+                HStack(spacing: 8) {
+                    MaterialIcon(BluetoothText.icon(d.kind), size: 13).foregroundStyle(d.connected ? theme[.primary] : theme[.onSurfaceVariant]).frame(width: 18)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(d.name).font(theme.sans(13, weight: d.connected ? .semibold : .regular)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                        Text(d.connected ? (BluetoothText.battery(d).map { "Connected · \($0)" } ?? "Connected") : "Not connected")
+                            .font(theme.sans(10.5)).foregroundStyle(d.connected ? theme[.primary] : theme[.onSurfaceVariant]).lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if busy(d) { ProgressView().controlSize(.small) }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(d.connected ? "Disconnect" : "Connect")
+            .accessibilityLabel("\(d.name), \(d.connected ? "connected, click to disconnect" : "not connected, click to connect")")
+            Button { model.onBluetoothForget(d) } label: {
+                MaterialIcon("trash", size: 11, weight: .semibold).foregroundStyle(theme[.onSurfaceVariant])
+                    .frame(width: 24, height: 24).background(Circle().fill(theme[.onSurface].opacity(0.07)))
+            }
+            .buttonStyle(.plain).help("Forget \(d.name)").accessibilityLabel("Forget \(d.name)")
+        }
+        .frame(height: 34).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(d.connected ? theme[.primary].opacity(0.10) : .clear))
+    }
+
+    private func nearbyRow(_ d: BluetoothDevice) -> some View {
+        Button { model.onBluetoothPair(d) } label: {
+            HStack(spacing: 8) {
+                MaterialIcon(BluetoothText.icon(d.kind), size: 13).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 18)
+                Text(d.name).font(theme.sans(13)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                Spacer(minLength: 4)
+                if busy(d) { ProgressView().controlSize(.small) } else { Text("Pair").font(theme.sans(11, weight: .semibold)).foregroundStyle(theme[.primary]) }
+            }
+            .frame(height: 30).padding(.horizontal, 6).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Pair \(d.name)")
+    }
+
+    @ViewBuilder private var job: some View {
+        switch model.btJob {
+        case .idle: EmptyView()
+        case .connecting(let n): status("Connecting \(n)…", theme[.onSurfaceVariant])
+        case .disconnecting(let n): status("Disconnecting \(n)…", theme[.onSurfaceVariant])
+        case .pairing(let n): status("Pairing with \(n)…", theme[.onSurfaceVariant])
+        case .removing(let n): status("Forgetting \(n)…", theme[.onSurfaceVariant])
+        case .failed(let m): status(m, theme[.error])
+        case .pin(let n):
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Type the PIN shown on \(n) (often 0000)").font(theme.sans(11.5, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                TextField("PIN", text: $pin)
+                    .textFieldStyle(.plain).font(theme.sans(13)).focused($pinFocused)
+                    .onSubmit { model.onBluetoothPIN(pin); pin = "" }
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
+                HStack {
+                    Button("Cancel", action: model.onBluetoothCancel).buttonStyle(.plain).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                    Spacer()
+                    Button("Pair") { model.onBluetoothPIN(pin); pin = "" }.buttonStyle(.plain).font(theme.sans(12, weight: .semibold))
+                        .foregroundStyle(theme[.onPrimary]).padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(theme[.primary]))
+                        .disabled(pin.isEmpty)
+                }
+            }
+            .onAppear { pinFocused = true }
+        case .confirm(let n, let number):
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Does \(n) show this number?").font(theme.sans(11.5, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                Text(String(format: "%06u", number)).font(theme.mono(22)).foregroundStyle(theme[.onSurface])
+                HStack {
+                    Button("No") { model.onBluetoothConfirm(false) }.buttonStyle(.plain).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                    Spacer()
+                    Button("Yes, pair") { model.onBluetoothConfirm(true) }.buttonStyle(.plain).font(theme.sans(12, weight: .semibold))
+                        .foregroundStyle(theme[.onPrimary]).padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(theme[.primary]))
+                }
+            }
+        }
+    }
+
+    private func status(_ text: String, _ color: Color) -> some View {
+        Text(text).font(theme.sans(11.5, weight: .medium)).foregroundStyle(color).lineLimit(2).fixedSize(horizontal: false, vertical: true)
     }
 }
 

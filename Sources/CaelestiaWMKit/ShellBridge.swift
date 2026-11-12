@@ -234,6 +234,36 @@ public final class ShellBridge: ShellHost {
             default: return fail("action must be status, on, off, scan, connect, disconnect or forget")
             }
             return ok(Self.wifiStatus(controller))
+        case .bluetooth:
+            let bt = controller.bluetooth
+            let query = (request.string("device") ?? "").lowercased()
+            let target = bt.state.paired.first { $0.address.lowercased() == query || $0.name.lowercased() == query }
+            switch request.string("action") ?? "status" {
+            case "status": bt.refreshBatteries()
+            case "on", "off": controller.bluetoothPower(request.string("action") == "on")
+            case "connect", "disconnect":
+                guard let target else { return fail("no paired device called \(request.string("device") ?? "")") }
+                if request.string("action") == "connect" { bt.connect(target.address) } else { bt.disconnect(target.address) }
+            default: return fail("action must be status, on, off, connect or disconnect")
+            }
+            var job = "idle"
+            switch bt.job {
+            case .idle: break
+            case .connecting(let n): job = "connecting \(n)"
+            case .disconnecting(let n): job = "disconnecting \(n)"
+            case .pairing(let n): job = "pairing \(n)"
+            case .pin(let n): job = "PIN for \(n)"
+            case .confirm(let n, _): job = "confirm \(n)"
+            case .removing(let n): job = "forgetting \(n)"
+            case .failed(let m): job = "failed: \(m)"
+            }
+            return ok(.object([
+                "enabled": .bool(bt.state.poweredOn), "job": .string(job),
+                "devices": .array(bt.state.paired.map { d in
+                    .object(["name": .string(d.name), "address": .string(d.address), "connected": .bool(d.connected), "kind": .string(d.kind),
+                             "battery": .string(BluetoothDevice.batteryText(d))])
+                }),
+            ]))
         case .clamshell:
             let cm = controller.clamshell
             let lid = controller.lidSleep

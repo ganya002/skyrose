@@ -284,6 +284,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
     case keepAwake = "keepawake"
     case clamshell
     case wifi
+    case bluetooth
     case frameCalibrate = "frame.calibrate"
 
     // MARK: Shell targets (ipc-commands.txt, 1:1)
@@ -498,6 +499,10 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
                                   arguments: [IPCArgument("action", .string, help: "status | on | off | scan | connect | disconnect | forget"),
                                               .optional("ssid", .string), .optional("password", .string, help: "connect only; omitted for open and known networks")],
                                   returns: "{enabled, connected, ssid?, strength, frequency?, scanning, scanMessage?, locationMissing, job: {state, ssid?, message?}, networks: [{ssid, strength, rssi, secured, known, current}]}")
+        case .bluetooth:
+            return IPCCommandSpec(.misc, "Bluetooth: status, power, connect and disconnect a paired device (by name or address; connect runs in the background, poll status).",
+                                  arguments: [IPCArgument("action", .string, help: "status | on | off | connect | disconnect"), .optional("device", .string, help: "name or address")],
+                                  returns: "{enabled, job, devices: [{name, address, connected, kind, battery}]}")
         case .notify:
             return IPCCommandSpec(.misc, "Post a notification to the sidebar.", arguments: [IPCArgument("title", .string), .optional("body", .string), .optional("app", .string, help: "app name shown as the sender"), .optional("icon", .string, help: "SF Symbol or Material icon name")], returns: "{id}")
 
