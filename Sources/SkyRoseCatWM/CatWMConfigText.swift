@@ -46,13 +46,20 @@ public enum CatWMConfigText {
             "catwm.lab.resizeAnimation = \"\(config.animations.windows == .snapshot ? "snapshot" : "live")\"",
         ]
         if animate {
-            lines.append("catwm.motion.duration = \(number(min(5, move.durationMs / 1000)))")
-            switch move.curve {
-            case .bezier(let c):
-                lines.append("catwm.motion.curve = \"cubic-bezier(\([c.x1, c.y1, c.x2, c.y2].map(number).joined(separator: ", ")))\"")
-            case .spring:
-                lines.append("catwm.motion.curve = \"spring\"")
+            let speed = wm.catwm.motionSpeed > 0 ? min(1, max(0.05, wm.catwm.motionSpeed)) : min(5, move.durationMs / 1000)
+            lines.append("catwm.motion.duration = \(number(speed))")
+            let style = wm.catwm.motionStyle
+            if style != "skyrose", CatWMSettings.motionStyles.contains(style) {
+                lines.append("catwm.motion.curve = \"\(style)\"")
+            } else {
+                switch move.curve {
+                case .bezier(let c):
+                    lines.append("catwm.motion.curve = \"cubic-bezier(\([c.x1, c.y1, c.x2, c.y2].map(number).joined(separator: ", ")))\"")
+                case .spring:
+                    lines.append("catwm.motion.curve = \"spring\"")
+                }
             }
+            lines.append("catwm.motion.bounce = \(number(min(1, max(0, wm.catwm.motionBounce))))")
         }
         if !wm.catwm.extra.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { lines.append(wm.catwm.extra) }
         return lines.joined(separator: "\n") + "\n"

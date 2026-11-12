@@ -11,6 +11,8 @@ import Foundation
 public protocol WindowDecorations: AnyObject {
     /// The scene after a layout pass: one border per visible decorated window (R2 contract).
     func apply(_ scene: OverlayScene)
+    /// One animation frame of the same windows: borders move, nothing else is re-read.
+    func applyMoving(_ scene: OverlayScene)
     /// The app or the user moved/resized `id` (not an echo of our own write).
     func externalMove(_ id: WindowID)
     /// SkyRose wrote this frame itself. The border stays fully visible on it.
@@ -26,6 +28,10 @@ public protocol WindowDecorations: AnyObject {
     func debug(_ snapshot: DebugSnapshot?)
     /// `query overlays`.
     func overlayEntries() -> [OverlayQueryEntry]
+}
+
+public extension WindowDecorations {
+    func applyMoving(_ scene: OverlayScene) { apply(scene) }
 }
 
 /// One border window as `skyrose query overlays` reports it.
@@ -228,7 +234,8 @@ extension WindowManager {
         for id in lastSceneIDs where !ids.contains(id) { vanish[id] = .instant }
         shownBefore.formUnion(ids)
         lastSceneIDs = ids
-        decorations.apply(OverlayScene(borders: targets, vanish: vanish))
+        let scene = OverlayScene(borders: targets, vanish: vanish)
+        if engineInFlight.isEmpty { decorations.apply(scene) } else { decorations.applyMoving(scene) }
     }
 
     /// Tabs of the group `id` is the visible member of, or nil.

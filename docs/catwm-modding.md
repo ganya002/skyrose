@@ -43,6 +43,10 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 | M3 | `CatWMEngine.onWindowFrames` (in-flight frames per animation frame) + snapshot glide in embedded mode | borders follow windows; Hyprland glide via CatWM's own Bézier/duration/snapshot settings, no host-driven animation | done: CatWM 0e81281, `WindowFramesHookTests`, engine test, 918 CatWM tests pass |
 | M4 | Dwindle layout + `togglesplit`, `swapsplit`, `splitratio` per split, `resizeactive DX DY`; M4b `pseudo`, `pin` | Hyprland behaviour and binds | done: CatWM 145e15b + b005985, `DwindleTests`, 925 CatWM tests pass |
 | M5 | Special workspace: `special:<name>`, `togglespecialworkspace` | Hyprland scratchpad binds | done: CatWM 5ff17dd, parked tests, 926 CatWM tests pass |
+| M6 | Hyprland groups: `togglegroup`, `lockactivegroup`, armed groups collect new windows; `tabs`/`tabsLocked`/`tabBehind` in `windows` | Hyprland group binds and SkyRose group bar | done: CatWM 688d1be + da5f52d + 0f5a49d, `HyprlandGroupTests` |
+| M7 | Focus a new window of the frontmost app when macOS reports no focused window | new app windows got no focus border | done: CatWM 654a359, test in `HyprlandGroupTests` |
+| M8 | `gaps.single` (`single-window-padding`): extra space around a lone tiled window | SkyRose `gapsOutSingle` | done: CatWM 98b7246, `SingleWindowPaddingTests` |
+| M9 | Window motion display link pinned to the screen's full refresh rate (60 Hz Air, 120 Hz ProMotion), no 30 fps floor | workspace slides dropped frames | done: CatWM 258a705; measured 15.4–17.0 ms per frame on a 60 Hz Air |
 
 ## Settings › CatWM
 

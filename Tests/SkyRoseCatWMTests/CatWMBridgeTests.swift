@@ -39,6 +39,21 @@ final class CatWMBridgeTests: XCTestCase {
         XCTAssertTrue(CatWMConfigText.make(config, area: nil, visible: nil).contains("catwm.layouts = [\"dwindle\"]"))
     }
 
+    func testMotionStyleSpeedAndBounceOverrideSkyRoseAnimations() {
+        var config = Config()
+        let follow = CatWMConfigText.make(config, area: nil, visible: nil)
+        XCTAssertFalse(follow.contains("catwm.motion.curve = \"bounce\""))
+        config.wm.catwm.motionStyle = "bounce"
+        config.wm.catwm.motionSpeed = 0.4
+        config.wm.catwm.motionBounce = 0.8
+        let text = CatWMConfigText.make(config, area: nil, visible: nil)
+        XCTAssertTrue(text.contains("catwm.motion.curve = \"bounce\""))
+        XCTAssertTrue(text.contains("catwm.motion.duration = 0.4"))
+        XCTAssertTrue(text.contains("catwm.motion.bounce = 0.8"))
+        config.wm.catwm.motionStyle = "\"; evil()"
+        XCTAssertFalse(CatWMConfigText.make(config, area: nil, visible: nil).contains("evil"))
+    }
+
     func testGameModeAndAnimationsOffStopMotion() {
         var config = Config()
         config.wm.gameMode = true

@@ -20,6 +20,7 @@ struct CatWMPage: View {
             engineCard
             Group {
                 layoutsCard
+                motionCard
                 mouseCard
                 floatingCard
                 advancedCard
@@ -115,6 +116,42 @@ struct CatWMPage: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .accessibilityIdentifier("catwm.startLayout")
+            }
+        }
+    }
+
+    private var motionCard: some View {
+        Card {
+            SectionLabel(text: "Motion")
+            Text("How windows glide when they tile, move or switch workspace. Runs at your display's refresh rate.")
+                .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
+            FlowChips(items: CatWMSettings.motionStyles) { style in
+                let on = catwm.motionStyle == style
+                Button {
+                    withAnimation(look.motion.quick) {
+                        store.set("wm.catwm.motionStyle", .string(style), update: { $0.wm.catwm.motionStyle = style })
+                    }
+                } label: {
+                    Text(style == "skyrose" ? "SkyRose (default)" : style).font(look.font(12.5, .medium))
+                        .padding(.horizontal, 11).padding(.vertical, 6)
+                        .foregroundStyle(on ? look[.onPrimary] : look[.onSurfaceVariant])
+                        .background(Capsule().fill(on ? look[.primary] : look[.surfaceContainerHighest]))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(style)
+                .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)
+            }
+            SettingRow(title: "Speed", detail: "SkyRose uses the window speed from Settings › Animations.", icon: "speedometer") {
+                PillSegmented(options: [(0.0, "SkyRose", nil), (0.15, "Fast", nil), (0.25, "Normal", nil), (0.4, "Slow", nil)],
+                              selection: store.binding(\.wm.catwm.motionSpeed, "wm.catwm.motionSpeed") { .number($0) })
+            }
+            if ["spring", "bounce", "overshoot"].contains(catwm.motionStyle) {
+                SettingRow(title: "Bounciness", icon: "waveform.path") {
+                    PillSlider(value: store.number(\.wm.catwm.motionBounce, "wm.catwm.motionBounce"), range: 0...1, step: 0.05,
+                               format: { "\(Int(($0 * 100).rounded())) %" }, onCommit: store.flush)
+                }
+                .transition(.opacity.combined(with: .offset(y: look.motion.slide(-6))))
             }
         }
     }

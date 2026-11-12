@@ -35,7 +35,7 @@ let package = Package(
         // live on branch `skyrose` (docs/catwm-modding.md).
         // Pinned to the `skyrose` branch of the fork. To work on CatWM next to SkyRose:
         // `swift package edit CatWM --path ../CatWM` (undo with `swift package unedit CatWM`).
-        .package(url: "https://github.com/ganya002/CatWM.git", revision: "98b7246d37f354199033ff008607df0207936123"),
+        .package(url: "https://github.com/ganya002/CatWM.git", revision: "258a7058095fc5c26f255aaa66c4a3304df31495"),
     ],
     targets: [
         // MARK: C shims for private symbols (weak-linked, runtime-checked)

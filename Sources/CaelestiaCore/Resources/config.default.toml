@@ -141,6 +141,13 @@ floatSmallWindows = true
 floatingApps = []
 # Extra CatWM config lines (TypeScript), added last.
 extra = ""
+# Window motion: "skyrose" follows [animations]; or ease-out, ease-in-out, linear, spring,
+# bounce, overshoot.
+motionStyle = "skyrose"
+# Seconds a window move takes; 0 follows [animations].
+motionSpeed = 0
+# How far spring, bounce and overshoot swing, 0-1.
+motionBounce = 0.5
 
 # Named special workspaces (scratchpads) and the app that owns each (functions.lua toggle()
 # + cli.json toggles). `apps` are bundle ids in preference order; `launch` runs when the

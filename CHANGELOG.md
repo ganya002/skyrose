@@ -4,6 +4,8 @@
 
 - **CatWM is the window manager.** Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur), https://github.com/noxaur/CatWM, used with permission. SkyRose keeps its bar, panels, binds and IPC; CatWM tiles the windows (Hyprland dwindle with `togglesplit`, `swapsplit`, `pseudo`, `pin` and special workspaces). SkyRose's own engine stays available as `[wm] engine = "skyrose"` (work in progress, not recommended).
 - **Settings › CatWM.** The settings window morphs into a CatWM panel: the engine switch (with a restart button), the layouts the cycle bind steps through and the start layout, drag to swap and resize, floating for small windows and chosen apps, and extra CatWM config lines. These live in `[wm.catwm]`.
+- **Smooth window motion.** Workspace slides and tiling moves run at the display's refresh rate (60 fps on a MacBook Air, 120 on a ProMotion MacBook Pro). The display link no longer lets macOS drop to 30 fps, and borders follow an animation without querying the window server every frame (ticks went from ~8 ms to under 1 ms).
+- **Motion options in Settings › CatWM.** Curve (SkyRose's, ease-out, ease-in-out, linear, spring, bounce, overshoot), speed (SkyRose's, fast, normal, slow) and bounciness: `[wm.catwm] motionStyle`, `motionSpeed`, `motionBounce`.
 
 ## 0.4.1 (2026-11-11)
 

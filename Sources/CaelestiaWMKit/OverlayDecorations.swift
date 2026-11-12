@@ -101,6 +101,8 @@ public final class OverlayDecorations: WindowDecorations {
 
     public func apply(_ scene: OverlayScene) { borders.apply(scene) }
 
+    public func applyMoving(_ scene: OverlayScene) { borders.apply(scene, moving: true) }
+
     public func externalMove(_ id: WindowID) { borders.noteExternalMove(id) }
 
     public func followLiveFrame(_ id: WindowID, _ frame: CGRect) { borders.followLiveFrame(id, frame) }

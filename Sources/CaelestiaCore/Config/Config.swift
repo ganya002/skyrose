@@ -189,6 +189,14 @@ public struct CatWMSettings: Codable, Equatable, Sendable {
     public var floatingApps: [String] = []
     /// Extra CatWM config lines (TypeScript), appended last. For options Settings doesn't show.
     public var extra: String = ""
+    /// How windows move: "skyrose" follows Settings › Animations, or a CatWM curve name.
+    public var motionStyle: String = "skyrose"
+    /// Seconds a window move takes; 0 follows Settings › Animations.
+    public var motionSpeed: Double = 0
+    /// How far spring, bounce and overshoot swing (0–1).
+    public var motionBounce: Double = 0.5
+
+    public static let motionStyles = ["skyrose", "ease-out", "ease-in-out", "linear", "spring", "bounce", "overshoot"]
 
     public static let knownLayouts = ["dwindle", "bsp", "tall", "tall-right", "wide", "middle-wide", "column", "row",
                                       "3column-left", "3column-middle", "3column-right", "two-pane", "two-pane-right",
