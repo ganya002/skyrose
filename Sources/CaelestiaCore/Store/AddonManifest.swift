@@ -13,6 +13,17 @@ public enum AddonKind: String, Codable, Sendable, CaseIterable {
     case widget
     /// A builtin SkyRose feature split out later (clamshell, colour picker, keep-awake).
     case feature
+    /// A whole macOS app shipped as reviewed source: SkyRose verifies it, builds it with the
+    /// Xcode toolchain and runs it as its own process (never inside SkyRose). See `AppEntry`.
+    case app
+    /// A kind this SkyRose does not know (a newer index). Listed nowhere and never installed, so
+    /// one new kind in the index cannot break the Store for older clients.
+    case unknown
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = AddonKind(rawValue: raw) ?? .unknown
+    }
 
     /// Data kinds: installable by this SkyRose and never executed.
     public var isDataOnly: Bool { self == .scheme || self == .wallpaper }
@@ -24,6 +35,8 @@ public enum AddonKind: String, Codable, Sendable, CaseIterable {
         case .keymap: return "Keymap"
         case .widget: return "Widget"
         case .feature: return "Feature"
+        case .app: return "Apps"
+        case .unknown: return "Other"
         }
     }
 
@@ -35,6 +48,8 @@ public enum AddonKind: String, Codable, Sendable, CaseIterable {
         case .keymap: return "keyboard"
         case .widget: return "widgets"
         case .feature: return "extension"
+        case .app: return "apps"
+        case .unknown: return "help"
         }
     }
 }
@@ -57,6 +72,14 @@ public struct AddonPermission: Hashable, Sendable, Comparable, CustomStringConve
         case keybinds
         /// Read window titles and apps.
         case windows
+        /// App addons: record from the microphone (macOS asks the user again, per app).
+        case microphone
+        /// App addons: macOS Accessibility (window titles, the focused app); macOS asks per app.
+        case accessibility
+        /// App addons: keep secrets (API keys) in the user's login Keychain.
+        case keychain
+        /// App addons: start at login (a per-user LaunchAgent SkyRose writes and removes).
+        case login
     }
 
     public var name: Name
@@ -90,6 +113,10 @@ public struct AddonPermission: Hashable, Sendable, Comparable, CustomStringConve
         case .clipboard: return "Read your clipboard history"
         case .keybinds: return "Add keybinds (they can run commands)"
         case .windows: return "See your window titles and apps"
+        case .microphone: return "Use the microphone (macOS asks you first)"
+        case .accessibility: return "Accessibility: see the focused app and window title (macOS asks you first)"
+        case .keychain: return "Keep API keys in your login Keychain"
+        case .login: return "Start at login"
         }
     }
 
@@ -102,6 +129,10 @@ public struct AddonPermission: Hashable, Sendable, Comparable, CustomStringConve
         case .clipboard: return "content_paste"
         case .keybinds: return "keyboard"
         case .windows: return "desktop_mac"
+        case .microphone: return "mic"
+        case .accessibility: return "accessibility_new"
+        case .keychain: return "key"
+        case .login: return "login"
         }
     }
 }
@@ -133,9 +164,12 @@ public struct AddonManifest: Codable, Equatable, Sendable {
         public var schemes: [String]?
         /// Image/video files (kind `wallpaper`).
         public var wallpapers: [String]?
-        public init(schemes: [String]? = nil, wallpapers: [String]? = nil) {
+        /// The source build and its recipe (kind `app`).
+        public var app: AppEntry?
+        public init(schemes: [String]? = nil, wallpapers: [String]? = nil, app: AppEntry? = nil) {
             self.schemes = schemes
             self.wallpapers = wallpapers
+            self.app = app
         }
     }
 
@@ -222,9 +256,19 @@ public struct AddonManifest: Codable, Equatable, Sendable {
         case .wallpaper:
             if entry.wallpapers?.isEmpty ?? true { out.append("entry.wallpapers must list at least one image or video") }
             if entry.schemes != nil { out.append("entry.schemes is for scheme addons") }
+        case .app:
+            if let app = entry.app {
+                out += app.issues(permissions: parsedPermissions)
+                if files[app.source] == nil { out.append("entry.app.source '\(app.source)' is not in files (run skyrose store pack)") }
+            } else {
+                out.append("entry.app must describe the source build")
+            }
+            if entry.schemes != nil || entry.wallpapers != nil { out.append("an app addon carries no schemes or wallpapers") }
+        case .unknown: out.append("unknown kind")
         default: break
         }
-        for p in listed + (screenshots ?? []) + (icon.map { [$0] } ?? []) where !Self.isSafePath(p) {
+        if kind != .app, entry.app != nil { out.append("entry.app is for app addons") }
+        for p in listed + (screenshots ?? []) + (icon.map { [$0] } ?? []) + (entry.app.map { [$0.source] } ?? []) where !Self.isSafePath(p) {
             out.append("path '\(p)' must be relative, inside the bundle, without '..'")
         }
         for (p, sha) in files {
@@ -271,13 +315,31 @@ public struct AddonManifest: Codable, Equatable, Sendable {
 }
 
 /// Which kinds this SkyRose installs and the permissions each may ask for. Data kinds get none:
-/// SkyRose only reads their files. Code kinds wait for the out-of-process addon host
-/// (docs/skystore-security.md), so `current` refuses them.
+/// SkyRose only reads their files. `app` addons are reviewed source builds that run as their own
+/// process; for now only first-party ids (`appIDPrefixes`) may use the kind
+/// (docs/skystore-security.md). Widgets, keymaps and features wait for the addon host.
 public struct AddonPolicy: Sendable {
     public var installable: [AddonKind: Set<AddonPermission.Name>]
-    public init(installable: [AddonKind: Set<AddonPermission.Name>]) { self.installable = installable }
+    /// Ids an `app` addon may have (empty = any). First party only until third-party apps get
+    /// their own review rules.
+    public var appIDPrefixes: [String]
+    public init(installable: [AddonKind: Set<AddonPermission.Name>], appIDPrefixes: [String] = []) {
+        self.installable = installable
+        self.appIDPrefixes = appIDPrefixes
+    }
 
-    public static let current = AddonPolicy(installable: [.scheme: [], .wallpaper: []])
+    public static let current = AddonPolicy(installable: [
+        .scheme: [], .wallpaper: [],
+        .app: [.network, .microphone, .accessibility, .keychain, .login, .notifications, .windows],
+    ], appIDPrefixes: ["dev.gabby."])
+
+    public func issues(kind: AddonKind, permissions: [AddonPermission], id: String) -> [String] {
+        var out = issues(kind: kind, permissions: permissions)
+        if kind == .app, !appIDPrefixes.isEmpty, !appIDPrefixes.contains(where: { id.hasPrefix($0) }) {
+            out.append("app addons are first-party only for now (ids starting with \(appIDPrefixes.joined(separator: ", ")))")
+        }
+        return out
+    }
 
     public func issues(kind: AddonKind, permissions: [AddonPermission]) -> [String] {
         guard let allowed = installable[kind] else {
@@ -291,7 +353,7 @@ public struct AddonPolicy: Sendable {
 
     /// Manifest problems plus what this policy refuses.
     public func issues(_ m: AddonManifest) -> [String] {
-        m.issues() + issues(kind: m.kind, permissions: m.parsedPermissions)
+        m.issues() + issues(kind: m.kind, permissions: m.parsedPermissions, id: m.id)
     }
 }
 

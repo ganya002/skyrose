@@ -44,12 +44,16 @@ public enum CLILocalCommand: Equatable, Sendable {
 public enum StoreVerb: Equatable, Sendable {
     case list, refresh
     case install(String), update(String?), uninstall(String), enable(String), disable(String)
+    /// `uninstall <id> --purge`: also delete the user data an app addon declared.
+    case purge(String)
+    /// App addons: build and start (again) after install; `--json` streams progress lines.
+    case setup(String)
     case new(id: String, kind: String)
     /// Folders default to the current directory.
     case validate(String?), pack(String?)
     case submit(String?, repo: String?)
 
-    public static let names = ["list", "refresh", "install", "update", "uninstall", "enable", "disable", "new", "validate", "pack", "submit"]
+    public static let names = ["list", "refresh", "install", "setup", "update", "uninstall", "enable", "disable", "new", "validate", "pack", "submit"]
 }
 
 public enum SAVerb: String, Equatable, Sendable {
@@ -170,7 +174,7 @@ public enum CLIParser {
     /// Options that take a value.
     static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon", "--kind", "--repo"]
     /// Boolean options (long and short).
-    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix", "--password-stdin"]).union(uninstallFlags)
+    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix", "--password-stdin", "--purge"]).union(uninstallFlags)
     /// Passed through to scripts/uninstall.sh.
     public static let uninstallFlags: Set<String> = ["--dry-run", "--remove-fonts", "--remove-config", "--remove-cert", "--no-color"]
 
@@ -440,7 +444,10 @@ public enum CLIParser {
         case "refresh": try rejectExtra("store refresh", rest); return .local(.store(.refresh))
         case "install": return .local(.store(.install(try one("id"))))
         case "update": return .local(.store(.update(try optional())))
-        case "uninstall", "remove": return .local(.store(.uninstall(try one("id"))))
+        case "uninstall", "remove":
+            let id = try one("id")
+            return .local(.store(tokens.has("--purge") ? .purge(id) : .uninstall(id)))
+        case "setup": return .local(.store(.setup(try one("id"))))
         case "enable": return .local(.store(.enable(try one("id"))))
         case "disable": return .local(.store(.disable(try one("id"))))
         case "new":
@@ -885,7 +892,8 @@ public enum CLIParser {
             ("store refresh", "Fetch the signed index: apply revocations, list updates"),
             ("store install <id> [--yes]", "Download, verify (signature + SHA-256) and install; --yes allows new permissions"),
             ("store update [id] [--yes]", "Update one addon or all; asks again when permissions grow"),
-            ("store uninstall <id>", "Remove an addon and its files"),
+            ("store setup <id> [--json]", "App addons: check the Mac, fetch pinned runtimes, build and start the app"),
+            ("store uninstall <id> [--purge]", "Remove an addon and its files (--purge: an app's own data too)"),
             ("store enable | disable <id>", "Switch an addon on or off (after a panic, all are off)"),
             ("store new <id> [--kind scheme|wallpaper]", "Creator mode: scaffold an addon folder"),
             ("store validate [dir]", "Creator mode: lint the manifest, permissions, files and checksum"),

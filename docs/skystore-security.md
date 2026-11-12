@@ -33,7 +33,9 @@ This release installs two kinds only. SkyRose reads their files and never runs t
 Planned data kinds (also never executed): layouts, cursor themes, font packs, sound packs.
 They need their own strict loaders first.
 
-The following need code, so they wait for the addon host:
+App addons (`app`) are the one code kind installable now; see "App addons" below.
+
+The following need code inside SkyRose, so they wait for the addon host:
 
 - **keymap**: a bind can `exec` any shell command, so a keymap is code.
 - **widget / bar module**: logic and data sources.
@@ -64,6 +66,46 @@ is refused at install, in `validate` and in `new`.
 - Panic, disable and revocation kill the process.
 - An exception is allowed only for `feature` addons, which are SkyRose's own code and are
   enabled, not downloaded.
+
+### App addons: reviewed source, built locally, run as their own app
+
+An app addon is a whole macOS app (Sky). It cannot run under the planned `sandbox-exec` profile:
+it needs Metal, the microphone, Accessibility and its own Keychain items. So it gets different
+guarantees, and for now only first-party ids (`AddonPolicy.appIDPrefixes`, `dev.gabby.`) may use
+the kind.
+
+- **What runs is what was reviewed.** The bundle carries the full source as one archive whose
+  SHA-256 is in the manifest, and the manifest's files are covered by the bundle hash in the
+  signed index. The reviewer reads that source. There is no install script: the build recipe is
+  data (`entry.app`), and SkyRose's installer does every step itself.
+- **Pinned downloads only.** Runtimes come from the manifest's `downloads`: HTTPS URL, SHA-256 and
+  size, each host declared as `network:<host>`. A wrong hash or an oversized body stops the install.
+  Redirects must stay on HTTPS. Archive entries are checked before unpacking (no absolute paths,
+  no `..`), and a symbolic link that leaves its folder is refused.
+- **No remote package dependencies.** `swift package dump-package` must list none, and the build
+  runs with `--disable-automatic-resolution`, so SwiftPM cannot fetch code at build time. SwiftPM
+  evaluates `Package.swift` in its own sandbox.
+- **Out of process.** Setup runs in `skyrose store setup` (a child of the Store drawer, or the CLI),
+  never in the WM. The app runs as its own process with its own bundle id. macOS TCC grants are
+  per app, so it inherits none of SkyRose's Accessibility, Input Monitoring or Screen Recording.
+  macOS asks the user itself for the microphone or Accessibility.
+- **No admin rights.** Everything goes under the user's Library. The only system-level step is
+  Apple's own Command Line Tools installer, started with `xcode-select --install`; it shows
+  Apple's dialog and asks for a password itself when it needs one. SkyRose never runs `sudo`.
+- **Preflight before writing.** Architecture (Apple Silicon only), macOS version and free disk are
+  checked before any download or build.
+- **Stop paths.** Off, panic and revocation stop the app (declared quit command, then SIGTERM,
+  then SIGKILL for processes whose executable is inside the addon's `.app`) and delete its
+  LaunchAgent. The panic path only sends signals, so it never blocks.
+- **Permissions are declared, not enforced.** An app is not sandboxed, so `network:<host>` and the
+  rest are a promise checked in review and shown to the user, not a fence. This is the main
+  difference from data addons, and why the kind is first-party only.
+- **Updates** follow the normal path: a new bundle (new source hash), new permissions need
+  approval, and a failed build keeps the previous app.
+
+What is not covered: a malicious first-party source would run with the user's rights, as any app
+the user installs does. The defences are review, the signature, the pinned hashes and the kill
+switch.
 
 ### Integrity: signature, then checksums
 

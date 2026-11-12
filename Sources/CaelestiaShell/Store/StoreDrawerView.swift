@@ -305,14 +305,20 @@ struct StoreActionButton: View {
     var body: some View {
         Group {
             if let p = model.busy[entry.id] {
+                let width: Double = p.setupFraction == nil || compact ? 96 : 220
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text(p.step.rawValue.capitalized + "…").font(theme.sans(11, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                    Text(p.label).font(theme.sans(11, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                        .lineLimit(1).truncationMode(.middle).frame(maxWidth: width, alignment: .trailing)
                     ZStack(alignment: .leading) {
                         Capsule().fill(theme[.secondaryContainer])
-                        Capsule().fill(theme[.primary]).frame(width: max(8, 96 * p.fraction))
+                        Capsule().fill(theme[.primary]).frame(width: max(8, width * p.fraction))
                     }
-                    .frame(width: 96, height: 6)
+                    .frame(width: width, height: 6)
                     .animation(theme.spatial, value: p.fraction)
+                    if let d = p.detail, !compact {
+                        Text(d).font(theme.mono(10)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(1)
+                            .contentTransition(.numericText())
+                    }
                 }
             } else {
                 switch model.action(for: entry) {
@@ -326,6 +332,7 @@ struct StoreActionButton: View {
                         StorePill(title: update ? "Update" : "Install", icon: update ? "update" : "download", filled: true) { model.install(entry) }
                     }
                 case .installed: label("Installed", "check")
+                case .setup: StorePill(title: "Set up", icon: "build", filled: true) { model.runSetup(entry.id) }
                 case .revoked: label("Revoked", "block")
                 case .needsNewerSkyRose: label("Needs a newer SkyRose", "upgrade")
                 case .notSupported: label("Code addon: later SkyRose", "code")
@@ -455,6 +462,10 @@ struct StoreDetailView: View {
                 Label { Text(p.summary + (added.contains(p) && model.installed(entry.id) != nil ? " (new)" : "")) } icon: { MaterialIcon(p.icon, size: 13) }
                     .font(theme.sans(12, weight: added.contains(p) ? .semibold : .regular))
                     .foregroundStyle(added.contains(p) ? theme[.error] : theme[.onSurfaceVariant])
+            }
+            if entry.kind == .app {
+                Label { Text("An app: built on this Mac from the reviewed source in the bundle, then run as its own app, never inside SkyRose. Panic, off and uninstall stop it.") } icon: { MaterialIcon("apps", size: 13) }
+                    .font(theme.sans(11.5)).foregroundStyle(theme[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
             }
             Text("Verified on install: index signature and SHA-256.").font(theme.sans(11)).foregroundStyle(theme[.outline])
         }

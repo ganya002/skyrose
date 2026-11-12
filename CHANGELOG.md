@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Fix: `skyrose ws focus` and `ws move` work with CatWM.** They changed SkyRose's own workspace state, which is not what shows when CatWM is the engine, so nothing happened.
+- **SkyStore app addons.** A new addon kind, `app`, installs a whole macOS app from reviewed source: SkyRose checks the Mac (Apple Silicon, macOS version, free disk), offers Apple's Command Line Tools installer when needed, downloads only pinned and SHA-256-checked runtimes, builds the app with `xcrun swift build`, signs it ad hoc and starts it as its own process. Every step shows on the Store card, with real bytes, speed and time left. Off, panic and revocation stop the app; `skyrose store uninstall <id> --purge` also removes its data. First-party only for now. New: `skyrose store setup <id>`, the `microphone`, `accessibility`, `keychain` and `login` permissions, and `SKYROSE_HOME` for isolated test runs. An index with a kind this SkyRose does not know no longer breaks the Store.
 
 ## 0.5.0 (2026-11-12)
 

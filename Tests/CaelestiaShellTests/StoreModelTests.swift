@@ -151,4 +151,29 @@ final class StoreModelTests: XCTestCase {
         XCTAssertTrue(LauncherCommand.all.contains { $0.name == "store" && $0.effect == .drawer(.store) })
         XCTAssertEqual(Drawer(rawValue: "store"), .store)
     }
+
+    /// App addons: the drawer runs `skyrose store setup --json` out of process and shows its lines.
+    func testAppSetupRunsOutOfProcessAndShowsLiveProgress() throws {
+        let m = model([])
+        let lines = [AppSetupEvent(.download, "Downloading llama.cpp", fraction: 0.2, bytes: 4_000_000, total: 16_000_000, bytesPerSecond: 2_000_000, eta: 6),
+                     AppSetupEvent(.done, "Test App is ready", fraction: 1)].map(\.jsonLine).joined(separator: "\n")
+        let script = tmp.appendingPathComponent("fake-setup.sh")
+        try "#!/bin/sh\ncat <<'JSON'\n\(lines)\nJSON\nsleep 0.5\n".write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        var asked: String?
+        m.setupCommand = { id in asked = id; return (script, []) }
+        m.runSetup("dev.gabby.test-app")
+        XCTAssertEqual(asked, "dev.gabby.test-app")
+        wait("download line shows") { m.busy["dev.gabby.test-app"]?.detail?.contains("of") == true || m.busy["dev.gabby.test-app"]?.fraction == 1 }
+        wait("finishes") { m.busy["dev.gabby.test-app"] == nil }
+        XCTAssertNil(m.errors["dev.gabby.test-app"])
+
+        let failing = tmp.appendingPathComponent("fail.sh")
+        try "#!/bin/sh\necho '\(AppSetupEvent(.failed, "This Mac has an Intel processor.", fraction: 0).jsonLine)'\nexit 1\n".write(to: failing, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: failing.path)
+        m.setupCommand = { _ in (failing, []) }
+        m.runSetup("dev.gabby.test-app")
+        wait("fails") { m.busy["dev.gabby.test-app"] == nil }
+        XCTAssertEqual(m.errors["dev.gabby.test-app"]?.contains("Intel"), true)
+    }
 }

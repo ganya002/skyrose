@@ -21,11 +21,19 @@ public struct InstalledAddon: Codable, Equatable, Sendable, Identifiable {
     public var sha256: String
     public var installedAt: Date
     public var disabled: Disabled?
+    /// App addons only: `pending` while `skyrose store setup` builds it, `ready`, or `failed: why`.
+    public var setup: String?
+
+    public static let setupReady = "ready"
+    public static let setupPending = "pending"
 
     public var enabled: Bool { disabled == nil }
     public var isRevoked: Bool { if case .revoked = disabled { return true } else { return false } }
 
     public var status: String {
+        if kind == .app, disabled == nil, setup != Self.setupReady {
+            return setup.map { $0 == Self.setupPending ? "setting up" : "setup \($0)" } ?? "needs setup (skyrose store setup \(id))"
+        }
         switch disabled {
         case nil: return "on"
         case .user: return "off"
@@ -41,8 +49,19 @@ public struct StoreProgress: Equatable, Sendable {
         case checking, downloading, verifying, unpacking, installing, done
     }
     public var step: Step
-    public var fraction: Double { Double(Step.allCases.firstIndex(of: step) ?? 0) / Double(Step.allCases.count - 1) }
+    /// App setup (`skyrose store setup --json`): what it is doing, live bytes/speed/ETA, and its own 0…1.
+    public var title: String?
+    public var detail: String?
+    public var setupFraction: Double?
+    public var fraction: Double { setupFraction ?? Double(Step.allCases.firstIndex(of: step) ?? 0) / Double(Step.allCases.count - 1) }
+    public var label: String { title ?? step.rawValue.capitalized + "…" }
     public init(_ step: Step) { self.step = step }
+    public init(setup e: AppSetupEvent) {
+        step = .installing
+        title = e.title
+        detail = e.detail
+        setupFraction = e.fraction
+    }
 }
 
 /// Installed addons on disk: `<root>/state.json` and one folder per addon version
@@ -53,12 +72,15 @@ public final class AddonStore: @unchecked Sendable {
     public let root: URL
     public let policy: AddonPolicy
     public let skyRoseVersion: String
+    /// Starts and stops app addons (their own processes, LaunchAgents).
+    public var apps: AppHost
     private let fm = FileManager.default
 
-    public init(root: URL = Paths.addonsDir, policy: AddonPolicy = .current, skyRoseVersion: String = CaelestiaVersion.string) {
+    public init(root: URL = Paths.addonsDir, policy: AddonPolicy = .current, skyRoseVersion: String = CaelestiaVersion.string, apps: AppHost? = nil) {
         self.root = root
         self.policy = policy
         self.skyRoseVersion = skyRoseVersion
+        self.apps = apps ?? AppHost(root: root)
     }
 
     var stateURL: URL { root.appendingPathComponent("state.json") }
@@ -124,7 +146,7 @@ public final class AddonStore: @unchecked Sendable {
         }
         let requested = v.parsedPermissions
         guard requested.count == v.permissions.count else { throw StoreError.badIndex("\(entry.id) \(v.version) lists an unknown permission") }
-        let refused = policy.issues(kind: entry.kind, permissions: requested)
+        let refused = policy.issues(kind: entry.kind, permissions: requested, id: entry.id)
         guard refused.isEmpty else { throw StoreError.notInstallable(refused.joined(separator: "; ")) }
         let existing = installed(entry.id)
         if case .revoked(let why) = existing?.disabled { throw StoreError.revoked(why) }
@@ -156,7 +178,7 @@ public final class AddonStore: @unchecked Sendable {
             let item = InstalledAddon(id: entry.id, name: entry.name, author: entry.author, kind: entry.kind, version: v.version,
                                       permissions: v.permissions.sorted(), sha256: got,
                                       installedAt: Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down)), // ISO 8601 keeps whole seconds
-                                      disabled: existing?.disabled)
+                                      disabled: existing?.disabled, setup: entry.kind == .app ? InstalledAddon.setupPending : nil)
             let dest = directory(for: item)
             do {
                 try fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -171,38 +193,64 @@ public final class AddonStore: @unchecked Sendable {
                 throw error
             }
             if let existing, existing.version != item.version { try? fm.removeItem(at: directory(for: existing)) }
+            // An app addon is built next by `skyrose store setup` (out of process); until then
+            // the old build (if any) keeps running.
             progress(StoreProgress(.done))
             return item
         }
     }
 
-    public func uninstall(_ id: String) throws {
+    /// Removes the addon and its folder. An app is stopped and its LaunchAgent removed first;
+    /// `purge` also deletes the user data it declared (`entry.app.dataPaths`).
+    public func uninstall(_ id: String, purge: Bool = false) throws {
+        guard let a = installed(id) else { throw StoreError.notFound(id) }
+        let manifest = a.kind == .app ? apps.manifest(a) : nil
+        if a.kind == .app { apps.deactivate(a, removeAgent: true) }
         try change { list in
             guard list.contains(where: { $0.id == id }) else { throw StoreError.notFound(id) }
             list.removeAll { $0.id == id }
         }
         try? fm.removeItem(at: root.appendingPathComponent(id, isDirectory: true))
+        if purge, let app = manifest?.entry.app {
+            for p in app.dataPaths ?? [] where AddonManifest.isSafePath(p) {
+                try? fm.removeItem(at: apps.home.appendingPathComponent(p, isDirectory: true))
+            }
+        }
     }
 
-    /// A revoked addon cannot be switched back on.
+    /// A revoked addon cannot be switched back on. Apps are stopped (off) or started (on).
     public func setEnabled(_ id: String, _ on: Bool) throws {
         try change { list in
             guard let i = list.firstIndex(where: { $0.id == id }) else { throw StoreError.notFound(id) }
             if case .revoked(let why) = list[i].disabled { if on { throw StoreError.revoked(why) } else { return } }
             list[i].disabled = on ? nil : .user
         }
+        guard let a = installed(id), a.kind == .app else { return }
+        if on { apps.activate(a) } else { apps.deactivate(a, removeAgent: true) }
     }
 
-    /// The panic path: every enabled addon off. Never throws; returns how many were on.
+    /// App addons: records the setup result (`ready`, `pending`, `failed: …`).
+    public func setSetup(_ id: String, _ value: String) throws {
+        try change { list in
+            guard let i = list.firstIndex(where: { $0.id == id }) else { throw StoreError.notFound(id) }
+            list[i].setup = value
+        }
+    }
+
+    /// The panic path: every enabled addon off, every app addon stopped without waiting (a
+    /// signal each). Never throws; returns how many were on.
     @discardableResult
     public func disableAll() -> Int {
         var count = 0
+        var stopped: [InstalledAddon] = []
         try? change { list in
             for i in list.indices where list[i].enabled {
                 list[i].disabled = .panic
                 count += 1
+                if list[i].kind == .app { stopped.append(list[i]) }
             }
         }
+        for a in stopped { apps.deactivate(a, removeAgent: true, wait: false) }
         return count
     }
 
@@ -220,6 +268,7 @@ public final class AddonStore: @unchecked Sendable {
                 }
             }
         }
+        for a in hit where a.kind == .app { apps.deactivate(a, removeAgent: true) }
         return hit
     }
 

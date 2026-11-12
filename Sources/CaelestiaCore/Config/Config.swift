@@ -581,7 +581,14 @@ public struct FrameConfig: Codable, Equatable, Sendable {
 
 /// Well-known paths. Never hard-code a username: everything derives from the home directory.
 public enum Paths {
-    public static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
+    /// The user's home, or `SKYROSE_HOME` for an isolated test run (config, addons, LaunchAgents
+    /// and logs all move under it, and app addons are never loaded into launchd).
+    public static var home: URL {
+        if let h = ProcessInfo.processInfo.environment["SKYROSE_HOME"], h.hasPrefix("/") { return URL(fileURLWithPath: h, isDirectory: true) }
+        return FileManager.default.homeDirectoryForCurrentUser
+    }
+    /// false under `SKYROSE_HOME`: nothing is loaded into the real launchd session.
+    public static var isLiveHome: Bool { ProcessInfo.processInfo.environment["SKYROSE_HOME"].map { !$0.hasPrefix("/") } ?? true }
     public static var configDir: URL { home.appendingPathComponent(".config/skyrose", isDirectory: true) }
     public static var configFile: URL { configDir.appendingPathComponent("config.toml") }
     public static var keymapFile: URL { configDir.appendingPathComponent("keymap.toml") }

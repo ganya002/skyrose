@@ -46,6 +46,7 @@ extension LocalCommands {
                 guard let entry = index.entry(id) else { throw StoreError.notFound(id) }
                 let a = try install(entry, addons: addons, config: config, yes: invocation.yes)
                 Console.out("Installed \(a.name) \(a.version).\(hint(a.kind))")
+                if a.kind == .app { try setup(a.id, addons: addons, json: invocation.json) }
                 reload(client)
             case .update(let id):
                 let index = try StoreSource.from(config).loadIndex()
@@ -55,12 +56,16 @@ extension LocalCommands {
                 for u in updates {
                     let a = try install(u.entry, addons: addons, config: config, yes: invocation.yes)
                     Console.out("Updated \(a.name) \(u.installed.version) → \(a.version).")
+                    if a.kind == .app { try setup(a.id, addons: addons, json: invocation.json) }
                 }
                 if !updates.isEmpty { reload(client) }
-            case .uninstall(let id):
-                try addons.uninstall(id)
-                Console.out("Removed \(id).")
+            case .uninstall(let id), .purge(let id):
+                let purge = { if case .purge = verb { return true } else { return false } }()
+                try addons.uninstall(id, purge: purge)
+                Console.out("Removed \(id)\(purge ? " and its data" : "").")
                 reload(client)
+            case .setup(let id):
+                try setup(id, addons: addons, json: invocation.json)
             case .enable(let id), .disable(let id):
                 let on = { if case .enable = verb { return true } else { return false } }()
                 try addons.setEnabled(id, on)
@@ -120,10 +125,30 @@ extension LocalCommands {
         }, progress: { p in if p.step != .done { Console.err("\(p.step.rawValue)…") } })
     }
 
+    /// Runs `AppInstaller` here, in the CLI process (never in the WM). `json`: one
+    /// `AppSetupEvent` per line on stdout, for the Store drawer.
+    private static func setup(_ id: String, addons: AddonStore, json: Bool) throws {
+        var last = ""
+        let installer = AppInstaller(store: addons) { e in
+            if json { Console.out(e.jsonLine); return }
+            let line = "\(e.title)\(e.detail.map { " · \($0)" } ?? "")"
+            guard line != last else { return }
+            last = line
+            if e.step == .download, e.bytes != nil, Console.stdinIsTerminal {
+                FileHandle.standardError.write(Data("\r\u{1B}[2K  \(line)".utf8))
+            } else {
+                Console.err("  \(line)")
+            }
+        }
+        let app = try installer.setup(id)
+        if !json { Console.out("Ready: \(app.path)") }
+    }
+
     private static func hint(_ kind: AddonKind) -> String {
         switch kind {
         case .scheme: return " Pick it in Settings › Appearance."
         case .wallpaper: return " It is in the wallpaper picker."
+        case .app: return " Setting it up (checks, pinned downloads, build)…"
         default: return ""
         }
     }

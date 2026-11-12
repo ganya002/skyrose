@@ -1,9 +1,10 @@
 # SkyStore
 
 SkyStore is where you browse, install, update and remove optional addons for SkyRose. This
-release installs **data addons**: colour schemes and wallpapers. Addons that run code (widgets,
-bar modules, keymaps, split-out features) are designed but not installable yet. See
-[skystore-security.md](skystore-security.md) for why.
+release installs **data addons** (colour schemes and wallpapers) and first-party **app addons**
+(whole macOS apps, like Sky, built on your Mac from reviewed source; see [App addons](#app-addons)).
+Addons that run code inside SkyRose (widgets, bar modules, keymaps, split-out features) are
+designed but not installable yet. See [skystore-security.md](skystore-security.md) for why.
 
 ## Using the Store
 
@@ -36,7 +37,8 @@ wallpaper picker as a group called `SkyStore/<name>`.
     skyrose store refresh               fetch the index, apply revocations, list updates
     skyrose store install <id> [--yes]  install (--yes allows new permissions without asking)
     skyrose store update [id] [--yes]   update one addon or all of them
-    skyrose store uninstall <id>
+    skyrose store setup <id> [--json]   app addons: check the Mac, fetch pinned runtimes, build, start
+    skyrose store uninstall <id> [--purge]   --purge also deletes an app's own data
     skyrose store enable|disable <id>
 
 ### Safety
@@ -61,6 +63,73 @@ per addon version).
 Where it lives: the Store is a shell drawer (`>store`, `skyrose store`); Settings › SkyStore is
 the fallback (Open, Creator mode). Uninstalling or turning off a wallpaper addon that is the
 current wallpaper leaves the desktop as it is: the picture stays until you pick another one.
+
+## App addons
+
+Kind `app`: a whole macOS app (Sky is the first). The bundle carries the app's **source** as one
+`.tar.gz`, pinned by SHA-256 in the manifest and so by the signed index, plus a declarative build
+recipe (`entry.app`). There are no install scripts. SkyRose's own installer does every step and the
+Store shows each one on the card's progress bar, with real bytes, speed and time left while
+downloading.
+
+1. **Preflight**, before anything is written: Apple Silicon (Intel Macs are refused with a clear
+   message), the app's minimum macOS (14 or newer), and enough free disk for the whole install.
+2. **Tools**: the Xcode Command Line Tools. If they are missing, Apple's own installer dialog opens
+   (`xcode-select --install`) and setup waits for it. SkyRose never runs `sudo`. If Apple's
+   installer needs an admin password, it asks for it in its own standard dialog.
+3. **Downloads**: only the artefacts the manifest pins (URL + SHA-256 + size), over HTTPS,
+   resumable. A wrong checksum stops the install. Archives are checked entry by entry before
+   unpacking, and links that leave their folder are refused. Each host must be declared as a
+   `network:<host>` permission. No Homebrew, no `curl | sh`.
+4. **Build**: `xcrun swift build -c release` for each product, from the source in the bundle.
+   Packages with remote dependencies are refused, so everything that is compiled was reviewed.
+5. **Bundle**: the `.app` is assembled from the recipe (its Info.plist must name the declared
+   bundle id), signed ad hoc, and swapped in. A running copy is stopped first; a failure keeps
+   the old app.
+6. **Activate**: command-line helpers go to `addons/<id>/bin/`, and with `launchAgent` and the
+   `login` permission a per-user LaunchAgent (`~/Library/LaunchAgents/<bundleID>.plist`) starts it.
+
+The installer runs out of process: the Store drawer starts `skyrose store setup <id> --json` and
+reads one JSON line per step. `skyrose store install <id>` runs the same setup in the CLI.
+
+Where things go (per user, nothing system-wide):
+
+    ~/Library/Application Support/SkyRose/addons/<id>/<version>/   the verified bundle
+    ~/Library/Application Support/SkyRose/addons/<id>/app/<Name>.app
+    ~/Library/Application Support/SkyRose/addons/<id>/deps/        pinned runtimes
+    ~/Library/Application Support/SkyRose/addons/<id>/bin/         helpers (skyctl)
+    ~/Library/Logs/SkyRose/addons/<id>.log                          setup log, app output
+
+Off, panic and revocation stop the app (its declared quit command, then SIGTERM) and remove its
+LaunchAgent; on puts the LaunchAgent back. Uninstall does the same and deletes the addon folder.
+The app's own data (`entry.app.dataPaths`, e.g. chats and models) stays unless you pass `--purge`.
+
+App permissions are shown before install like any other: `network:<host>`, `microphone`,
+`accessibility`, `keychain`, `login`, `notifications`, `windows`. macOS still asks for the
+microphone and Accessibility itself, per app; the app inherits none of SkyRose's permissions.
+For now only first-party ids (`dev.gabby.*`) may use the kind.
+
+`SKYROSE_HOME=/some/folder skyrose store …` runs the whole flow against a separate home (config,
+addons, LaunchAgents and logs under that folder, and nothing is loaded into launchd). Use it to
+test an app addon without touching the real install.
+
+    "entry": { "app": {
+      "bundleID": "dev.gabby.sky", "appName": "Sky",
+      "source": "source.tar.gz", "products": ["Sky", "sky-whisper"],
+      "infoPlist": "Packaging/Info.plist",
+      "copy": [ { "from": "source:Resources/personality", "to": "Contents/Resources/personality" },
+                { "from": "build:sky-whisper", "to": "Contents/MacOS/sky-whisper" } ],
+      "requires": ["xcode-clt"],
+      "downloads": [ { "id": "llama-cpp", "title": "llama.cpp b12317", "url": "https://github.com/…",
+                       "sha256": "…", "size": 16896114, "unpack": "tar.gz", "into": "deps/llama" } ],
+      "minMacOS": "14.0", "architectures": ["arm64"], "diskBytes": 900000000,
+      "cli": [ { "from": "source:bin/skyctl", "to": "skyctl" } ],
+      "stop": ["ctl", "quit"], "launchAgent": true,
+      "dataPaths": ["Library/Application Support/Sky"] } }
+
+`into` is `deps/<path>` (kept for the app at run time) or `source/<path>` (placed in the source
+tree before the build, for a binary framework). `copy.from` is `source:<path>`, `build:<product>`
+or `deps:<path>`; `copy.to` is under `Contents/`.
 
 ## Creator mode
 
@@ -105,7 +174,7 @@ and your own public keys in `store.trustedKeys`. Sign it with the index tools (b
       "author": "You",
       "version": "1.0.0",                   // numeric, 1 to 4 parts
       "minSkyRose": "0.4.0",
-      "kind": "scheme",                     // scheme | wallpaper (keymap | widget | feature: not yet)
+      "kind": "scheme",                     // scheme | wallpaper | app (keymap | widget | feature: not yet)
       "summary": "Soho vibes",              // at most 120 characters
       "description": "…",                   // optional
       "licence": "MIT",                     // SPDX id
@@ -118,8 +187,12 @@ and your own public keys in `store.trustedKeys`. Sign it with the index tools (b
     }
 
 Permissions are written `name` or `name:scope`: `network:<host>`, `files:<path>`, `notifications`,
-`media`, `clipboard`, `keybinds`, `windows`. They are for code addons, and SkyRose refuses any
-other name.
+`media`, `clipboard`, `keybinds`, `windows`, and for apps `microphone`, `accessibility`,
+`keychain`, `login`. They are for code addons, and SkyRose refuses any other name.
+
+A kind this SkyRose does not know is skipped, not an error, so a newer index never breaks the
+Store. SkyRose 0.4.1 and older do fail on an unknown kind: publish the first `app` entry only
+after the SkyRose release that knows the kind is out.
 
 ### index.json (+ index.json.sig)
 

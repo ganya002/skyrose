@@ -71,7 +71,7 @@ public final class StoreModel: ObservableObject {
 
     /// The grid for the current tab and search.
     public var visible: [StoreEntry] {
-        let all = (index?.addons ?? []).filter { $0.revoked == nil }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let all = (index?.addons ?? []).filter { $0.revoked == nil && $0.kind != .unknown }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if !query.trimmingCharacters(in: .whitespaces).isEmpty { return all.filter { $0.matches(query) } }
         switch tab {
         case .featured:
@@ -88,6 +88,8 @@ public final class StoreModel: ObservableObject {
     /// What the button for `entry` does next.
     public enum Action: Equatable, Sendable {
         case install, update(String), installed, revoked(String), needsNewerSkyRose, notSupported
+        /// An app addon whose build did not finish (or failed): run setup again.
+        case setup(String?)
     }
 
     public func action(for e: StoreEntry) -> Action {
@@ -97,6 +99,9 @@ public final class StoreModel: ObservableObject {
         let latest = e.latest(for: addons.skyRoseVersion)
         guard let a = installed(e.id) else { return latest == nil ? .needsNewerSkyRose : .install }
         if let latest, Updater.compare(a.version, latest.version) == .orderedAscending { return .update(latest.version) }
+        if a.kind == .app, a.enabled, a.setup != InstalledAddon.setupReady {
+            return .setup(a.setup.flatMap { $0.hasPrefix("failed: ") ? String($0.dropFirst(8)) : nil })
+        }
         return .installed
     }
 
@@ -179,7 +184,62 @@ public final class StoreModel: ObservableObject {
                     Task { @MainActor in if self.busy[id] != nil { self.busy[id] = p } }
                 })
             }
-            await MainActor.run { self.finish(id, result.map { _ in () }) }
+            await MainActor.run {
+                if case .success(let a) = result, a.kind == .app { self.installed = addons.installed(); self.runSetup(id); return }
+                self.finish(id, result.map { _ in () })
+            }
+        }
+    }
+
+    /// The command that builds an app addon: `skyrose store setup <id> --json`, run as a child
+    /// process (never inside the WM). Replaced in tests.
+    var setupCommand: (String) -> (URL, [String])? = { id in
+        let candidates = [Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("skyrose"),
+                          Paths.home.appendingPathComponent("Applications/SkyRose.app/Contents/MacOS/skyrose"),
+                          URL(fileURLWithPath: "/Applications/SkyRose.app/Contents/MacOS/skyrose")].compactMap { $0 }
+        guard let cli = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else { return nil }
+        return (cli, ["store", "setup", id, "--json"])
+    }
+
+    /// Builds (again) an installed app addon out of process, showing each `AppSetupEvent` line
+    /// (step, real bytes / speed / ETA while downloading) on the card's progress bar.
+    public func runSetup(_ id: String) {
+        guard busy[id] == nil || busy[id]?.step == .done || busy[id]?.setupFraction == nil else { return }
+        errors[id] = nil
+        guard let (exe, args) = setupCommand(id) else {
+            finish(id, .failure(StoreError.io("The skyrose command was not found next to SkyRose, so the app could not be built. Run: skyrose store setup \(id)")))
+            return
+        }
+        busy[id] = StoreProgress(setup: AppSetupEvent(.preflight, "Starting setup", fraction: 0))
+        Task.detached {
+            let p = Process()
+            p.executableURL = exe
+            p.arguments = args
+            let out = Pipe()
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            p.standardInput = FileHandle.nullDevice
+            var failure: String?
+            do {
+                try p.run()
+                var buffer = Data()
+                while true {
+                    let chunk = out.fileHandleForReading.availableData
+                    if chunk.isEmpty { break }
+                    buffer.append(chunk)
+                    while let nl = buffer.firstIndex(of: 0x0a) {
+                        let line = Data(buffer[..<nl])
+                        buffer.removeSubrange(...nl)
+                        guard let e = try? JSONDecoder().decode(AppSetupEvent.self, from: line) else { continue }
+                        if e.step == .failed { failure = e.title }
+                        await MainActor.run { if self.busy[id] != nil { self.busy[id] = StoreProgress(setup: e) } }
+                    }
+                }
+                p.waitUntilExit()
+                if p.terminationStatus != 0, failure == nil { failure = "Setup stopped (exit \(p.terminationStatus))." }
+            } catch { failure = error.localizedDescription }
+            let result: Result<Void, Error> = failure.map { .failure(StoreError.io($0)) } ?? .success(())
+            await MainActor.run { self.finish(id, result) }
         }
     }
 
