@@ -21,6 +21,21 @@ final class CatWMBridgeTests: XCTestCase {
         XCTAssertTrue(text.contains("catwm.lab.resizeAnimation = \"snapshot\""))
     }
 
+    func testCatWMSettingsReachTheConfig() {
+        var config = Config()
+        config.wm.catwm.layouts = ["tall", "nonsense", "floating"]
+        config.wm.catwm.floatingApps = ["com.apple.Calculator", "x\"y"]
+        config.wm.catwm.dragToSwap = false
+        config.wm.catwm.extra = "catwm.resizeStep = 10"
+        let text = CatWMConfigText.make(config, area: nil, visible: nil)
+        XCTAssertTrue(text.contains("catwm.layouts = [\"tall\", \"floating\"]"))
+        XCTAssertTrue(text.contains("catwm.floating.apps = [\"com.apple.Calculator\", \"x\\\"y\"]"))
+        XCTAssertTrue(text.contains("catwm.mouse.swapsWindows = false"))
+        XCTAssertTrue(text.hasSuffix("catwm.resizeStep = 10\n"))
+        config.wm.catwm.layouts = ["nonsense"]
+        XCTAssertTrue(CatWMConfigText.make(config, area: nil, visible: nil).contains("catwm.layouts = [\"dwindle\"]"))
+    }
+
     func testGameModeAndAnimationsOffStopMotion() {
         var config = Config()
         config.wm.gameMode = true

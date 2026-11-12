@@ -130,6 +130,18 @@ maxSplitRatio = 1.9
 minTileWidth = 120
 minTileHeight = 80
 
+# CatWM-only switches (Settings › CatWM). Gaps, focus and animations come from the rest of the file.
+[wm.catwm]
+# The layouts the cycle bind steps through; the first is where every workspace starts.
+layouts = ["dwindle", "floating"]
+dragToSwap = true
+dragToResize = true
+floatSmallWindows = true
+# Bundle IDs that always float; wildcards such as "com.adobe.*" work.
+floatingApps = []
+# Extra CatWM config lines (TypeScript), added last.
+extra = ""
+
 # Named special workspaces (scratchpads) and the app that owns each (functions.lua toggle()
 # + cli.json toggles). `apps` are bundle ids in preference order; `launch` runs when the
 # toggle finds no window on that workspace.

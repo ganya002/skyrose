@@ -19,7 +19,11 @@ public enum CatWMConfigText {
             "catwm.features.windows.tiling = true",
             "catwm.features.input.mouse = true",
             "catwm.workspaces.parked = true",
-            "catwm.layouts = [\"dwindle\", \"floating\"]",
+            "catwm.layouts = \(layouts(wm.catwm.layouts))",
+            "catwm.mouse.swapsWindows = \(wm.catwm.dragToSwap)",
+            "catwm.mouse.resizesWindows = \(wm.catwm.dragToResize)",
+            "catwm.floating.smallWindows = \(wm.catwm.floatSmallWindows)",
+            "catwm.floating.apps = \(list(wm.catwm.floatingApps))",
             "catwm.gaps.enabled = \(gap > 0)",
             "catwm.gaps.size = \(number(min(100, gap)))",
             "catwm.gaps.smart = false",
@@ -43,7 +47,18 @@ public enum CatWMConfigText {
                 lines.append("catwm.motion.curve = \"spring\"")
             }
         }
+        if !wm.catwm.extra.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { lines.append(wm.catwm.extra) }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    static func layouts(_ names: [String]) -> String {
+        let known = names.filter(CatWMSettings.knownLayouts.contains)
+        return list(known.isEmpty ? ["dwindle"] : known)
+    }
+
+    static func list(_ items: [String]) -> String {
+        "[" + items.map { "\"" + $0.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\"" }
+            .joined(separator: ", ") + "]"
     }
 
     static func padding(area: CGRect?, visible: CGRect?, fallback: Double) -> (left: Double, right: Double, top: Double, bottom: Double) {
