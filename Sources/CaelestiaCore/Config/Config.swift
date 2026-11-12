@@ -95,6 +95,11 @@ public struct Config: Codable, Equatable, Sendable {
     }
 }
 
+public enum WMEngine: String, Codable, Sendable, CaseIterable {
+    case catwm
+    case skyrose
+}
+
 public struct WMConfig: Codable, Equatable, Sendable {
     /// Gap on each side of a tiled window (Hyprland gaps_in). 5 → 10 px between neighbors.
     public var gapsIn: Double = 5
@@ -159,6 +164,9 @@ public struct WMConfig: Codable, Equatable, Sendable {
     public var focusOnActivate: Bool = true
     /// Game mode (Caelestia gameMode IPC): no animations/blur/gaps/borders/shadows.
     public var gameMode: Bool = false
+    /// Which window manager arranges the windows. CatWM (by Per William Krogstad-Østensen, used with
+    /// permission) is the default; SkyRose's own engine is still in progress and not recommended.
+    public var engine: WMEngine = .catwm
     /// Named special workspaces (scratchpads) and the app that owns each.
     public var specialWorkspaces: [String: SpecialWorkspaceConfig] = SpecialWorkspaceConfig.defaults
 

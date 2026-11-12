@@ -31,6 +31,9 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
+        // CatWM by Per William Krogstad-Østensen (@noxaur), used with permission; SkyRose's mods
+        // live on branch `skyrose` (docs/catwm-modding.md).
+        .package(path: "../CatWM"),
     ],
     targets: [
         // MARK: C shims for private symbols (weak-linked, runtime-checked)
@@ -108,10 +111,18 @@ let package = Package(
             swiftSettings: relaxed
         ),
 
+        // CatWM as SkyRose's window manager. The only target that imports CatWMKit.
+        .target(
+            name: "SkyRoseCatWM",
+            dependencies: ["CaelestiaWMKit", "CaelestiaCore", .product(name: "CatWMKit", package: "CatWM")],
+            path: "Sources/SkyRoseCatWM",
+            swiftSettings: relaxed
+        ),
+
         // MARK: Executables
         .executableTarget(
             name: "SkyRoseWM",
-            dependencies: ["CaelestiaWMKit"],
+            dependencies: ["CaelestiaWMKit", "SkyRoseCatWM"],
             path: "Sources/SkyRoseWM",
             swiftSettings: relaxed
         ),
@@ -182,6 +193,12 @@ let package = Package(
             name: "CaelestiaWMKitTests",
             dependencies: ["CaelestiaWMKit", "CaelestiaPlatform", "CaelestiaLayout", "CaelestiaIPC", "CaelestiaCore", "CaelestiaOverlay"],
             path: "Tests/CaelestiaWMKitTests",
+            swiftSettings: relaxed
+        ),
+        .testTarget(
+            name: "SkyRoseCatWMTests",
+            dependencies: ["SkyRoseCatWM", "CaelestiaCore", .product(name: "CatWMKit", package: "CatWM")],
+            path: "Tests/SkyRoseCatWMTests",
             swiftSettings: relaxed
         ),
         .testTarget(

@@ -106,6 +106,9 @@ unfullscreenOnFocus = true
 focusOnActivate = true
 # Caelestia gameMode IPC toggle: no animations/blur/gaps/borders/shadows.
 gameMode = false
+# Window manager: "catwm" (CatWM by Per William Krogstad-Østensen, used with permission; the
+# default) or "skyrose" (SkyRose's own engine; work in progress, not recommended).
+engine = "catwm"
 
 # general.lua dwindle = { preserve_split, smart_split, smart_resizing } + Hyprland defaults.
 [wm.dwindle]
