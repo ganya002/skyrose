@@ -1,5 +1,6 @@
 import AppKit
 import CaelestiaCore
+import CaelestiaPlatform
 import CaelestiaServices
 import SwiftUI
 
@@ -64,7 +65,27 @@ extension ShellController {
         popout.onMicMute = { [weak self] in self?.audio.toggleMicMuted() }
         popout.onWifi = { [weak self] on in self?.setWifi(on) }
         popout.onScan = { [weak self] in self?.scanNetworks() }
+        popout.onConnect = { [weak self] ssid, password in self?.wifiConnect(ssid, password: password) }
+        popout.onDisconnect = { [weak self] in self?.wifiDisconnect() }
+        popout.onForget = { [weak self] ssid in self?.wifiForget(ssid) }
+        popout.onAllowLocation = { [weak self] in self?.allowLocation() }
+        popout.onBluetoothPower = { [weak self] on in self?.bluetoothPower(on) }
+        popout.onBluetoothDevice = { [weak self] d in
+            guard let self else { return }
+            if d.connected { self.bluetooth.disconnect(d.address) } else { self.bluetooth.connect(d.address) }
+        }
+        popout.onBluetoothForget = { [weak self] d in self?.bluetooth.forget(d.address) }
+        popout.onBluetoothScan = { [weak self] in
+            guard let self else { return }
+            if self.bluetooth.scanning { self.bluetooth.stopScan() } else { self.bluetooth.startScan() }
+        }
+        popout.onBluetoothPair = { [weak self] d in self?.bluetooth.pair(d.address) }
+        popout.onBluetoothPIN = { [weak self] pin in self?.bluetooth.sendPIN(pin) }
+        popout.onBluetoothConfirm = { [weak self] ok in self?.bluetooth.confirm(ok) }
+        popout.onBluetoothCancel = { [weak self] in self?.bluetooth.cancelPairing() }
         popout.onOpenSettings = { [weak self] kind in self?.openSettings(for: kind) }
+        popout.onNeedsKey = { [weak self] in self?.updatePopoutKey() }
+        wireControls()
 
         wallpaperPicker.onPick = { [weak self] url in self?.transitionWallpaper(url) }
         wallpaperPicker.onRandom = { [weak self] in self?.randomWallpaper() }
@@ -87,7 +108,13 @@ extension ShellController {
             // A keep-awake also survives closing the lid (SleepDisabled 1 while it runs).
             if self.state.clamshell.hasLid { self.lidSleep.setKeepAwake(on) }
         }
-        bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b) }
+        bluetooth.onChange = { [weak self] b in self?.applyBluetooth(b); self?.resizePopout() }
+        bluetooth.onJob = { [weak self] j in self?.popout.btJob = j; self?.resizePopout() }
+        bluetooth.onNearby = { [weak self] list, scanning in
+            self?.popout.btNearby = list
+            self?.popout.btScanning = scanning
+            self?.resizePopout()
+        }
         bluetooth.start()
         clamshell.onChange = { [weak self] f in self?.state.clamshell = f }
         clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
@@ -132,6 +159,8 @@ extension ShellController {
         state.status.bluetoothAvailable = b.unavailableReason == nil
         state.status.bluetoothOn = b.poweredOn
         state.status.bluetoothDevices = b.connectedDevices
+        state.status.bluetoothPaired = b.paired
+        popout.btPairedCount = b.paired.count
     }
 
     // MARK: Drawers
@@ -327,8 +356,11 @@ extension ShellController {
         guard let kind = PopoutKind.forStatusIcon(icon), let bar = bars[display], let layout = layouts[display] else { return }
         if popoutKind == kind, popoutDisplay == display, !popoutByHover { closePopout(); return }
         let midY = bar.panel.frame.maxY - windowMidY
+        popout.expanded = true
         openPopout(kind, display: display, layout: layout, anchorMidY: midY)
         popoutByHover = false
+        // The Wi-Fi panel has a password field: it takes the keyboard.
+        updatePopoutKey()
     }
 
     /// `shell drawers toggle popout.audio|network|bluetooth|battery`: toggles a bar popout without a click.
@@ -346,6 +378,7 @@ extension ShellController {
         popoutLeaveTimer?.invalidate()
         popoutLeaveTimer = nil
         if popoutKind == kind, popoutDisplay == display { return }
+        popout.expanded = false
         openPopout(kind, display: display, layout: layout, anchorMidY: bar.panel.frame.maxY - windowMidY)
         popoutByHover = true
     }
@@ -388,8 +421,10 @@ extension ShellController {
         let bar = bars[id]?.panel.frame
         // Roughly where the item sits: the active window high up, the status icons near the bottom.
         let anchor = bar.map { $0.minY + $0.height * (kind == .activeWindow ? 0.7 : 0.2) } ?? layout.inner(barReveal: 1).midY
+        popout.expanded = true
         openPopout(kind, display: id, layout: layout, anchorMidY: anchor)
         popoutByHover = false
+        updatePopoutKey()
     }
 
     public func openPopout(_ kind: PopoutKind, display: String, layout: DisplayLayout, anchorMidY: Double) {
@@ -400,11 +435,27 @@ extension ShellController {
         let fillet = theme.frameRounding
         let panel = popoutPanel ?? makeDrawerPanel(PopoutView(model: popout, state: state, fillet: fillet), name: "popout", key: false)
         popoutPanel = panel
+        panel.acceptsKey = false
+        if panel.isKeyWindow { panel.resignKey() }
         popout.kind = kind
         if kind == .activeWindow { capturePreview() }
         if kind == .audio { popout.devices = audio.outputDevices() }
-        if kind == .bluetooth { bluetooth.refresh() }
-        if kind == .network { popout.networks = []; popout.scanMessage = nil }
+        if kind == .bluetooth {
+            if case .failed = popout.btJob { popout.btJob = .idle }
+            bluetooth.refresh()
+            bluetooth.refreshBatteries()
+            if !popout.expanded, bluetooth.scanning { bluetooth.stopScan() }
+        }
+        if kind == .controls { refreshControls() }
+        if kind == .network {
+            popout.networks = []; popout.scanMessage = nil
+            // A join or forget still running (panel or `skyrose wifi`) keeps its state: the CLI polls it.
+            switch popout.wifiJob {
+            case .connecting, .forgetting, .disconnecting: break
+            default: popout.passwordFor = nil; popout.wifiJob = .idle
+            }
+            popout.locationMissing = false
+        }
         let reveal = bars[display]?.reveal.target ?? 0
         let inner = layout.inner(barReveal: max(reveal, 1))
         let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
@@ -413,6 +464,7 @@ extension ShellController {
         present(panel)
         popout.shown = true
         popoutKind = kind
+        if kind == .network, popout.expanded, state.status.wifiEnabled { scanNetworks() }
         popoutDisplay = display
         // A popout grows out of the bar (Caelestia only opens them from it): show the bar if it is
         // auto-hidden (IPC / keybind opens), and hold it while the popout is open.
@@ -438,6 +490,7 @@ extension ShellController {
 
     public func closePopout() {
         guard popoutKind != nil else { return }
+        if popoutKind == .bluetooth, bluetooth.scanning { bluetooth.stopScan() }
         popoutByHover = false
         popoutLeaveTimer?.invalidate()
         popoutLeaveTimer = nil
@@ -457,7 +510,7 @@ extension ShellController {
         case .bluetooth: pane = "x-apple.systempreferences:com.apple.BluetoothSettings"
         case .battery: pane = "x-apple.systempreferences:com.apple.Battery-Settings.extension"
         case .audio: pane = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
-        case .activeWindow: closePopout(); return
+        case .activeWindow, .controls: closePopout(); return
         }
         closePopout()
         if let url = URL(string: pane) { openURL(url) }
@@ -476,18 +529,197 @@ extension ShellController {
             do {
                 popout.networks = try await network.availableNetworks()
                 if popout.networks.isEmpty { popout.scanMessage = "No networks found" }
+                popout.locationMissing = false
             } catch ServiceError.permissionMissing {
-                popout.scanMessage = "Network names are hidden until SkyRose is allowed to use Location (System Settings > Privacy & Security)."
+                popout.scanMessage = "macOS hides network names until SkyRose may use Location."
+                popout.locationMissing = true
             } catch {
                 popout.scanMessage = error.localizedDescription
             }
             popout.scanning = false
-            if let kind = popoutKind, let d = popoutDisplay, let layout = layouts[d], let panel = popoutPanel {
-                let fillet = theme.frameRounding
-                let inner = layout.inner(barReveal: 1)
-                let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
-                panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), edge: .left,
-                                                      room: theme.overshootRoom(depth: kind.width)), display: true)
+            resizePopout()
+        }
+    }
+
+    /// Key focus only while a password or PIN field shows, so a click on an icon never takes
+    /// the keyboard from the user's app.
+    func updatePopoutKey() {
+        guard let panel = popoutPanel, popoutKind != nil else { return }
+        let want = popout.needsKey
+        guard want != panel.acceptsKey else { return }
+        panel.acceptsKey = want
+        if want { panel.makeKey() } else if panel.isKeyWindow { panel.resignKey() }
+    }
+
+    /// Re-fits the open popout to its content (rows, password field and status come and go).
+    func resizePopout() {
+        guard let kind = popoutKind, let d = popoutDisplay, let layout = layouts[d], let panel = popoutPanel else { return }
+        let fillet = theme.frameRounding
+        let inner = layout.inner(barReveal: 1)
+        let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
+        panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), edge: .left,
+                                              room: theme.overshootRoom(depth: kind.width)), display: true)
+    }
+
+    // MARK: Wi-Fi (panel and `skyrose wifi`)
+
+    public func wifiPower(_ on: Bool) { setWifi(on) }
+
+    public func wifiScan() { scanNetworks() }
+
+    /// Joins `ssid`. The password only passes through to CoreWLAN.
+    public func wifiConnect(_ ssid: String, password: String?) {
+        popout.wifiJob = .connecting(ssid)
+        resizePopout()
+        Task { @MainActor in
+            do {
+                try await network.connect(ssid: ssid, password: password)
+                popout.passwordFor = nil
+                popout.wifiJob = .joined(ssid)
+                for i in popout.networks.indices {
+                    popout.networks[i].isCurrent = popout.networks[i].ssid == ssid
+                    if popout.networks[i].ssid == ssid { popout.networks[i].known = true }
+                }
+            } catch ServiceError.failed(let m) where m == NetworkService.needsPassword {
+                popout.wifiJob = .failed(ssid, m)
+                popout.passwordFor = ssid
+            } catch {
+                popout.wifiJob = .failed(ssid, error.localizedDescription)
+                if password != nil { popout.passwordFor = ssid }
+            }
+            resizePopout()
+        }
+    }
+
+    public func wifiDisconnect() {
+        popout.wifiJob = .disconnecting
+        network.disconnect()
+        for i in popout.networks.indices { popout.networks[i].isCurrent = false }
+        popout.wifiJob = .idle
+        resizePopout()
+    }
+
+    public func wifiForget(_ ssid: String) {
+        popout.wifiJob = .forgetting(ssid)
+        resizePopout()
+        Task { @MainActor in
+            do {
+                try await network.forget(ssid: ssid)
+                for i in popout.networks.indices where popout.networks[i].ssid == ssid { popout.networks[i].known = false }
+                popout.wifiJob = .idle
+            } catch {
+                popout.wifiJob = .failed(ssid, error.localizedDescription)
+            }
+            resizePopout()
+        }
+    }
+
+    // MARK: Bluetooth (panel and `skyrose bluetooth`)
+
+    public func bluetoothPower(_ on: Bool) {
+        do { try bluetooth.setPower(on) } catch { toast(.error, title: "Bluetooth", message: error.localizedDescription) }
+    }
+
+    /// Asks for Location (macOS's own prompt the first time, the System Settings pane after).
+    func allowLocation() {
+        if Permissions.undecided(.location) { _ = Permissions.request(.location) } else { Permissions.openSettings(for: .location) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            if Permissions.locationGranted { self?.scanNetworks() }
+        }
+    }
+
+    // MARK: Controls (the bar's Control Center)
+
+    private func wireControls() {
+        let c = popout.controls
+        c.onSetInput = { [weak self] id in
+            self?.audio.setInputDevice(id)
+            self?.popout.controls.inputDevices = self?.audio.inputDevices() ?? []
+        }
+        c.onInputSource = { [weak self] id in
+            InputSources.select(id)
+            self?.popout.controls.inputSources = InputSources.list()
+            self?.keyboard.refresh()
+        }
+        c.onNightShift = { [weak self] on in
+            guard let self else { return }
+            self.nightShift.set(on)
+            self.popout.controls.nightShift = self.nightShift.available ? self.nightShift.isOn : nil
+        }
+        c.onLowPower = { [weak self] on in self?.setLowPowerMode(on) }
+        c.onDND = { [weak self] on in self?.setDoNotDisturb(on) }
+        c.onFocusSettings = { [weak self] in
+            self?.closePopout()
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Focus-Settings.extension") { self?.openURL(url) }
+        }
+        c.onAirDrop = { [weak self] in
+            self?.closePopout()
+            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app/Contents/Applications/AirDrop.app"),
+                                               configuration: NSWorkspace.OpenConfiguration())
+        }
+        c.onBrightness = { [weak self] v in self?.brightness.set(v) }
+        c.onPlayPause = { [weak self] in self?.media.playPause() }
+        c.onNext = { [weak self] in self?.media.next() }
+        c.onPrevious = { [weak self] in self?.media.previous() }
+        c.onRaisePlayer = { [weak self] in self?.closePopout(); self?.media.raise() }
+        c.onExtra = { [weak self] extra in
+            self?.closePopout()
+            Task.detached { if !MenuExtras.press(extra) { await MainActor.run { self?.toast(.error, title: "Menu bar", message: "\(extra.appName) did not open its menu.") } } }
+        }
+        c.onShowMenuBar = { [weak self] in
+            self?.closePopout()
+            SystemMenuBar.peek()
+        }
+        c.onOpen = { [weak self] kind in
+            guard let self, let d = self.popoutDisplay, let layout = self.layouts[d], let panel = self.popoutPanel else { return }
+            self.popout.expanded = true
+            self.openPopout(kind, display: d, layout: layout, anchorMidY: panel.frame.midY)
+            self.popoutByHover = false
+            self.updatePopoutKey()
+        }
+    }
+
+    /// Reads what the Controls panel lists. Menu-bar items need one AX call per app: off the main thread.
+    func refreshControls() {
+        let c = popout.controls
+        popout.devices = audio.outputDevices()
+        c.inputDevices = audio.inputDevices()
+        c.inputSources = InputSources.list()
+        c.nightShift = nightShift.available ? nightShift.isOn : nil
+        c.brightnessAvailable = osd.brightnessAvailable
+        popout.controlsHeight = ControlsPanel.height(c, state)
+        guard !c.extrasLoading else { return }
+        c.extrasLoading = true
+        Task.detached { [weak self] in
+            let list = MenuExtras.list()
+            await MainActor.run {
+                guard let self else { return }
+                self.popout.controls.extras = list
+                self.popout.controls.extrasLoading = false
+                self.popout.controlsHeight = ControlsPanel.height(self.popout.controls, self.state)
+                if self.popoutKind == .controls { self.resizePopout() }
+            }
+        }
+    }
+
+    /// Low Power Mode is a root-only `pmset` setting: macOS asks for an administrator password.
+    func setLowPowerMode(_ on: Bool) {
+        let c = popout.controls
+        guard !c.lowPowerBusy else { return }
+        c.lowPowerBusy = true
+        let script = "do shell script \"/usr/bin/pmset -a lowpowermode \(on ? 1 : 0)\" with administrator privileges with prompt \"SkyRose wants to turn Low Power Mode \(on ? "on" : "off").\""
+        Task.detached { [weak self] in
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            p.arguments = ["-e", script]
+            p.standardOutput = FileHandle.nullDevice
+            p.standardError = FileHandle.nullDevice
+            let ok = (try? p.run()) != nil && { p.waitUntilExit(); return p.terminationStatus == 0 }()
+            await MainActor.run {
+                guard let self else { return }
+                self.popout.controls.lowPowerBusy = false
+                self.battery.refresh()
+                if !ok { self.toast(.info, title: "Low Power Mode", message: "Not changed (cancelled or not allowed).") }
             }
         }
     }
@@ -497,7 +729,7 @@ extension ShellController {
     func quickToggle(_ id: String) {
         switch id {
         case "wifi": setWifi(!state.status.wifiEnabled)
-        case "bluetooth": bluetooth.openSettings()
+        case "bluetooth": bluetoothPower(!state.status.bluetoothOn)
         case "dnd": setDoNotDisturb(!state.doNotDisturb)
         case "darkmode":
             if let url = URL(string: "x-apple.systempreferences:com.apple.Appearance-Settings.extension") { openURL(url) }

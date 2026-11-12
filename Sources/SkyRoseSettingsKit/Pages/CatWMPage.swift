@@ -1,4 +1,5 @@
 import CaelestiaCore
+import AppKit
 import SwiftUI
 
 /// Settings › CatWM: the window engine and the `[wm.catwm]` switches. SettingsRoot shows it as a
@@ -10,6 +11,8 @@ struct CatWMPage: View {
     /// The engine when the panel opened: a change only takes effect after a restart.
     @State private var startEngine: WMEngine?
     @State private var extra = ""
+    /// Escape goes back even when a text field has focus (the button's shortcut alone missed it).
+    @State private var escapeMonitor: Any?
 
     private var catwm: CatWMSettings { store.config.wm.catwm }
     private var onCatWM: Bool { store.config.wm.engine == .catwm }
@@ -34,6 +37,17 @@ struct CatWMPage: View {
         .onAppear {
             if startEngine == nil { startEngine = store.config.wm.engine }
             extra = catwm.extra
+            if escapeMonitor == nil {
+                escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { e in
+                    guard e.keyCode == 53, e.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty else { return e }
+                    onBack()
+                    return nil
+                }
+            }
+        }
+        .onDisappear {
+            if let m = escapeMonitor { NSEvent.removeMonitor(m) }
+            escapeMonitor = nil
         }
     }
 

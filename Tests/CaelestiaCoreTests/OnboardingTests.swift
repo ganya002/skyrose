@@ -48,6 +48,14 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(h.observe(lost), [.accessibility], "a new loss is reported again")
     }
 
+    func testTurningOffAnOptionalPermissionIsNotALoss() {
+        var h = PermissionHistory()
+        let everything = PermissionSnapshot(accessibility: true, inputMonitoring: true, screenRecording: true, location: true, bluetooth: true)
+        XCTAssertEqual(h.observe(everything), [])
+        let off = PermissionSnapshot(accessibility: true, inputMonitoring: true, screenRecording: true, location: false, bluetooth: false)
+        XCTAssertEqual(h.observe(off), [], "Location and Bluetooth off never reopen onboarding")
+    }
+
     func testHistorySaveLoad() {
         let url = dir.appendingPathComponent("seen.json")
         XCTAssertEqual(PermissionHistory.load(from: url), PermissionHistory())
@@ -84,4 +92,19 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingRequest.parse(only.arguments), only)
         XCTAssertEqual(OnboardingRequest.parse(["--onboarding", "--repair"]), .repair([]))
     }
+
+    func testLocationAndBluetoothAreOptionalAndOldSnapshotsDecode() throws {
+        XCTAssertFalse(SkyRosePermission.location.isRequired(in: .full))
+        XCTAssertFalse(SkyRosePermission.bluetooth.isRequired(in: .full))
+        let old = Data(#"{"accessibility":true,"inputMonitoring":true,"screenRecording":false}"#.utf8)
+        let s = try JSONDecoder().decode(PermissionSnapshot.self, from: old)
+        XCTAssertFalse(s.location)
+        XCTAssertFalse(s.bluetooth)
+        let all = PermissionSnapshot(accessibility: true, inputMonitoring: true, screenRecording: true, location: true, bluetooth: true)
+        XCTAssertEqual(all.granted, Set(SkyRosePermission.allCases))
+        XCTAssertEqual(all.simulatingMissing([.location]).granted, Set(SkyRosePermission.allCases).subtracting([.location]))
+        XCTAssertEqual(PermissionSnapshot.parseSimulated("location,bluetooth"), [.location, .bluetooth])
+        XCTAssertEqual(SkyRosePermission.location.settingsURL.absoluteString, "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
+    }
+
 }

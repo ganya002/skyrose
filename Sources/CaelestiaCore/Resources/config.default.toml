@@ -302,6 +302,8 @@ showTray = true
 showClock = true
 showStatusIcons = true
 showPower = true
+# A Controls button under the status icons: Control Center toggles and other apps' menu bar items.
+controlsButton = true
 # Matches shell.json bar.persistent = false: the bar slides in on hover and reserves no width.
 # Set true for an always-visible bar that reserves its width in the usable area.
 persistent = false

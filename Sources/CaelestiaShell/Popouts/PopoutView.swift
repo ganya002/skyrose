@@ -8,11 +8,14 @@ public enum PopoutKind: String, CaseIterable, Sendable {
     case audio, network, bluetooth, battery
     /// Hovering the bar's active-window column: the window's preview (Caelestia ActiveWindow popout).
     case activeWindow
+    /// The bar's Controls button: Control Center's toggles and the menu-bar apps (click only).
+    case controls
 
     /// Body width (Caelestia popout sizes: active window 400, audio / network 320, battery 250).
     public var width: Double {
         switch self {
         case .activeWindow: return 400
+        case .controls: return 340
         case .audio, .network: return 320
         case .bluetooth: return 300
         case .battery: return 250
@@ -21,7 +24,9 @@ public enum PopoutKind: String, CaseIterable, Sendable {
 
     /// What hovering a bar item shows (nil: nothing). Ids as `BarModel.onHover` reports them.
     public static func forBarItem(_ id: String) -> PopoutKind? {
-        id == "activeWindow" ? .activeWindow : forStatusIcon(id)
+        if id == "activeWindow" { return .activeWindow }
+        let kind = forStatusIcon(id)
+        return kind == .controls ? nil : kind
     }
 
     /// Which popout a bar status icon opens (nil: the icon has none).
@@ -31,9 +36,20 @@ public enum PopoutKind: String, CaseIterable, Sendable {
         case "network": return .network
         case "bluetooth": return .bluetooth
         case "battery": return .battery
+        case "controls": return .controls
         default: return nil
         }
     }
+}
+
+/// What the Wi-Fi panel is doing right now.
+public enum WiFiJob: Equatable, Sendable {
+    case idle
+    case connecting(String)
+    case disconnecting
+    case forgetting(String)
+    case joined(String)
+    case failed(String, String)
 }
 
 @MainActor
@@ -44,6 +60,39 @@ public final class PopoutModel: ObservableObject {
     @Published public var networks: [WiFiNetwork] = []
     @Published public var scanning = false
     @Published public var scanMessage: String?
+    /// Opened by a click (the full Wi-Fi panel) rather than a hover (Caelestia's summary).
+    @Published public var expanded = false
+    @Published public var wifiJob: WiFiJob = .idle
+    /// The network whose password field is open.
+    @Published public var passwordFor: String? { didSet { onNeedsKey() } }
+    @Published public var locationMissing = false
+    public var onConnect: (String, String?) -> Void = { _, _ in }
+    public var onDisconnect: () -> Void = {}
+    public var onForget: (String) -> Void = { _ in }
+    public var onAllowLocation: () -> Void = {}
+    @Published public var btJob: BluetoothJob = .idle { didSet { onNeedsKey() } }
+    /// A text field (Wi-Fi password, Bluetooth PIN) appeared or went: the controller gives or takes key focus.
+    public var onNeedsKey: () -> Void = {}
+    /// The open popout shows a field that needs the keyboard.
+    public var needsKey: Bool {
+        switch kind {
+        case .network: return expanded && passwordFor != nil
+        case .bluetooth: if case .pin = btJob { return expanded }; return false
+        default: return false
+        }
+    }
+    @Published public var btNearby: [BluetoothDevice] = []
+    @Published public var btScanning = false
+    public var onBluetoothPower: (Bool) -> Void = { _ in }
+    public var onBluetoothDevice: (BluetoothDevice) -> Void = { _ in }
+    public var onBluetoothForget: (BluetoothDevice) -> Void = { _ in }
+    public var onBluetoothScan: () -> Void = {}
+    public var onBluetoothPair: (BluetoothDevice) -> Void = { _ in }
+    public var onBluetoothPIN: (String) -> Void = { _ in }
+    public var onBluetoothConfirm: (Bool) -> Void = { _ in }
+    public var onBluetoothCancel: () -> Void = {}
+    /// Paired devices the panel shows (set with the status; sizes the window).
+    public var btPairedCount = 0
     /// The window the active-window popout shows, and its captured preview.
     @Published public var window: ActiveWindowInfo?
     @Published public var preview: CGImage?
@@ -55,16 +104,33 @@ public final class PopoutModel: ObservableObject {
     public var onWifi: (Bool) -> Void = { _ in }
     public var onScan: () -> Void = {}
     public var onOpenSettings: (PopoutKind) -> Void = { _ in }
+    public let controls = ControlsModel()
+    /// Set by the controller from ``ControlsPanel/height(_:_:)`` before sizing.
+    public var controlsHeight: Double = 0
     public init() {}
 
     /// Body height per kind (rows are fixed height so the window can be sized before it shows).
     public func bodyHeight(for kind: PopoutKind) -> Double {
         switch kind {
         case .audio: return 150 + Double(min(devices.count, 6)) * 40
-        case .network: return 190 + Double(min(networks.count, 6)) * 38 + (scanMessage == nil ? 0 : 40)
-        case .bluetooth: return 150
+        case .network:
+            guard expanded else { return 96 }
+            return 222 + Double(min(networks.count, 6)) * 40 + (scanMessage == nil ? 0 : 44) + (locationMissing ? 34 : 0)
+                + (passwordFor == nil ? 0 : 92) + (wifiJob == .idle ? 0 : 24)
+        case .bluetooth:
+            guard expanded else { return 60 + Double(max(1, min(btPairedCount, 4))) * 30 }
+            var h = 186 + Double(min(btPairedCount, 5)) * 42
+            if btScanning || !btNearby.isEmpty { h += 26 + Double(min(btNearby.count, 5)) * 36 }
+            switch btJob {
+            case .idle: break
+            case .pin: h += 96
+            case .confirm: h += 84
+            default: h += 24
+            }
+            return h
         case .battery: return 170
         case .activeWindow: return 74 + Self.previewHeight
+        case .controls: return controlsHeight
         }
     }
 
@@ -89,6 +155,7 @@ struct PopoutView: View {
                     case .bluetooth: BluetoothPopout(model: model, state: state)
                     case .battery: BatteryPopout(model: model, state: state)
                     case .activeWindow: ActiveWindowPopout(model: model)
+                    case .controls: ControlsPanel(model: model, controls: model.controls, state: state)
                     }
                 }
                 // Moving between bar items morphs the one popout; its content cross-fades.
@@ -216,6 +283,47 @@ private struct NetworkPopout: View {
     @Environment(\.shellTheme) var theme
 
     var body: some View {
+        if model.expanded { NetworkPanel(model: model, state: state) } else { summary }
+    }
+
+    /// Caelestia's hover popout: three plain lines.
+    private var summary: some View {
+        let s = state.status
+        return VStack(alignment: .leading, spacing: 12) {
+            if s.ethernetConnected {
+                line("Connected to: Ethernet")
+            } else if !s.wifiAvailable {
+                line("No Wi-Fi interface")
+            } else if !s.wifiEnabled {
+                line("Wi-Fi is off")
+            } else if s.wifiConnected {
+                line("Connected to: \(s.ssid ?? "")")
+                line("Strength: \(s.wifiPercent)/100")
+                line("Frequency: \(s.wifiFrequencyMHz.map { "\($0) MHz" } ?? "unknown")")
+            } else {
+                line("Not connected")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 12).padding(.top, 4)
+        .accessibilityIdentifier("popout.network")
+    }
+
+    private func line(_ text: String) -> some View {
+        Text(text).font(theme.sans(14)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+    }
+}
+
+/// The full Wi-Fi panel (a click on the bar's network icon): power, scan, join, leave, forget.
+private struct NetworkPanel: View {
+    @ObservedObject var model: PopoutModel
+    @ObservedObject var state: ShellState
+    @Environment(\.shellTheme) var theme
+    @State private var password = ""
+    @State private var reveal = false
+    @FocusState private var fieldFocused: Bool
+
+    var body: some View {
         let s = state.status
         VStack(alignment: .leading, spacing: 10) {
             PopHeader(icon: s.ethernetConnected ? "cable.connector" : (s.wifiEnabled ? "wifi" : "wifi.slash"),
@@ -226,9 +334,10 @@ private struct NetworkPopout: View {
                     Text("Wi-Fi").font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface])
                     Spacer()
                     Toggle("", isOn: Binding(get: { s.wifiEnabled }, set: { model.onWifi($0) })).toggleStyle(.switch).labelsHidden().tint(theme[.primary])
+                        .accessibilityLabel("Wi-Fi")
                 }
                 Button(action: model.onScan) {
-                    HStack { Text(model.scanning ? "Scanning..." : "Scan for networks"); Spacer(); MaterialIcon("refresh", size: 12, weight: .medium) }
+                    HStack { Text(model.scanning ? "Scanning…" : "Scan for networks"); Spacer(); MaterialIcon("refresh", size: 12, weight: .medium) }
                         .font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.primary])
                         .padding(.horizontal, 12).padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
@@ -236,19 +345,144 @@ private struct NetworkPopout: View {
                 if let m = model.scanMessage {
                     Text(m).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
                 }
-                ForEach(model.networks.prefix(6)) { n in
-                    HStack {
-                        MaterialIcon("wifi", size: 13).foregroundStyle(n.isCurrent ? theme[.primary] : theme[.onSurfaceVariant])
-                        Text(n.ssid).font(theme.sans(13, weight: n.isCurrent ? .semibold : .regular)).foregroundStyle(theme[.onSurface]).lineLimit(1)
-                        Spacer()
-                        if n.secured { MaterialIcon("lock.fill", size: 10).foregroundStyle(theme[.onSurfaceVariant]) }
-                    }.frame(height: 30).padding(.horizontal, 6)
+                if model.locationMissing {
+                    Button("Allow Location", action: model.onAllowLocation)
+                        .buttonStyle(.plain).font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onPrimary])
+                        .padding(.horizontal, 12).padding(.vertical, 6).background(Capsule().fill(theme[.primary]))
                 }
+                job
+                ForEach(model.networks.prefix(6)) { n in row(n, connected: s.wifiConnected && n.isCurrent) }
+                if let ssid = model.passwordFor { passwordField(ssid) }
             }
             Spacer(minLength: 0)
             SettingsLink(title: "Open Network settings") { model.onOpenSettings(.network) }
         }
+        .animation(theme.small, value: model.passwordFor)
+        .animation(theme.small, value: model.wifiJob)
         .accessibilityIdentifier("popout.network")
+    }
+
+    @ViewBuilder private var job: some View {
+        switch model.wifiJob {
+        case .idle: EmptyView()
+        case .connecting(let n): status("Connecting to \(n)…", theme[.onSurfaceVariant])
+        case .disconnecting: status("Disconnecting…", theme[.onSurfaceVariant])
+        case .forgetting(let n): status("Forgetting \(n)…", theme[.onSurfaceVariant])
+        case .joined(let n): status("Connected to \(n)", theme[.primary])
+        case .failed(_, let m): status(m, theme[.error])
+        }
+    }
+
+    private func status(_ text: String, _ color: Color) -> some View {
+        Text(text).font(theme.sans(11.5, weight: .medium)).foregroundStyle(color).lineLimit(1).frame(height: 16)
+            .accessibilityIdentifier("wifi.status")
+    }
+
+    private func busy(_ ssid: String) -> Bool {
+        switch model.wifiJob {
+        case .connecting(let n), .forgetting(let n): return n == ssid
+        default: return false
+        }
+    }
+
+    private func row(_ n: WiFiNetwork, connected: Bool) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                if connected { return }
+                if n.secured, !n.known {
+                    password = ""; reveal = false
+                    model.passwordFor = n.ssid
+                    fieldFocused = true
+                } else {
+                    model.passwordFor = nil
+                    model.onConnect(n.ssid, nil)
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    WifiBars(strength: n.strength).foregroundStyle(connected ? theme[.primary] : theme[.onSurfaceVariant])
+                    Text(n.ssid).font(theme.sans(13, weight: connected ? .semibold : .regular)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                    if n.secured { MaterialIcon("lock.fill", size: 10).foregroundStyle(theme[.onSurfaceVariant]) }
+                    Spacer(minLength: 4)
+                    if busy(n.ssid) {
+                        ProgressView().controlSize(.small)
+                    } else if connected {
+                        Text("Connected").font(theme.sans(11)).foregroundStyle(theme[.primary])
+                    } else if n.known {
+                        Text("Known").font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(n.ssid), \(n.secured ? "secured" : "open"), \(connected ? "connected" : (n.known ? "known" : "new"))")
+            if connected {
+                iconButton("close", "Disconnect from \(n.ssid)", action: model.onDisconnect)
+            }
+            if n.known {
+                iconButton("delete", "Forget \(n.ssid)") { model.onForget(n.ssid) }
+            }
+        }
+        .frame(height: 32).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(connected ? theme[.primary].opacity(0.10) : .clear))
+    }
+
+    private func iconButton(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            MaterialIcon(icon, size: 11, weight: .semibold).foregroundStyle(theme[.onSurfaceVariant])
+                .frame(width: 24, height: 24).background(Circle().fill(theme[.onSurface].opacity(0.07)))
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
+    }
+
+    private func passwordField(_ ssid: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Password for \(ssid)").font(theme.sans(11.5, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+            HStack(spacing: 6) {
+                Group {
+                    if reveal { TextField("Password", text: $password) } else { SecureField("Password", text: $password) }
+                }
+                .textFieldStyle(.plain).font(theme.sans(13)).foregroundStyle(theme[.onSurface])
+                .focused($fieldFocused)
+                .onSubmit(join)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
+                .accessibilityIdentifier("wifi.password")
+                iconButton(reveal ? "visibility_off" : "visibility", reveal ? "Hide password" : "Show password") { reveal.toggle() }
+            }
+            HStack {
+                Button("Cancel") { password = ""; model.passwordFor = nil }
+                    .buttonStyle(.plain).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                Spacer()
+                Button("Join", action: join)
+                    .buttonStyle(.plain).font(theme.sans(12, weight: .semibold)).foregroundStyle(theme[.onPrimary])
+                    .padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(theme[.primary]))
+                    .disabled(password.isEmpty)
+            }
+        }
+        .onAppear { fieldFocused = true }
+    }
+
+    private func join() {
+        guard let ssid = model.passwordFor, !password.isEmpty else { return }
+        let secret = password
+        password = ""
+        model.onConnect(ssid, secret)
+    }
+}
+
+/// Four signal bars, the lit ones by strength (0...4).
+private struct WifiBars: View {
+    var strength: Int
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 1.5) {
+            ForEach(0..<4) { i in
+                RoundedRectangle(cornerRadius: 1).frame(width: 3, height: 4 + Double(i) * 3).opacity(i < strength ? 1 : 0.25)
+            }
+        }
+        .frame(width: 18, height: 14, alignment: .bottom)
+        .accessibilityHidden(true)
     }
 }
 
@@ -258,20 +492,192 @@ private struct BluetoothPopout: View {
     @Environment(\.shellTheme) var theme
 
     var body: some View {
+        if model.expanded { BluetoothPanel(model: model, state: state) } else { summary }
+    }
+
+    /// Hover: the radio and what is connected, with battery.
+    private var summary: some View {
+        let s = state.status
+        let connected = s.bluetoothPaired.filter(\.connected)
+        return VStack(alignment: .leading, spacing: 12) {
+            if !s.bluetoothAvailable {
+                line("No Bluetooth controller")
+            } else if !s.bluetoothOn {
+                line("Bluetooth is off")
+            } else if connected.isEmpty {
+                line("Bluetooth on, nothing connected")
+            } else {
+                ForEach(connected.prefix(4)) { d in
+                    line(d.name + (BluetoothText.battery(d).map { ": \($0)" } ?? ""))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 12).padding(.top, 4)
+        .accessibilityIdentifier("popout.bluetooth")
+    }
+
+    private func line(_ text: String) -> some View {
+        Text(text).font(theme.sans(14)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+    }
+}
+
+enum BluetoothText {
+    /// "80%", or "L 80% R 75% Case 40%" for earbuds.
+    static func battery(_ d: BluetoothDevice) -> String? {
+        let t = BluetoothDevice.batteryText(d)
+        return t.isEmpty ? nil : t
+    }
+
+    static func icon(_ kind: String) -> String {
+        switch kind {
+        case "headphones": return "headphones"
+        case "keyboard": return "keyboard"
+        case "mouse": return "mouse"
+        case "phone": return "smartphone"
+        case "computer": return "laptop"
+        case "speaker": return "speaker"
+        default: return "bluetooth"
+        }
+    }
+}
+
+/// The full Bluetooth panel (a click on the bar's Bluetooth icon).
+private struct BluetoothPanel: View {
+    @ObservedObject var model: PopoutModel
+    @ObservedObject var state: ShellState
+    @Environment(\.shellTheme) var theme
+    @State private var pin = ""
+    @FocusState private var pinFocused: Bool
+
+    var body: some View {
         let s = state.status
         VStack(alignment: .leading, spacing: 10) {
             PopHeader(icon: "dot.radiowaves.left.and.right", title: "Bluetooth",
                       subtitle: !s.bluetoothAvailable ? "No Bluetooth controller" : (s.bluetoothOn ? "On" : "Off"))
-            if s.bluetoothDevices.isEmpty {
-                Text(s.bluetoothOn ? "No connected devices" : "Turn Bluetooth on in System Settings").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
-            }
-            ForEach(s.bluetoothDevices.prefix(5), id: \.self) { d in
-                HStack { MaterialIcon("checkmark.circle.fill", size: 13).foregroundStyle(theme[.primary]); Text(d).font(theme.sans(13)).foregroundStyle(theme[.onSurface]).lineLimit(1); Spacer() }
+            if s.bluetoothAvailable {
+                HStack {
+                    Text("Bluetooth").font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface])
+                    Spacer()
+                    Toggle("", isOn: Binding(get: { s.bluetoothOn }, set: { model.onBluetoothPower($0) })).toggleStyle(.switch).labelsHidden().tint(theme[.primary])
+                        .accessibilityLabel("Bluetooth")
+                }
+                job
+                if s.bluetoothOn {
+                    if s.bluetoothPaired.isEmpty {
+                        Text("No paired devices").font(theme.sans(12)).foregroundStyle(theme[.onSurfaceVariant])
+                    }
+                    ForEach(s.bluetoothPaired.prefix(5)) { d in pairedRow(d) }
+                    Button(action: model.onBluetoothScan) {
+                        HStack { Text(model.btScanning ? "Looking for devices… (stop)" : "Pair new device"); Spacer(); MaterialIcon("add", size: 12, weight: .medium) }
+                            .font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.primary])
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
+                    }.buttonStyle(.plain)
+                    if model.btScanning || !model.btNearby.isEmpty {
+                        Text(model.btNearby.isEmpty ? "Put the device in pairing mode…" : "Nearby").font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant])
+                        ForEach(model.btNearby.prefix(5)) { d in nearbyRow(d) }
+                    }
+                }
             }
             Spacer(minLength: 0)
             SettingsLink(title: "Open Bluetooth settings") { model.onOpenSettings(.bluetooth) }
         }
+        .animation(theme.small, value: model.btJob)
+        .animation(theme.small, value: model.btNearby)
         .accessibilityIdentifier("popout.bluetooth")
+    }
+
+    private func busy(_ d: BluetoothDevice) -> Bool {
+        switch model.btJob {
+        case .connecting(let n), .disconnecting(let n), .removing(let n), .pairing(let n): return n == d.name
+        default: return false
+        }
+    }
+
+    private func pairedRow(_ d: BluetoothDevice) -> some View {
+        HStack(spacing: 8) {
+            Button { model.onBluetoothDevice(d) } label: {
+                HStack(spacing: 8) {
+                    MaterialIcon(BluetoothText.icon(d.kind), size: 13).foregroundStyle(d.connected ? theme[.primary] : theme[.onSurfaceVariant]).frame(width: 18)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(d.name).font(theme.sans(13, weight: d.connected ? .semibold : .regular)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                        Text(d.connected ? (BluetoothText.battery(d).map { "Connected · \($0)" } ?? "Connected") : "Not connected")
+                            .font(theme.sans(10.5)).foregroundStyle(d.connected ? theme[.primary] : theme[.onSurfaceVariant]).lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    if busy(d) { ProgressView().controlSize(.small) }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(d.connected ? "Disconnect" : "Connect")
+            .accessibilityLabel("\(d.name), \(d.connected ? "connected, click to disconnect" : "not connected, click to connect")")
+            Button { model.onBluetoothForget(d) } label: {
+                MaterialIcon("delete", size: 11, weight: .semibold).foregroundStyle(theme[.onSurfaceVariant])
+                    .frame(width: 24, height: 24).background(Circle().fill(theme[.onSurface].opacity(0.07)))
+            }
+            .buttonStyle(.plain).help("Forget \(d.name)").accessibilityLabel("Forget \(d.name)")
+        }
+        .frame(height: 34).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(d.connected ? theme[.primary].opacity(0.10) : .clear))
+    }
+
+    private func nearbyRow(_ d: BluetoothDevice) -> some View {
+        Button { model.onBluetoothPair(d) } label: {
+            HStack(spacing: 8) {
+                MaterialIcon(BluetoothText.icon(d.kind), size: 13).foregroundStyle(theme[.onSurfaceVariant]).frame(width: 18)
+                Text(d.name).font(theme.sans(13)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                Spacer(minLength: 4)
+                if busy(d) { ProgressView().controlSize(.small) } else { Text("Pair").font(theme.sans(11, weight: .semibold)).foregroundStyle(theme[.primary]) }
+            }
+            .frame(height: 30).padding(.horizontal, 6).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Pair \(d.name)")
+    }
+
+    @ViewBuilder private var job: some View {
+        switch model.btJob {
+        case .idle: EmptyView()
+        case .connecting(let n): status("Connecting \(n)…", theme[.onSurfaceVariant])
+        case .disconnecting(let n): status("Disconnecting \(n)…", theme[.onSurfaceVariant])
+        case .pairing(let n): status("Pairing with \(n)…", theme[.onSurfaceVariant])
+        case .removing(let n): status("Forgetting \(n)…", theme[.onSurfaceVariant])
+        case .failed(let m): status(m, theme[.error])
+        case .pin(let n):
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Type the PIN shown on \(n) (often 0000)").font(theme.sans(11.5, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                TextField("PIN", text: $pin)
+                    .textFieldStyle(.plain).font(theme.sans(13)).focused($pinFocused)
+                    .onSubmit { model.onBluetoothPIN(pin); pin = "" }
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
+                HStack {
+                    Button("Cancel", action: model.onBluetoothCancel).buttonStyle(.plain).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                    Spacer()
+                    Button("Pair") { model.onBluetoothPIN(pin); pin = "" }.buttonStyle(.plain).font(theme.sans(12, weight: .semibold))
+                        .foregroundStyle(theme[.onPrimary]).padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(theme[.primary]))
+                        .disabled(pin.isEmpty)
+                }
+            }
+            .onAppear { pinFocused = true }
+        case .confirm(let n, let number):
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Does \(n) show this number?").font(theme.sans(11.5, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                Text(String(format: "%06u", number)).font(theme.mono(22)).foregroundStyle(theme[.onSurface])
+                HStack {
+                    Button("No") { model.onBluetoothConfirm(false) }.buttonStyle(.plain).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurfaceVariant])
+                    Spacer()
+                    Button("Yes, pair") { model.onBluetoothConfirm(true) }.buttonStyle(.plain).font(theme.sans(12, weight: .semibold))
+                        .foregroundStyle(theme[.onPrimary]).padding(.horizontal, 14).padding(.vertical, 5).background(Capsule().fill(theme[.primary]))
+                }
+            }
+        }
+    }
+
+    private func status(_ text: String, _ color: Color) -> some View {
+        Text(text).font(theme.sans(11.5, weight: .medium)).foregroundStyle(color).lineLimit(2).fixedSize(horizontal: false, vertical: true)
     }
 }
 

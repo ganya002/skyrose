@@ -148,6 +148,7 @@ public final class ShellController {
     public let network = NetworkService()
     public let battery = BatteryService()
     public let keyboard = KeyboardLayoutService()
+    public let nightShift = NightShiftService()
     private let counts = LaunchCounts()
     public var runSession: (SessionAction) -> Void = SessionCommands.run
 
@@ -1202,6 +1203,8 @@ public final class ShellController {
         state.status.wifiConnected = s.wifiConnected
         state.status.ssid = s.ssid
         state.status.wifiStrength = s.wifiStrength
+        state.status.wifiPercent = s.rssi.map(NetworkState.percent(fromRSSI:)) ?? (s.wifiConnected ? 100 : 0)
+        state.status.wifiFrequencyMHz = s.frequencyMHz
         state.status.ethernetConnected = s.ethernetConnected
     }
 

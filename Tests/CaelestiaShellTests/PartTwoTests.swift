@@ -171,6 +171,13 @@ final class QuickToggleTests: XCTestCase {
         XCTAssertNil(PopoutKind.forStatusIcon("kbLayout"))
         XCTAssertNil(PopoutKind.forStatusIcon("lockStatus"))
     }
+
+    /// The Controls button opens on click only: hovering it must not pop the panel open.
+    func testControlsOpensOnClickNotHover() {
+        XCTAssertEqual(PopoutKind.forStatusIcon("controls"), .controls)
+        XCTAssertNil(PopoutKind.forBarItem("controls"))
+        XCTAssertEqual(PopoutKind.forBarItem("network"), .network)
+    }
 }
 
 final class DashboardLogicTests: XCTestCase {

@@ -113,7 +113,9 @@ public final class SettingsStore: ObservableObject {
                 let snap = PermissionSnapshot(
                     accessibility: v["accessibility"]?.boolValue ?? false,
                     inputMonitoring: v["inputMonitoring"]?.boolValue ?? false,
-                    screenRecording: v["screenRecording"]?.boolValue ?? false
+                    screenRecording: v["screenRecording"]?.boolValue ?? false,
+                    location: v["location"]?.boolValue ?? false,
+                    bluetooth: v["bluetooth"]?.boolValue ?? false
                 )
                 self.updatePermissions(snap, from: .wm)
             case .failure(.busy):

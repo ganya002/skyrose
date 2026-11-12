@@ -1,17 +1,22 @@
 import Foundation
 
-/// The three permissions SkyRose asks for, and nothing else (Automation, Location and
-/// Microphone are asked by macOS only when you use the feature that needs them).
+/// The permissions SkyRose asks for (Automation and Microphone are asked by macOS only when you
+/// use the feature that needs them). Location and Bluetooth are optional, for the Wi-Fi and
+/// Bluetooth panels.
 public enum SkyRosePermission: String, Codable, CaseIterable, Sendable, Hashable {
     case accessibility
     case inputMonitoring
     case screenRecording
+    case location
+    case bluetooth
 
     public var title: String {
         switch self {
         case .accessibility: return "Accessibility"
         case .inputMonitoring: return "Input Monitoring"
         case .screenRecording: return "Screen Recording"
+        case .location: return "Location"
+        case .bluetooth: return "Bluetooth"
         }
     }
 
@@ -21,6 +26,8 @@ public enum SkyRosePermission: String, Codable, CaseIterable, Sendable, Hashable
         case .accessibility: return "Lets SkyRose move, resize and focus your windows. This is what tiling is."
         case .inputMonitoring: return "Lets SkyRose hear its keyboard shortcuts, like ⌥ + T for a terminal."
         case .screenRecording: return "Lets SkyRose take still pictures of windows so they can glide smoothly. Nothing is saved or sent anywhere."
+        case .location: return "macOS only shows Wi-Fi network names to apps with Location. SkyRose uses it for the Wi-Fi panel, never to track you."
+        case .bluetooth: return "Lets the Bluetooth panel list, connect and pair your devices."
         }
     }
 
@@ -30,6 +37,8 @@ public enum SkyRosePermission: String, Codable, CaseIterable, Sendable, Hashable
         case .accessibility: return "Nothing tiles."
         case .inputMonitoring: return "No keyboard shortcuts."
         case .screenRecording: return "Windows jump instead of gliding."
+        case .location: return "The Wi-Fi panel can't see network names, so you can't pick a network there."
+        case .bluetooth: return "The Bluetooth panel can't show or connect devices."
         }
     }
 
@@ -39,6 +48,8 @@ public enum SkyRosePermission: String, Codable, CaseIterable, Sendable, Hashable
         case .accessibility: return "Accessibility"
         case .inputMonitoring: return "Input Monitoring"
         case .screenRecording: return "Screen & System Audio Recording"
+        case .location: return "Location Services"
+        case .bluetooth: return "Bluetooth"
         }
     }
 
@@ -49,12 +60,18 @@ public enum SkyRosePermission: String, Codable, CaseIterable, Sendable, Hashable
         case .accessibility: anchor = "Privacy_Accessibility"
         case .inputMonitoring: anchor = "Privacy_ListenEvent"
         case .screenRecording: anchor = "Privacy_ScreenCapture"
+        case .location: anchor = "Privacy_LocationServices"
+        case .bluetooth: anchor = "Privacy_Bluetooth"
         }
         return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")!
     }
 
+    /// Location and Bluetooth only serve the Wi-Fi and Bluetooth panels: turning them off is a
+    /// choice, never a reason to reopen onboarding.
+    public var isOptional: Bool { self == .location || self == .bluetooth }
+
     /// Required in a mode, or only recommended (Screen Recording is never required).
-    public func isRequired(in mode: GeneralConfig.Mode) -> Bool { self != .screenRecording }
+    public func isRequired(in mode: GeneralConfig.Mode) -> Bool { self == .accessibility || self == .inputMonitoring }
 
     /// macOS applies a new Screen Recording grant only after the app restarts.
     public var needsRestartAfterGrant: Bool { self == .screenRecording }
@@ -66,11 +83,27 @@ public struct PermissionSnapshot: Codable, Equatable, Sendable {
     public var accessibility: Bool
     public var inputMonitoring: Bool
     public var screenRecording: Bool
+    public var location: Bool
+    public var bluetooth: Bool
 
-    public init(accessibility: Bool, inputMonitoring: Bool, screenRecording: Bool) {
+    public init(accessibility: Bool, inputMonitoring: Bool, screenRecording: Bool, location: Bool = false, bluetooth: Bool = false) {
         self.accessibility = accessibility
         self.inputMonitoring = inputMonitoring
         self.screenRecording = screenRecording
+        self.location = location
+        self.bluetooth = bluetooth
+    }
+
+    private enum CodingKeys: String, CodingKey { case accessibility, inputMonitoring, screenRecording, location, bluetooth }
+
+    /// Snapshots written before Location and Bluetooth existed decode with both off.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accessibility = try c.decode(Bool.self, forKey: .accessibility)
+        inputMonitoring = try c.decode(Bool.self, forKey: .inputMonitoring)
+        screenRecording = try c.decode(Bool.self, forKey: .screenRecording)
+        location = try c.decodeIfPresent(Bool.self, forKey: .location) ?? false
+        bluetooth = try c.decodeIfPresent(Bool.self, forKey: .bluetooth) ?? false
     }
 
     public static let none = PermissionSnapshot(accessibility: false, inputMonitoring: false, screenRecording: false)
@@ -80,6 +113,8 @@ public struct PermissionSnapshot: Codable, Equatable, Sendable {
         case .accessibility: return accessibility
         case .inputMonitoring: return inputMonitoring
         case .screenRecording: return screenRecording
+        case .location: return location
+        case .bluetooth: return bluetooth
         }
     }
 
@@ -93,6 +128,8 @@ public struct PermissionSnapshot: Codable, Equatable, Sendable {
         if missing.contains(.accessibility) { s.accessibility = false }
         if missing.contains(.inputMonitoring) { s.inputMonitoring = false }
         if missing.contains(.screenRecording) { s.screenRecording = false }
+        if missing.contains(.location) { s.location = false }
+        if missing.contains(.bluetooth) { s.bluetooth = false }
         return s
     }
 
@@ -120,7 +157,7 @@ public struct PermissionHistory: Codable, Equatable, Sendable {
     /// not reported yet). The caller opens the onboarding permission step for exactly those.
     public mutating func observe(_ snapshot: PermissionSnapshot) -> [SkyRosePermission] {
         var lost: [SkyRosePermission] = []
-        for p in SkyRosePermission.allCases {
+        for p in SkyRosePermission.allCases where !p.isOptional {
             if snapshot.isGranted(p) {
                 everGranted.insert(p)
                 reportedLost.remove(p)

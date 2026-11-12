@@ -3,6 +3,7 @@ import CaelestiaCore
 import CaelestiaIPC
 import CaelestiaLayout
 import CaelestiaPlatform
+import CaelestiaServices
 import CaelestiaShell
 import Foundation
 
@@ -186,7 +187,7 @@ public final class ShellBridge: ShellHost {
         case .shellDrawersToggle where (request.string("drawer") ?? "").lowercased().hasPrefix("popout."):
             let name = String((request.string("drawer") ?? "").lowercased().dropFirst("popout.".count))
             guard let kind = PopoutKind.allCases.first(where: { $0.rawValue.lowercased() == name }) else {
-                return fail("unknown popout \(name); use audio, network, bluetooth, battery or activeWindow")
+                return fail("unknown popout \(name); use audio, network, bluetooth, battery, controls or activeWindow")
             }
             controller.togglePopout(kind)
             return ok()
@@ -217,6 +218,52 @@ public final class ShellBridge: ShellHost {
             var o: [String: JSONValue] = ["enabled": .bool(ka.isEnabled), "status": .string(ka.statusText)]
             if let u = ka.until { o["until"] = .string(ISO8601DateFormatter().string(from: u)) }
             return ok(.object(o))
+        case .wifi:
+            let ssid = request.string("ssid") ?? ""
+            switch request.string("action") ?? "status" {
+            case "status": break
+            case "on", "off": controller.wifiPower(request.string("action") == "on")
+            case "scan": controller.wifiScan()
+            case "disconnect": controller.wifiDisconnect()
+            case "connect":
+                guard !ssid.isEmpty else { return fail("connect needs ssid") }
+                controller.wifiConnect(ssid, password: request.string("password"))
+            case "forget":
+                guard !ssid.isEmpty else { return fail("forget needs ssid") }
+                controller.wifiForget(ssid)
+            default: return fail("action must be status, on, off, scan, connect, disconnect or forget")
+            }
+            return ok(Self.wifiStatus(controller))
+        case .bluetooth:
+            let bt = controller.bluetooth
+            let query = (request.string("device") ?? "").lowercased()
+            let target = bt.state.paired.first { $0.address.lowercased() == query || $0.name.lowercased() == query }
+            switch request.string("action") ?? "status" {
+            case "status": bt.refreshBatteries()
+            case "on", "off": controller.bluetoothPower(request.string("action") == "on")
+            case "connect", "disconnect":
+                guard let target else { return fail("no paired device called \(request.string("device") ?? "")") }
+                if request.string("action") == "connect" { bt.connect(target.address) } else { bt.disconnect(target.address) }
+            default: return fail("action must be status, on, off, connect or disconnect")
+            }
+            var job = "idle"
+            switch bt.job {
+            case .idle: break
+            case .connecting(let n): job = "connecting \(n)"
+            case .disconnecting(let n): job = "disconnecting \(n)"
+            case .pairing(let n): job = "pairing \(n)"
+            case .pin(let n): job = "PIN for \(n)"
+            case .confirm(let n, _): job = "confirm \(n)"
+            case .removing(let n): job = "forgetting \(n)"
+            case .failed(let m): job = "failed: \(m)"
+            }
+            return ok(.object([
+                "enabled": .bool(bt.state.poweredOn), "job": .string(job),
+                "devices": .array(bt.state.paired.map { d in
+                    .object(["name": .string(d.name), "address": .string(d.address), "connected": .bool(d.connected), "kind": .string(d.kind),
+                             "battery": .string(BluetoothDevice.batteryText(d))])
+                }),
+            ]))
         case .clamshell:
             let cm = controller.clamshell
             let lid = controller.lidSleep
@@ -285,6 +332,34 @@ public final class ShellBridge: ShellHost {
     }
 
     // MARK: ShellHost
+
+    /// What `skyrose wifi` prints: the radio, the connection, the last scan and the running job.
+    static func wifiStatus(_ controller: ShellController) -> JSONValue {
+        let s = controller.state.status
+        let p = controller.popout
+        var job: [String: JSONValue]
+        switch p.wifiJob {
+        case .idle: job = ["state": .string("idle")]
+        case .connecting(let n): job = ["state": .string("connecting"), "ssid": .string(n)]
+        case .disconnecting: job = ["state": .string("disconnecting")]
+        case .forgetting(let n): job = ["state": .string("forgetting"), "ssid": .string(n)]
+        case .joined(let n): job = ["state": .string("connected"), "ssid": .string(n)]
+        case .failed(let n, let m): job = ["state": .string("failed"), "ssid": .string(n), "message": .string(m)]
+        }
+        var o: [String: JSONValue] = [
+            "enabled": .bool(s.wifiEnabled), "connected": .bool(s.wifiConnected), "ethernet": .bool(s.ethernetConnected),
+            "strength": .number(Double(s.wifiPercent)), "scanning": .bool(p.scanning), "locationMissing": .bool(p.locationMissing),
+            "job": .object(job),
+            "networks": .array(p.networks.map { n in
+                .object(["ssid": .string(n.ssid), "strength": .number(Double(NetworkState.percent(fromRSSI: n.rssi))), "rssi": .number(Double(n.rssi)),
+                         "secured": .bool(n.secured), "known": .bool(n.known), "current": .bool(n.isCurrent)])
+            }),
+        ]
+        if let n = s.ssid { o["ssid"] = .string(n) }
+        if let f = s.wifiFrequencyMHz { o["frequency"] = .number(Double(f)) }
+        if let m = p.scanMessage { o["scanMessage"] = .string(m) }
+        return .object(o)
+    }
 
     public func shellFocusWorkspace(_ number: Int, display: String) {
         guard let wm else { return }

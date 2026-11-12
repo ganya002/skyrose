@@ -296,7 +296,7 @@ struct StatusColumn: View {
     @Environment(\.shellTheme) var theme
 
     var body: some View {
-        let enabled = state.config.bar.statusIcons.filter(\.enabled).map(\.id)
+        let enabled = state.config.bar.statusIcons.filter(\.enabled).map(\.id) + (state.config.bar.controlsButton ? ["controls"] : [])
         VStack(spacing: 10) {
             ForEach(enabled, id: \.self) { id in
                 if let symbol = symbol(for: id) {
@@ -326,6 +326,7 @@ struct StatusColumn: View {
             return s.wifiConnected ? "wifi" : "wifi.exclamationmark"
         case "bluetooth": return s.bluetoothOn ? "dot.radiowaves.left.and.right" : nil
         case "kbLayout": return "keyboard"
+        case "controls": return "tune"
         case "battery":
             guard s.hasBattery else { return nil }
             if s.batteryCharging { return "battery.100percent.bolt" }
@@ -342,6 +343,7 @@ struct StatusColumn: View {
         case "network": return s.ssid ?? (s.wifiConnected ? "Connected" : "Not connected")
         case "battery": return "\(s.batteryPercent)%"
         case "kbLayout": return s.keyboardLayout
+        case "controls": return "Controls: Wi-Fi, Bluetooth, sound, brightness, Night Shift, menu bar apps"
         default: return id
         }
     }

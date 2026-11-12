@@ -1,12 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 (2026-11-12)
+
+CatWM tiles the windows, and the bar takes over Wi-Fi, Bluetooth and Control Center. https://github.com/ganya002/skyrose/releases/tag/v0.5.0
 
 - **CatWM is the window manager.** Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur), https://github.com/noxaur/CatWM, used with permission. SkyRose keeps its bar, panels, binds and IPC; CatWM tiles the windows (Hyprland dwindle with `togglesplit`, `swapsplit`, `pseudo`, `pin` and special workspaces). SkyRose's own engine stays available as `[wm] engine = "skyrose"` (work in progress, not recommended).
 - **Settings › CatWM.** The settings window morphs into a CatWM panel: the engine switch (with a restart button), the layouts the cycle bind steps through and the start layout, drag to swap and resize, floating for small windows and chosen apps, and extra CatWM config lines. These live in `[wm.catwm]`.
 - **Fix: floating windows no longer vanish** when sent to another workspace (or group). They used to stay parked off-screen when that workspace was shown.
 - **Smooth window motion.** Workspace slides and tiling moves run at the display's refresh rate (60 fps on a MacBook Air, 120 on a ProMotion MacBook Pro). The display link no longer lets macOS drop to 30 fps, and borders follow an animation without querying the window server every frame (ticks went from ~8 ms to under 1 ms).
 - **Motion options in Settings › CatWM.** Curve (SkyRose's, ease-out, ease-in-out, linear, spring, bounce, overshoot), speed (SkyRose's, fast, normal, slow) and bounciness: `[wm.catwm] motionStyle`, `motionSpeed`, `motionBounce`.
+- **Volume and brightness display in Caelestia's layout.** Two tall sliders slide out of the right edge, joined to the frame. The knob shows the percentage while the value moves; drag and scroll change it; it hides after 2 seconds.
+- **Media tab in Caelestia's layout.** Round cover art that turns while playing, inside a radial visualiser fed by the real audio spectrum; title, album and artist; transport with the round play-pause; a seek bar with a handle and times; the source pill (brings the player forward), player switch and close; lyrics; the bongo cat on the right. Works with any Now Playing source.
+- **Wi-Fi that works from the bar.** Hover the network icon for the connected network, strength and frequency; click for the full panel: Wi-Fi on/off, scan, join open and secured networks (password field with show/hide, Enter joins, wrong-password error), leave, forget, and live Connecting/Connected/Failed states. Passwords go straight to macOS (CoreWLAN) and are never stored or logged by SkyRose. `skyrose wifi status|on|off|scan|connect|disconnect|forget`. Scanning needs Location: it is in onboarding and the permissions pages.
+- **Bluetooth panel.** On/off, paired devices with battery levels, connect/disconnect on click, pair new devices (PIN and number confirmation), forget. `skyrose bluetooth status|on|off|connect|disconnect`. Bluetooth permission is in onboarding.
+- **Controls button** (`bar.controlsButton`, under the status icons): Wi-Fi, Bluetooth, SkyRose Do Not Disturb (with a link to macOS Focus, which apps cannot switch), Night Shift, Low Power Mode (macOS asks for an administrator password: `pmset` needs root), AirDrop (opens the AirDrop window; who can see you is set there, as there is no API for it), volume and output/input device pickers with mic mute, brightness, keyboard input source, now playing, and other apps' menu bar items. On macOS 26 and later every menu bar item is drawn by MenuBarAgent, and third-party items were not reachable through Accessibility in testing: the panel then says so and Super + Shift + B shows the real menu bar for 5 seconds.
 
 ## 0.4.1 (2026-11-11)
 
