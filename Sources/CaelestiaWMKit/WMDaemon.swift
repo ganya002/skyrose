@@ -32,7 +32,9 @@ public final class WMDaemon {
     private var permissionTimer: Timer?
     private var permissionHistory = PermissionHistory.load()
 
-    public init() {
+    /// `engines` builds the external engine `wm.engine` names (nil: SkyRose's own). Changing the
+    /// engine takes a restart.
+    public init(engines: @MainActor (WMEngine) -> (any WindowEngine)? = { _ in nil }) {
         // One-time move of a pre-rename install (~/.config/caelestia-mac, …/CaelestiaMac) before
         // anything reads the new folders. Skipped while an old CaelestiaWM still runs.
         let legacyRunning = LaunchChecks.runningProcessNames().contains("CaelestiaWM")
@@ -52,6 +54,7 @@ public final class WMDaemon {
         wm = WindowManager(
             windowSystem: AXWindowSystem(), displayProvider: DisplayMonitor(), config: config.effective, rules: rules, keymap: keymap
         )
+        wm.engine = engines(config.effective.wm.engine)
     }
 
     /// Never returns.
@@ -147,6 +150,7 @@ public final class WMDaemon {
         wm.onQuit = { [weak self] in self?.terminate() }
         // A restart keeps every window's workspace and side (Paths.sessionSnapshot).
         wm.sessionStore = SessionSnapshotStore()
+        wm.handoffURL = EngineHandoff.defaultURL
         wm.userFloatLedgerURL = Paths.userFloatLedger
         // Native shell part 1: frame, bar, launcher, session menu, OSDs, toasts (CaelestiaShell).
         let shell = ShellBridge(wm: wm)

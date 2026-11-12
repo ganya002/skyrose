@@ -1,0 +1,66 @@
+# Modding CatWM for SkyRose (read this before touching CatWM)
+
+SkyRose's default window manager is CatWM by Per William Krogstad-Østensen (@noxaur,
+https://github.com/noxaur/CatWM), used with permission. SkyRose runs a modded CatWM: Per's `main` plus
+a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRose WM, WIP, not recommended").
+
+## Hard rules
+
+- Never push to noxaur/CatWM, never open PRs, issues or tags there. The clone's push URL is
+  `DISABLED-do-not-push-to-CatWM`; keep it that way. Mods live on branch `skyrose`, pushed only to
+  Gabby's fork (remote `fork`, https://github.com/ganya002/CatWM).
+- Never force-push anything.
+- Gabby has given permission to change CatWM freely (2026-11-12). Keep each mod a separate, small,
+  self-contained commit so it can be replayed on a new upstream version.
+
+## Where things are
+
+- CatWM clone: `~/Projects/CatWM`, branch `skyrose` = `origin/main` + the mods listed below.
+- `SKYROSE.md` in the CatWM branch lists the mods from CatWM's side (what each one changes and why).
+- Fork: https://github.com/ganya002/CatWM (created by Gabby 2026-11-12). Push with `git push fork skyrose`
+  only. SkyRose pins `CatWMKit` to a commit of the fork (`Package.swift`); bump the revision after pushing a
+  mod. To edit CatWM next to SkyRose: `swift package edit CatWM --path ../CatWM`, then `swift package unedit CatWM`.
+- SkyRose never imports CatWMKit outside `Sources/SkyRoseCatWM/`. The shell talks to the WM through the
+  same interface for both engines.
+
+## Updating to a new CatWM version
+
+1. `cd ~/Projects/CatWM && git fetch origin` (fetch only; push stays disabled).
+2. `git switch skyrose && git merge origin/main` (merge, not rebase: the branch is pushed to the fork and
+   force-push is banned). Conflicts: keep upstream's new structure and re-apply the mod's intent; the mod
+   list below says what each mod must achieve.
+3. `swift build` and `swift test` in CatWM, then `/usr/bin/swift test` in SkyRose.
+4. Live-check every bind in `docs/catwm-migration.md` with TestWindows.
+5. Update the mod list below and `SKYROSE.md` if a mod changed or became unnecessary (upstream may adopt it).
+6. `git push fork skyrose`.
+
+## The mods (keep in sync with SKYROSE.md in the CatWM branch)
+
+| # | Mod | Why SkyRose needs it | State |
+|---|---|---|---|
+| M1 | Parked workspaces: workspaces on the current Desktop, hidden ones parked in a corner | SkyRose/Hyprland workspaces must not be macOS Desktops | done: CatWM d586da8, `ParkedWorkspacesTests`, 914 CatWM tests pass |
+| M2 | Per-window commands (optional `window` id on window commands) | app rules, CLI, panic act on a given window | done: CatWM 82c8d86, `WindowTargetTests`, 916 CatWM tests pass |
+| M3 | `CatWMEngine.onWindowFrames` (in-flight frames per animation frame) + snapshot glide in embedded mode | borders follow windows; Hyprland glide via CatWM's own Bézier/duration/snapshot settings, no host-driven animation | done: CatWM 0e81281, `WindowFramesHookTests`, engine test, 918 CatWM tests pass |
+| M4 | Dwindle layout + `togglesplit`, `swapsplit`, `splitratio` per split, `resizeactive DX DY`; M4b `pseudo`, `pin` | Hyprland behaviour and binds | done: CatWM 145e15b + b005985, `DwindleTests`, 925 CatWM tests pass |
+| M5 | Special workspace: `special:<name>`, `togglespecialworkspace` | Hyprland scratchpad binds | done: CatWM 5ff17dd, parked tests, 926 CatWM tests pass |
+| M6 | Hyprland groups: `togglegroup`, `lockactivegroup`, armed groups collect new windows; `tabs`/`tabsLocked`/`tabBehind` in `windows` | Hyprland group binds and SkyRose group bar | done: CatWM 688d1be + da5f52d + 0f5a49d, `HyprlandGroupTests` |
+| M7 | Focus a new window of the frontmost app when macOS reports no focused window | new app windows got no focus border | done: CatWM 654a359, test in `HyprlandGroupTests` |
+| M8 | `gaps.single` (`single-window-padding`): extra space around a lone tiled window | SkyRose `gapsOutSingle` | done: CatWM 98b7246, `SingleWindowPaddingTests` |
+| M9 | Window motion display link pinned to the screen's full refresh rate (60 Hz Air, 120 Hz ProMotion), no 30 fps floor | workspace slides dropped frames | done: CatWM 258a705; measured 15.4–17.0 ms per frame on a 60 Hz Air |
+
+## Settings › CatWM
+
+`[wm.catwm]` holds the CatWM-only switches; `CatWMConfigText` turns them into `catwm.layouts`,
+`catwm.mouse.swapsWindows`, `catwm.mouse.resizesWindows`, `catwm.floating.smallWindows`,
+`catwm.floating.apps`, then the user's `extra` lines last (so they can override anything).
+Unknown layout names are dropped; an empty list falls back to `dwindle`. Gaps, focus and motion
+stay in `[wm]`/`[animations]` so both engines read the same keys. Switching `wm.engine` needs a
+restart: the page offers one.
+
+## CatWM checks (learned the hard way)
+
+- Use `/usr/bin/swift` (the swiftly 6.1.2 toolchain on PATH fails on the manifest).
+- `Tools/check-style.sh` bans comments in CatWM sources and tests: put the why in `SKYROSE.md`.
+- After an option change, regenerate without installing or restarting the user's CatWM:
+  `/usr/bin/swift build -c debug --product CatWM && .build/debug/CatWM --write-schema && .build/debug/CatWM --write-config-docs && python3 Tools/generate-clients.py`, then delete `Tools/__pycache__`.
+- Fake-backend tests: `Tests/Fakes/FakeBackend.swift`, `fake.makeManager { $0.parkedWorkspaces = true }`, `await fake.settle(manager)`.

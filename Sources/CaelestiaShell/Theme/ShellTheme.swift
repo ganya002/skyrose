@@ -420,6 +420,8 @@ public enum ShellIcon {
         case "unfold_less": return "chevron.down.chevron.up"
         case "folder_open": return "folder"
         case "draft": return "doc"
+        case "brightness_1", "brightness_2", "brightness_3": return "sun.min.fill"
+        case "brightness_4", "brightness_5", "brightness_6", "brightness_7": return "sun.max.fill"
         default:
             if let hit = fromSF.first(where: { $0.value.0 == material })?.key { return hit }
             return material

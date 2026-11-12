@@ -40,6 +40,27 @@ final class OverlayControllerTests: XCTestCase {
         }
     }
 
+    func testMovingFrameOfSameWindowsSkipsWindowServerQueryAndReorder() {
+        var queries = 0
+        let c = OverlayController(
+            style: .gabby, table: .gabbySpringy, ticking: .manual,
+            makeSurface: { [unowned self] in let s = FakeSurface(); self.made.append(s); return s },
+            clock: { [clock] in clock.now }, realFrame: { _ in nil },
+            onScreen: { ids in queries += 1; return ids })
+        c.apply(OverlayScene(borders: [border(1), border(2)]))
+        XCTAssertEqual(queries, 1)
+        let orders = fake(c, 1).orderedAbove.count
+        let renders = fake(c, 1).renders.count
+        clock.now = 5
+        c.apply(OverlayScene(borders: [border(1, CGRect(x: 40, y: 0, width: 100, height: 100)), border(2)]), moving: true)
+        XCTAssertEqual(queries, 1)
+        XCTAssertEqual(fake(c, 1).orderedAbove.count, orders)
+        XCTAssertGreaterThan(fake(c, 1).renders.count, renders)
+        c.apply(OverlayScene(borders: [border(1), border(2), border(3)]), moving: true)
+        XCTAssertEqual(queries, 2)
+        XCTAssertEqual(Set(c.surfaces.keys), [1, 2, 3])
+    }
+
     func testInstantRemovalClosesSurfaceInSameCall() {
         let c = makeController()
         c.apply(OverlayScene(borders: [border(1), border(2)]))

@@ -45,6 +45,18 @@ final class ConfigAPITests: XCTestCase {
         XCTAssertTrue(text.contains("[wm]"))
     }
 
+    func testCatWMSectionRoundTrips() throws {
+        let api = ConfigAPI(file: file)
+        try api.set("wm.engine", .string("skyrose"))
+        try api.set("wm.catwm.layouts", .literal("[\"tall\", \"floating\"]"))
+        try api.set("wm.catwm.extra", .string("catwm.a = 1\n\tcatwm.b = \"x\""))
+        let config = api.load()
+        XCTAssertEqual(config.wm.engine, .skyrose)
+        XCTAssertEqual(config.wm.catwm.layouts, ["tall", "floating"])
+        XCTAssertEqual(config.wm.catwm.extra, "catwm.a = 1\n\tcatwm.b = \"x\"")
+        XCTAssertTrue(text.contains("[wm.catwm]"))
+    }
+
     func testSetPreservesCommentsAndOtherKeys() throws {
         try Data("# my config\n[wm]\n# gaps between windows\ngapsIn = 5.0\nborderSize = 2\n".utf8).write(to: file)
         let api = ConfigAPI(file: file)

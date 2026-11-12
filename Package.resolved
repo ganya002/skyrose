@@ -1,6 +1,14 @@
 {
-  "originHash" : "f2198fdbaa3459f87f449588549e95477d5b105aaed58ae56289e723f789d96b",
+  "originHash" : "3b911baf08ea6fcc6493cacfb548675cc38e39e0f2a47efa38d12654c02da4f3",
   "pins" : [
+    {
+      "identity" : "catwm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ganya002/CatWM.git",
+      "state" : {
+        "revision" : "258a7058095fc5c26f255aaa66c4a3304df31495"
+      }
+    },
     {
       "identity" : "tomlkit",
       "kind" : "remoteSourceControl",

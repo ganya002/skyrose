@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Settings pages, in sidebar order.
 public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
-    case general, appearance, windows, rules, keybinds, shell, store, terminal, sipOff, permissions, backup, about
+    case general, appearance, windows, catwm, rules, keybinds, shell, store, terminal, sipOff, permissions, backup, about
     public var id: String { rawValue }
 
     public var title: String {
@@ -11,6 +11,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .general: return "General"
         case .appearance: return "Appearance"
         case .windows: return "Windows"
+        case .catwm: return "CatWM"
         case .rules: return "Window rules"
         case .keybinds: return "Keybinds"
         case .shell: return "Bar and Shell"
@@ -28,6 +29,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .general: return "slider.horizontal.3"
         case .appearance: return "paintpalette"
         case .windows: return "macwindow.on.rectangle"
+        case .catwm: return "pawprint.fill"
         case .rules: return "rectangle.3.group"
         case .keybinds: return "keyboard"
         case .shell: return "sidebar.left"
@@ -48,6 +50,8 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
 public struct SettingsRoot: View {
     @ObservedObject var store: SettingsStore
     @State var page: SettingsPage
+    /// The page to go back to from the CatWM panel.
+    @State private var previous: SettingsPage = .general
     var onClose: () -> Void
     var onRunOnboarding: () -> Void
     var onUninstall: (Bool) -> Void
@@ -64,6 +68,42 @@ public struct SettingsRoot: View {
 
     public var body: some View {
         let look = store.look
+        ZStack {
+            if page == .catwm {
+                catwmPanel(look)
+            } else {
+                settings(look)
+            }
+        }
+        .overlay(alignment: .bottom) { banner(look) }
+        .background(PanelBackground())
+        .environment(\.look, look)
+        .frame(minWidth: 860, minHeight: 600)
+    }
+
+    /// The CatWM panel: its background is the sidebar row's, grown to the whole window
+    /// (`matchedGeometryEffect`), and the page fades in on top once it has room.
+    private func catwmPanel(_ look: SettingsLook) -> some View {
+        ScrollView {
+            CatWMPage(store: store, onBack: { withAnimation(look.motion.morph) { page = previous } })
+                .padding(.horizontal, 40).padding(.top, 34).padding(.bottom, 30)
+                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity)
+        }
+        .scrollIndicators(.never)
+        .transition(.asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: look.motion.reduceMotion ? 1 : 0.96)).animation(look.motion.morph.delay(look.motion.reduceMotion ? 0 : 0.12)),
+            removal: .opacity.animation(.easeOut(duration: 0.1))))
+        .background {
+            RoundedRectangle(cornerRadius: SettingsLook.insetPanelRadius, style: .circular)
+                .fill(look[.primaryContainer].opacity(0.35))
+                .matchedGeometryEffect(id: "catwm.morph", in: ns)
+                .padding(SettingsLook.panelInset)
+        }
+        .accessibilityIdentifier("catwm.panel")
+    }
+
+    private func settings(_ look: SettingsLook) -> some View {
         HStack(spacing: 0) {
             sidebar(look)
             ScrollView {
@@ -77,11 +117,7 @@ public struct SettingsRoot: View {
             }
             .scrollIndicators(.never)
         }
-        .overlay(alignment: .bottom) { banner(look) }
-        .background(PanelBackground())
-        .environment(\.look, look)
-        .animation(look.motion.page, value: page)
-        .frame(minWidth: 860, minHeight: 600)
+        .transition(.opacity.combined(with: .scale(scale: look.motion.reduceMotion ? 1 : 1.03)))
     }
 
     private func sidebar(_ look: SettingsLook) -> some View {
@@ -103,7 +139,12 @@ public struct SettingsRoot: View {
             ForEach(SettingsPage.allCases) { p in
                 let selected = p == page
                 Button {
-                    withAnimation(look.motion.page) { page = p }
+                    if p == .catwm {
+                        previous = page
+                        withAnimation(look.motion.morph) { page = p }
+                    } else {
+                        withAnimation(look.motion.page) { page = p }
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: p.icon).font(.system(size: 13, weight: .medium)).frame(width: 18)
@@ -120,6 +161,8 @@ public struct SettingsRoot: View {
                     .background {
                         if selected {
                             Capsule().fill(look[.secondaryContainer]).matchedGeometryEffect(id: "pill", in: ns)
+                        } else if p == .catwm {
+                            Capsule().fill(look[.primaryContainer].opacity(0.35)).matchedGeometryEffect(id: "catwm.morph", in: ns)
                         }
                     }
                     .contentShape(Capsule())
@@ -156,6 +199,7 @@ public struct SettingsRoot: View {
         case .general: GeneralPage(store: store, onRunOnboarding: onRunOnboarding)
         case .appearance: AppearancePage(store: store)
         case .windows: WindowsPage(store: store)
+        case .catwm: CatWMPage(store: store, onBack: { page = previous })
         case .rules: RulesPage(store: store)
         case .keybinds: KeybindsPage(store: store)
         case .shell: ShellPage(store: store)

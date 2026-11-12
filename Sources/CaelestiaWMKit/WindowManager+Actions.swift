@@ -33,6 +33,11 @@ extension WindowManager {
             return true
         }
         guard isManaging else { return false }
+        if let engine {
+            if let done = engine.perform(action) { return done }
+            onUnhandledAction?(action)
+            return false
+        }
         let env = environment
         let wm = config.wm
         let focused = state.focusedWindow

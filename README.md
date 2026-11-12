@@ -163,6 +163,10 @@ Always use the Xcode toolchain (`xcrun swift`), not a swift.org toolchain.
 
 ## Credits and license
 
+Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur), https://github.com/noxaur/CatWM, used with permission.
+SkyRose runs CatWM (Apache-2.0) with a few SkyRose changes on the `skyrose` branch of
+https://github.com/ganya002/CatWM; see [docs/catwm-modding.md](docs/catwm-modding.md).
+
 SkyRose (formerly "Caelestia for Mac") is re-created from scratch in Swift; the look and
 behaviour follow [Caelestia](https://github.com/caelestia-dots/shell) (GPL-3.0) and
 [Hyprland](https://hyprland.org). Ideas from [AeroSpace](https://github.com/nikitabobko/AeroSpace)

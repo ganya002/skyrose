@@ -29,6 +29,12 @@ public struct SettingsMotion: Equatable, Sendable {
     /// Cards appearing, the success check (≈300 ms, a touch of overshoot).
     public var pop: Animation { spring(0.30, bounce: 0.25) }
 
+    /// The Settings window turning into the CatWM panel and back (≈550 ms, longer than `page`
+    /// on purpose: the whole window changes shape).
+    public var morph: Animation {
+        reduceMotion ? .easeInOut(duration: 0.12) : .spring(duration: min(0.8, max(0.3, 0.55 / (speed > 0 ? speed : 1))), bounce: 0.2)
+    }
+
     public func spring(_ seconds: Double, bounce: Double) -> Animation {
         if reduceMotion { return .easeInOut(duration: 0.12) }
         return .spring(duration: Self.clamped(seconds, speed: speed), bounce: bounce)

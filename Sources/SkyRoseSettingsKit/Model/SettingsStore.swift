@@ -214,6 +214,14 @@ public final class SettingsStore: ObservableObject {
         set("wm.closeQuitsAppExceptions", .literal(literal), update: { $0.wm.closeQuitsAppExceptions = unique })
     }
 
+    /// Sets a string-list key, de-duplicated and without empty entries.
+    public func setList(_ keyPath: WritableKeyPath<Config, [String]>, _ path: String, _ values: [String]) {
+        var unique: [String] = []
+        for v in values where !v.isEmpty && !unique.contains(v) { unique.append(v) }
+        let literal = "[" + unique.map { ConfigValue.string($0).toml }.joined(separator: ", ") + "]"
+        set(path, .literal(literal), update: { $0[keyPath: keyPath] = unique })
+    }
+
     /// Writes everything pending now (also called when a slider is released).
     public func flush() {
         flushTimer?.invalidate()

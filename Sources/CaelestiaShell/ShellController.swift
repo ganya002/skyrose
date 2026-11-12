@@ -183,6 +183,8 @@ public final class ShellController {
         session.onClose = { [weak self] in self?.close(.session) }
         osd.onSetVolume = { [weak self] v in self?.audio.setVolume(v); self?.pokeOSD() }
         osd.onSetBrightness = { [weak self] v in self?.brightness.set(v); self?.pokeOSD() }
+        osd.onStepVolume = { [weak self] d in self?.audio.step(Double(d) * AudioService.volumeStep); self?.pokeOSD() }
+        osd.onStepBrightness = { [weak self] d in self?.brightness.step(up: d > 0); self?.pokeOSD() }
         wirePartTwo()
     }
 

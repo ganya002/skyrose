@@ -9,6 +9,7 @@ import ScreenCaptureKit
 @MainActor
 final class MediaStage {
     private var detector = BeatDetector()
+    private var spectrum = Spectrum(bars: VisualiserModel.bars)
     private var tap: OutputTap?
     private var lyricTask: Task<Void, Never>?
     private var loadedKey = ""
@@ -21,11 +22,13 @@ final class MediaStage {
             stopListening()
             return
         }
-        if config.bongoCat, media.isPlaying {
+        // The tap feeds the visualiser ring and the bongo cat.
+        if media.isPlaying {
             startListening(dashboard)
         } else {
             stopListening()
             dashboard.bongoPaw = nil
+            dashboard.visualiser.values = []
         }
         guard config.lyrics, media.available, !media.title.isEmpty else {
             lyricTask?.cancel()
@@ -74,6 +77,8 @@ final class MediaStage {
             Task { @MainActor in
                 guard let self, let dashboard else { return }
                 self.detector.sampleRate = rate
+                self.spectrum.sampleRate = rate
+                if self.spectrum.feed(samples) { dashboard.visualiser.values = self.spectrum.values }
                 let beats = self.detector.feed(samples)
                 guard !beats.isEmpty else { return }
                 self.paw = self.paw == 0 ? 1 : 0
@@ -92,6 +97,7 @@ final class MediaStage {
         tap?.stop()
         tap = nil
         detector = BeatDetector()
+        spectrum = Spectrum(bars: VisualiserModel.bars)
     }
 
     /// The exact track first, then looser. A synced lyric wins over a plain one found earlier.

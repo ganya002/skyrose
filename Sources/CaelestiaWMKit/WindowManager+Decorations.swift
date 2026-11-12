@@ -11,6 +11,8 @@ import Foundation
 public protocol WindowDecorations: AnyObject {
     /// The scene after a layout pass: one border per visible decorated window (R2 contract).
     func apply(_ scene: OverlayScene)
+    /// One animation frame of the same windows: borders move, nothing else is re-read.
+    func applyMoving(_ scene: OverlayScene)
     /// The app or the user moved/resized `id` (not an echo of our own write).
     func externalMove(_ id: WindowID)
     /// SkyRose wrote this frame itself. The border stays fully visible on it.
@@ -26,6 +28,10 @@ public protocol WindowDecorations: AnyObject {
     func debug(_ snapshot: DebugSnapshot?)
     /// `query overlays`.
     func overlayEntries() -> [OverlayQueryEntry]
+}
+
+public extension WindowDecorations {
+    func applyMoving(_ scene: OverlayScene) { apply(scene) }
 }
 
 /// One border window as `skyrose query overlays` reports it.
@@ -190,6 +196,46 @@ extension WindowManager {
         decorations.apply(OverlayScene(borders: targets, vanish: vanish))
         if changed { decorations.workspaceDidChange() }
         if debugOverlayEnabled { decorations.debug(debugSnapshot()) }
+    }
+
+    /// CatWM's tab strip height (`TabGeometry.stripHeight`).
+    static let engineTabStrip: CGFloat = 30
+
+    /// Engine mode: borders on the engine's visible windows, at their in-flight frame while they
+    /// move (the engine reports every frame, so the border just snaps along).
+    func publishEngineBorders() {
+        guard let engine, let decorations else { return }
+        let all = engine.state.windows
+        let windows = all.filter { $0.visible && !$0.tabBehind && $0.frame != nil }
+        let titles = Dictionary(all.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
+        // A tabbed window sits below CatWM's tab strip: the border frame takes the strip in, and
+        // SkyRose's group bar is drawn there.
+        // BorderTarget.frame is the window grown by the border width (the ring sits in the gap).
+        let b = config.wm.borderSize
+        func withStrip(_ w: EngineWindow, _ window: CGRect) -> CGRect {
+            let f = window.insetBy(dx: -b, dy: -b)
+            return w.tabs == nil ? f : CGRect(x: f.minX, y: f.minY - Self.engineTabStrip, width: f.width, height: f.height + Self.engineTabStrip)
+        }
+        let resting = Dictionary(windows.map { ($0.id, withStrip($0, $0.frame!)) }, uniquingKeysWith: { a, _ in a })
+        let corners = WindowCornerQuery.radii(for: resting.mapValues(\.size)) { [weak self] in
+            DispatchQueue.main.async { self?.publishEngineBorders() }
+        }
+        let targets = windows.map { w in
+            BorderTarget(id: w.id, frame: engineInFlight[w.id].map { withStrip(w, $0) } ?? resting[w.id]!, isActive: w.focused,
+                         appear: shownBefore.contains(w.id) ? .instant : .popIn, motion: .snap,
+                         group: w.tabs.map { tabs in
+                             GroupBar(titles: tabs.map { titles[$0].flatMap { $0.isEmpty ? nil : $0 } ?? "window" },
+                                      activeIndex: tabs.firstIndex(of: w.id) ?? 0, isLocked: w.tabsLocked)
+                         },
+                         corners: corners[w.id])
+        }
+        let ids = Set(resting.keys)
+        var vanish: [CGWindowID: Vanish] = [:]
+        for id in lastSceneIDs where !ids.contains(id) { vanish[id] = .instant }
+        shownBefore.formUnion(ids)
+        lastSceneIDs = ids
+        let scene = OverlayScene(borders: targets, vanish: vanish)
+        if engineInFlight.isEmpty { decorations.apply(scene) } else { decorations.applyMoving(scene) }
     }
 
     /// Tabs of the group `id` is the visible member of, or nil.

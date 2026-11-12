@@ -21,7 +21,18 @@ public struct MediaState: Hashable, Sendable {
     public var artworkURL: URL? = nil
     /// Why nothing (or less) is shown — see `MediaService` for the full story.
     public var unavailableReason: String? = nil
+    /// Every player with something to show, for the player switch (bundle id + name).
+    public var players: [MediaSource] = []
     public init() {}
+}
+
+public struct MediaSource: Hashable, Sendable {
+    public var bundleID: String
+    public var name: String
+    public init(bundleID: String, name: String) {
+        self.bundleID = bundleID
+        self.name = name
+    }
 }
 
 /// Media players this service can talk to with AppleScript.
@@ -136,8 +147,36 @@ public final class MediaService {
         observers.removeAll()
     }
 
-    /// The running player we talk to (Spotify first, then Music).
+    /// The player the user picked with the switch; nil follows whatever plays.
+    public private(set) var preferredBundleID: String?
+
+    public func select(_ bundleID: String) {
+        preferredBundleID = bundleID
+        refresh()
+    }
+
+    /// Brings the shown player's app forward (Caelestia `raise`).
+    public func raise() {
+        guard !state.playerBundleID.isEmpty else { return }
+        NSRunningApplication.runningApplications(withBundleIdentifier: state.playerBundleID).first?.activate()
+    }
+
+    /// Spotify and Music can be quit (MPRIS `canQuit`); a browser tab cannot.
+    public var canQuit: Bool { MediaPlayer(rawValue: state.playerBundleID)?.isRunning == true }
+
+    /// Caelestia's delete button: quits the player app. Only Spotify and Music.
+    public func quitPlayer() {
+        guard let player = MediaPlayer(rawValue: state.playerBundleID), player.isRunning else { return }
+        if preferredBundleID == player.rawValue { preferredBundleID = nil }
+        Task { [weak self] in
+            _ = await self?.scripts.run("tell application \"\(player.displayName)\" to quit")
+            self?.refresh()
+        }
+    }
+
+    /// The running player we talk to (the picked one, then Spotify, then Music).
     public var activePlayer: MediaPlayer? {
+        if let picked = preferredBundleID.flatMap(MediaPlayer.init(rawValue:)), picked.isRunning { return picked }
         if let current = MediaPlayer(rawValue: state.playerBundleID), current.isRunning { return current }
         return MediaPlayer.allCases.first { $0.isRunning }
     }
@@ -201,12 +240,21 @@ public final class MediaService {
                     failure = error
                 }
             }
-            if scripted?.isPlaying != true, let system = await self.readSystemNowPlaying(),
-               system.isPlaying || scripted?.available != true {
+            let system = await self.readSystemNowPlaying()
+            var players = MediaPlayer.allCases.filter(\.isRunning).map { MediaSource(bundleID: $0.rawValue, name: $0.displayName) }
+            if let system, system.available, !players.contains(where: { $0.bundleID == system.playerBundleID }) {
+                players.append(MediaSource(bundleID: system.playerBundleID, name: system.player))
+            }
+            let picked = self.preferredBundleID
+            let pickedScripted = picked != nil && picked == scripted?.playerBundleID && scripted?.available == true
+            if var system, !pickedScripted,
+               picked == system.playerBundleID || scripted?.isPlaying != true && (system.isPlaying || scripted?.available != true) {
+                system.players = players
                 self.publish(system)
                 return
             }
-            if let scripted {
+            if var scripted {
+                scripted.players = players
                 self.publish(scripted)
             } else if let failure, let player {
                 self.note(error: failure, player: player)

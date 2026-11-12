@@ -122,6 +122,9 @@ public final class WindowManager {
     public internal(set) var counters = Counters()
     /// False before `start()` and after quit/panic: no layout, no event handling.
     public internal(set) var isManaging = false
+    /// An external engine (CatWM). When set, it owns every window: SkyRose's own tiling, parking,
+    /// journal and session restore stay off, and window/workspace binds go to the engine.
+    public var engine: (any WindowEngine)?
     /// Border overlay frames for every visible decorated window: exactly what the overlay layer
     /// must draw (R2 contract: one entry per visible managed window, nothing else).
     public internal(set) var borderFrames: [WindowID: CGRect] = [:]
@@ -246,6 +249,8 @@ public final class WindowManager {
     var suspended: [WindowID: WorkspaceID] = [:]
     /// Session snapshot (`Paths.sessionSnapshot` in the daemon; nil: not saved or restored).
     public var sessionStore: SessionSnapshotStore?
+    /// Where the window -> workspace map goes on quit for the next start (`EngineHandoff`). nil: off.
+    public var handoffURL: URL?
     var lastSavedSession: WorkspaceState?
     var lastSavedSuspended: [WindowID: WorkspaceID] = [:]
     var sessionSaveScheduled = false
@@ -280,6 +285,10 @@ public final class WindowManager {
     /// Borders that must fade out (closed / minimized / hidden app) rather than vanish at once.
     var fadeOutNext: Set<WindowID> = []
     var lastSceneIDs: Set<WindowID> = []
+    /// Engine mode: the windows in motion and where they are this frame.
+    var engineInFlight: [WindowID: CGRect] = [:]
+    /// Engine mode: `shutdown` is waiting for the engine to put the windows back.
+    var engineStopping = false
     var lastVisibleWorkspaces: [String: VisibleWorkspaces] = [:]
     var transitionHeldSince: Date?
     var transitionReleased = false
@@ -343,6 +352,26 @@ public final class WindowManager {
         displayProvider.onChange = { [weak self] in self?.displaysChanged($0) }
         displayProvider.start()
         displaysChanged(displayProvider.displays)
+        if let engine {
+            isManaging = true
+            engine.onChange = { [weak self] in
+                self?.publishEngineBorders()
+                self?.onLayoutApplied?()
+            }
+            engine.onFrames = { [weak self] frames in
+                self?.engineInFlight = frames
+                self?.publishEngineBorders()
+            }
+            do {
+                try engine.start(config: config, area: engineArea)
+                Log.wm.notice("window manager: \(engine.name, privacy: .public)")
+                if let handoffURL { engine.restore(EngineHandoff.take(from: handoffURL)) }
+            } catch {
+                Log.wm.error("\(engine.name, privacy: .public) did not start: \(String(describing: error), privacy: .public)")
+            }
+            onLayoutApplied?()
+            return
+        }
         counters.restoredOnLaunch = restoreJournal()
         if counters.restoredOnLaunch > 0 {
             Log.wm.notice("restored \(self.counters.restoredOnLaunch) parked window(s) from the journal")
@@ -355,6 +384,7 @@ public final class WindowManager {
         windowSystem.start()
         isDiscovering = false
         counters.restoredFromSession = restoreSession()
+        if let handoffURL { applyHandoff(EngineHandoff.take(from: handoffURL)) }
         enforceUserFloatLedger()
         systemFocus = windowSystem.focusedWindowID
         // A restored session keeps the workspace each display showed; the app focus only counts
@@ -370,6 +400,44 @@ public final class WindowManager {
     /// Used by the panic chord, `wm.quit`/`wm.panic` and SIGTERM.
     @discardableResult
     public func shutdown() -> Int {
+        if let engine {
+            guard !engineStopping else { return 0 }
+            engineStopping = true
+            if let handoffURL {
+                let windows = engine.state.windows
+                EngineHandoff.write(.init(workspaces: Dictionary(windows.compactMap { w in w.workspace.map { (w.id, $0) } },
+                                                                 uniquingKeysWith: { a, _ in a }),
+                                          tiled: Set(windows.filter { !$0.floating }.map(\.id))), to: handoffURL)
+            }
+            isManaging = false
+            decorations?.removeAll()
+            displayProvider.onChange = nil
+            displayProvider.stop()
+            var quit = false
+            let finish: @MainActor () -> Void = { [weak self] in
+                guard !quit else { return }
+                quit = true
+                self?.onQuit?()
+            }
+            engine.stop(then: finish)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                MainActor.assumeIsolated {
+                    if !quit { Log.wm.error("\(engine.name, privacy: .public) did not stop within 3 s; quitting anyway") }
+                    finish()
+                }
+            }
+            return 0
+        }
+        if let handoffURL {
+            var restore = EngineHandoff.Restore()
+            for (id, ws) in state.workspaces {
+                for w in ws.windows {
+                    restore.workspaces[w] = id.description
+                    if !ws.isFloating(w) { restore.tiled.insert(w) }
+                }
+            }
+            EngineHandoff.write(restore, to: handoffURL)
+        }
         stopReconcileTimer()
         stopLiveResizePump()
         liveResizeSchedule = LiveResizeSchedule()
@@ -396,8 +464,17 @@ public final class WindowManager {
     public func apply(config: Config) {
         let oldRules = self.config.appRuleBook
         self.config = config
+        if let engine {
+            if isManaging { engine.apply(config: config, area: engineArea) }
+            return
+        }
         reapplyAppRules(from: oldRules)
         setNeedsLayout()
+    }
+
+    /// SkyRose's usable area on the primary display, handed to the engine as its padding.
+    var engineArea: CGRect? {
+        (displays.first(where: \.isPrimary) ?? displays.first).map(usableArea(of:))
     }
 
     /// New rules apply to windows as they appear; existing windows keep their tiling state.
@@ -447,7 +524,8 @@ public final class WindowManager {
     /// The shell revealed / hid an auto-hidden bar on `display`. Recorded only (`query`, tests):
     /// the bar overlays windows, so this never schedules a layout.
     public func setBarRevealed(_ revealed: Bool, display: String) {
-        if revealed { barRevealed.insert(display) } else { barRevealed.remove(display) }
+        let changed = revealed ? barRevealed.insert(display).inserted : barRevealed.remove(display) != nil
+        if changed, isManaging, let engine { engine.apply(config: config, area: engineArea) }
     }
 
     public func display(id: String?) -> DisplayInfo? {
@@ -519,7 +597,7 @@ public final class WindowManager {
     /// One layout pass: visible windows get their frame (only when it changed), hidden ones are
     /// parked, newly visible floating/special windows are raised, and focus is synced.
     public func layoutIfNeeded() {
-        guard needsLayout, isManaging else { return }
+        guard needsLayout, isManaging, engine == nil else { return }
         adoptStrays()
         if holdForWorkspaceTransition() { return }
         needsLayout = false
@@ -872,7 +950,7 @@ public final class WindowManager {
     /// The pointer moved. Focus follows it after `focusFollowsMouseDelayMs`, unless something else
     /// owns the pointer. Does not raise a floating window unless `raiseOnHover` is on.
     public func pointerMoved(at point: CGPoint) {
-        guard isManaging, config.wm.focusFollowsMouse else { return }
+        guard isManaging, engine == nil, config.wm.focusFollowsMouse else { return }
         rememberPointer(point)
         let delay = TimeInterval(config.wm.focusFollowsMouseDelayMs) / 1000
         var target = pointerTarget(at: point, fresh: false)

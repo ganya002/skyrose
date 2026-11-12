@@ -70,6 +70,10 @@ public final class ShellBridge: ShellHost {
             state.displays = wm.displays
             state.converter = converter
         }
+        if let engine = wm.engine {
+            syncEngine(engine.state, wm: wm, displaysChanged: displaysChanged)
+            return
+        }
         var pills: [String: [WorkspacePill]] = [:]
         var special: [String: String] = [:]
         for d in wm.displays {
@@ -84,6 +88,27 @@ public final class ShellBridge: ShellHost {
         if let f = wm.state.focusedWindow, let h = wm.handle(for: f) {
             let d = h.descriptor()
             active = ActiveWindowInfo(windowID: f, title: h.title, appName: d.appName, bundleID: h.bundleID, displayID: wm.state.display(of: f) ?? "")
+        }
+        if active != state.activeWindow { state.activeWindow = active }
+        if displaysChanged { controller.stateChanged() }
+    }
+
+    private func syncEngine(_ engine: EngineState, wm: WindowManager, displaysChanged: Bool) {
+        var pills: [String: [WorkspacePill]] = [:]
+        var special: [String: String] = [:]
+        for d in wm.displays {
+            pills[d.id] = engine.pills(display: d.id, shown: wm.config.wm.workspacesShown)
+            if let s = engine.openSpecial { special[d.id] = s }
+        }
+        if pills != state.workspaces { state.workspaces = pills }
+        if special != state.openSpecial { state.openSpecial = special }
+        if engine.focusedDisplay != state.focusedDisplayID { state.focusedDisplayID = engine.focusedDisplay }
+        var active: ActiveWindowInfo?
+        if let f = engine.windows.first(where: \.focused) {
+            let app = f.bundleID.flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+                .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? ""
+            active = ActiveWindowInfo(windowID: f.id, title: f.title, appName: app, bundleID: f.bundleID ?? "",
+                                      displayID: f.display ?? "")
         }
         if active != state.activeWindow { state.activeWindow = active }
         if displaysChanged { controller.stateChanged() }
@@ -263,12 +288,17 @@ public final class ShellBridge: ShellHost {
 
     public func shellFocusWorkspace(_ number: Int, display: String) {
         guard let wm else { return }
+        if wm.engine != nil {
+            wm.perform(Action(.workspaceFocus, index: number))
+            return
+        }
         wm.state.focusWorkspace(.numbered(number), display: display)
         wm.setNeedsLayout()
     }
 
     public func shellCycleWorkspace(_ delta: Int, display: String) {
-        guard let wm, let current = wm.state.activeNumberedWorkspace(forDisplay: display) else { return }
+        guard let wm, let current = wm.engine.map({ $0.state.activeNumber(on: display) })
+            ?? wm.state.activeNumberedWorkspace(forDisplay: display) else { return }
         let next = max(1, current + delta)
         guard next != current else { return }
         shellFocusWorkspace(next, display: display)

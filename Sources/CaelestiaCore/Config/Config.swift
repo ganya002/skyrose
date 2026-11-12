@@ -95,6 +95,11 @@ public struct Config: Codable, Equatable, Sendable {
     }
 }
 
+public enum WMEngine: String, Codable, Sendable, CaseIterable {
+    case catwm
+    case skyrose
+}
+
 public struct WMConfig: Codable, Equatable, Sendable {
     /// Gap on each side of a tiled window (Hyprland gaps_in). 5 → 10 px between neighbors.
     public var gapsIn: Double = 5
@@ -159,8 +164,43 @@ public struct WMConfig: Codable, Equatable, Sendable {
     public var focusOnActivate: Bool = true
     /// Game mode (Caelestia gameMode IPC): no animations/blur/gaps/borders/shadows.
     public var gameMode: Bool = false
+    /// Which window manager arranges the windows. CatWM (by Per William Krogstad-Østensen, used with
+    /// permission) is the default; SkyRose's own engine is still in progress and not recommended.
+    public var engine: WMEngine = .catwm
+    /// CatWM-only switches (Settings › CatWM). Everything else CatWM takes from the rest of `[wm]`
+    /// and `[animations]`.
+    public var catwm: CatWMSettings = CatWMSettings()
     /// Named special workspaces (scratchpads) and the app that owns each.
     public var specialWorkspaces: [String: SpecialWorkspaceConfig] = SpecialWorkspaceConfig.defaults
+
+    public init() {}
+}
+
+public struct CatWMSettings: Codable, Equatable, Sendable {
+    /// The layouts `layout.cycle` steps through; the first is where every workspace starts.
+    public var layouts: [String] = ["dwindle", "floating"]
+    /// Drag a tiled window onto another to swap them.
+    public var dragToSwap: Bool = true
+    /// Drag the edge between tiled windows to resize them.
+    public var dragToResize: Bool = true
+    /// Small windows (dialogs, panels) float.
+    public var floatSmallWindows: Bool = true
+    /// Bundle IDs that always float (`com.adobe.*` wildcards work).
+    public var floatingApps: [String] = []
+    /// Extra CatWM config lines (TypeScript), appended last. For options Settings doesn't show.
+    public var extra: String = ""
+    /// How windows move: "skyrose" follows Settings › Animations, or a CatWM curve name.
+    public var motionStyle: String = "skyrose"
+    /// Seconds a window move takes; 0 follows Settings › Animations.
+    public var motionSpeed: Double = 0
+    /// How far spring, bounce and overshoot swing (0–1).
+    public var motionBounce: Double = 0.5
+
+    public static let motionStyles = ["skyrose", "ease-out", "ease-in-out", "linear", "spring", "bounce", "overshoot"]
+
+    public static let knownLayouts = ["dwindle", "bsp", "tall", "tall-right", "wide", "middle-wide", "column", "row",
+                                      "3column-left", "3column-middle", "3column-right", "two-pane", "two-pane-right",
+                                      "widescreen-tall", "widescreen-tall-right", "fullscreen", "floating"]
 
     public init() {}
 }

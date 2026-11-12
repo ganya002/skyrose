@@ -91,14 +91,22 @@ public final class OverlayController {
 
     // MARK: Scenes
 
-    public func apply(_ scene: OverlayScene) {
+    /// `moving`: one animation frame. When the set of windows is unchanged, the borders only move:
+    /// no window-server query, no re-ordering (each costs milliseconds and dropped frames).
+    public func apply(_ scene: OverlayScene, moving: Bool = false) {
         lastScene = scene
         guard isEnabled else { return }
         let now = clock()
+        let before = Set(engine.borders.keys)
         let removed = engine.apply(scene, at: now)
         engine.advance(at: now)
         for id in removed { closeSurface(id) }
         for id in trackUntil.keys where !scene.ids.contains(id) { trackUntil[id] = nil }
+        if moving, Set(engine.borders.keys) == before {
+            render(at: now)
+            scheduleTicks(at: now)
+            return
+        }
         visibleTargets = onScreen(Set(engine.borders.keys))
         for id in Array(surfaces.keys) where !visibleTargets.contains(id) { closeSurface(id) }
         render(at: now)

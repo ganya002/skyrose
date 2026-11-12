@@ -31,6 +31,11 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
+        // CatWM by Per William Krogstad-Østensen (@noxaur), used with permission; SkyRose's mods
+        // live on branch `skyrose` (docs/catwm-modding.md).
+        // Pinned to the `skyrose` branch of the fork. To work on CatWM next to SkyRose:
+        // `swift package edit CatWM --path ../CatWM` (undo with `swift package unedit CatWM`).
+        .package(url: "https://github.com/ganya002/CatWM.git", revision: "258a7058095fc5c26f255aaa66c4a3304df31495"),
     ],
     targets: [
         // MARK: C shims for private symbols (weak-linked, runtime-checked)
@@ -108,10 +113,18 @@ let package = Package(
             swiftSettings: relaxed
         ),
 
+        // CatWM as SkyRose's window manager. The only target that imports CatWMKit.
+        .target(
+            name: "SkyRoseCatWM",
+            dependencies: ["CaelestiaWMKit", "CaelestiaCore", .product(name: "CatWMKit", package: "CatWM")],
+            path: "Sources/SkyRoseCatWM",
+            swiftSettings: relaxed
+        ),
+
         // MARK: Executables
         .executableTarget(
             name: "SkyRoseWM",
-            dependencies: ["CaelestiaWMKit"],
+            dependencies: ["CaelestiaWMKit", "SkyRoseCatWM"],
             path: "Sources/SkyRoseWM",
             swiftSettings: relaxed
         ),
@@ -182,6 +195,12 @@ let package = Package(
             name: "CaelestiaWMKitTests",
             dependencies: ["CaelestiaWMKit", "CaelestiaPlatform", "CaelestiaLayout", "CaelestiaIPC", "CaelestiaCore", "CaelestiaOverlay"],
             path: "Tests/CaelestiaWMKitTests",
+            swiftSettings: relaxed
+        ),
+        .testTarget(
+            name: "SkyRoseCatWMTests",
+            dependencies: ["SkyRoseCatWM", "CaelestiaCore", .product(name: "CatWMKit", package: "CatWM")],
+            path: "Tests/SkyRoseCatWMTests",
             swiftSettings: relaxed
         ),
         .testTarget(
