@@ -109,11 +109,14 @@ public final class CatWMHost: WindowEngine {
         var out = EngineState()
         out.windows = (windows.array ?? []).compactMap { w in
             guard let id = w["id"]?.int, w["minimized"] != .bool(true) else { return nil }
-            return EngineWindow(id: UInt32(clamping: id), bundleID: w["app"]?.string, title: w["title"]?.string ?? "",
+            var window = EngineWindow(id: UInt32(clamping: id), bundleID: w["app"]?.string, title: w["title"]?.string ?? "",
                                 workspace: w["workspace"]?.string, display: w["screen"]?.string,
                                 focused: w["focused"]?.isTrue == true, floating: w["floating"]?.isTrue == true,
                                 visible: w["visible"]?.isTrue == true && w["fullscreen"]?.isTrue != true,
                                 frame: rect(w["frame"]))
+            window.pid = Int32(clamping: w["pid"]?.int ?? 0)
+            window.fullscreen = w["fullscreen"]?.isTrue == true
+            return window
         }
         for screen in screens.array ?? [] {
             guard let uuid = screen["uuid"]?.string else { continue }

@@ -16,6 +16,8 @@ public struct EngineWindow: Equatable, Sendable {
     public var visible: Bool
     /// The resting frame in top-left points.
     public var frame: CGRect?
+    public var pid: Int32 = 0
+    public var fullscreen = false
 
     public init(id: UInt32, bundleID: String?, title: String, workspace: String?, display: String?,
                 focused: Bool, floating: Bool, visible: Bool = false, frame: CGRect? = nil) {

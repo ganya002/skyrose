@@ -64,4 +64,41 @@ final class EngineBorderTests: XCTestCase {
         engine.stopped?()
         XCTAssertEqual(h.quitCount, 1)
     }
+
+    func testQueriesReportTheEngineState() {
+        let h = Harness()
+        let engine = FakeEngine()
+        h.wm.engine = engine
+        h.wm.start()
+        let display = h.wm.displays[0].id
+        engine.state.shown = [display: "2"]
+        engine.state.focusedDisplay = display
+        engine.state.openSpecial = "term"
+        var a = EngineWindow(id: 5, bundleID: "a.b", title: "A", workspace: "2", display: display, focused: true,
+                             floating: false, visible: true, frame: CGRect(x: 10, y: 20, width: 300, height: 200))
+        a.pid = 42
+        let b = EngineWindow(id: 6, bundleID: nil, title: "B", workspace: "special:term", display: display,
+                             focused: false, floating: true)
+        engine.state.windows = [a, b]
+
+        let windows = h.wm.windowEntries()
+        XCTAssertEqual(windows.map(\.title), ["A", "B"])
+        XCTAssertEqual(windows[0].at, [10, 20])
+        XCTAssertEqual(windows[0].pid, 42)
+        XCTAssertEqual(windows[0].workspace.id, 2)
+        XCTAssertEqual(windows[0].hidden, false)
+        XCTAssertEqual(windows[1].hidden, true)
+        XCTAssertEqual(windows[1].workspace.name, "special:term")
+
+        let workspaces = h.wm.workspaceEntries()
+        XCTAssertEqual(workspaces.map(\.name), ["2", "special:term"])
+        XCTAssertEqual(workspaces.map(\.active), [true, false])
+        XCTAssertEqual(workspaces[0].lastwindowtitle, "A")
+
+        let monitor = h.wm.monitorEntries()[0]
+        XCTAssertEqual(monitor.activeWorkspace.id, 2)
+        XCTAssertEqual(monitor.specialWorkspace.name, "special:term")
+        XCTAssertTrue(monitor.focused)
+        XCTAssertEqual(h.wm.stateEntry().windowCount, 2)
+    }
 }

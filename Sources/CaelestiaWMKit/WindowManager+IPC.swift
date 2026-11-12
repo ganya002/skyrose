@@ -201,8 +201,33 @@ extension WindowManager {
         }
     }
 
+    /// An engine workspace name as a Hyprland ref (named workspaces that aren't numbers get id 0).
+    func engineRef(_ name: String) -> WorkspaceRef {
+        if let n = Int(name) { return workspaceRef(.numbered(n)) }
+        if name.hasPrefix("special:") { return workspaceRef(.special(String(name.dropFirst("special:".count)))) }
+        return WorkspaceRef(id: 0, name: name)
+    }
+
     public func windowEntries() -> [WindowQueryEntry] {
-        managedWindowIDs.compactMap { id -> WindowQueryEntry? in
+        if let engine {
+            let s = engine.state
+            let shown = Set(s.shown.values)
+            return s.windows.map { w in
+                let frame = w.frame ?? .zero
+                return WindowQueryEntry(
+                    address: WindowQueryEntry.address(for: w.id),
+                    at: [Int(frame.minX.rounded()), Int(frame.minY.rounded())],
+                    size: [Int(frame.width.rounded()), Int(frame.height.rounded())],
+                    workspace: engineRef(w.workspace ?? ""), floating: w.floating, pinned: false,
+                    fullscreen: w.fullscreen ? 2 : 0, class: w.bundleID ?? "", title: w.title, pid: Int(w.pid),
+                    focusHistoryID: w.focused ? 0 : 1,
+                    monitor: display(id: w.display ?? "")?.name ?? w.display ?? "",
+                    mapped: true, hidden: !(w.workspace.map(shown.contains) ?? false),
+                    appName: nil, role: nil, subrole: nil, minimized: false
+                )
+            }
+        }
+        return managedWindowIDs.compactMap { id -> WindowQueryEntry? in
             guard let handle = handles[id], let wsID = state.workspace(of: id), let ws = state[wsID] else { return nil }
             // Where the window really is (read from AX), not where we asked it to go: an app or
             // another WM may have moved it, and the CLI must not report a tile that isn't there.
@@ -225,7 +250,28 @@ extension WindowManager {
     }
 
     public func workspaceEntries() -> [WorkspaceQueryEntry] {
-        state.workspaces.keys.sorted().compactMap { id -> WorkspaceQueryEntry? in
+        if let engine {
+            let s = engine.state
+            let byName = Dictionary(grouping: s.windows.filter { $0.workspace != nil }, by: { $0.workspace! })
+            let names = Set(byName.keys).union(s.shown.values).sorted { a, b in
+                (Int(a) ?? .max, a) < (Int(b) ?? .max, b)
+            }
+            return names.map { name in
+                let members = byName[name] ?? []
+                let monitorID = s.shown.first { $0.value == name }?.key ?? members.first?.display ?? ""
+                let last = members.first(where: \.focused) ?? members.first
+                return WorkspaceQueryEntry(
+                    id: engineRef(name).id, name: engineRef(name).name,
+                    monitor: display(id: monitorID)?.name ?? monitorID, monitorID: monitorID,
+                    windows: members.count, hasfullscreen: members.contains(where: \.fullscreen),
+                    lastwindow: last.map { WindowQueryEntry.address(for: $0.id) } ?? "0x0",
+                    lastwindowtitle: last?.title,
+                    group: Int(name).map { WorkspaceMath.group(of: $0, perGroup: config.wm.workspacesPerGroup) },
+                    active: s.shown.values.contains(name)
+                )
+            }
+        }
+        return state.workspaces.keys.sorted().compactMap { id -> WorkspaceQueryEntry? in
             guard let ws = state[id] else { return nil }
             let last = ws.lastFocused
             return WorkspaceQueryEntry(
@@ -248,12 +294,15 @@ extension WindowManager {
                 Int((d.frame.maxX - area.maxX).rounded()), Int((d.frame.maxY - area.maxY).rounded()),
             ]
             let active = state.activeNumberedWorkspace(forDisplay: d.id) ?? 1
+            let s = engine?.state
+            let special = s.map { $0.openSpecial } ?? state.openSpecial(onDisplay: d.id)
             return MonitorQueryEntry(
                 name: d.name, id: d.id, width: Int(d.frame.width), height: Int(d.frame.height),
                 x: Int(d.frame.minX), y: Int(d.frame.minY), scale: d.scale, reserved: reserved,
-                activeWorkspace: workspaceRef(.numbered(active)),
-                specialWorkspace: SpecialWorkspaceRef(name: state.openSpecial(onDisplay: d.id).map { "special:\($0)" } ?? ""),
-                focused: state.focusedDisplay == d.id, displayID: Int(d.displayID), primary: d.isPrimary
+                activeWorkspace: s.map { engineRef($0.shown[d.id] ?? "1") } ?? workspaceRef(.numbered(active)),
+                specialWorkspace: SpecialWorkspaceRef(name: special.map { "special:\($0)" } ?? ""),
+                focused: (s.map { $0.focusedDisplay } ?? state.focusedDisplay) == d.id,
+                displayID: Int(d.displayID), primary: d.isPrimary
             )
         }
     }
@@ -264,7 +313,19 @@ extension WindowManager {
     }
 
     public func stateEntry() -> StateQueryEntry {
-        StateQueryEntry(
+        if let engine {
+            let s = engine.state
+            let focused = s.windows.first(where: \.focused)
+            return StateQueryEntry(
+                mode: engine.name, uptimeSeconds: now().timeIntervalSince(startDate),
+                focusedWindow: focused.map { WindowQueryEntry.address(for: $0.id) },
+                focusedWorkspace: (focused?.workspace ?? s.focusedDisplay.flatMap { s.shown[$0] }).map(engineRef),
+                focusedMonitor: s.focusedDisplay.flatMap { display(id: $0)?.name },
+                windowCount: s.windows.count, workspaceCount: Set(s.windows.compactMap(\.workspace)).count,
+                monitorCount: displays.count, gameMode: config.wm.gameMode, counters: counters.dictionary, tilingNotes: []
+            )
+        }
+        return StateQueryEntry(
             mode: enhanced?.active == true ? "enhanced" : "standard", uptimeSeconds: now().timeIntervalSince(startDate),
             focusedWindow: state.focusedWindow.map(WindowQueryEntry.address(for:)),
             focusedWorkspace: state.focusedWorkspace.map(workspaceRef),
