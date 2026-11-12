@@ -7,7 +7,8 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 ## Hard rules
 
 - Never push to noxaur/CatWM, never open PRs, issues or tags there. The clone's push URL is
-  `DISABLED-do-not-push-to-CatWM`; keep it that way. Mods are committed locally on branch `skyrose`.
+  `DISABLED-do-not-push-to-CatWM`; keep it that way. Mods live on branch `skyrose`, pushed only to
+  Gabby's fork (remote `fork`, https://github.com/ganya002/CatWM).
 - Never force-push anything.
 - Gabby has given permission to change CatWM freely (2026-11-12). Keep each mod a separate, small,
   self-contained commit so it can be replayed on a new upstream version.
@@ -16,19 +17,21 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 
 - CatWM clone: `~/Projects/CatWM`, branch `skyrose` = `origin/main` + the mods listed below.
 - `SKYROSE.md` in the CatWM branch lists the mods from CatWM's side (what each one changes and why).
-- SkyRose links `CatWMKit` (path dependency `../CatWM` while the mods are local only). Release builds
-  need the mods reachable from a public URL: a fork under Gabby's account (ask Gabby before creating it).
+- Fork: https://github.com/ganya002/CatWM (created by Gabby 2026-11-12). Push with `git push fork skyrose`
+  only. SkyRose links `CatWMKit` by path `../CatWM` during development and by the fork URL for releases.
 - SkyRose never imports CatWMKit outside `Sources/SkyRoseCatWM/`. The shell talks to the WM through the
   same interface for both engines.
 
 ## Updating to a new CatWM version
 
 1. `cd ~/Projects/CatWM && git fetch origin` (fetch only; push stays disabled).
-2. `git switch skyrose && git rebase origin/main`. Conflicts: keep upstream's new structure and re-apply
-   the mod's intent; the mod list below says what each mod must achieve.
+2. `git switch skyrose && git merge origin/main` (merge, not rebase: the branch is pushed to the fork and
+   force-push is banned). Conflicts: keep upstream's new structure and re-apply the mod's intent; the mod
+   list below says what each mod must achieve.
 3. `swift build` and `swift test` in CatWM, then `/usr/bin/swift test` in SkyRose.
 4. Live-check every bind in `docs/catwm-migration.md` with TestWindows.
 5. Update the mod list below and `SKYROSE.md` if a mod changed or became unnecessary (upstream may adopt it).
+6. `git push fork skyrose`.
 
 ## The mods (keep in sync with SKYROSE.md in the CatWM branch)
 
