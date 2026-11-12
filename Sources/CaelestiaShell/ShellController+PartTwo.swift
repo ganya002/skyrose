@@ -84,6 +84,7 @@ extension ShellController {
         popout.onBluetoothConfirm = { [weak self] ok in self?.bluetooth.confirm(ok) }
         popout.onBluetoothCancel = { [weak self] in self?.bluetooth.cancelPairing() }
         popout.onOpenSettings = { [weak self] kind in self?.openSettings(for: kind) }
+        popout.onNeedsKey = { [weak self] in self?.updatePopoutKey() }
         wireControls()
 
         wallpaperPicker.onPick = { [weak self] url in self?.transitionWallpaper(url) }
@@ -359,7 +360,7 @@ extension ShellController {
         openPopout(kind, display: display, layout: layout, anchorMidY: midY)
         popoutByHover = false
         // The Wi-Fi panel has a password field: it takes the keyboard.
-        if kind == .network || kind == .bluetooth, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
+        updatePopoutKey()
     }
 
     /// `shell drawers toggle popout.audio|network|bluetooth|battery`: toggles a bar popout without a click.
@@ -423,7 +424,7 @@ extension ShellController {
         popout.expanded = true
         openPopout(kind, display: id, layout: layout, anchorMidY: anchor)
         popoutByHover = false
-        if kind == .network || kind == .bluetooth, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
+        updatePopoutKey()
     }
 
     public func openPopout(_ kind: PopoutKind, display: String, layout: DisplayLayout, anchorMidY: Double) {
@@ -435,6 +436,7 @@ extension ShellController {
         let panel = popoutPanel ?? makeDrawerPanel(PopoutView(model: popout, state: state, fillet: fillet), name: "popout", key: false)
         popoutPanel = panel
         panel.acceptsKey = false
+        if panel.isKeyWindow { panel.resignKey() }
         popout.kind = kind
         if kind == .activeWindow { capturePreview() }
         if kind == .audio { popout.devices = audio.outputDevices() }
@@ -446,7 +448,12 @@ extension ShellController {
         }
         if kind == .controls { refreshControls() }
         if kind == .network {
-            popout.networks = []; popout.scanMessage = nil; popout.passwordFor = nil; popout.wifiJob = .idle
+            popout.networks = []; popout.scanMessage = nil
+            // A join or forget still running (panel or `skyrose wifi`) keeps its state: the CLI polls it.
+            switch popout.wifiJob {
+            case .connecting, .forgetting, .disconnecting: break
+            default: popout.passwordFor = nil; popout.wifiJob = .idle
+            }
             popout.locationMissing = false
         }
         let reveal = bars[display]?.reveal.target ?? 0
@@ -532,6 +539,16 @@ extension ShellController {
             popout.scanning = false
             resizePopout()
         }
+    }
+
+    /// Key focus only while a password or PIN field shows, so a click on an icon never takes
+    /// the keyboard from the user's app.
+    func updatePopoutKey() {
+        guard let panel = popoutPanel, popoutKind != nil else { return }
+        let want = popout.needsKey
+        guard want != panel.acceptsKey else { return }
+        panel.acceptsKey = want
+        if want { panel.makeKey() } else if panel.isKeyWindow { panel.resignKey() }
     }
 
     /// Re-fits the open popout to its content (rows, password field and status come and go).
@@ -658,7 +675,7 @@ extension ShellController {
             self.popout.expanded = true
             self.openPopout(kind, display: d, layout: layout, anchorMidY: panel.frame.midY)
             self.popoutByHover = false
-            if kind == .network || kind == .bluetooth { panel.acceptsKey = true; panel.makeKey() }
+            self.updatePopoutKey()
         }
     }
 

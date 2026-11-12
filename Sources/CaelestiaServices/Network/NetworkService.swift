@@ -250,16 +250,25 @@ public final class NetworkService {
         let kept = profiles.filter { $0.ssid != ssid }
         guard kept.count < profiles.count else { throw ServiceError.failed("\(ssid) is not a known network") }
         config.networkProfiles = NSOrderedSet(array: kept)
-        let auth = SFAuthorization.authorization() as? SFAuthorization
-        do {
-            try auth?.obtain(withRight: "system.preferences", flags: [.extendRights, .interactionAllowed, .preAuthorize])
-        } catch {
-            throw ServiceError.failed("Not forgotten: macOS needs an administrator to change known networks.")
-        }
-        do {
-            try iface.commitConfiguration(config, authorization: auth)
-        } catch {
-            throw ServiceError.failed("Couldn't forget \(ssid): \(error.localizedDescription)")
+        // The admin prompt waits for the user: off the main thread, or tiling and the bar freeze.
+        nonisolated(unsafe) let iface2 = iface
+        nonisolated(unsafe) let config2 = config
+        try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let auth = SFAuthorization.authorization() as? SFAuthorization
+                do {
+                    try auth?.obtain(withRight: "system.preferences", flags: [.extendRights, .interactionAllowed, .preAuthorize])
+                } catch {
+                    done.resume(throwing: ServiceError.failed("Not forgotten: macOS needs an administrator to change known networks."))
+                    return
+                }
+                do {
+                    try iface2.commitConfiguration(config2, authorization: auth)
+                    done.resume()
+                } catch {
+                    done.resume(throwing: ServiceError.failed("Couldn't forget \(ssid): \(error.localizedDescription)"))
+                }
+            }
         }
         refresh()
     }

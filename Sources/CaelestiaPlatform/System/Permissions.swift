@@ -78,9 +78,16 @@ public enum Permissions {
         )
     }
 
+    /// One manager for the process: status() runs every 2 s, and each new manager opens a
+    /// connection to locationd.
+    nonisolated(unsafe) private static let locationManager = CLLocationManager()
+
     public static var locationGranted: Bool {
-        let s = CLLocationManager().authorizationStatus
-        return s == .authorizedAlways || s == .authorized
+        // A "when in use" grant (what requestWhenInUseAuthorization asks for) is enough for SSIDs.
+        switch locationManager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse: return true
+        default: return false
+        }
     }
 
     /// Location and Bluetooth only prompt from a live manager, and the answer comes later: the

@@ -38,8 +38,11 @@ public enum MenuExtras {
     @discardableResult
     public static func press(_ extra: MenuExtra) -> Bool {
         let list = items(pid: extra.pid)
-        guard extra.index < list.count else { return false }
-        return AXUIElementPerformAction(list[extra.index], kAXPressAction as CFString) == .success
+        // The app may have added or moved items since the list was read: match the title, and
+        // prefer the old position when several share it.
+        let same = list.indices.filter { (title(list[$0]) ?? extra.appName) == extra.title }
+        guard let i = same.contains(extra.index) ? extra.index : same.first else { return false }
+        return AXUIElementPerformAction(list[i], kAXPressAction as CFString) == .success
     }
 
     private static func items(pid: pid_t) -> [AXUIElement] {

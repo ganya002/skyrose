@@ -110,6 +110,7 @@ public final class BluetoothService {
 
     private var sink: BluetoothEventSink?
     private var batteries: [String: [String: Int]] = [:]
+    private var batteriesReadAt: Date?
     private var pairing: BluetoothPairing?
     private var inquiry: BluetoothInquiry?
     /// Nearby, not yet paired devices while `scanning`.
@@ -168,8 +169,11 @@ public final class BluetoothService {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.refresh() }
     }
 
-    /// Reads battery levels (system_profiler, ~1 s, off the main thread), then refreshes.
-    public func refreshBatteries() {
+    /// Reads battery levels (system_profiler, ~1 s, off the main thread), then refreshes. At most
+    /// every 30 s unless `force` (after a connect), since hovering the bar asks each time.
+    public func refreshBatteries(force: Bool = false) {
+        if !force, let last = batteriesReadAt, Date().timeIntervalSince(last) < 30 { return }
+        batteriesReadAt = Date()
         Task.detached(priority: .utility) {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
@@ -182,7 +186,7 @@ public final class BluetoothService {
             p.waitUntilExit()
             let levels = BluetoothDevice.batteries(fromProfilerJSON: data)
             await MainActor.run { [weak self] in
-                guard let self else { return }
+                guard let self, levels != self.batteries else { return }
                 self.batteries = levels
                 self.state = BluetoothState()
                 self.refresh()
@@ -199,16 +203,14 @@ public final class BluetoothService {
         guard let d = device(address) else { job = .failed("Unknown device"); return }
         let name = d.name ?? address
         job = .connecting(name)
-        var target: ConnectionTarget?
-        target = ConnectionTarget { [weak self] status in
+        // The target comes back as an argument: capturing it here would be a retain cycle.
+        let target = ConnectionTarget { [weak self] done, status in
             guard let self else { return }
-            let done = target
             DispatchQueue.main.async { [weak self] in self?.connectionTargets.removeAll { $0 === done } }
             self.job = status == kIOReturnSuccess ? .idle : .failed("Couldn't connect \(name). Is it on and nearby?")
             self.refresh()
-            self.refreshBatteries()
+            self.refreshBatteries(force: true)
         }
-        guard let target else { return }
         connectionTargets.append(target)
         let r = d.openConnection(target)
         if r != kIOReturnSuccess {
@@ -238,7 +240,10 @@ public final class BluetoothService {
         _ = d.perform(sel)
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
             guard let self else { return }
-            self.job = .idle
+            // `remove` returns nothing useful: whether the device is still paired is the result.
+            let stillPaired = (IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] ?? [])
+                .contains { BluetoothDevice.normalised($0.addressString ?? "") == BluetoothDevice.normalised(address) }
+            self.job = stillPaired ? .failed("Couldn't forget \(name). Try Bluetooth settings.") : .idle
             self.refresh()
         }
     }
@@ -384,11 +389,12 @@ private final class BluetoothEventSink: NSObject {
 
 /// `IOBluetoothDevice.openConnection(_:)` calls back on this object.
 private final class ConnectionTarget: NSObject {
-    private let done: @MainActor (IOReturn) -> Void
-    init(_ done: @escaping @MainActor (IOReturn) -> Void) { self.done = done }
+    private let done: @MainActor (ConnectionTarget, IOReturn) -> Void
+    init(_ done: @escaping @MainActor (ConnectionTarget, IOReturn) -> Void) { self.done = done }
     @objc func connectionComplete(_ device: IOBluetoothDevice!, status: IOReturn) {
         let done = self.done
-        onMain { MainActor.assumeIsolated { done(status) } }
+        nonisolated(unsafe) let me = self
+        onMain { MainActor.assumeIsolated { done(me, status) } }
     }
 }
 

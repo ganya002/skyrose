@@ -64,13 +64,23 @@ public final class PopoutModel: ObservableObject {
     @Published public var expanded = false
     @Published public var wifiJob: WiFiJob = .idle
     /// The network whose password field is open.
-    @Published public var passwordFor: String?
+    @Published public var passwordFor: String? { didSet { onNeedsKey() } }
     @Published public var locationMissing = false
     public var onConnect: (String, String?) -> Void = { _, _ in }
     public var onDisconnect: () -> Void = {}
     public var onForget: (String) -> Void = { _ in }
     public var onAllowLocation: () -> Void = {}
-    @Published public var btJob: BluetoothJob = .idle
+    @Published public var btJob: BluetoothJob = .idle { didSet { onNeedsKey() } }
+    /// A text field (Wi-Fi password, Bluetooth PIN) appeared or went: the controller gives or takes key focus.
+    public var onNeedsKey: () -> Void = {}
+    /// The open popout shows a field that needs the keyboard.
+    public var needsKey: Bool {
+        switch kind {
+        case .network: return expanded && passwordFor != nil
+        case .bluetooth: if case .pin = btJob { return expanded }; return false
+        default: return false
+        }
+    }
     @Published public var btNearby: [BluetoothDevice] = []
     @Published public var btScanning = false
     public var onBluetoothPower: (Bool) -> Void = { _ in }

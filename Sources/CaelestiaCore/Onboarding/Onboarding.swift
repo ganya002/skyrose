@@ -66,6 +66,10 @@ public enum SkyRosePermission: String, Codable, CaseIterable, Sendable, Hashable
         return URL(string: "x-apple.systempreferences:com.apple.preference.security?\(anchor)")!
     }
 
+    /// Location and Bluetooth only serve the Wi-Fi and Bluetooth panels: turning them off is a
+    /// choice, never a reason to reopen onboarding.
+    public var isOptional: Bool { self == .location || self == .bluetooth }
+
     /// Required in a mode, or only recommended (Screen Recording is never required).
     public func isRequired(in mode: GeneralConfig.Mode) -> Bool { self == .accessibility || self == .inputMonitoring }
 
@@ -153,7 +157,7 @@ public struct PermissionHistory: Codable, Equatable, Sendable {
     /// not reported yet). The caller opens the onboarding permission step for exactly those.
     public mutating func observe(_ snapshot: PermissionSnapshot) -> [SkyRosePermission] {
         var lost: [SkyRosePermission] = []
-        for p in SkyRosePermission.allCases {
+        for p in SkyRosePermission.allCases where !p.isOptional {
             if snapshot.isGranted(p) {
                 everGranted.insert(p)
                 reportedLost.remove(p)

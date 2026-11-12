@@ -48,6 +48,14 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(h.observe(lost), [.accessibility], "a new loss is reported again")
     }
 
+    func testTurningOffAnOptionalPermissionIsNotALoss() {
+        var h = PermissionHistory()
+        let everything = PermissionSnapshot(accessibility: true, inputMonitoring: true, screenRecording: true, location: true, bluetooth: true)
+        XCTAssertEqual(h.observe(everything), [])
+        let off = PermissionSnapshot(accessibility: true, inputMonitoring: true, screenRecording: true, location: false, bluetooth: false)
+        XCTAssertEqual(h.observe(off), [], "Location and Bluetooth off never reopen onboarding")
+    }
+
     func testHistorySaveLoad() {
         let url = dir.appendingPathComponent("seen.json")
         XCTAssertEqual(PermissionHistory.load(from: url), PermissionHistory())
