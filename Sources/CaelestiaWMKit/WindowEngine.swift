@@ -66,9 +66,10 @@ public protocol WindowEngine: AnyObject {
     func start(config: Config, area: CGRect?) throws
     /// A new config: the engine applies only what changed.
     func apply(config: Config, area: CGRect?)
-    /// Puts every window back where the user can reach it and stops. Must return within a few
-    /// seconds whatever state the engine is in (panic uses it).
-    func stop()
+    /// Puts every window back where the user can reach it and stops, then calls `done` on the
+    /// main thread. Callers are usually inside a main-queue block, so the work must not wait for
+    /// the main queue before returning; `WindowManager.shutdown` gives up waiting after 3 s.
+    func stop(then done: @escaping @MainActor () -> Void)
     /// Runs a bind. nil: not a window-manager action (the shell gets it). false: it did nothing.
     func perform(_ action: Action) -> Bool?
     var state: EngineState { get }

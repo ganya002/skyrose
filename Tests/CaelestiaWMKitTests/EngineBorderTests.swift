@@ -12,7 +12,8 @@ final class FakeEngine: WindowEngine {
     var state = EngineState()
     func start(config: Config, area: CGRect?) throws {}
     func apply(config: Config, area: CGRect?) {}
-    func stop() {}
+    var stopped: (@MainActor () -> Void)?
+    func stop(then done: @escaping @MainActor () -> Void) { stopped = done }
     func perform(_ action: Action) -> Bool? { nil }
 }
 
@@ -49,5 +50,18 @@ final class EngineBorderTests: XCTestCase {
         engine.onChange?()
         XCTAssertTrue(decorations.lastScene?.borders.isEmpty == true)
         XCTAssertEqual(decorations.lastScene?.vanish[1], .instant)
+    }
+
+    func testShutdownQuitsOnceTheEngineHasStopped() {
+        let h = Harness()
+        let engine = FakeEngine()
+        h.wm.engine = engine
+        h.wm.start()
+        h.wm.shutdown()
+        h.wm.shutdown()
+        XCTAssertEqual(h.quitCount, 0, "quits only after the engine put the windows back")
+        engine.stopped?()
+        engine.stopped?()
+        XCTAssertEqual(h.quitCount, 1)
     }
 }

@@ -285,6 +285,8 @@ public final class WindowManager {
     var lastSceneIDs: Set<WindowID> = []
     /// Engine mode: the windows in motion and where they are this frame.
     var engineInFlight: [WindowID: CGRect] = [:]
+    /// Engine mode: `shutdown` is waiting for the engine to put the windows back.
+    var engineStopping = false
     var lastVisibleWorkspaces: [String: VisibleWorkspaces] = [:]
     var transitionHeldSince: Date?
     var transitionReleased = false
@@ -395,11 +397,25 @@ public final class WindowManager {
     @discardableResult
     public func shutdown() -> Int {
         if let engine {
-            engine.stop()
+            guard !engineStopping else { return 0 }
+            engineStopping = true
             isManaging = false
+            decorations?.removeAll()
             displayProvider.onChange = nil
             displayProvider.stop()
-            onQuit?()
+            var quit = false
+            let finish: @MainActor () -> Void = { [weak self] in
+                guard !quit else { return }
+                quit = true
+                self?.onQuit?()
+            }
+            engine.stop(then: finish)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                MainActor.assumeIsolated {
+                    if !quit { Log.wm.error("\(engine.name, privacy: .public) did not stop within 3 s; quitting anyway") }
+                    finish()
+                }
+            }
             return 0
         }
         stopReconcileTimer()

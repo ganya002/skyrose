@@ -25,7 +25,11 @@ public final class CatWMHost: WindowEngine {
         }
         let engine = try CatWMEngine(name: "skyrose")
         engine.onStateChange = { [weak self] in self?.refreshState() }
-        engine.onWindowFrames = { [weak self] in self?.onFrames?($0) }
+        engine.onWindowFrames = { [weak self] frames in
+            // Motion over: the resting frames changed, and CatWM doesn't report a state change for it.
+            if frames.isEmpty { self?.refreshState() }
+            self?.onFrames?(frames)
+        }
         self.config = config
         self.area = area
         lastText = text()
@@ -47,19 +51,13 @@ public final class CatWMHost: WindowEngine {
         }
     }
 
-    public func stop() {
-        guard let engine else { return }
+    public func stop(then done: @escaping @MainActor () -> Void) {
+        guard let engine else { return done() }
         self.engine = nil
-        var done = false
         Task { @MainActor in
             await engine.stop()
-            done = true
+            done()
         }
-        let deadline = Date().addingTimeInterval(3)
-        while !done, Date() < deadline {
-            _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
-        }
-        if !done { Log.wm.error("CatWM did not stop within 3 s") }
     }
 
     public func perform(_ action: Action) -> Bool? {
