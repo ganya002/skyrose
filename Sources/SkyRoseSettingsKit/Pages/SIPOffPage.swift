@@ -182,7 +182,11 @@ struct SIPAssistantCard: View {
             }
             if let image = SIPCode.image(SIPAssistant.script(enabling)) {
                 HStack(alignment: .center, spacing: 14) {
-                    Image(nsImage: image).interpolation(.none).frame(width: 96, height: 96)
+                    Image(nsImage: image).resizable().interpolation(.none).aspectRatio(contentMode: .fit)
+                        .frame(width: 140, height: 140)
+                        .padding(8)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white))
+                        .accessibilityLabel("QR code of the commands above")
                     Text("Scan this with your phone before you restart. It is only the commands above, so you can read them while the Mac is in Recovery.")
                         .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
                 }
