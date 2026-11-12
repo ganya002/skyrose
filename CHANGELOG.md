@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **CatWM is the window manager.** Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur), https://github.com/noxaur/CatWM, used with permission. SkyRose keeps its bar, panels, binds and IPC; CatWM tiles the windows (Hyprland dwindle with `togglesplit`, `swapsplit`, `pseudo`, `pin` and special workspaces). SkyRose's own engine stays available as `[wm] engine = "skyrose"` (work in progress, not recommended).
+- **Settings › CatWM.** The settings window morphs into a CatWM panel: the engine switch (with a restart button), the layouts the cycle bind steps through and the start layout, drag to swap and resize, floating for small windows and chosen apps, and extra CatWM config lines. These live in `[wm.catwm]`.
 
 ## 0.4.1 (2026-11-11)
 

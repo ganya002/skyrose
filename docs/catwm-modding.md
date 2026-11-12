@@ -43,6 +43,15 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 | M4 | Dwindle layout + `togglesplit`, `swapsplit`, `splitratio` per split, `resizeactive DX DY`; M4b `pseudo`, `pin` | Hyprland behaviour and binds | done: CatWM 145e15b + b005985, `DwindleTests`, 925 CatWM tests pass |
 | M5 | Special workspace: `special:<name>`, `togglespecialworkspace` | Hyprland scratchpad binds | done: CatWM 5ff17dd, parked tests, 926 CatWM tests pass |
 
+## Settings › CatWM
+
+`[wm.catwm]` holds the CatWM-only switches; `CatWMConfigText` turns them into `catwm.layouts`,
+`catwm.mouse.swapsWindows`, `catwm.mouse.resizesWindows`, `catwm.floating.smallWindows`,
+`catwm.floating.apps`, then the user's `extra` lines last (so they can override anything).
+Unknown layout names are dropped; an empty list falls back to `dwindle`. Gaps, focus and motion
+stay in `[wm]`/`[animations]` so both engines read the same keys. Switching `wm.engine` needs a
+restart: the page offers one.
+
 ## CatWM checks (learned the hard way)
 
 - Use `/usr/bin/swift` (the swiftly 6.1.2 toolchain on PATH fails on the manifest).

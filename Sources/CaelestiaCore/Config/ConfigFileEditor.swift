@@ -81,7 +81,9 @@ public enum ConfigFileEditor {
 
     /// A TOML basic string.
     public static func string(_ v: String) -> String {
-        "\"" + v.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+        "\"" + v.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\t", with: "\\t")
+            .replacingOccurrences(of: "\r", with: "\\r") + "\""
     }
 
     /// Writes `key = value` into `[table]` of the file at `url` (created with its folder if missing).
