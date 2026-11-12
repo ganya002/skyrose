@@ -38,7 +38,7 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 | # | Mod | Why SkyRose needs it | State |
 |---|---|---|---|
 | M1 | Parked workspaces: workspaces on the current Desktop, hidden ones parked in a corner | SkyRose/Hyprland workspaces must not be macOS Desktops | done: CatWM d586da8, `ParkedWorkspacesTests`, 914 CatWM tests pass |
-| M2 | Per-window commands (`window: <id>` on window commands) | app rules, CLI, panic act on a given window | planned |
+| M2 | Per-window commands (optional `window` id on window commands) | app rules, CLI, panic act on a given window | done: CatWM 82c8d86, `WindowTargetTests`, 916 CatWM tests pass |
 | M3 | Move hook: planned `(window, from, to)` before AX writes, host-driven animation | SkyRose's glide animations and borders | planned |
 | M4 | Dwindle layout + `togglesplit`, `swapsplit`, `pseudo`, `pin`, resize by delta | Hyprland behaviour and binds | planned |
 | M5 | Special (scratchpad) workspace | Hyprland `togglespecialworkspace` | planned |
