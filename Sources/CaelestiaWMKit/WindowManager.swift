@@ -365,7 +365,7 @@ public final class WindowManager {
             do {
                 try engine.start(config: config, area: engineArea)
                 Log.wm.notice("window manager: \(engine.name, privacy: .public)")
-                if let handoffURL { engine.restore(workspaces: EngineHandoff.take(from: handoffURL)) }
+                if let handoffURL { engine.restore(EngineHandoff.take(from: handoffURL)) }
             } catch {
                 Log.wm.error("\(engine.name, privacy: .public) did not start: \(String(describing: error), privacy: .public)")
             }
@@ -404,8 +404,10 @@ public final class WindowManager {
             guard !engineStopping else { return 0 }
             engineStopping = true
             if let handoffURL {
-                EngineHandoff.write(Dictionary(engine.state.windows.compactMap { w in w.workspace.map { (w.id, $0) } },
-                                               uniquingKeysWith: { a, _ in a }), to: handoffURL)
+                let windows = engine.state.windows
+                EngineHandoff.write(.init(workspaces: Dictionary(windows.compactMap { w in w.workspace.map { (w.id, $0) } },
+                                                                 uniquingKeysWith: { a, _ in a }),
+                                          tiled: Set(windows.filter { !$0.floating }.map(\.id))), to: handoffURL)
             }
             isManaging = false
             decorations?.removeAll()
@@ -427,9 +429,14 @@ public final class WindowManager {
             return 0
         }
         if let handoffURL {
-            var map: [UInt32: String] = [:]
-            for (id, ws) in state.workspaces { for w in ws.windows { map[w] = id.description } }
-            EngineHandoff.write(map, to: handoffURL)
+            var restore = EngineHandoff.Restore()
+            for (id, ws) in state.workspaces {
+                for w in ws.windows {
+                    restore.workspaces[w] = id.description
+                    if !ws.isFloating(w) { restore.tiled.insert(w) }
+                }
+            }
+            EngineHandoff.write(restore, to: handoffURL)
         }
         stopReconcileTimer()
         stopLiveResizePump()

@@ -14,15 +14,15 @@ final class EngineHandoffTests: XCTestCase {
     override func tearDown() { try? FileManager.default.removeItem(at: url) }
 
     func testReadOnceThenGone() throws {
-        EngineHandoff.write([7: "3", 8: "special:term"], to: url)
-        XCTAssertEqual(EngineHandoff.take(from: url), [7: "3", 8: "special:term"])
-        XCTAssertEqual(EngineHandoff.take(from: url), [:])
+        EngineHandoff.write(.init(workspaces: [7: "3", 8: "special:term"], tiled: [7]), to: url)
+        XCTAssertEqual(EngineHandoff.take(from: url), .init(workspaces: [7: "3", 8: "special:term"], tiled: [7]))
+        XCTAssertEqual(EngineHandoff.take(from: url), .init())
     }
 
     func testAnEarlierBootIsIgnored() throws {
         let old = EngineHandoff(bootTime: 1, workspaces: ["7": "3"])
         try JSONEncoder().encode(old).write(to: url)
-        XCTAssertEqual(EngineHandoff.take(from: url), [:])
+        XCTAssertEqual(EngineHandoff.take(from: url), .init())
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }
 
@@ -37,7 +37,8 @@ final class EngineHandoffTests: XCTestCase {
         h.settle()
         h.wm.shutdown()
         let saved = EngineHandoff.take(from: url)
-        XCTAssertEqual(saved[a.windowID], "4")
+        XCTAssertEqual(saved.workspaces[a.windowID], "4")
+        XCTAssertTrue(saved.tiled.contains(a.windowID))
 
         EngineHandoff.write(saved, to: url)
         let next = Harness()
@@ -45,14 +46,14 @@ final class EngineHandoffTests: XCTestCase {
         next.wm.engine = engine
         next.wm.handoffURL = url
         next.wm.start()
-        XCTAssertEqual(engine.restored[a.windowID], "4")
+        XCTAssertEqual(engine.restored.workspaces[a.windowID], "4")
     }
 
     func testOwnEngineStartsFromAHandoff() {
         let h = Harness()
         let a = h.system.existing("A")
         h.system.existing("B")
-        EngineHandoff.write([a.windowID: "5"], to: url)
+        EngineHandoff.write(.init(workspaces: [a.windowID: "5"]), to: url)
         h.wm.handoffURL = url
         h.start()
         XCTAssertEqual(h.wm.state.workspace(of: a.windowID), .numbered(5))

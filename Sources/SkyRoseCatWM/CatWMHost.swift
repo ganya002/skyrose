@@ -17,6 +17,7 @@ public final class CatWMHost: WindowEngine {
     private var lastText = ""
     /// Windows to move to their old workspace once CatWM manages them, until `pendingUntil`.
     private var pending: [UInt32: String] = [:]
+    private var pendingTiled: Set<UInt32> = []
     private var pendingUntil = Date.distantPast
 
     public init() {}
@@ -93,8 +94,9 @@ public final class CatWMHost: WindowEngine {
         return CGRect(x: v.minX, y: screen.frame.maxY - v.maxY, width: v.width, height: v.height)
     }
 
-    public func restore(workspaces: [UInt32: String]) {
-        pending = workspaces
+    public func restore(_ handoff: EngineHandoff.Restore) {
+        pending = handoff.workspaces
+        pendingTiled = handoff.tiled
         pendingUntil = Date().addingTimeInterval(10)
         placePending()
     }
@@ -102,14 +104,18 @@ public final class CatWMHost: WindowEngine {
     /// CatWM finds windows over the first second or so; each one is moved as it shows up.
     private func placePending() {
         guard let engine, !pending.isEmpty else { return }
-        guard Date() < pendingUntil else { pending = [:]; return }
-        let known = Dictionary(state.windows.map { ($0.id, $0.workspace) }, uniquingKeysWith: { a, _ in a })
+        guard Date() < pendingUntil else { pending = [:]; pendingTiled = []; return }
+        let known = Dictionary(state.windows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for (id, workspace) in pending.sorted(by: { $0.key < $1.key }) {
-            guard let current = known[id] else { continue }
+            guard let window = known[id] else { continue }
             pending[id] = nil
-            guard current != workspace else { continue }
+            let retile = window.floating && pendingTiled.remove(id) != nil
+            guard retile || window.workspace != workspace else { continue }
             do {
-                try engine.perform("movetoworkspacesilent", ["workspace": .string(workspace), "window": .int(Int(id))])
+                if retile { try engine.perform("settiled", ["window": .int(Int(id))]) }
+                if window.workspace != workspace {
+                    try engine.perform("movetoworkspacesilent", ["workspace": .string(workspace), "window": .int(Int(id))])
+                }
             } catch {
                 Log.wm.info("CatWM could not put window \(id) back on \(workspace, privacy: .public): \(String(describing: error), privacy: .public)")
             }

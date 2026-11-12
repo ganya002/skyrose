@@ -15,8 +15,8 @@ final class FakeEngine: WindowEngine {
     var stopped: (@MainActor () -> Void)?
     func stop(then done: @escaping @MainActor () -> Void) { stopped = done }
     func perform(_ action: Action) -> Bool? { nil }
-    var restored: [UInt32: String] = [:]
-    func restore(workspaces: [UInt32: String]) { restored = workspaces }
+    var restored = EngineHandoff.Restore()
+    func restore(_ handoff: EngineHandoff.Restore) { restored = handoff }
 }
 
 @MainActor

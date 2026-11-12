@@ -77,8 +77,8 @@ public protocol WindowEngine: AnyObject {
     /// main thread. Callers are usually inside a main-queue block, so the work must not wait for
     /// the main queue before returning; `WindowManager.shutdown` gives up waiting after 3 s.
     func stop(then done: @escaping @MainActor () -> Void)
-    /// Puts windows on the workspaces they had before (window id -> workspace name), as they appear.
-    func restore(workspaces: [UInt32: String])
+    /// Puts windows back on the workspaces they had, tiled if they were, as they appear.
+    func restore(_ handoff: EngineHandoff.Restore)
     /// Runs a bind. nil: not a window-manager action (the shell gets it). false: it did nothing.
     func perform(_ action: Action) -> Bool?
     var state: EngineState { get }
