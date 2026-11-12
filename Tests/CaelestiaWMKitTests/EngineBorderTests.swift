@@ -38,15 +38,15 @@ final class EngineBorderTests: XCTestCase {
         engine.onChange?()
         let first = try! XCTUnwrap(decorations.lastScene)
         XCTAssertEqual(first.borders.map(\.id), [1])
-        XCTAssertEqual(first.borders.first?.frame, rest)
+        XCTAssertEqual(first.borders.first?.frame, rest.insetBy(dx: -1, dy: -1), "the window grown by the border")
         XCTAssertEqual(first.borders.first?.isActive, true)
 
         let moving = CGRect(x: 100, y: 10, width: 400, height: 300)
         engine.onFrames?([1: moving])
-        XCTAssertEqual(decorations.lastScene?.borders.first?.frame, moving)
+        XCTAssertEqual(decorations.lastScene?.borders.first?.frame, moving.insetBy(dx: -1, dy: -1))
         XCTAssertEqual(decorations.lastScene?.borders.first?.appear, .instant)
         engine.onFrames?([:])
-        XCTAssertEqual(decorations.lastScene?.borders.first?.frame, rest)
+        XCTAssertEqual(decorations.lastScene?.borders.first?.frame, rest.insetBy(dx: -1, dy: -1))
 
         engine.state.windows[0].visible = false
         engine.onChange?()
@@ -124,7 +124,7 @@ final class EngineBorderTests: XCTestCase {
         engine.onChange?()
         let border = try! XCTUnwrap(decorations.lastScene?.borders.first)
         XCTAssertEqual(decorations.lastScene?.borders.count, 1)
-        XCTAssertEqual(border.frame, CGRect(x: 60, y: 42, width: 400, height: 330), "takes in CatWM's tab strip")
+        XCTAssertEqual(border.frame, CGRect(x: 59, y: 41, width: 402, height: 332), "takes in CatWM's tab strip")
         XCTAssertEqual(border.group, GroupBar(titles: ["window", "Front"], activeIndex: 1, isLocked: true))
     }
 }

@@ -10,10 +10,15 @@ public enum CatWMConfigText {
     /// points); the difference becomes CatWM's padding.
     public static func make(_ config: Config, area: CGRect?, visible: CGRect?) -> String {
         let wm = config.wm
-        let pad = padding(area: area, visible: visible, fallback: wm.gapsOut)
+        // Like SkyRose's own layout (LayoutParams): the border sits inside the gap, so each tile
+        // gives up the border width on top of gapsIn / gapsOut.
+        let border = wm.gameMode ? 0 : wm.borderSize
+        let outer = wm.gameMode ? 0 : wm.gapsOut + border
+        let bar = padding(area: area, visible: visible, fallback: 0)
+        let pad = (left: bar.left + outer, right: bar.right + outer, top: bar.top + outer, bottom: bar.bottom + outer)
         let move = AnimationTable.from(config: config.animations, reduceMotion: config.animations.reduceMotion)[.windowsMove]
         let animate = !wm.gameMode && config.animations.windows != .off && move.enabled && move.durationMs > 0
-        let gap = wm.gameMode ? 0 : wm.gapsIn * 2
+        let gap = wm.gameMode ? 0 : wm.gapsIn * 2 + border * 2
         var lines = [
             "import { catwm } from \"./catwm\"",
             "catwm.features.windows.tiling = true",
@@ -28,6 +33,7 @@ public enum CatWMConfigText {
             "catwm.gaps.enabled = \(gap > 0)",
             "catwm.gaps.size = \(number(min(100, gap)))",
             "catwm.gaps.smart = false",
+            "catwm.gaps.single = \(number(wm.gameMode ? 0 : min(200, max(0, wm.gapsOutSingle - wm.gapsOut))))",
             "catwm.padding.left = \(number(pad.left))",
             "catwm.padding.right = \(number(pad.right))",
             "catwm.padding.top = \(number(pad.top))",

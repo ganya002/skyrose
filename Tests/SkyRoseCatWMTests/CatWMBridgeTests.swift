@@ -13,10 +13,13 @@ final class CatWMBridgeTests: XCTestCase {
                                         visible: CGRect(x: 0, y: 25, width: 1440, height: 875))
         XCTAssertTrue(text.contains("catwm.workspaces.parked = true"))
         XCTAssertTrue(text.contains("catwm.layouts = [\"dwindle\", \"floating\"]"))
-        XCTAssertTrue(text.contains("catwm.gaps.size = 10"))
-        XCTAssertTrue(text.contains("catwm.padding.top = 35"))
-        XCTAssertTrue(text.contains("catwm.padding.left = 10"))
-        XCTAssertTrue(text.contains("catwm.padding.bottom = 40"))
+        // SkyRose's own layout: gapsIn each side + the border inside the gap; padding = bar/frame +
+        // gapsOut + border; a window alone gets gapsOutSingle instead of gapsOut.
+        XCTAssertTrue(text.contains("catwm.gaps.size = 12"))
+        XCTAssertTrue(text.contains("catwm.padding.top = 46"))
+        XCTAssertTrue(text.contains("catwm.padding.left = 21"))
+        XCTAssertTrue(text.contains("catwm.padding.bottom = 51"))
+        XCTAssertTrue(text.contains("catwm.gaps.single = 10"))
         XCTAssertTrue(text.contains("catwm.focus.followsMouse = false"))
         XCTAssertTrue(text.contains("catwm.lab.resizeAnimation = \"snapshot\""))
     }

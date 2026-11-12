@@ -204,8 +204,11 @@ extension WindowManager {
         let titles = Dictionary(all.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
         // A tabbed window sits below CatWM's tab strip: the border frame takes the strip in, and
         // SkyRose's group bar is drawn there.
-        func withStrip(_ w: EngineWindow, _ f: CGRect) -> CGRect {
-            w.tabs == nil ? f : CGRect(x: f.minX, y: f.minY - Self.engineTabStrip, width: f.width, height: f.height + Self.engineTabStrip)
+        // BorderTarget.frame is the window grown by the border width (the ring sits in the gap).
+        let b = config.wm.borderSize
+        func withStrip(_ w: EngineWindow, _ window: CGRect) -> CGRect {
+            let f = window.insetBy(dx: -b, dy: -b)
+            return w.tabs == nil ? f : CGRect(x: f.minX, y: f.minY - Self.engineTabStrip, width: f.width, height: f.height + Self.engineTabStrip)
         }
         let resting = Dictionary(windows.map { ($0.id, withStrip($0, $0.frame!)) }, uniquingKeysWith: { a, _ in a })
         let corners = WindowCornerQuery.radii(for: resting.mapValues(\.size)) { [weak self] in
