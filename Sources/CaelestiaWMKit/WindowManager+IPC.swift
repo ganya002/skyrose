@@ -27,15 +27,13 @@ extension WindowManager {
         case .wsFocus:
             guard let n = request.int("index"), n >= 1 else { return refused("index must be a workspace number ≥ 1") }
             guard isManaging else { return refused("the WM is not managing windows") }
-            state.focusWorkspace(.numbered(n))
-            setNeedsLayout()
-            return ok()
+            // Through perform: with CatWM as the engine, SkyRose's own state is not what shows.
+            return perform(Action(.workspaceFocus, index: n)) ? ok() : refused("workspace \(n) could not be shown")
         case .wsMove:
             guard let n = request.int("index"), n >= 1 else { return refused("index must be a workspace number ≥ 1") }
-            guard isManaging, let f = state.focusedWindow else { return refused("no focused window") }
-            let moved = state.moveWindow(f, to: .numbered(n), follow: !(request.bool("silent") ?? false), env: environment)
-            setNeedsLayout()
-            return moved ? ok() : refused("the window cannot move to workspace \(n)")
+            guard isManaging else { return refused("the WM is not managing windows") }
+            let kind: ActionKind = (request.bool("silent") ?? false) ? .workspaceMoveSilent : .workspaceMove
+            return perform(Action(kind, index: n)) ? ok() : refused("the window cannot move to workspace \(n)")
         case .action:
             guard let name = request.string("action"), let kind = ActionKind(rawValue: name) else {
                 return refused("unknown action \(request.string("action") ?? "")")

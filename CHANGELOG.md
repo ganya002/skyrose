@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Fix: `skyrose ws focus` and `ws move` work with CatWM.** They changed SkyRose's own workspace state, which is not what shows when CatWM is the engine, so nothing happened.
+
 ## 0.5.0 (2026-11-12)
 
 CatWM tiles the windows, and the bar takes over Wi-Fi, Bluetooth and Control Center. https://github.com/ganya002/skyrose/releases/tag/v0.5.0
