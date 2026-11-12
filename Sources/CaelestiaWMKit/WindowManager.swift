@@ -249,6 +249,8 @@ public final class WindowManager {
     var suspended: [WindowID: WorkspaceID] = [:]
     /// Session snapshot (`Paths.sessionSnapshot` in the daemon; nil: not saved or restored).
     public var sessionStore: SessionSnapshotStore?
+    /// Where the window -> workspace map goes on quit for the next start (`EngineHandoff`). nil: off.
+    public var handoffURL: URL?
     var lastSavedSession: WorkspaceState?
     var lastSavedSuspended: [WindowID: WorkspaceID] = [:]
     var sessionSaveScheduled = false
@@ -363,6 +365,7 @@ public final class WindowManager {
             do {
                 try engine.start(config: config, area: engineArea)
                 Log.wm.notice("window manager: \(engine.name, privacy: .public)")
+                if let handoffURL { engine.restore(workspaces: EngineHandoff.take(from: handoffURL)) }
             } catch {
                 Log.wm.error("\(engine.name, privacy: .public) did not start: \(String(describing: error), privacy: .public)")
             }
@@ -381,6 +384,7 @@ public final class WindowManager {
         windowSystem.start()
         isDiscovering = false
         counters.restoredFromSession = restoreSession()
+        if let handoffURL { applyHandoff(EngineHandoff.take(from: handoffURL)) }
         enforceUserFloatLedger()
         systemFocus = windowSystem.focusedWindowID
         // A restored session keeps the workspace each display showed; the app focus only counts
@@ -399,6 +403,10 @@ public final class WindowManager {
         if let engine {
             guard !engineStopping else { return 0 }
             engineStopping = true
+            if let handoffURL {
+                EngineHandoff.write(Dictionary(engine.state.windows.compactMap { w in w.workspace.map { (w.id, $0) } },
+                                               uniquingKeysWith: { a, _ in a }), to: handoffURL)
+            }
             isManaging = false
             decorations?.removeAll()
             displayProvider.onChange = nil
@@ -417,6 +425,11 @@ public final class WindowManager {
                 }
             }
             return 0
+        }
+        if let handoffURL {
+            var map: [UInt32: String] = [:]
+            for (id, ws) in state.workspaces { for w in ws.windows { map[w] = id.description } }
+            EngineHandoff.write(map, to: handoffURL)
         }
         stopReconcileTimer()
         stopLiveResizePump()

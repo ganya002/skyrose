@@ -15,6 +15,9 @@ public final class CatWMHost: WindowEngine {
     private var config = Config()
     private var area: CGRect?
     private var lastText = ""
+    /// Windows to move to their old workspace once CatWM manages them, until `pendingUntil`.
+    private var pending: [UInt32: String] = [:]
+    private var pendingUntil = Date.distantPast
 
     public init() {}
 
@@ -90,7 +93,31 @@ public final class CatWMHost: WindowEngine {
         return CGRect(x: v.minX, y: screen.frame.maxY - v.maxY, width: v.width, height: v.height)
     }
 
+    public func restore(workspaces: [UInt32: String]) {
+        pending = workspaces
+        pendingUntil = Date().addingTimeInterval(10)
+        placePending()
+    }
+
+    /// CatWM finds windows over the first second or so; each one is moved as it shows up.
+    private func placePending() {
+        guard let engine, !pending.isEmpty else { return }
+        guard Date() < pendingUntil else { pending = [:]; return }
+        let known = Dictionary(state.windows.map { ($0.id, $0.workspace) }, uniquingKeysWith: { a, _ in a })
+        for (id, workspace) in pending.sorted(by: { $0.key < $1.key }) {
+            guard let current = known[id] else { continue }
+            pending[id] = nil
+            guard current != workspace else { continue }
+            do {
+                try engine.perform("movetoworkspacesilent", ["workspace": .string(workspace), "window": .int(Int(id))])
+            } catch {
+                Log.wm.info("CatWM could not put window \(id) back on \(workspace, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
+
     private func refreshState() {
+        defer { placePending() }
         guard let engine else { return }
         let snapshot = engine.snapshot()
         let next = Self.state(windows: snapshot.windows, screens: snapshot.screens)

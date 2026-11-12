@@ -150,6 +150,7 @@ public final class WMDaemon {
         wm.onQuit = { [weak self] in self?.terminate() }
         // A restart keeps every window's workspace and side (Paths.sessionSnapshot).
         wm.sessionStore = SessionSnapshotStore()
+        wm.handoffURL = EngineHandoff.defaultURL
         wm.userFloatLedgerURL = Paths.userFloatLedger
         // Native shell part 1: frame, bar, launcher, session menu, OSDs, toasts (CaelestiaShell).
         let shell = ShellBridge(wm: wm)
