@@ -78,8 +78,8 @@ copy_resource_bundles "$APP"
 cp "$ROOT/Packaging/SkyRose.icns" "$ROOT/Packaging/SkyRoseWM.icns" "$APP/Contents/Resources/"   # scripts/make-icons.swift
 # The uninstaller travels with the app, so `skyrose uninstall` and Settings work without the repo.
 # CatWM (Apache-2.0, used with permission): its license and third-party notices ship with the app.
-CATWM_SRC="$ROOT/../CatWM"
-[[ -f "$CATWM_SRC/LICENSE" ]] || CATWM_SRC="$ROOT/.build/checkouts/CatWM"
+CATWM_SRC="$ROOT/.build/checkouts/CatWM"
+[[ -f "$CATWM_SRC/LICENSE" ]] || CATWM_SRC="$ROOT/../CatWM"
 mkdir -p "$APP/Contents/Resources/Licenses/CatWM"
 cp "$CATWM_SRC/LICENSE" "$CATWM_SRC/Resources/ThirdPartyNotices.txt" "$APP/Contents/Resources/Licenses/CatWM/"
 mkdir -p "$APP/Contents/Resources/scripts"

@@ -33,7 +33,9 @@ let package = Package(
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
         // CatWM by Per William Krogstad-Østensen (@noxaur), used with permission; SkyRose's mods
         // live on branch `skyrose` (docs/catwm-modding.md).
-        .package(path: "../CatWM"),
+        // Pinned to the `skyrose` branch of the fork. To work on CatWM next to SkyRose:
+        // `swift package edit CatWM --path ../CatWM` (undo with `swift package unedit CatWM`).
+        .package(url: "https://github.com/ganya002/CatWM.git", revision: "98b7246d37f354199033ff008607df0207936123"),
     ],
     targets: [
         // MARK: C shims for private symbols (weak-linked, runtime-checked)

@@ -18,7 +18,8 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 - CatWM clone: `~/Projects/CatWM`, branch `skyrose` = `origin/main` + the mods listed below.
 - `SKYROSE.md` in the CatWM branch lists the mods from CatWM's side (what each one changes and why).
 - Fork: https://github.com/ganya002/CatWM (created by Gabby 2026-11-12). Push with `git push fork skyrose`
-  only. SkyRose links `CatWMKit` by path `../CatWM` during development and by the fork URL for releases.
+  only. SkyRose pins `CatWMKit` to a commit of the fork (`Package.swift`); bump the revision after pushing a
+  mod. To edit CatWM next to SkyRose: `swift package edit CatWM --path ../CatWM`, then `swift package unedit CatWM`.
 - SkyRose never imports CatWMKit outside `Sources/SkyRoseCatWM/`. The shell talks to the WM through the
   same interface for both engines.
 
