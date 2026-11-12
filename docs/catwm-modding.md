@@ -34,8 +34,16 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 
 | # | Mod | Why SkyRose needs it | State |
 |---|---|---|---|
-| M1 | Parked workspaces: workspaces on the current Desktop, hidden ones parked in a corner | SkyRose/Hyprland workspaces must not be macOS Desktops | in progress |
+| M1 | Parked workspaces: workspaces on the current Desktop, hidden ones parked in a corner | SkyRose/Hyprland workspaces must not be macOS Desktops | done: CatWM d586da8, `ParkedWorkspacesTests`, 914 CatWM tests pass |
 | M2 | Per-window commands (`window: <id>` on window commands) | app rules, CLI, panic act on a given window | planned |
 | M3 | Move hook: planned `(window, from, to)` before AX writes, host-driven animation | SkyRose's glide animations and borders | planned |
 | M4 | Dwindle layout + `togglesplit`, `swapsplit`, `pseudo`, `pin`, resize by delta | Hyprland behaviour and binds | planned |
 | M5 | Special (scratchpad) workspace | Hyprland `togglespecialworkspace` | planned |
+
+## CatWM checks (learned the hard way)
+
+- Use `/usr/bin/swift` (the swiftly 6.1.2 toolchain on PATH fails on the manifest).
+- `Tools/check-style.sh` bans comments in CatWM sources and tests: put the why in `SKYROSE.md`.
+- After an option change, regenerate without installing or restarting the user's CatWM:
+  `/usr/bin/swift build -c debug --product CatWM && .build/debug/CatWM --write-schema && .build/debug/CatWM --write-config-docs && python3 Tools/generate-clients.py`, then delete `Tools/__pycache__`.
+- Fake-backend tests: `Tests/Fakes/FakeBackend.swift`, `fake.makeManager { $0.parkedWorkspaces = true }`, `await fake.settle(manager)`.

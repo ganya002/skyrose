@@ -35,6 +35,8 @@ Resume here: read this table, then the newest section below.
 | W. CatWMKit swap | **blocked**, waiting for Per (Gabby, 2026-11-11). Branch `phase-w` (pushed, docs only): `docs/catwm-requests.md`, `docs/catwm-migration.md`. Old WM untouched. | b32f0fb |
 | S merge | merged into main 18119e5; 1282 tests, 0 failures; Store recorded live | 18119e5 |
 | B 10a OSD | done: Caelestia column layout, handle with % while moving, scroll, 2 s hide; seen live (`~/Pictures/Screenshots/skyrose-osd-1794410476*.png/.mov`). Drag and scroll not tried live (no pointer synthesis). Also fixed a clamshell IPC crash (585f21c) | 1de22b7 |
+| B 10b media | code done 2a291d3 (spectrum ring, seek, player row, 1 new test file each); live check waiting: QuickTime test file + kitty Automation prompt needed Gabby. Paused for CatWM (Gabby 2026-11-12) | 2a291d3 |
+| CatWM default WM | **in progress**, branch `phase-catwm` (SkyRose) + `skyrose` (~/Projects/CatWM, local only, never push). Plan + mod list + resume steps: `docs/catwm-modding.md`. Next: M2 per-window commands, M3 move hook, M4 dwindle + Hyprland dispatchers, M5 special workspace; then SkyRose target `SkyRoseCatWM` (path dep ../CatWM), `wm.engine = catwm|skyrose` (default catwm, SkyRose WM labelled WIP/not recommended), action mapping, glide animations + borders via M3, Settings › CatWM tab with <1 s morph transition both ways, `docs/catwm-migration.md` table verified live, credits (README, About, CREDITS, CHANGELOG, ThirdPartyNotices; CatWM is Apache-2.0). | d586da8 (CatWM) |
 
 Phase S merged. Next: Phase B (`docs/PHASE-PROMPT-10-controls.md`), then back to W when CatWM can hold windows.
 
