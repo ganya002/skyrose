@@ -130,14 +130,29 @@ public final class AudioService {
         setOutputDevice(next.id)
     }
 
-    public func setOutputDevice(_ id: AudioDeviceID) {
+    /// All devices with at least one input stream (microphones).
+    public func inputDevices() -> [AudioDevice] {
+        let current = CoreAudioProperties.defaultDevice(input: true)
+        return CoreAudioProperties.allDevices().compactMap { id in
+            guard CoreAudioProperties.hasStreams(device: id, input: true) else { return nil }
+            let name = CoreAudioProperties.name(of: id)
+            guard !name.isEmpty else { return nil }
+            return AudioDevice(id: id, name: name, isDefault: id == current)
+        }
+    }
+
+    public func setInputDevice(_ id: AudioDeviceID) { setDefault(id, selector: kAudioHardwarePropertyDefaultInputDevice) }
+
+    public func setOutputDevice(_ id: AudioDeviceID) { setDefault(id, selector: kAudioHardwarePropertyDefaultOutputDevice) }
+
+    private func setDefault(_ id: AudioDeviceID, selector: AudioObjectPropertySelector) {
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice, mScope: kAudioObjectPropertyScopeGlobal,
+            mSelector: selector, mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain)
         var value = id
         let status = AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &value)
         if status != noErr {
-            Log.services.error("set default output device failed: \(status)")
+            Log.services.error("set default audio device failed: \(status)")
         }
         refresh()
     }

@@ -187,7 +187,7 @@ public final class ShellBridge: ShellHost {
         case .shellDrawersToggle where (request.string("drawer") ?? "").lowercased().hasPrefix("popout."):
             let name = String((request.string("drawer") ?? "").lowercased().dropFirst("popout.".count))
             guard let kind = PopoutKind.allCases.first(where: { $0.rawValue.lowercased() == name }) else {
-                return fail("unknown popout \(name); use audio, network, bluetooth, battery or activeWindow")
+                return fail("unknown popout \(name); use audio, network, bluetooth, battery, controls or activeWindow")
             }
             controller.togglePopout(kind)
             return ok()

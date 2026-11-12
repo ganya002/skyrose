@@ -148,6 +148,7 @@ public final class ShellController {
     public let network = NetworkService()
     public let battery = BatteryService()
     public let keyboard = KeyboardLayoutService()
+    public let nightShift = NightShiftService()
     private let counts = LaunchCounts()
     public var runSession: (SessionAction) -> Void = SessionCommands.run
 

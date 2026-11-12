@@ -397,6 +397,8 @@ public struct BarConfig: Codable, Equatable, Sendable {
     public var activeWindowCompact: Bool = false
     public var workspacesOccupiedBg: Bool = false
     public var statusIcons: [StatusIcon] = StatusIcon.defaults
+    /// A Controls button under the status icons (Control Center and the menu-bar apps).
+    public var controlsButton: Bool = true
     public init() {}
 
     public struct StatusIcon: Codable, Equatable, Sendable {

@@ -736,6 +736,7 @@ struct ShellPage: View {
         (\.bar.showTray, "bar.showTray", "Menu bar button", "menubar.rectangle"),
         (\.bar.showClock, "bar.showClock", "Clock", "clock"),
         (\.bar.showStatusIcons, "bar.showStatusIcons", "Status icons", "wifi"),
+        (\.bar.controlsButton, "bar.controlsButton", "Controls button", "slider.horizontal.3"),
         (\.bar.showPower, "bar.showPower", "Power button", "power"),
     ]
 

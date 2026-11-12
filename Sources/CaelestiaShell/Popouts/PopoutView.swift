@@ -8,11 +8,14 @@ public enum PopoutKind: String, CaseIterable, Sendable {
     case audio, network, bluetooth, battery
     /// Hovering the bar's active-window column: the window's preview (Caelestia ActiveWindow popout).
     case activeWindow
+    /// The bar's Controls button: Control Center's toggles and the menu-bar apps (click only).
+    case controls
 
     /// Body width (Caelestia popout sizes: active window 400, audio / network 320, battery 250).
     public var width: Double {
         switch self {
         case .activeWindow: return 400
+        case .controls: return 340
         case .audio, .network: return 320
         case .bluetooth: return 300
         case .battery: return 250
@@ -21,7 +24,9 @@ public enum PopoutKind: String, CaseIterable, Sendable {
 
     /// What hovering a bar item shows (nil: nothing). Ids as `BarModel.onHover` reports them.
     public static func forBarItem(_ id: String) -> PopoutKind? {
-        id == "activeWindow" ? .activeWindow : forStatusIcon(id)
+        if id == "activeWindow" { return .activeWindow }
+        let kind = forStatusIcon(id)
+        return kind == .controls ? nil : kind
     }
 
     /// Which popout a bar status icon opens (nil: the icon has none).
@@ -31,6 +36,7 @@ public enum PopoutKind: String, CaseIterable, Sendable {
         case "network": return .network
         case "bluetooth": return .bluetooth
         case "battery": return .battery
+        case "controls": return .controls
         default: return nil
         }
     }
@@ -88,6 +94,9 @@ public final class PopoutModel: ObservableObject {
     public var onWifi: (Bool) -> Void = { _ in }
     public var onScan: () -> Void = {}
     public var onOpenSettings: (PopoutKind) -> Void = { _ in }
+    public let controls = ControlsModel()
+    /// Set by the controller from ``ControlsPanel/height(_:_:)`` before sizing.
+    public var controlsHeight: Double = 0
     public init() {}
 
     /// Body height per kind (rows are fixed height so the window can be sized before it shows).
@@ -111,6 +120,7 @@ public final class PopoutModel: ObservableObject {
             return h
         case .battery: return 170
         case .activeWindow: return 74 + Self.previewHeight
+        case .controls: return controlsHeight
         }
     }
 
@@ -135,6 +145,7 @@ struct PopoutView: View {
                     case .bluetooth: BluetoothPopout(model: model, state: state)
                     case .battery: BatteryPopout(model: model, state: state)
                     case .activeWindow: ActiveWindowPopout(model: model)
+                    case .controls: ControlsPanel(model: model, controls: model.controls, state: state)
                     }
                 }
                 // Moving between bar items morphs the one popout; its content cross-fades.

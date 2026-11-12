@@ -84,6 +84,7 @@ extension ShellController {
         popout.onBluetoothConfirm = { [weak self] ok in self?.bluetooth.confirm(ok) }
         popout.onBluetoothCancel = { [weak self] in self?.bluetooth.cancelPairing() }
         popout.onOpenSettings = { [weak self] kind in self?.openSettings(for: kind) }
+        wireControls()
 
         wallpaperPicker.onPick = { [weak self] url in self?.transitionWallpaper(url) }
         wallpaperPicker.onRandom = { [weak self] in self?.randomWallpaper() }
@@ -443,6 +444,7 @@ extension ShellController {
             bluetooth.refreshBatteries()
             if !popout.expanded, bluetooth.scanning { bluetooth.stopScan() }
         }
+        if kind == .controls { refreshControls() }
         if kind == .network {
             popout.networks = []; popout.scanMessage = nil; popout.passwordFor = nil; popout.wifiJob = .idle
             popout.locationMissing = false
@@ -501,7 +503,7 @@ extension ShellController {
         case .bluetooth: pane = "x-apple.systempreferences:com.apple.BluetoothSettings"
         case .battery: pane = "x-apple.systempreferences:com.apple.Battery-Settings.extension"
         case .audio: pane = "x-apple.systempreferences:com.apple.Sound-Settings.extension"
-        case .activeWindow: closePopout(); return
+        case .activeWindow, .controls: closePopout(); return
         }
         closePopout()
         if let url = URL(string: pane) { openURL(url) }
@@ -606,6 +608,102 @@ extension ShellController {
         if Permissions.undecided(.location) { _ = Permissions.request(.location) } else { Permissions.openSettings(for: .location) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             if Permissions.locationGranted { self?.scanNetworks() }
+        }
+    }
+
+    // MARK: Controls (the bar's Control Center)
+
+    private func wireControls() {
+        let c = popout.controls
+        c.onSetInput = { [weak self] id in
+            self?.audio.setInputDevice(id)
+            self?.popout.controls.inputDevices = self?.audio.inputDevices() ?? []
+        }
+        c.onInputSource = { [weak self] id in
+            InputSources.select(id)
+            self?.popout.controls.inputSources = InputSources.list()
+            self?.keyboard.refresh()
+        }
+        c.onNightShift = { [weak self] on in
+            guard let self else { return }
+            self.nightShift.set(on)
+            self.popout.controls.nightShift = self.nightShift.available ? self.nightShift.isOn : nil
+        }
+        c.onLowPower = { [weak self] on in self?.setLowPowerMode(on) }
+        c.onDND = { [weak self] on in self?.setDoNotDisturb(on) }
+        c.onFocusSettings = { [weak self] in
+            self?.closePopout()
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Focus-Settings.extension") { self?.openURL(url) }
+        }
+        c.onAirDrop = { [weak self] in
+            self?.closePopout()
+            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app/Contents/Applications/AirDrop.app"),
+                                               configuration: NSWorkspace.OpenConfiguration())
+        }
+        c.onBrightness = { [weak self] v in self?.brightness.set(v) }
+        c.onPlayPause = { [weak self] in self?.media.playPause() }
+        c.onNext = { [weak self] in self?.media.next() }
+        c.onPrevious = { [weak self] in self?.media.previous() }
+        c.onRaisePlayer = { [weak self] in self?.closePopout(); self?.media.raise() }
+        c.onExtra = { [weak self] extra in
+            self?.closePopout()
+            Task.detached { if !MenuExtras.press(extra) { await MainActor.run { self?.toast(.error, title: "Menu bar", message: "\(extra.appName) did not open its menu.") } } }
+        }
+        c.onShowMenuBar = { [weak self] in
+            self?.closePopout()
+            SystemMenuBar.peek()
+        }
+        c.onOpen = { [weak self] kind in
+            guard let self, let d = self.popoutDisplay, let layout = self.layouts[d], let panel = self.popoutPanel else { return }
+            self.popout.expanded = true
+            self.openPopout(kind, display: d, layout: layout, anchorMidY: panel.frame.midY)
+            self.popoutByHover = false
+            if kind == .network || kind == .bluetooth { panel.acceptsKey = true; panel.makeKey() }
+        }
+    }
+
+    /// Reads what the Controls panel lists. Menu-bar items need one AX call per app: off the main thread.
+    func refreshControls() {
+        let c = popout.controls
+        popout.devices = audio.outputDevices()
+        c.inputDevices = audio.inputDevices()
+        c.inputSources = InputSources.list()
+        c.nightShift = nightShift.available ? nightShift.isOn : nil
+        c.brightnessAvailable = osd.brightnessAvailable
+        popout.controlsHeight = ControlsPanel.height(c, state)
+        guard !c.extrasLoading else { return }
+        c.extrasLoading = true
+        Task.detached { [weak self] in
+            let list = MenuExtras.list()
+            await MainActor.run {
+                guard let self else { return }
+                self.popout.controls.extras = list
+                self.popout.controls.extrasLoading = false
+                self.popout.controlsHeight = ControlsPanel.height(self.popout.controls, self.state)
+                if self.popoutKind == .controls { self.resizePopout() }
+            }
+        }
+    }
+
+    /// Low Power Mode is a root-only `pmset` setting: macOS asks for an administrator password.
+    func setLowPowerMode(_ on: Bool) {
+        let c = popout.controls
+        guard !c.lowPowerBusy else { return }
+        c.lowPowerBusy = true
+        let script = "do shell script \"/usr/bin/pmset -a lowpowermode \(on ? 1 : 0)\" with administrator privileges with prompt \"SkyRose wants to turn Low Power Mode \(on ? "on" : "off").\""
+        Task.detached { [weak self] in
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            p.arguments = ["-e", script]
+            p.standardOutput = FileHandle.nullDevice
+            p.standardError = FileHandle.nullDevice
+            let ok = (try? p.run()) != nil && { p.waitUntilExit(); return p.terminationStatus == 0 }()
+            await MainActor.run {
+                guard let self else { return }
+                self.popout.controls.lowPowerBusy = false
+                self.battery.refresh()
+                if !ok { self.toast(.info, title: "Low Power Mode", message: "Not changed (cancelled or not allowed).") }
+            }
         }
     }
 
