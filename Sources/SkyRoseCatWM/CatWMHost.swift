@@ -92,7 +92,8 @@ public final class CatWMHost: WindowEngine {
 
     private func refreshState() {
         guard let engine else { return }
-        let next = Self.state(from: engine.snapshot())
+        let snapshot = engine.snapshot()
+        let next = Self.state(windows: snapshot.windows, screens: snapshot.screens)
         guard next != state else { return }
         state = next
         onChange?()
@@ -104,9 +105,9 @@ public final class CatWMHost: WindowEngine {
         return CGRect(x: x, y: y, width: width, height: height)
     }
 
-    static func state(from snapshot: CatWMEngine.Snapshot) -> EngineState {
+    nonisolated static func state(windows: JSON, screens: JSON) -> EngineState {
         var out = EngineState()
-        out.windows = (snapshot.windows.array ?? []).compactMap { w in
+        out.windows = (windows.array ?? []).compactMap { w in
             guard let id = w["id"]?.int, w["minimized"] != .bool(true) else { return nil }
             return EngineWindow(id: UInt32(clamping: id), bundleID: w["app"]?.string, title: w["title"]?.string ?? "",
                                 workspace: w["workspace"]?.string, display: w["screen"]?.string,
@@ -114,10 +115,11 @@ public final class CatWMHost: WindowEngine {
                                 visible: w["visible"]?.isTrue == true && w["fullscreen"]?.isTrue != true,
                                 frame: rect(w["frame"]))
         }
-        for screen in snapshot.screens.array ?? [] {
+        for screen in screens.array ?? [] {
             guard let uuid = screen["uuid"]?.string else { continue }
             if let ws = screen["workspace"]?.string, !ws.isEmpty { out.shown[uuid] = ws }
             if screen["focused"]?.isTrue == true { out.focusedDisplay = uuid }
+            if let special = screen["special"]?.string { out.openSpecial = String(special.dropFirst("special:".count)) }
         }
         return out
     }

@@ -45,6 +45,23 @@ final class CatWMBridgeTests: XCTestCase {
         XCTAssertFalse(text.contains("catwm.motion.duration"))
     }
 
+    func testSnapshotStateReadsWindowsAndTheOpenSpecial() {
+        let state = CatWMHost.state(
+            windows: [["id": .int(7), "app": .string("a.b"), "title": .string("t"), "workspace": .string("2"),
+                       "focused": .bool(true), "floating": .bool(false), "minimized": .bool(false),
+                       "visible": .bool(true), "fullscreen": .bool(false),
+                       "frame": ["x": .number(1), "y": .number(2), "width": .number(3), "height": .number(4)]],
+                      ["id": .int(8), "minimized": .bool(true)]],
+            screens: [["uuid": .string("D"), "workspace": .string("2"), "focused": .bool(true),
+                       "special": .string("special:term")]])
+        XCTAssertEqual(state.windows.map(\.id), [7])
+        XCTAssertEqual(state.windows.first?.frame, CGRect(x: 1, y: 2, width: 3, height: 4))
+        XCTAssertEqual(state.windows.first?.visible, true)
+        XCTAssertEqual(state.shown, ["D": "2"])
+        XCTAssertEqual(state.focusedDisplay, "D")
+        XCTAssertEqual(state.openSpecial, "term")
+    }
+
     func testFrameJSONBecomesARect() {
         XCTAssertEqual(CatWMHost.rect(["x": .number(1), "y": .int(2), "width": .number(3), "height": .number(4)]),
                        CGRect(x: 1, y: 2, width: 3, height: 4))
