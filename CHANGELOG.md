@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **CatWM is the window manager.** Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur), https://github.com/noxaur/CatWM, used with permission. SkyRose keeps its bar, panels, binds and IPC; CatWM tiles the windows (Hyprland dwindle with `togglesplit`, `swapsplit`, `pseudo`, `pin` and special workspaces). SkyRose's own engine stays available as `[wm] engine = "skyrose"` (work in progress, not recommended).
+
 ## 0.4.1 (2026-11-11)
 
 The SIP-off helper without Terminal, a restart command, and a closer Caelestia look. https://github.com/ganya002/skyrose/releases/tag/v0.4.1

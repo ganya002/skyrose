@@ -327,6 +327,7 @@ struct AboutPage: View {
     @Environment(\.look) var look
 
     static let credits: [(String, String, String)] = [
+        ("CatWM", "Window management powered by CatWM by Per William Krogstad-Østensen (@noxaur). Used with permission. Apache-2.0.", "https://github.com/noxaur/CatWM"),
         ("Caelestia", "The shell this is modelled on: bar, panels, colours and motion. GPL-3.0.", "https://github.com/caelestia-dots/shell"),
         ("Bongo Cat", "Bongo Cat sprite from Caelestia (caelestia-dots/shell, GPL-3.0); original Bongo Cat by StrayRogue & DitzyFlama.", "https://github.com/caelestia-dots/shell"),
         ("Hyprland", "The tiling layout, the keybinds and the feel. BSD-3-Clause.", "https://hyprland.org"),
