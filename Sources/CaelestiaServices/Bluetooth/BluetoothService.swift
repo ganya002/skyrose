@@ -199,12 +199,16 @@ public final class BluetoothService {
         guard let d = device(address) else { job = .failed("Unknown device"); return }
         let name = d.name ?? address
         job = .connecting(name)
-        let target = ConnectionTarget { [weak self] status in
+        var target: ConnectionTarget?
+        target = ConnectionTarget { [weak self] status in
             guard let self else { return }
+            let done = target
+            DispatchQueue.main.async { [weak self] in self?.connectionTargets.removeAll { $0 === done } }
             self.job = status == kIOReturnSuccess ? .idle : .failed("Couldn't connect \(name). Is it on and nearby?")
             self.refresh()
             self.refreshBatteries()
         }
+        guard let target else { return }
         connectionTargets.append(target)
         let r = d.openConnection(target)
         if r != kIOReturnSuccess {
@@ -257,6 +261,9 @@ public final class BluetoothService {
             },
             done: { [weak self] in
                 guard let self else { return }
+                // Released on the next turn, never inside the inquiry's own callback.
+                let finished = self.inquiry
+                DispatchQueue.main.async { withExtendedLifetime(finished) {} }
                 self.inquiry = nil
                 self.scanning = false
                 self.onNearby?(self.nearby, false)
@@ -279,6 +286,8 @@ public final class BluetoothService {
             case .pin: self.job = .pin(name)
             case .confirm(let n): self.job = .confirm(name, n)
             case .finished(let ok):
+                let finished = self.pairing
+                DispatchQueue.main.async { withExtendedLifetime(finished) {} }
                 self.pairing = nil
                 self.job = ok ? .idle : .failed("Pairing with \(name) failed.")
                 self.nearby.removeAll { $0.address == address }
@@ -404,6 +413,13 @@ private final class BluetoothInquiry: NSObject, IOBluetoothDeviceInquiryDelegate
 
     func stop() { inquiry?.stop() }
 
+    /// IOBluetoothDeviceInquiry keeps an unretained delegate and touches it in its dealloc: detach
+    /// first, so freeing this object never leaves it pointing at freed memory.
+    deinit {
+        inquiry?.delegate = nil
+        inquiry?.stop()
+    }
+
     func deviceInquiryDeviceFound(_ sender: IOBluetoothDeviceInquiry!, device: IOBluetoothDevice!) {
         guard let device else { return }
         let found = self.found
@@ -415,6 +431,7 @@ private final class BluetoothInquiry: NSObject, IOBluetoothDeviceInquiryDelegate
     }
 
     func deviceInquiryComplete(_ sender: IOBluetoothDeviceInquiry!, error: IOReturn, aborted: Bool) {
+        sender?.delegate = nil
         let done = self.done
         onMain { MainActor.assumeIsolated { done() } }
     }
@@ -435,6 +452,8 @@ private final class BluetoothPairing: NSObject, IOBluetoothDevicePairDelegate {
 
     func start() -> Bool { pair?.start() == kIOReturnSuccess }
     func cancel() { pair?.stop() }
+
+    deinit { pair?.delegate = nil }
 
     func reply(pin: String) {
         var code = BluetoothPINCode()

@@ -438,6 +438,7 @@ extension ShellController {
         if kind == .activeWindow { capturePreview() }
         if kind == .audio { popout.devices = audio.outputDevices() }
         if kind == .bluetooth {
+            if case .failed = popout.btJob { popout.btJob = .idle }
             bluetooth.refresh()
             bluetooth.refreshBatteries()
             if !popout.expanded, bluetooth.scanning { bluetooth.stopScan() }

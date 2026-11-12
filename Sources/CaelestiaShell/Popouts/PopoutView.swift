@@ -100,7 +100,7 @@ public final class PopoutModel: ObservableObject {
                 + (passwordFor == nil ? 0 : 92) + (wifiJob == .idle ? 0 : 24)
         case .bluetooth:
             guard expanded else { return 60 + Double(max(1, min(btPairedCount, 4))) * 30 }
-            var h = 214 + Double(min(btPairedCount, 5)) * 42
+            var h = 186 + Double(min(btPairedCount, 5)) * 42
             if btScanning || !btNearby.isEmpty { h += 26 + Double(min(btNearby.count, 5)) * 36 }
             switch btJob {
             case .idle: break
@@ -395,10 +395,10 @@ private struct NetworkPanel: View {
             .buttonStyle(.plain)
             .accessibilityLabel("\(n.ssid), \(n.secured ? "secured" : "open"), \(connected ? "connected" : (n.known ? "known" : "new"))")
             if connected {
-                iconButton("xmark", "Disconnect from \(n.ssid)", action: model.onDisconnect)
+                iconButton("close", "Disconnect from \(n.ssid)", action: model.onDisconnect)
             }
             if n.known {
-                iconButton("trash", "Forget \(n.ssid)") { model.onForget(n.ssid) }
+                iconButton("delete", "Forget \(n.ssid)") { model.onForget(n.ssid) }
             }
         }
         .frame(height: 32).padding(.horizontal, 6)
@@ -428,7 +428,7 @@ private struct NetworkPanel: View {
                 .padding(.horizontal, 10).padding(.vertical, 7)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
                 .accessibilityIdentifier("wifi.password")
-                iconButton(reveal ? "eye.slash" : "eye", reveal ? "Hide password" : "Show password") { reveal.toggle() }
+                iconButton(reveal ? "visibility_off" : "visibility", reveal ? "Hide password" : "Show password") { reveal.toggle() }
             }
             HStack {
                 Button("Cancel") { password = ""; model.passwordFor = nil }
@@ -512,11 +512,11 @@ enum BluetoothText {
         switch kind {
         case "headphones": return "headphones"
         case "keyboard": return "keyboard"
-        case "mouse": return "computermouse"
-        case "phone": return "iphone"
-        case "computer": return "laptopcomputer"
-        case "speaker": return "hifispeaker"
-        default: return "dot.radiowaves.left.and.right"
+        case "mouse": return "mouse"
+        case "phone": return "smartphone"
+        case "computer": return "laptop"
+        case "speaker": return "speaker"
+        default: return "bluetooth"
         }
     }
 }
@@ -548,7 +548,7 @@ private struct BluetoothPanel: View {
                     }
                     ForEach(s.bluetoothPaired.prefix(5)) { d in pairedRow(d) }
                     Button(action: model.onBluetoothScan) {
-                        HStack { Text(model.btScanning ? "Looking for devices… (stop)" : "Pair new device"); Spacer(); MaterialIcon("plus", size: 12, weight: .medium) }
+                        HStack { Text(model.btScanning ? "Looking for devices… (stop)" : "Pair new device"); Spacer(); MaterialIcon("add", size: 12, weight: .medium) }
                             .font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.primary])
                             .padding(.horizontal, 12).padding(.vertical, 8)
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme[.onSurface].opacity(0.07)))
@@ -593,7 +593,7 @@ private struct BluetoothPanel: View {
             .help(d.connected ? "Disconnect" : "Connect")
             .accessibilityLabel("\(d.name), \(d.connected ? "connected, click to disconnect" : "not connected, click to connect")")
             Button { model.onBluetoothForget(d) } label: {
-                MaterialIcon("trash", size: 11, weight: .semibold).foregroundStyle(theme[.onSurfaceVariant])
+                MaterialIcon("delete", size: 11, weight: .semibold).foregroundStyle(theme[.onSurfaceVariant])
                     .frame(width: 24, height: 24).background(Circle().fill(theme[.onSurface].opacity(0.07)))
             }
             .buttonStyle(.plain).help("Forget \(d.name)").accessibilityLabel("Forget \(d.name)")
