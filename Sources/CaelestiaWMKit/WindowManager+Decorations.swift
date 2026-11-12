@@ -192,18 +192,32 @@ extension WindowManager {
         if debugOverlayEnabled { decorations.debug(debugSnapshot()) }
     }
 
+    /// CatWM's tab strip height (`TabGeometry.stripHeight`).
+    static let engineTabStrip: CGFloat = 30
+
     /// Engine mode: borders on the engine's visible windows, at their in-flight frame while they
     /// move (the engine reports every frame, so the border just snaps along).
     func publishEngineBorders() {
         guard let engine, let decorations else { return }
-        let windows = engine.state.windows.filter { $0.visible && $0.frame != nil }
-        let resting = Dictionary(windows.map { ($0.id, $0.frame!) }, uniquingKeysWith: { a, _ in a })
+        let all = engine.state.windows
+        let windows = all.filter { $0.visible && !$0.tabBehind && $0.frame != nil }
+        let titles = Dictionary(all.map { ($0.id, $0.title) }, uniquingKeysWith: { a, _ in a })
+        // A tabbed window sits below CatWM's tab strip: the border frame takes the strip in, and
+        // SkyRose's group bar is drawn there.
+        func withStrip(_ w: EngineWindow, _ f: CGRect) -> CGRect {
+            w.tabs == nil ? f : CGRect(x: f.minX, y: f.minY - Self.engineTabStrip, width: f.width, height: f.height + Self.engineTabStrip)
+        }
+        let resting = Dictionary(windows.map { ($0.id, withStrip($0, $0.frame!)) }, uniquingKeysWith: { a, _ in a })
         let corners = WindowCornerQuery.radii(for: resting.mapValues(\.size)) { [weak self] in
             DispatchQueue.main.async { self?.publishEngineBorders() }
         }
         let targets = windows.map { w in
-            BorderTarget(id: w.id, frame: engineInFlight[w.id] ?? resting[w.id]!, isActive: w.focused,
-                         appear: shownBefore.contains(w.id) ? .instant : .popIn, motion: .snap, group: nil,
+            BorderTarget(id: w.id, frame: engineInFlight[w.id].map { withStrip(w, $0) } ?? resting[w.id]!, isActive: w.focused,
+                         appear: shownBefore.contains(w.id) ? .instant : .popIn, motion: .snap,
+                         group: w.tabs.map { tabs in
+                             GroupBar(titles: tabs.map { titles[$0].flatMap { $0.isEmpty ? nil : $0 } ?? "window" },
+                                      activeIndex: tabs.firstIndex(of: w.id) ?? 0, isLocked: w.tabsLocked)
+                         },
                          corners: corners[w.id])
         }
         let ids = Set(resting.keys)

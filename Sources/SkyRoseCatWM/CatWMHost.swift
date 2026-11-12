@@ -116,6 +116,9 @@ public final class CatWMHost: WindowEngine {
                                 frame: rect(w["frame"]))
             window.pid = Int32(clamping: w["pid"]?.int ?? 0)
             window.fullscreen = w["fullscreen"]?.isTrue == true
+            window.tabs = w["tabs"]?.array?.compactMap { $0.int.map { UInt32(clamping: $0) } }
+            window.tabsLocked = w["tabsLocked"]?.isTrue == true
+            window.tabBehind = w["tabBehind"]?.isTrue == true
             return window
         }
         for screen in screens.array ?? [] {

@@ -50,7 +50,8 @@ final class CatWMBridgeTests: XCTestCase {
             windows: [["id": .int(7), "app": .string("a.b"), "title": .string("t"), "workspace": .string("2"),
                        "focused": .bool(true), "floating": .bool(false), "minimized": .bool(false),
                        "visible": .bool(true), "fullscreen": .bool(false),
-                       "frame": ["x": .number(1), "y": .number(2), "width": .number(3), "height": .number(4)]],
+                       "frame": ["x": .number(1), "y": .number(2), "width": .number(3), "height": .number(4)],
+                       "tabs": [.int(9), .int(7)], "tabsLocked": .bool(true), "tabBehind": .bool(false)],
                       ["id": .int(8), "minimized": .bool(true)]],
             screens: [["uuid": .string("D"), "workspace": .string("2"), "focused": .bool(true),
                        "special": .string("special:term")]])
@@ -60,6 +61,8 @@ final class CatWMBridgeTests: XCTestCase {
         XCTAssertEqual(state.shown, ["D": "2"])
         XCTAssertEqual(state.focusedDisplay, "D")
         XCTAssertEqual(state.openSpecial, "term")
+        XCTAssertEqual(state.windows.first?.tabs, [9, 7])
+        XCTAssertEqual(state.windows.first?.tabsLocked, true)
     }
 
     func testFrameJSONBecomesARect() {
@@ -76,7 +79,9 @@ final class CatWMBridgeTests: XCTestCase {
         XCTAssertEqual(names(Action(.workspaceFocus, index: 4)), ["workspace"])
         XCTAssertEqual(names(Action(.windowPin)), ["setfloating", "pin"])
         XCTAssertEqual(names(Action(.layoutToggleSplit)), ["layoutmsg"])
-        XCTAssertEqual(names(Action(.groupLock)), [])
+        XCTAssertEqual(names(Action(.groupLock)), ["lockactivegroup"])
+        XCTAssertEqual(names(Action(.groupToggle)), ["togglegroup"])
+        XCTAssertEqual(names(Action(.windowDrag)), [])
         XCTAssertNil(names(Action(.launcherToggle)))
         let group = try XCTUnwrap(CatWMCommands.calls(for: Action(.workspaceFocusGroup, group: 3), area: area,
                                                       perGroup: 10, current: nil)?.first)
@@ -96,6 +101,7 @@ final class CatWMBridgeTests: XCTestCase {
         let text = CatWMConfigText.make(Config(), area: CGRect(x: 10, y: 40, width: 1400, height: 840),
                                         visible: CGRect(x: 0, y: 30, width: 1440, height: 870))
             .replacingOccurrences(of: "catwm.features.windows.tiling = true", with: "")
+            .replacingOccurrences(of: "catwm.features.windows.tabGroups = true", with: "")
             .replacingOccurrences(of: "catwm.features.input.mouse = true", with: "")
         let engine = try CatWMEngine(name: "skyrose-test")
         try engine.start(config: .text(text))

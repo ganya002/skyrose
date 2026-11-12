@@ -18,6 +18,11 @@ public struct EngineWindow: Equatable, Sendable {
     public var frame: CGRect?
     public var pid: Int32 = 0
     public var fullscreen = false
+    /// Its group's windows in tab order (just itself for a group of one); nil when not grouped.
+    public var tabs: [UInt32]?
+    public var tabsLocked = false
+    /// Another tab of its group is in front: it sits behind that one and gets no border.
+    public var tabBehind = false
 
     public init(id: UInt32, bundleID: String?, title: String, workspace: String?, display: String?,
                 focused: Bool, floating: Bool, visible: Bool = false, frame: CGRect? = nil) {

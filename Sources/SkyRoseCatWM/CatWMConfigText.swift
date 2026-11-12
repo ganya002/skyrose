@@ -17,6 +17,7 @@ public enum CatWMConfigText {
         var lines = [
             "import { catwm } from \"./catwm\"",
             "catwm.features.windows.tiling = true",
+            "catwm.features.windows.tabGroups = true",
             "catwm.features.input.mouse = true",
             "catwm.workspaces.parked = true",
             "catwm.layouts = \(layouts(wm.catwm.layouts))",

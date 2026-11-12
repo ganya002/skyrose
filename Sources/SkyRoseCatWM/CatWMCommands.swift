@@ -67,7 +67,9 @@ public enum CatWMCommands {
         case .groupMoveOut: return [("moveoutofgroup", [:])]
         case .groupNext: return [("changegroupactive", ["tab": .string("next")])]
         case .groupPrev: return [("changegroupactive", ["tab": .string("prev")])]
-        case .groupToggle, .groupLock, .windowDrag, .windowResizeDrag: return []
+        case .groupToggle: return [("togglegroup", [:])]
+        case .groupLock: return [("lockactivegroup", [:])]
+        case .windowDrag, .windowResizeDrag: return []
         default: return nil
         }
     }

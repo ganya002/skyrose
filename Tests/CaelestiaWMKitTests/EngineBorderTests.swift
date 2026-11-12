@@ -101,4 +101,28 @@ final class EngineBorderTests: XCTestCase {
         XCTAssertTrue(monitor.focused)
         XCTAssertEqual(h.wm.stateEntry().windowCount, 2)
     }
+
+    func testTabbedWindowsGetOneBorderWithAGroupBar() {
+        let h = Harness()
+        let engine = FakeEngine()
+        let decorations = TestDecorations()
+        h.wm.engine = engine
+        h.wm.decorations = decorations
+        h.wm.start()
+        let frame = CGRect(x: 60, y: 72, width: 400, height: 300)
+        var front = EngineWindow(id: 1, bundleID: nil, title: "Front", workspace: "1", display: nil, focused: true,
+                                 floating: false, visible: true, frame: frame)
+        front.tabs = [2, 1]
+        front.tabsLocked = true
+        var back = EngineWindow(id: 2, bundleID: nil, title: "", workspace: "1", display: nil, focused: false,
+                                floating: false, visible: true, frame: frame)
+        back.tabs = [2, 1]
+        back.tabBehind = true
+        engine.state.windows = [front, back]
+        engine.onChange?()
+        let border = try! XCTUnwrap(decorations.lastScene?.borders.first)
+        XCTAssertEqual(decorations.lastScene?.borders.count, 1)
+        XCTAssertEqual(border.frame, CGRect(x: 60, y: 42, width: 400, height: 330), "takes in CatWM's tab strip")
+        XCTAssertEqual(border.group, GroupBar(titles: ["window", "Front"], activeIndex: 1, isLocked: true))
+    }
 }
