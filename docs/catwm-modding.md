@@ -47,6 +47,7 @@ a short stack of SkyRose commits. The old SkyRose WM stays as an option ("SkyRos
 | M7 | Focus a new window of the frontmost app when macOS reports no focused window | new app windows got no focus border | done: CatWM 654a359, test in `HyprlandGroupTests` |
 | M8 | `gaps.single` (`single-window-padding`): extra space around a lone tiled window | SkyRose `gapsOutSingle` | done: CatWM 98b7246, `SingleWindowPaddingTests` |
 | M9 | Window motion display link pinned to the screen's full refresh rate (60 Hz Air, 120 Hz ProMotion), no 30 fps floor | workspace slides dropped frames | done: CatWM 258a705; measured 15.4–17.0 ms per frame on a 60 Hz Air |
+| M10 | Floating windows come back when their workspace shows (`unpark(floating:)` was never called) | Firefox moved to another workspace group vanished in the parking corner | done: CatWM 675dcad, `ParkedWorkspacesTests` (fails without fix); live-checked with TestWindows ws9 to 11 to 1 |
 
 ## Settings › CatWM
 
