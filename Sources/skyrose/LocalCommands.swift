@@ -31,6 +31,8 @@ enum LocalCommands {
             return cursor(verb, json: invocation.json)
         case .dock(let verb):
             return dock(verb)
+        case .wifi(let verb):
+            return WifiCommand(client: client, json: invocation.json, timeout: invocation.timeout).run(verb)
         case .update(let checkOnly):
             return update(checkOnly: checkOnly || !invocation.yes)
         case .kitty(let verb):

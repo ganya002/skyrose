@@ -24,7 +24,8 @@ So the status stays live either way.
 | **Input Monitoring** | required | the global event tap that hears the hotkeys, the ⌥L tap, ⌥L+drag and ⌥L+scroll | no hotkeys, no mouse binds (the bar and IPC still work) | Privacy & Security → Input Monitoring |
 | **Screen Recording** | optional | workspace-slide snapshots, screenshots, the screen recorder, the colour picker | workspace switches cross-fade instead of sliding; capture tools are disabled and say why | Privacy & Security → Screen & System Audio Recording |
 | **Automation** (per app) | optional | *System Events*: log out / restart / shut down from the session menu. *Spotify* / *Music*: the media card when MediaRemote is unavailable | the session buttons fall back to the loginwindow Apple events and the media card shows "No media" | Privacy & Security → Automation |
-| **Location** | optional | Wi-Fi network name in the bar (macOS 14+ requires it for the SSID) and local weather | the bar says "Connected"; weather uses the city from Settings | Privacy & Security → Location Services |
+| **Location** | optional | Wi-Fi network names in the bar and the Wi-Fi panel (macOS 14+ hides SSIDs without it) and local weather | the bar says "Connected"; weather uses the city from Settings | Privacy & Security → Location Services |
+| **Bluetooth** | optional | the Bluetooth panel: paired devices, battery, connect/disconnect, pairing | the panel can't list or connect devices | Privacy & Security → Bluetooth |
 | **Microphone** | optional | "record with sound" | recordings have no microphone track | Privacy & Security → Microphone |
 
 ## Why the grants survive rebuilds

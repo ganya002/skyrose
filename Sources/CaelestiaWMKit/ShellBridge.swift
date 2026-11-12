@@ -3,6 +3,7 @@ import CaelestiaCore
 import CaelestiaIPC
 import CaelestiaLayout
 import CaelestiaPlatform
+import CaelestiaServices
 import CaelestiaShell
 import Foundation
 
@@ -217,6 +218,22 @@ public final class ShellBridge: ShellHost {
             var o: [String: JSONValue] = ["enabled": .bool(ka.isEnabled), "status": .string(ka.statusText)]
             if let u = ka.until { o["until"] = .string(ISO8601DateFormatter().string(from: u)) }
             return ok(.object(o))
+        case .wifi:
+            let ssid = request.string("ssid") ?? ""
+            switch request.string("action") ?? "status" {
+            case "status": break
+            case "on", "off": controller.wifiPower(request.string("action") == "on")
+            case "scan": controller.wifiScan()
+            case "disconnect": controller.wifiDisconnect()
+            case "connect":
+                guard !ssid.isEmpty else { return fail("connect needs ssid") }
+                controller.wifiConnect(ssid, password: request.string("password"))
+            case "forget":
+                guard !ssid.isEmpty else { return fail("forget needs ssid") }
+                controller.wifiForget(ssid)
+            default: return fail("action must be status, on, off, scan, connect, disconnect or forget")
+            }
+            return ok(Self.wifiStatus(controller))
         case .clamshell:
             let cm = controller.clamshell
             let lid = controller.lidSleep
@@ -285,6 +302,34 @@ public final class ShellBridge: ShellHost {
     }
 
     // MARK: ShellHost
+
+    /// What `skyrose wifi` prints: the radio, the connection, the last scan and the running job.
+    static func wifiStatus(_ controller: ShellController) -> JSONValue {
+        let s = controller.state.status
+        let p = controller.popout
+        var job: [String: JSONValue]
+        switch p.wifiJob {
+        case .idle: job = ["state": .string("idle")]
+        case .connecting(let n): job = ["state": .string("connecting"), "ssid": .string(n)]
+        case .disconnecting: job = ["state": .string("disconnecting")]
+        case .forgetting(let n): job = ["state": .string("forgetting"), "ssid": .string(n)]
+        case .joined(let n): job = ["state": .string("connected"), "ssid": .string(n)]
+        case .failed(let n, let m): job = ["state": .string("failed"), "ssid": .string(n), "message": .string(m)]
+        }
+        var o: [String: JSONValue] = [
+            "enabled": .bool(s.wifiEnabled), "connected": .bool(s.wifiConnected), "ethernet": .bool(s.ethernetConnected),
+            "strength": .number(Double(s.wifiPercent)), "scanning": .bool(p.scanning), "locationMissing": .bool(p.locationMissing),
+            "job": .object(job),
+            "networks": .array(p.networks.map { n in
+                .object(["ssid": .string(n.ssid), "strength": .number(Double(NetworkState.percent(fromRSSI: n.rssi))), "rssi": .number(Double(n.rssi)),
+                         "secured": .bool(n.secured), "known": .bool(n.known), "current": .bool(n.isCurrent)])
+            }),
+        ]
+        if let n = s.ssid { o["ssid"] = .string(n) }
+        if let f = s.wifiFrequencyMHz { o["frequency"] = .number(Double(f)) }
+        if let m = p.scanMessage { o["scanMessage"] = .string(m) }
+        return .object(o)
+    }
 
     public func shellFocusWorkspace(_ number: Int, display: String) {
         guard let wm else { return }

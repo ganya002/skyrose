@@ -26,6 +26,8 @@ public enum CLILocalCommand: Equatable, Sendable {
     case cursor(CursorVerb)
     /// `dock show | hide | status`: keep the Dock from appearing, without unloading it.
     case dock(DockVerb)
+    /// `wifi status | on | off | scan | connect <ssid> [--password-stdin] | disconnect | forget <ssid>`.
+    case wifi(WifiVerb)
     /// `update [--check] [--yes]`: look for a newer GitHub release and, with --yes, install it.
     case update(checkOnly: Bool)
     /// `kitty status | install | uninstall`: the SkyRose kitty profile (works without the WM).
@@ -55,6 +57,12 @@ public enum SAVerb: String, Equatable, Sendable {
     case loadCommand = "load-command"
     case reload
     case reset
+}
+
+public enum WifiVerb: Equatable, Sendable {
+    case status, on, off, scan, disconnect
+    case connect(ssid: String, passwordFromStdin: Bool)
+    case forget(ssid: String)
 }
 
 public enum DockVerb: String, Equatable, Sendable {
@@ -162,7 +170,7 @@ public enum CLIParser {
     /// Options that take a value.
     static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon", "--kind", "--repo"]
     /// Boolean options (long and short).
-    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix"]).union(uninstallFlags)
+    static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix", "--password-stdin"]).union(uninstallFlags)
     /// Passed through to scripts/uninstall.sh.
     public static let uninstallFlags: Set<String> = ["--dry-run", "--remove-fonts", "--remove-config", "--remove-cert", "--no-color"]
 
@@ -342,6 +350,8 @@ public enum CLIParser {
         case "update":
             try rejectExtra("update", args)
             inv.kind = .local(.update(checkOnly: tokens.has("--check")))
+        case "wifi":
+            inv.kind = .local(.wifi(try parseWifi(args, tokens)))
         case "dock":
             let verb = args.first ?? "status"
             guard let v = DockVerb(rawValue: verb) else {
@@ -647,6 +657,27 @@ public enum CLIParser {
         return .ipc(IPCRequest(command))
     }
 
+    /// `wifi status | on | off | scan | connect <ssid> [--password-stdin] | disconnect | forget <ssid>`.
+    static func parseWifi(_ args: [String], _ tokens: Tokens) throws -> WifiVerb {
+        let verb = args.first ?? "status"
+        let rest = Array(args.dropFirst())
+        switch verb {
+        case "status", "on", "off", "scan", "disconnect":
+            try rejectExtra("wifi \(verb)", rest)
+            return ["status": .status, "on": .on, "off": .off, "scan": .scan, "disconnect": .disconnect][verb]!
+        case "connect", "join":
+            guard let ssid = rest.first, !ssid.isEmpty else { throw CLIUsageError.missingArgument(command: "wifi connect", name: "ssid") }
+            try rejectExtra("wifi connect", Array(rest.dropFirst()))
+            return .connect(ssid: ssid, passwordFromStdin: tokens.has("--password-stdin"))
+        case "forget":
+            guard let ssid = rest.first, !ssid.isEmpty else { throw CLIUsageError.missingArgument(command: "wifi forget", name: "ssid") }
+            try rejectExtra("wifi forget", Array(rest.dropFirst()))
+            return .forget(ssid: ssid)
+        default:
+            throw CLIUsageError.unknownVerb(group: "wifi", verb: verb, expected: ["status", "on", "off", "scan", "connect", "disconnect", "forget"])
+        }
+    }
+
     /// `keepawake on [30m|1h|forever] | off | status` (status is the default).
     static func parseKeepAwake(_ args: [String]) throws -> CLIInvocation.Kind {
         let verb = args.first ?? "status"
@@ -804,7 +835,7 @@ public enum CLIParser {
             ("frame calibrate [display]", "Tune the frame's corner radii by eye (slider or ↑↓ ±0.5, ⇧ ±0.1, 0 square, Tab top/bottom, ←→ display, Return saves, Esc cancels)"),
             ("corners calibrate [display]", "Same as frame calibrate"),
         ]),
-        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell"], rows: [
+        HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell", "wifi"], rows: [
             ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
             ("record [-s] [-r]", "Start/stop the screen recorder (-s: system sound, -r: region)"),
             ("clipboard [-d]", "Open clipboard history (-d: delete mode)"),
@@ -815,6 +846,9 @@ public enum CLIParser {
             ("notify <title> [body] [--app NAME] [--icon ICON]", "Post a notification to the sidebar"),
             ("keepawake on [30m|1h|forever] | off | status", "Keep the Mac awake, optionally for a time"),
             ("clamshell [status | on | off | helper]", "Lid state; on keeps the Mac running lid-closed (battery, built-in only) via pmset disablesleep; helper prints the one-time sudoers command"),
+            ("wifi [status | on | off | scan | disconnect]", "Wi-Fi status, power, nearby networks (scan needs Location for the names)"),
+            ("wifi connect <ssid> [--password-stdin]", "Join a network: known and open ones directly, else the password from stdin or a hidden prompt (never stored)"),
+            ("wifi forget <ssid>", "Remove a known network (macOS asks for an administrator)"),
         ]),
         HelpSection(title: "Keys and config", topics: ["keys", "rules", "config", "settings", "onboarding", "migrate"], rows: [
             ("keys check [--json]", "Conflict checker on the keymap (exit 1 on errors)"),

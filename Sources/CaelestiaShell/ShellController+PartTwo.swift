@@ -1,5 +1,6 @@
 import AppKit
 import CaelestiaCore
+import CaelestiaPlatform
 import CaelestiaServices
 import SwiftUI
 
@@ -64,6 +65,10 @@ extension ShellController {
         popout.onMicMute = { [weak self] in self?.audio.toggleMicMuted() }
         popout.onWifi = { [weak self] on in self?.setWifi(on) }
         popout.onScan = { [weak self] in self?.scanNetworks() }
+        popout.onConnect = { [weak self] ssid, password in self?.wifiConnect(ssid, password: password) }
+        popout.onDisconnect = { [weak self] in self?.wifiDisconnect() }
+        popout.onForget = { [weak self] ssid in self?.wifiForget(ssid) }
+        popout.onAllowLocation = { [weak self] in self?.allowLocation() }
         popout.onOpenSettings = { [weak self] kind in self?.openSettings(for: kind) }
 
         wallpaperPicker.onPick = { [weak self] url in self?.transitionWallpaper(url) }
@@ -327,8 +332,11 @@ extension ShellController {
         guard let kind = PopoutKind.forStatusIcon(icon), let bar = bars[display], let layout = layouts[display] else { return }
         if popoutKind == kind, popoutDisplay == display, !popoutByHover { closePopout(); return }
         let midY = bar.panel.frame.maxY - windowMidY
+        popout.expanded = true
         openPopout(kind, display: display, layout: layout, anchorMidY: midY)
         popoutByHover = false
+        // The Wi-Fi panel has a password field: it takes the keyboard.
+        if kind == .network, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
     }
 
     /// `shell drawers toggle popout.audio|network|bluetooth|battery`: toggles a bar popout without a click.
@@ -346,6 +354,7 @@ extension ShellController {
         popoutLeaveTimer?.invalidate()
         popoutLeaveTimer = nil
         if popoutKind == kind, popoutDisplay == display { return }
+        popout.expanded = false
         openPopout(kind, display: display, layout: layout, anchorMidY: bar.panel.frame.maxY - windowMidY)
         popoutByHover = true
     }
@@ -388,8 +397,10 @@ extension ShellController {
         let bar = bars[id]?.panel.frame
         // Roughly where the item sits: the active window high up, the status icons near the bottom.
         let anchor = bar.map { $0.minY + $0.height * (kind == .activeWindow ? 0.7 : 0.2) } ?? layout.inner(barReveal: 1).midY
+        popout.expanded = true
         openPopout(kind, display: id, layout: layout, anchorMidY: anchor)
         popoutByHover = false
+        if kind == .network, let panel = popoutPanel { panel.acceptsKey = true; panel.makeKey() }
     }
 
     public func openPopout(_ kind: PopoutKind, display: String, layout: DisplayLayout, anchorMidY: Double) {
@@ -400,11 +411,15 @@ extension ShellController {
         let fillet = theme.frameRounding
         let panel = popoutPanel ?? makeDrawerPanel(PopoutView(model: popout, state: state, fillet: fillet), name: "popout", key: false)
         popoutPanel = panel
+        panel.acceptsKey = false
         popout.kind = kind
         if kind == .activeWindow { capturePreview() }
         if kind == .audio { popout.devices = audio.outputDevices() }
         if kind == .bluetooth { bluetooth.refresh() }
-        if kind == .network { popout.networks = []; popout.scanMessage = nil }
+        if kind == .network {
+            popout.networks = []; popout.scanMessage = nil; popout.passwordFor = nil; popout.wifiJob = .idle
+            popout.locationMissing = false
+        }
         let reveal = bars[display]?.reveal.target ?? 0
         let inner = layout.inner(barReveal: max(reveal, 1))
         let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
@@ -413,6 +428,7 @@ extension ShellController {
         present(panel)
         popout.shown = true
         popoutKind = kind
+        if kind == .network, popout.expanded, state.status.wifiEnabled { scanNetworks() }
         popoutDisplay = display
         // A popout grows out of the bar (Caelestia only opens them from it): show the bar if it is
         // auto-hidden (IPC / keybind opens), and hold it while the popout is open.
@@ -476,19 +492,86 @@ extension ShellController {
             do {
                 popout.networks = try await network.availableNetworks()
                 if popout.networks.isEmpty { popout.scanMessage = "No networks found" }
+                popout.locationMissing = false
             } catch ServiceError.permissionMissing {
-                popout.scanMessage = "Network names are hidden until SkyRose is allowed to use Location (System Settings > Privacy & Security)."
+                popout.scanMessage = "macOS hides network names until SkyRose may use Location."
+                popout.locationMissing = true
             } catch {
                 popout.scanMessage = error.localizedDescription
             }
             popout.scanning = false
-            if let kind = popoutKind, let d = popoutDisplay, let layout = layouts[d], let panel = popoutPanel {
-                let fillet = theme.frameRounding
-                let inner = layout.inner(barReveal: 1)
-                let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
-                panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), edge: .left,
-                                                      room: theme.overshootRoom(depth: kind.width)), display: true)
+            resizePopout()
+        }
+    }
+
+    /// Re-fits the open popout to its content (rows, password field and status come and go).
+    func resizePopout() {
+        guard let kind = popoutKind, let d = popoutDisplay, let layout = layouts[d], let panel = popoutPanel else { return }
+        let fillet = theme.frameRounding
+        let inner = layout.inner(barReveal: 1)
+        let size = CGSize(width: kind.width, height: popout.bodyHeight(for: kind) + 2 * fillet)
+        panel.setFrame(DisplayLayout.withRoom(ShellSizing.popoutFrame(size: size, anchorMidY: panel.frame.midY, inner: inner), edge: .left,
+                                              room: theme.overshootRoom(depth: kind.width)), display: true)
+    }
+
+    // MARK: Wi-Fi (panel and `skyrose wifi`)
+
+    public func wifiPower(_ on: Bool) { setWifi(on) }
+
+    public func wifiScan() { scanNetworks() }
+
+    /// Joins `ssid`. The password only passes through to CoreWLAN.
+    public func wifiConnect(_ ssid: String, password: String?) {
+        popout.wifiJob = .connecting(ssid)
+        resizePopout()
+        Task { @MainActor in
+            do {
+                try await network.connect(ssid: ssid, password: password)
+                popout.passwordFor = nil
+                popout.wifiJob = .joined(ssid)
+                for i in popout.networks.indices {
+                    popout.networks[i].isCurrent = popout.networks[i].ssid == ssid
+                    if popout.networks[i].ssid == ssid { popout.networks[i].known = true }
+                }
+            } catch ServiceError.failed(let m) where m == NetworkService.needsPassword {
+                popout.wifiJob = .failed(ssid, m)
+                popout.passwordFor = ssid
+            } catch {
+                popout.wifiJob = .failed(ssid, error.localizedDescription)
+                if password != nil { popout.passwordFor = ssid }
             }
+            resizePopout()
+        }
+    }
+
+    public func wifiDisconnect() {
+        popout.wifiJob = .disconnecting
+        network.disconnect()
+        for i in popout.networks.indices { popout.networks[i].isCurrent = false }
+        popout.wifiJob = .idle
+        resizePopout()
+    }
+
+    public func wifiForget(_ ssid: String) {
+        popout.wifiJob = .forgetting(ssid)
+        resizePopout()
+        Task { @MainActor in
+            do {
+                try await network.forget(ssid: ssid)
+                for i in popout.networks.indices where popout.networks[i].ssid == ssid { popout.networks[i].known = false }
+                popout.wifiJob = .idle
+            } catch {
+                popout.wifiJob = .failed(ssid, error.localizedDescription)
+            }
+            resizePopout()
+        }
+    }
+
+    /// Asks for Location (macOS's own prompt the first time, the System Settings pane after).
+    func allowLocation() {
+        if Permissions.undecided(.location) { _ = Permissions.request(.location) } else { Permissions.openSettings(for: .location) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            if Permissions.locationGranted { self?.scanNetworks() }
         }
     }
 

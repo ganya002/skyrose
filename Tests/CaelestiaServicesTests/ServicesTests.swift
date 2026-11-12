@@ -50,6 +50,18 @@ final class ServicesTests: XCTestCase {
         XCTAssertEqual(NetworkState.strength(fromRSSI: -40), 4)
     }
 
+    func testWifiPercentAndFrequency() {
+        XCTAssertEqual(NetworkState.percent(fromRSSI: 0), 0)
+        XCTAssertEqual(NetworkState.percent(fromRSSI: -100), 0)
+        XCTAssertEqual(NetworkState.percent(fromRSSI: -67), 66)
+        XCTAssertEqual(NetworkState.percent(fromRSSI: -40), 100)
+        XCTAssertEqual(NetworkState.frequency(channel: 1, band: 2), 2412)
+        XCTAssertEqual(NetworkState.frequency(channel: 14, band: 2), 2484)
+        XCTAssertEqual(NetworkState.frequency(channel: 100, band: 5), 5500)
+        XCTAssertEqual(NetworkState.frequency(channel: 37, band: 6), 6135)
+        XCTAssertNil(NetworkState.frequency(channel: 0, band: 5))
+    }
+
     func testStorageRoundTripAndCorruptFile() throws {
         struct State: Codable, Equatable { var dnd: Bool; var count: Int }
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("svc-\(UUID().uuidString).json")
