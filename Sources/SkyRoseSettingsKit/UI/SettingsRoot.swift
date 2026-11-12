@@ -162,7 +162,7 @@ public struct SettingsRoot: View {
                         if selected {
                             Capsule().fill(look[.secondaryContainer]).matchedGeometryEffect(id: "pill", in: ns)
                         } else if p == .catwm {
-                            Capsule().fill(look[.primaryContainer].opacity(0.35)).matchedGeometryEffect(id: "catwm.morph", in: ns)
+                            Capsule().fill(Color.clear).matchedGeometryEffect(id: "catwm.morph", in: ns)
                         }
                     }
                     .contentShape(Capsule())
