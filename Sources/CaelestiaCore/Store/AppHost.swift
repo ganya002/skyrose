@@ -86,20 +86,23 @@ public struct AppHost: Sendable {
 
     /// The declared quit command first (when waiting), then SIGTERM, then SIGKILL, for every
     /// process whose executable is inside this addon's `.app`.
+    /// Stops the app and anything it started from its addon folder (a pinned runtime in `deps/`,
+    /// such as a model server): the declared quit command first, then SIGTERM, then SIGKILL.
     public func stop(_ id: String, _ app: AppEntry, wait: Bool = true) {
         let exe = executableURL(id, app)
+        let scope = folder(id)
         if wait, let args = app.stop, FileManager.default.isExecutableFile(atPath: exe.path), !Self.pids(inside: appURL(id, app)).isEmpty {
             _ = Self.run(exe.path, args, timeout: 5)
-            for _ in 0..<30 where !Self.pids(inside: appURL(id, app)).isEmpty { usleep(100_000) }
+            for _ in 0..<30 where !Self.pids(inside: scope).isEmpty { usleep(100_000) }
         }
-        let pids = Self.pids(inside: appURL(id, app))
+        let pids = Self.pids(inside: scope)
         for p in pids { kill(p, SIGTERM) }
         guard wait, !pids.isEmpty else { return }
-        for _ in 0..<20 where !Self.pids(inside: appURL(id, app)).isEmpty { usleep(100_000) }
-        for p in Self.pids(inside: appURL(id, app)) { kill(p, SIGKILL) }
+        for _ in 0..<20 where !Self.pids(inside: scope).isEmpty { usleep(100_000) }
+        for p in Self.pids(inside: scope) { kill(p, SIGKILL) }
     }
 
-    public func isRunning(_ id: String, _ app: AppEntry) -> Bool { !Self.pids(inside: appURL(id, app)).isEmpty }
+    public func isRunning(_ id: String, _ app: AppEntry) -> Bool { !Self.pids(inside: folder(id)).isEmpty }
 
     /// This user's processes whose executable lives inside `bundle`.
     public static func pids(inside bundle: URL) -> [pid_t] {

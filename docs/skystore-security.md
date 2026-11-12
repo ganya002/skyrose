@@ -95,7 +95,7 @@ the kind.
 - **Preflight before writing.** Architecture (Apple Silicon only), macOS version and free disk are
   checked before any download or build.
 - **Stop paths.** Off, panic and revocation stop the app (declared quit command, then SIGTERM,
-  then SIGKILL for processes whose executable is inside the addon's `.app`) and delete its
+  then SIGKILL for processes whose executable is inside the addon's folder, so a runtime it started from `deps/` stops too) and delete its
   LaunchAgent. The panic path only sends signals, so it never blocks.
 - **Permissions are declared, not enforced.** An app is not sandboxed, so `network:<host>` and the
   rest are a promise checked in review and shown to the user, not a fence. This is the main
