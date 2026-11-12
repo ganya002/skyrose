@@ -192,6 +192,28 @@ extension WindowManager {
         if debugOverlayEnabled { decorations.debug(debugSnapshot()) }
     }
 
+    /// Engine mode: borders on the engine's visible windows, at their in-flight frame while they
+    /// move (the engine reports every frame, so the border just snaps along).
+    func publishEngineBorders() {
+        guard let engine, let decorations else { return }
+        let windows = engine.state.windows.filter { $0.visible && $0.frame != nil }
+        let resting = Dictionary(windows.map { ($0.id, $0.frame!) }, uniquingKeysWith: { a, _ in a })
+        let corners = WindowCornerQuery.radii(for: resting.mapValues(\.size)) { [weak self] in
+            DispatchQueue.main.async { self?.publishEngineBorders() }
+        }
+        let targets = windows.map { w in
+            BorderTarget(id: w.id, frame: engineInFlight[w.id] ?? resting[w.id]!, isActive: w.focused,
+                         appear: shownBefore.contains(w.id) ? .instant : .popIn, motion: .snap, group: nil,
+                         corners: corners[w.id])
+        }
+        let ids = Set(resting.keys)
+        var vanish: [CGWindowID: Vanish] = [:]
+        for id in lastSceneIDs where !ids.contains(id) { vanish[id] = .instant }
+        shownBefore.formUnion(ids)
+        lastSceneIDs = ids
+        decorations.apply(OverlayScene(borders: targets, vanish: vanish))
+    }
+
     /// Tabs of the group `id` is the visible member of, or nil.
     func groupBar(for id: WindowID) -> GroupBar? {
         guard let wsID = state.workspace(of: id), let ws = state[wsID], let leaf = ws.tree.leaf(of: id), leaf.isGroup,

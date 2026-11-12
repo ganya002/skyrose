@@ -283,6 +283,8 @@ public final class WindowManager {
     /// Borders that must fade out (closed / minimized / hidden app) rather than vanish at once.
     var fadeOutNext: Set<WindowID> = []
     var lastSceneIDs: Set<WindowID> = []
+    /// Engine mode: the windows in motion and where they are this frame.
+    var engineInFlight: [WindowID: CGRect] = [:]
     var lastVisibleWorkspaces: [String: VisibleWorkspaces] = [:]
     var transitionHeldSince: Date?
     var transitionReleased = false
@@ -348,7 +350,14 @@ public final class WindowManager {
         displaysChanged(displayProvider.displays)
         if let engine {
             isManaging = true
-            engine.onChange = { [weak self] in self?.onLayoutApplied?() }
+            engine.onChange = { [weak self] in
+                self?.publishEngineBorders()
+                self?.onLayoutApplied?()
+            }
+            engine.onFrames = { [weak self] frames in
+                self?.engineInFlight = frames
+                self?.publishEngineBorders()
+            }
             do {
                 try engine.start(config: config, area: engineArea)
                 Log.wm.notice("window manager: \(engine.name, privacy: .public)")

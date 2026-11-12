@@ -12,11 +12,16 @@ public struct EngineWindow: Equatable, Sendable {
     public var display: String?
     public var focused: Bool
     public var floating: Bool
+    /// On a shown workspace, not minimized or fullscreen: it gets a border.
+    public var visible: Bool
+    /// The resting frame in top-left points.
+    public var frame: CGRect?
 
     public init(id: UInt32, bundleID: String?, title: String, workspace: String?, display: String?,
-                focused: Bool, floating: Bool) {
+                focused: Bool, floating: Bool, visible: Bool = false, frame: CGRect? = nil) {
         (self.id, self.bundleID, self.title, self.workspace, self.display, self.focused, self.floating) =
             (id, bundleID, title, workspace, display, focused, floating)
+        (self.visible, self.frame) = (visible, frame)
     }
 }
 
@@ -69,4 +74,6 @@ public protocol WindowEngine: AnyObject {
     var state: EngineState { get }
     /// Called after the engine's windows or workspaces changed.
     var onChange: (() -> Void)? { get set }
+    /// Every frame of window motion: all windows in flight (top-left points). An empty map ends it.
+    var onFrames: (([UInt32: CGRect]) -> Void)? { get set }
 }

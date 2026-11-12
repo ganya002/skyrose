@@ -9,6 +9,7 @@ import CatWMKit
 public final class CatWMHost: WindowEngine {
     public let name = "CatWM"
     public var onChange: (() -> Void)?
+    public var onFrames: (([UInt32: CGRect]) -> Void)?
     public private(set) var state = EngineState()
     private var engine: CatWMEngine?
     private var config = Config()
@@ -24,6 +25,7 @@ public final class CatWMHost: WindowEngine {
         }
         let engine = try CatWMEngine(name: "skyrose")
         engine.onStateChange = { [weak self] in self?.refreshState() }
+        engine.onWindowFrames = { [weak self] in self?.onFrames?($0) }
         self.config = config
         self.area = area
         lastText = text()
@@ -98,13 +100,21 @@ public final class CatWMHost: WindowEngine {
         onChange?()
     }
 
+    nonisolated static func rect(_ json: JSON?) -> CGRect? {
+        guard let x = json?["x"]?.double, let y = json?["y"]?.double,
+              let width = json?["width"]?.double, let height = json?["height"]?.double else { return nil }
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
     static func state(from snapshot: CatWMEngine.Snapshot) -> EngineState {
         var out = EngineState()
         out.windows = (snapshot.windows.array ?? []).compactMap { w in
             guard let id = w["id"]?.int, w["minimized"] != .bool(true) else { return nil }
             return EngineWindow(id: UInt32(clamping: id), bundleID: w["app"]?.string, title: w["title"]?.string ?? "",
                                 workspace: w["workspace"]?.string, display: w["screen"]?.string,
-                                focused: w["focused"]?.isTrue == true, floating: w["floating"]?.isTrue == true)
+                                focused: w["focused"]?.isTrue == true, floating: w["floating"]?.isTrue == true,
+                                visible: w["visible"]?.isTrue == true && w["fullscreen"]?.isTrue != true,
+                                frame: rect(w["frame"]))
         }
         for screen in snapshot.screens.array ?? [] {
             guard let uuid = screen["uuid"]?.string else { continue }

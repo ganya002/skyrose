@@ -45,6 +45,12 @@ final class CatWMBridgeTests: XCTestCase {
         XCTAssertFalse(text.contains("catwm.motion.duration"))
     }
 
+    func testFrameJSONBecomesARect() {
+        XCTAssertEqual(CatWMHost.rect(["x": .number(1), "y": .int(2), "width": .number(3), "height": .number(4)]),
+                       CGRect(x: 1, y: 2, width: 3, height: 4))
+        XCTAssertNil(CatWMHost.rect(.null))
+    }
+
     func testBindsMapToCatWMCommands() throws {
         let area = CGRect(x: 0, y: 0, width: 1000, height: 800)
         func names(_ action: Action) -> [String]? {
