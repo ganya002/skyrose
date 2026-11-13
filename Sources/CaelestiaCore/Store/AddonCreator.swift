@@ -8,8 +8,9 @@ public enum AddonCreator {
     public static let distFolder = "dist"
     public static let maxBundleFiles = 200
 
-    /// `skyrose store new <id> [--kind scheme|wallpaper]`: a folder named after the id with a
-    /// manifest to fill in and, for a scheme, a copy of SkyRose Default to edit.
+    /// `skyrose store new <id> [--kind scheme|wallpaper|widget]`: a folder named after the id with a
+    /// manifest to fill in and, for a scheme, a copy of SkyRose Default to edit; for a widget, a
+    /// small clock script that shows the protocol.
     public static func scaffold(id: String, kind: AddonKind, in parent: URL) throws -> URL {
         guard AddonManifest.isValidID(id) else { throw StoreError.invalid(["id '\(id)' must be reverse-DNS, lower case, like dev.you.my-theme"]) }
         let issues = AddonPolicy.current.issues(kind: kind, permissions: [])
@@ -28,6 +29,9 @@ public enum AddonCreator {
                 s.name = stem
                 try SchemeLoader.serialize(s).write(to: dir.appendingPathComponent("schemes/\(stem).toml"), atomically: true, encoding: .utf8)
                 entry.schemes = ["schemes/\(stem).toml"]
+            case .widget:
+                try widgetTemplate.write(to: dir.appendingPathComponent("widget.sh"), atomically: true, encoding: .utf8)
+                entry.widget = WidgetEntry(script: "widget.sh", interpreter: "sh")
             default:
                 try fm.createDirectory(at: dir.appendingPathComponent("wallpapers"), withIntermediateDirectories: true)
                 entry.wallpapers = []
@@ -38,6 +42,21 @@ public enum AddonCreator {
         } catch let e as StoreError { throw e } catch { throw StoreError.io(error.localizedDescription) }
         return dir
     }
+
+    /// The starter widget: one JSON line per update on stdout; SkyRose's lines arrive on stdin.
+    static let widgetTemplate = """
+    #!/bin/sh
+    # A SkyRose widget (docs/SKYSTORE.md, Widget addons). Runs sandboxed: no network, no home
+    # folder, write only to $HOME (your addon's data folder). One JSON object per line.
+    while true; do
+      printf '{"set":{"title":"Clock","text":"%s","icon":"schedule"}}\\n' "$(date '+%H:%M')"
+      # Wait up to 30 s for a line from SkyRose (a click is {"event":"click"}).
+      if read -t 30 line; then
+        case "$line" in *click*) printf '{"set":{"title":"Clock","text":"%s","icon":"calendar_today"}}\\n' "$(date '+%A %d %B')"; sleep 5 ;; esac
+      fi
+    done
+
+    """
 
     /// The files that go into the bundle: everything but the manifest, `dist/` and hidden files.
     static func payload(_ dir: URL) throws -> [String: URL] {

@@ -26,7 +26,8 @@ final class SkyRoseCLITests: XCTestCase {
         XCTAssertEqual(try local(["store", "submit", "--repo", "me/addons"]), .store(.submit(nil, repo: "me/addons")))
         XCTAssertEqual(try local(["store", "pack", "dir"]), .store(.pack("dir")))
         XCTAssertThrowsError(try CLIParser.parse(["store", "install"]))
-        XCTAssertThrowsError(try CLIParser.parse(["store", "new", "dev.a.b", "--kind", "widget"]))
+        XCTAssertThrowsError(try CLIParser.parse(["store", "new", "dev.a.b", "--kind", "keymap"]))
+        XCTAssertEqual(try local(["store", "new", "dev.a.b", "--kind", "widget"]), .store(.new(id: "dev.a.b", kind: "widget")))
         XCTAssertThrowsError(try CLIParser.parse(["store", "frobnicate"]))
         XCTAssertTrue(CLIParser.usage(for: "store").contains("store validate"))
     }

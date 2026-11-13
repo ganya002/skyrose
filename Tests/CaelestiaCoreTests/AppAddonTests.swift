@@ -69,7 +69,7 @@ final class AppAddonTests: XCTestCase {
         XCTAssertTrue(AddonPolicy.current.issues(kind: .app, permissions: [AddonPermission(.clipboard)], id: "dev.gabby.x")[0].contains("cannot ask for clipboard"))
         XCTAssertEqual(AddonPolicy.current.issues(kind: .scheme, permissions: [AddonPermission(.microphone)]),
                        ["a scheme addon is data only and cannot ask for permissions"])
-        XCTAssertTrue(AddonPolicy.current.issues(kind: .widget, permissions: [])[0].contains("run code"))
+        XCTAssertTrue(AddonPolicy.current.issues(kind: .keymap, permissions: [])[0].contains("run code"))
     }
 
     func testUnknownKindInIndexDoesNotBreakDecoding() throws {

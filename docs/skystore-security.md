@@ -38,7 +38,8 @@ App addons (`app`) are the one code kind installable now; see "App addons" below
 The following need code inside SkyRose, so they wait for the addon host:
 
 - **keymap**: a bind can `exec` any shell command, so a keymap is code.
-- **widget / bar module**: logic and data sources.
+- **widget / bar module**: logic and data sources. Installable since 2026-11-13: they run under
+  the out-of-process host below, not inside SkyRose.
 - **feature**: builtins split out later (clamshell, colour picker, keep-awake). These enable code
   compiled into SkyRose and download none (see SKYSTORE.md).
 - A QML-like declarative widget format counts as code too, unless the format has no
@@ -47,7 +48,12 @@ The following need code inside SkyRose, so they wait for the addon host:
 `AddonPolicy.current` decides this. A data kind cannot ask for any permission, and a code kind
 is refused at install, in `validate` and in `new`.
 
-### Code addons, when they come: out of process, only what they declare
+### Code addons: out of process, only what they declare
+
+Built for `widget` (2026-11-13, `WidgetHost`, `WidgetSandbox`): one script per widget, the
+socketpair is its stdin/stdout, the broker allows `notifications` and `media`. Network is refused
+for widgets until the host-pinning proxy below exists. Tests run a real script under the profile
+and check it cannot read the home folder or write outside its data folder.
 
 - Each code addon runs as **its own process**, never inside SkyRose. It is started by SkyRose
   under `sandbox-exec` with a profile built from its manifest:

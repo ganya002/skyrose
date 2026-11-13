@@ -70,6 +70,7 @@ public final class ShellController {
     // Part 2.
     public let dashboard = DashboardModel()
     public let sidebar = SidebarModel()
+    public let widgetHost = WidgetHost()
     public let popout = PopoutModel()
     public let wallpaperPicker = WallpaperModel()
     var dashboardPanel: ShellPanel?
@@ -208,11 +209,22 @@ public final class ShellController {
         reloadApps()
         refreshColors()
         resumeLiveWallpaper()
+        startWidgets()
+    }
+
+    /// Widget addons: their cards go to the sidebar, their toasts are named after them.
+    func startWidgets() {
+        widgetHost.onChange = { [weak self] cards in self?.state.widgets = cards }
+        widgetHost.onToast = { [weak self] name, title, message in _ = self?.toast(.info, title: "\(name): \(title)", message: message, icon: "widgets") }
+        widgetHost.media = { [weak self] in self?.state.media ?? MediaInfo() }
+        sidebar.onWidget = { [weak self] id in self?.widgetHost.click(id) }
+        widgetHost.start()
     }
 
     /// `shell.kill`: every surface goes; services keep running.
     public func stop() {
         liveWallpaper.stop(clearRecord: false)
+        widgetHost.stop()
         calibration?.close()
         calibration = nil
         cornerRadiusTrials.removeAll()

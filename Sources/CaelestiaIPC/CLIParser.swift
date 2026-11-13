@@ -452,8 +452,8 @@ public enum CLIParser {
         case "disable": return .local(.store(.disable(try one("id"))))
         case "new":
             let kind = tokens.options["--kind"] ?? "scheme"
-            guard ["scheme", "wallpaper"].contains(kind) else {
-                throw CLIUsageError.invalidArgument(command: "store new", name: "--kind", value: kind, expected: "scheme | wallpaper")
+            guard ["scheme", "wallpaper", "widget"].contains(kind) else {
+                throw CLIUsageError.invalidArgument(command: "store new", name: "--kind", value: kind, expected: "scheme | wallpaper | widget")
             }
             return .local(.store(.new(id: try one("id"), kind: kind)))
         case "validate": return .local(.store(.validate(try optional())))
@@ -895,7 +895,7 @@ public enum CLIParser {
             ("store setup <id> [--json]", "App addons: check the Mac, fetch pinned runtimes, build and start the app"),
             ("store uninstall <id> [--purge]", "Remove an addon and its files (--purge: an app's own data too)"),
             ("store enable | disable <id>", "Switch an addon on or off (after a panic, all are off)"),
-            ("store new <id> [--kind scheme|wallpaper]", "Creator mode: scaffold an addon folder"),
+            ("store new <id> [--kind scheme|wallpaper|widget]", "Creator mode: scaffold an addon folder"),
             ("store validate [dir]", "Creator mode: lint the manifest, permissions, files and checksum"),
             ("store pack [dir]", "Creator mode: build dist/<id>-<version>.skyaddon and its .sha256"),
             ("store submit [dir] --repo <owner/name> [--yes]", "Creator mode: the gh release line and a pre-filled PR to the index (--yes runs/opens them)"),

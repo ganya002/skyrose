@@ -49,7 +49,7 @@ final class StoreModelTests: XCTestCase {
 
     func testRefreshListsAndFilters() throws {
         let p = try packed()
-        var widget = entry(p, kind: .widget, category: "Bar modules")
+        var widget = entry(p, kind: .keymap, category: "Bar modules")
         widget.id = "test.dummy.widget"
         widget.name = "Widget dummy"
         let m = model([entry(p, featured: true), widget])

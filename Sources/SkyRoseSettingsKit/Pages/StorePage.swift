@@ -29,7 +29,7 @@ struct StorePage: View {
                 }
                 if store.config.store.creatorMode {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(["skyrose store new dev.you.my-theme [--kind scheme|wallpaper]", "skyrose store validate", "skyrose store pack",
+                        ForEach(["skyrose store new dev.you.my-theme [--kind scheme|wallpaper|widget]", "skyrose store validate", "skyrose store pack",
                                  "skyrose store submit --repo you/my-addons"], id: \.self) { c in
                             Text(c).font(look.mono(11.5)).foregroundStyle(look[.onSurface]).textSelection(.enabled)
                         }

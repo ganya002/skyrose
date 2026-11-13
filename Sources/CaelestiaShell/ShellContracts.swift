@@ -38,6 +38,8 @@ public final class ShellState: ObservableObject {
     @Published public var clamshellFeature = true
     @Published public var gameMode: Bool
     @Published public var recorder: RecorderInfo
+    /// Running widget addons (SkyStore), shown in the sidebar.
+    @Published public var widgets: [WidgetCard] = []
     @Published public var media: MediaInfo
     @Published public var weather: WeatherInfo?
     @Published public var weatherStatus: WeatherStatus

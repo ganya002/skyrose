@@ -24,6 +24,8 @@ public final class SidebarModel: ObservableObject {
     public var onRecord: () -> Void = {}
     public var onRevealRecording: (URL) -> Void = { _ in }
     public var onTrashRecording: (URL) -> Void = { _ in }
+    /// A widget addon's card was clicked (its id).
+    public var onWidget: (String) -> Void = { _ in }
     public init() {}
 }
 
@@ -161,9 +163,39 @@ struct UtilitiesSection: View {
         VStack(spacing: 8) {
             keepAwake
             recorder
+            if !state.widgets.isEmpty { widgets }
             sliders
             toggles
         }
+    }
+
+    /// Widget addons (SkyStore): each one's icon, title and text; a click is sent to the widget.
+    private var widgets: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                MaterialIcon("widgets", size: 14).foregroundStyle(theme[.onSurfaceVariant])
+                Text("Widgets").font(theme.sans(13, weight: .medium)).foregroundStyle(theme[.onSurface])
+            }
+            ForEach(state.widgets) { w in
+                Button { model.onWidget(w.id) } label: {
+                    HStack(spacing: 10) {
+                        MaterialIcon(w.icon ?? "widgets", size: 16).foregroundStyle(theme[.primary]).frame(width: 28, height: 28)
+                            .background(Circle().fill(theme[.primary].opacity(0.12)))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(w.title ?? w.name).font(theme.sans(12, weight: .medium)).foregroundStyle(theme[.onSurface]).lineLimit(1)
+                            Text(w.status ?? w.text).font(theme.sans(11)).foregroundStyle(theme[.onSurfaceVariant]).lineLimit(2)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).help("\(w.name) (SkyStore widget)")
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .shellCard(radius: 20)
+        .accessibilityIdentifier("sidebar.widgets")
     }
 
     /// Caelestia's screen recorder card: status, a start/stop button, the newest recordings.

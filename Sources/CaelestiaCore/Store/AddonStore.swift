@@ -210,6 +210,7 @@ public final class AddonStore: @unchecked Sendable {
             guard list.contains(where: { $0.id == id }) else { throw StoreError.notFound(id) }
             list.removeAll { $0.id == id }
         }
+        if a.kind == .widget { WidgetProcesses.kill(addonFolder: root.appendingPathComponent(id, isDirectory: true)) }
         try? fm.removeItem(at: root.appendingPathComponent(id, isDirectory: true))
         if purge, let app = manifest?.entry.app {
             for p in app.dataPaths ?? [] where AddonManifest.isSafePath(p) {
@@ -225,7 +226,9 @@ public final class AddonStore: @unchecked Sendable {
             if case .revoked(let why) = list[i].disabled { if on { throw StoreError.revoked(why) } else { return } }
             list[i].disabled = on ? nil : .user
         }
-        guard let a = installed(id), a.kind == .app else { return }
+        guard let a = installed(id) else { return }
+        if a.kind == .widget, !on { WidgetProcesses.kill(addonFolder: root.appendingPathComponent(id, isDirectory: true)) }
+        guard a.kind == .app else { return }
         if on { apps.activate(a) } else { apps.deactivate(a, removeAgent: true) }
     }
 
@@ -287,10 +290,12 @@ public final class AddonStore: @unchecked Sendable {
             for i in list.indices where list[i].enabled {
                 list[i].disabled = .panic
                 count += 1
-                if list[i].kind == .app { stopped.append(list[i]) }
+                if list[i].kind == .app || list[i].kind == .widget { stopped.append(list[i]) }
             }
         }
-        for a in stopped { apps.deactivate(a, removeAgent: true, wait: false) }
+        // Also from the CLI while the WM hangs: widget processes are killed here, not by the WM.
+        for a in stopped where a.kind == .widget { WidgetProcesses.kill(addonFolder: root.appendingPathComponent(a.id, isDirectory: true)) }
+        for a in stopped where a.kind == .app { apps.deactivate(a, removeAgent: true, wait: false) }
         return count
     }
 
@@ -309,6 +314,7 @@ public final class AddonStore: @unchecked Sendable {
             }
         }
         for a in hit where a.kind == .app { apps.deactivate(a, removeAgent: true) }
+        for a in hit where a.kind == .widget { WidgetProcesses.kill(addonFolder: root.appendingPathComponent(a.id, isDirectory: true)) }
         return hit
     }
 
@@ -344,6 +350,21 @@ public final class AddonStore: @unchecked Sendable {
             pairs.first.map { (title: "SkyStore/\($0.0.name)", urls: pairs.map(\.1)) }
         }.sorted { $0.title < $1.title }
     }
+
+    /// Enabled widget addons: the record, its version folder, its `data` folder and its script entry.
+    public func enabledWidgets() -> [(addon: InstalledAddon, dir: URL, data: URL, widget: WidgetEntry, permissions: [AddonPermission])] {
+        installed().filter { $0.enabled && $0.kind == .widget }.compactMap { a in
+            let dir = directory(for: a)
+            guard let raw = try? Data(contentsOf: dir.appendingPathComponent(AddonManifest.fileName)),
+                  let m = try? AddonManifest.decode(raw), let w = m.entry.widget, AddonManifest.isSafePath(w.script) else { return nil }
+            // Granted = recorded at install, never more than the manifest says.
+            let granted = m.parsedPermissions.filter { a.permissions.contains($0.description) }
+            return (a, dir, root.appendingPathComponent(a.id, isDirectory: true).appendingPathComponent("data", isDirectory: true), w, granted)
+        }
+    }
+
+    /// When `state.json` last changed (the WM restarts widgets when it does).
+    public var stateModified: Date? { (try? fm.attributesOfItem(atPath: stateURL.path))?[.modificationDate] as? Date }
 
     private func enabledFiles(_ kind: AddonKind, _ pick: (InstalledAddon, AddonManifest) -> [String]) -> [(InstalledAddon, URL)] {
         installed().filter { $0.enabled && $0.kind == kind }.flatMap { a -> [(InstalledAddon, URL)] in

@@ -1,10 +1,11 @@
 # SkyStore
 
 SkyStore is where you browse, install, update and remove optional addons for SkyRose. This
-release installs **data addons** (colour schemes and wallpapers) and first-party **app addons**
-(whole macOS apps, like Sky, built on your Mac from reviewed source; see [App addons](#app-addons)).
-Addons that run code inside SkyRose (widgets, bar modules, keymaps, split-out features) are
-designed but not installable yet. See [skystore-security.md](skystore-security.md) for why.
+release installs **data addons** (colour schemes and wallpapers), **widget addons** (small
+scripts that run sandboxed, outside SkyRose; see [Widget addons](#widget-addons)) and first-party
+**app addons** (whole macOS apps, like Sky, built on your Mac from reviewed source; see
+[App addons](#app-addons)). Keymaps are designed but not installable yet. See
+[skystore-security.md](skystore-security.md) for why.
 
 ## Using the Store
 
@@ -63,6 +64,44 @@ per addon version).
 Where it lives: the Store is a shell drawer (`>store`, `skyrose store`); Settings › SkyStore is
 the fallback (Open, Creator mode). Uninstalling or turning off a wallpaper addon that is the
 current wallpaper leaves the desktop as it is: the picture stays until you pick another one.
+
+## Widget addons
+
+Kind `widget`, from any author (the index is still reviewed and signed). A widget is one script,
+`sh`, `zsh` or `python3` (the Xcode Command Line Tools' python), with no binaries. Its card shows
+in the sidebar under **Widgets**, and a click is sent to it.
+
+    "kind": "widget",
+    "permissions": ["notifications"],          // optional: notifications, media
+    "entry": { "widget": { "script": "widget.sh", "interpreter": "sh" } }
+
+**How it runs.** SkyRose starts it as its own process under `sandbox-exec` with a profile it
+builds (`WidgetSandbox`): deny by default; it reads the system and its own folder but not your
+home folder; it writes only `addons/<id>/data` (its `$HOME`); it may run `/bin/*`, a few text
+tools from `/usr/bin` and its interpreter, but not `open`, `osascript` or `curl`; it gets **no
+network** and no Mach services, so no Apple Events and no SkyRose IPC socket. stderr goes to
+`data/widget.log`. A widget that exits is restarted, at most 3 times in 5 minutes.
+
+**What it can say.** One JSON object per line on stdout:
+
+| Line | Needs |
+|---|---|
+| `{"set": {"text": "21 °C", "title": "Weather", "icon": "sunny"}}` (its card; text up to 300 characters, icon a Material Symbols name) | nothing |
+| `{"toast": {"title": "Done", "message": "…"}}` (one every 5 s at most) | `notifications` |
+| `{"get": "media"}` (answered with `{"media": {"title": …, "artist": …, "playing": true, …}}`) | `media` |
+
+SkyRose writes `{"event": "click"}`, answers and `{"error": "…"}` to its stdin. A call without its
+permission is refused with an error and logged; anything else is ignored.
+
+**Off means stopped.** Turning it off, uninstalling, a revocation and panic kill the process,
+also when panic runs from the CLI while the WM hangs.
+
+**Make one.** `skyrose store new dev.you.clock --kind widget` writes a working clock to start
+from; then `validate`, `pack` and `submit` as usual.
+
+Not yet: network for widgets. The security doc wants every host pinned through a SkyRose-side
+proxy, since a sandbox profile cannot filter by host name, so `network:` is refused for widgets
+until that proxy exists. `windows` (titles) is not offered yet either.
 
 ## App addons
 
@@ -174,7 +213,7 @@ and your own public keys in `store.trustedKeys`. Sign it with the index tools (b
       "author": "You",
       "version": "1.0.0",                   // numeric, 1 to 4 parts
       "minSkyRose": "0.4.0",
-      "kind": "scheme",                     // scheme | wallpaper | app (keymap | widget | feature: not yet)
+      "kind": "scheme",                     // scheme | wallpaper | widget | app (keymap: not yet)
       "summary": "Soho vibes",              // at most 120 characters
       "description": "…",                   // optional
       "licence": "MIT",                     // SPDX id

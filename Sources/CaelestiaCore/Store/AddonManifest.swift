@@ -166,10 +166,13 @@ public struct AddonManifest: Codable, Equatable, Sendable {
         public var wallpapers: [String]?
         /// The source build and its recipe (kind `app`).
         public var app: AppEntry?
-        public init(schemes: [String]? = nil, wallpapers: [String]? = nil, app: AppEntry? = nil) {
+        /// The script SkyRose runs in its sandbox (kind `widget`).
+        public var widget: WidgetEntry?
+        public init(schemes: [String]? = nil, wallpapers: [String]? = nil, app: AppEntry? = nil, widget: WidgetEntry? = nil) {
             self.schemes = schemes
             self.wallpapers = wallpapers
             self.app = app
+            self.widget = widget
         }
     }
 
@@ -264,10 +267,14 @@ public struct AddonManifest: Codable, Equatable, Sendable {
                 out.append("entry.app must describe the source build")
             }
             if entry.schemes != nil || entry.wallpapers != nil { out.append("an app addon carries no schemes or wallpapers") }
+        case .widget:
+            if let w = entry.widget { out += w.issues(files: files) } else { out.append("entry.widget must name the script and its interpreter") }
+            if entry.schemes != nil || entry.wallpapers != nil { out.append("a widget addon carries no schemes or wallpapers") }
         case .unknown: out.append("unknown kind")
         default: break
         }
         if kind != .app, entry.app != nil { out.append("entry.app is for app addons") }
+        if kind != .widget, entry.widget != nil { out.append("entry.widget is for widget addons") }
         for p in listed + (screenshots ?? []) + (icon.map { [$0] } ?? []) + (entry.app.map { [$0.source] } ?? []) where !Self.isSafePath(p) {
             out.append("path '\(p)' must be relative, inside the bundle, without '..'")
         }
@@ -317,7 +324,8 @@ public struct AddonManifest: Codable, Equatable, Sendable {
 /// Which kinds this SkyRose installs and the permissions each may ask for. Data kinds get none:
 /// SkyRose only reads their files. `app` addons are reviewed source builds that run as their own
 /// process; for now only first-party ids (`appIDPrefixes`) may use the kind
-/// (docs/skystore-security.md). Widgets, keymaps and features wait for the addon host.
+/// (docs/skystore-security.md). Widgets run sandboxed as their own process (`WidgetEntry`) and
+/// get no network yet: per-host pinning needs the proxy from the security doc. Keymaps wait.
 public struct AddonPolicy: Sendable {
     public var installable: [AddonKind: Set<AddonPermission.Name>]
     /// Ids an `app` addon may have (empty = any). First party only until third-party apps get
@@ -331,6 +339,7 @@ public struct AddonPolicy: Sendable {
     public static let current = AddonPolicy(installable: [
         .scheme: [], .wallpaper: [],
         .app: [.network, .microphone, .accessibility, .keychain, .login, .notifications, .windows],
+        .widget: [.notifications, .media],
     ], appIDPrefixes: ["dev.gabby."])
 
     public func issues(kind: AddonKind, permissions: [AddonPermission], id: String) -> [String] {

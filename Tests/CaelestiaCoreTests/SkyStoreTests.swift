@@ -102,7 +102,7 @@ final class SkyStoreTests: XCTestCase {
     }
 
     func testPolicyRefusesCodeKindsAndPermissionsOnDataKinds() {
-        XCTAssertTrue(AddonPolicy.current.issues(kind: .widget, permissions: [])[0].contains("run code"))
+        XCTAssertTrue(AddonPolicy.current.issues(kind: .keymap, permissions: [])[0].contains("run code"))
         XCTAssertTrue(AddonPolicy.current.issues(kind: .keymap, permissions: [])[0].contains("run code"))
         XCTAssertEqual(AddonPolicy.current.issues(kind: .scheme, permissions: [AddonPermission(.notifications)]),
                        ["a scheme addon is data only and cannot ask for permissions"])
@@ -441,8 +441,10 @@ final class SkyStoreTests: XCTestCase {
         XCTAssertThrowsError(try AddonCreator.submission(repacked, repo: "not a repo"))
     }
 
-    func testScaffoldRefusesCodeKinds() {
-        XCTAssertThrowsError(try AddonCreator.scaffold(id: "test.dummy.widget", kind: .widget, in: tmp))
+    func testScaffoldRefusesCodeKinds() throws {
+        XCTAssertThrowsError(try AddonCreator.scaffold(id: "test.dummy.keys", kind: .keymap, in: tmp))
+        let w = try AddonCreator.scaffold(id: "test.dummy.widget", kind: .widget, in: tmp)
+        XCTAssertEqual(try AddonCreator.manifest(in: w).entry.widget, WidgetEntry(script: "widget.sh", interpreter: "sh"))
         XCTAssertThrowsError(try AddonCreator.scaffold(id: "Bad", kind: .scheme, in: tmp))
     }
 
