@@ -95,6 +95,8 @@ public final class EventTap: @unchecked Sendable {
     private var watchdog: CFRunLoopTimer?
     private var securePoll: CFRunLoopTimer?
     private var lastSecureInput = false
+    /// Main thread only.
+    nonisolated(unsafe) private var secureHotkeys: SecureInputHotkeys?
     private var _reEnableCount = 0
     private var _recreateCount = 0
     private let stopped = DispatchSemaphore(value: 0)
@@ -271,6 +273,10 @@ public final class EventTap: @unchecked Sendable {
         if let rl { CFRunLoopStop(rl) }
         _ = stopped.wait(timeout: .now() + 2)
         matcher.reset()
+        // Drop the secure-input hot keys with the tap; the next start's poll sets them up again.
+        lock.lock(); lastSecureInput = false; lock.unlock()
+        matcher.secureInputActive = false
+        DispatchQueue.main.async { [weak self] in MainActor.assumeIsolated { self?.secureHotkeys?.deactivate() } }
         Log.input.info("event tap stopped")
     }
 
@@ -404,6 +410,16 @@ public final class EventTap: @unchecked Sendable {
         lock.unlock()
         guard changed else { return }
         matcher.secureInputActive = active
+        // shortcut: a keymap edit while secure input is on applies from the next secure-input period.
+        let keymap = matcher.keymap
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            MainActor.assumeIsolated {
+                let hk = self.secureHotkeys ?? SecureInputHotkeys { [weak self] in self?.dispatch($0) }
+                self.secureHotkeys = hk
+                if active { hk.activate(keymap) } else { hk.deactivate() }
+            }
+        }
         let owner = active ? Self.secureInputOwner()?.name : nil
         Log.input.notice("secure event input \(active ? "on" : "off")\(owner.map { " (\($0))" } ?? "")")
         if let cb { queue.async { cb(active, owner) } }
