@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.7.0 (2026-11-13)
+
+Widget addons in SkyStore, and the launcher's scheme, variant and transparency commands. https://github.com/ganya002/skyrose/releases/tag/v0.7.0
+
+- **Widget addons.** SkyStore installs a new code kind, `widget`, from any author: one `sh`, `zsh` or `python3` script that SkyRose runs as its own process under a sandbox (no network, no home folder, writes only its own data folder, no Apple Events, no access to SkyRose's IPC socket). Its card shows in the sidebar under Widgets and gets your clicks. It can post toasts with the `notifications` permission and read what is playing with `media`; any other call is refused. Off, uninstall, revocation and panic stop it. `skyrose store new <id> --kind widget` starts you with a working clock. Network for widgets comes later.
+- **`>scheme`, `>variant` and `>transparency` in the launcher.** They list their choices, with the current one checked, and apply at once: wallpaper colours (dark or light), every built-in and SkyStore scheme; Material palette styles for wallpaper colours (tonalspot, vibrant, expressive, fidelity, content, fruitsalad, rainbow, neutral, monochrome; new key `appearance.paletteStyle`); and transparency Off, Low, Normal or High. `>calculator` jumps to `=`.
+- **Low Power Mode without a password every time.** The Controls tile asks once and then switches without a prompt: SkyRose's sudoers rule now also allows `pmset -a lowpowermode 0|1`, and nothing else.
+- **Fix: long lyric lines wrap** in the media tab instead of ending in "…".
 ## 0.6.0 (2026-11-13)
 
 SkyStore app addons, Clamshell and a new colour picker as Store features, and Settings search. https://github.com/ganya002/skyrose/releases/tag/v0.6.0

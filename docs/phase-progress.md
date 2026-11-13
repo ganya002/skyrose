@@ -49,7 +49,9 @@ Resume here: read this table, then the newest section below.
 | Live tests 2026-11-13 | Gabby at the Mac, all passed: media tab with a real song in Firefox (source pill, bongo cat, lyrics; long lines truncated, fixed 28102d4 to wrap); AirDrop tile opens AirDrop; Low Power Mode on/off (asked for a password on every switch: b343a99 adds `pmset -a lowpowermode 0\|1` to the scoped sudoers rule, one last prompt installs it; rule install not yet seen on this Mac); SIP-off toggle off/on without a password, `killall Dock` and the boot daemon reloads the helper; Bluetooth connect, forget, pair (WH-1000XM6); Wi-Fi wrong password, forget, rejoin | 28102d4, b343a99 |
 | v0.6.0 | version bump, tag; release files built in the scratchpad; publish blocked like 0.5.0 | (this commit) |
 
-Next: publish the v0.5.0 and v0.6.0 releases (Gabby), claim the here.now site, then third-party code addons (out of process).
+Done 2026-11-13: v0.5.0 and v0.6.0 published, here.now site claimed. 0.7.0: widget addons (f568346 launcher choices, 1cb8acb widgets: sandbox, broker, sidebar card, scaffold; live: installed a scaffolded clock in a test home from a signed test index, ran it in the real WM, card showed, off killed it, uninstall clean).
+Look check 2026-11-13 (crops of launcher, dashboard, session, sidebar, utilities against Tests/fixtures/ref): layouts match. Differences left on purpose or for later: the recorder has no mode dropdown (SkyRose records full screen only; region recording would come first), quick toggles are the macOS set, the calendar week and clock follow the Mac's locale.
+Next: network for widgets (host-pinning proxy), keymap addons, region screen recording.
 
 Notes for a fresh session:
 - Tests: `/usr/bin/swift test` runs 9 XCTest bundles, 1226 tests; only the last bundle's summary is at the

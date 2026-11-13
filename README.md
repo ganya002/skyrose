@@ -75,8 +75,8 @@ create "SkyRose Local Signing".
 From a release, without Xcode (the hash is the `SkyRose-<version>-arm64.zip.sha256` file next to the zip):
 
 ```sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.6.0/install.sh
-curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.6.0/install.sh.sha256
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.7.0/install.sh
+curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.7.0/install.sh.sha256
 shasum -a 256 -c install.sh.sha256
 less install.sh
 sh install.sh --dry-run
