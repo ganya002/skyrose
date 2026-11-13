@@ -149,6 +149,8 @@ extension WindowManager {
                 if kind == .specialToggle, args["name"] == nil { args["name"] = .string("special") }
                 if kind == .wmPanic { return (.success(for: request), panicFromIPC()) }
                 if perform(Action(kind, args: args)) || isWMAction(kind) { return ok() }
+                // Not a WM action: perform handed it to the shell (and returned false).
+                if isManaging, onUnhandledAction != nil { return ok() }
             }
             return refused("\(command.rawValue) is not available yet: the shell is not part of this build")
         }
