@@ -199,6 +199,9 @@ dynamicColor = true
 # launcher, session menu, dashboard, sidebar, OSD and toasts. Falls back to static when the
 # wallpaper cannot be read or is grey. `variant` picks dark/light, `accentOverride` pins the source.
 schemeMode = "static"
+# Palette style of the wallpaper colours (launcher: >variant): "tonalspot", "vibrant", "expressive",
+# "fidelity", "content", "fruitsalad", "rainbow", "neutral" or "monochrome".
+paletteStyle = "tonalspot"
 uiScale = 1.0
 # Caelestia shell fonts (fonts.txt): sans Rubik, mono CaskaydiaCove NF, icons Material Symbols.
 fontSans = "Rubik"

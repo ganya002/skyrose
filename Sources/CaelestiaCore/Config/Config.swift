@@ -260,6 +260,8 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     /// "static": the scheme named by `theme` (periwinkle SkyRose Dynamic by default).
     /// "dynamic": a Material You palette extracted from the current wallpaper, applied live.
     public var schemeMode: String = "static"
+    /// Material palette style of the wallpaper colours (Caelestia `>variant`): one of `DynamicScheme.styles`.
+    public var paletteStyle: String = "tonalspot"
     public var uiScale: Double = 1.0
     public var fontSans: String = "Rubik"
     public var fontSansFallbacks: [String] = ["Inter", "SF Pro"]

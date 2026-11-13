@@ -1,6 +1,7 @@
 import Foundation
 
-/// Material You "tonal spot" scheme generation (spec 1.3), mapped onto Caelestia's role names.
+/// Material You scheme generation (spec 1.3), mapped onto Caelestia's role names. "tonalspot" is
+/// the default; the other styles are Caelestia's `>variant` list.
 public enum DynamicScheme {
     /// Tone table per role. Dark surfaces use the tones of Caelestia's periwinkle scheme
     /// (surface about L* 4, container about 10) so a dynamic scheme looks like the default one.
@@ -24,13 +25,28 @@ public enum DynamicScheme {
 
     /// Builds the scheme for `source`. Keys the generator does not produce (term0-15, the
     /// Catppuccin aliases, KDE accents) are copied from `base`, so every consumer keeps working.
-    public static func make(source: RGBA, dark isDark: Bool = true, base: Scheme? = nil, name: String = "Dynamic") -> Scheme {
-        let hue = Hct(source).hue
-        let primary = TonalPalette(hue: hue, chroma: 36)
-        let secondary = TonalPalette(hue: hue, chroma: 16)
-        let tertiary = TonalPalette(hue: hue + 60, chroma: 24)
-        let neutral = TonalPalette(hue: hue, chroma: 6)
-        let neutralVariant = TonalPalette(hue: hue, chroma: 8)
+    public static let styles = ["tonalspot", "vibrant", "expressive", "fidelity", "content", "fruitsalad", "rainbow", "neutral", "monochrome"]
+
+    /// (hue offset, chroma) of primary, secondary, tertiary, neutral and neutral variant per style.
+    /// shortcut: fixed hue offsets instead of Material's per-hue rotation tables (vibrant, expressive); add the tables if a style looks off.
+    static func palettes(_ style: String, hue: Double, chroma: Double) -> [(Double, Double)] {
+        switch style.lowercased() {
+        case "vibrant": return [(0, 200), (15, 24), (60, 32), (0, 10), (0, 12)]
+        case "expressive": return [(240, 40), (30, 24), (120, 32), (15, 8), (15, 12)]
+        case "fidelity", "content":
+            return [(0, chroma), (0, max(chroma - 32, chroma * 0.5)), (60, max(chroma - 32, chroma * 0.5) + 8), (0, chroma / 8), (0, chroma / 8 + 4)]
+        case "fruitsalad": return [(-50, 48), (-50, 36), (0, 36), (0, 10), (0, 16)]
+        case "rainbow": return [(0, 48), (0, 16), (60, 24), (0, 0), (0, 0)]
+        case "neutral": return [(0, 12), (0, 8), (0, 16), (0, 2), (0, 2)]
+        case "monochrome": return [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)]
+        default: return [(0, 36), (0, 16), (60, 24), (0, 6), (0, 8)]
+        }
+    }
+
+    public static func make(source: RGBA, dark isDark: Bool = true, base: Scheme? = nil, name: String = "Dynamic", style: String = "tonalspot") -> Scheme {
+        let hct = Hct(source)
+        let p = palettes(style, hue: hct.hue, chroma: hct.chroma).map { TonalPalette(hue: hct.hue + $0.0, chroma: $0.1) }
+        let (primary, secondary, tertiary, neutral, neutralVariant) = (p[0], p[1], p[2], p[3], p[4])
         let error = TonalPalette(hue: 25, chroma: 84)
         let success = TonalPalette(hue: 145, chroma: 24)
         let t = isDark ? dark : light
@@ -69,7 +85,7 @@ public enum DynamicScheme {
             c["on" + cap + "Fixed"] = p.tone(10)
             c["on" + cap + "FixedVariant"] = p.tone(30)
         }
-        return Scheme(name: name, flavour: "dynamic", mode: isDark ? "dark" : "light", variant: "tonalspot", colors: c)
+        return Scheme(name: name, flavour: "dynamic", mode: isDark ? "dark" : "light", variant: style.lowercased(), colors: c)
     }
 }
 
@@ -106,6 +122,6 @@ public enum SchemeResolver {
         guard isDynamic(a) else { return base }
         let source = RGBA(hex: a.accentOverride) ?? wallpaperSource
         guard let source else { return base }
-        return DynamicScheme.make(source: source, dark: a.variant.lowercased() != "light", base: base)
+        return DynamicScheme.make(source: source, dark: a.variant.lowercased() != "light", base: base, style: a.paletteStyle)
     }
 }

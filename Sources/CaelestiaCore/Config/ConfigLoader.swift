@@ -402,6 +402,8 @@ public enum ConfigLoader {
             a.accentOverride.isEmpty || RGBA(hex: a.accentOverride) != nil, "appearance.accentOverride",
             "must be empty or a hex color like \"bac5ee\" (got \"\(a.accentOverride)\")")
         check(["static", "dynamic"].contains(a.schemeMode.lowercased()), "appearance.schemeMode", "must be \"static\" or \"dynamic\" (got \"\(a.schemeMode)\")")
+        check(DynamicScheme.styles.contains(a.paletteStyle.lowercased()), "appearance.paletteStyle",
+              "must be one of \(DynamicScheme.styles.joined(separator: ", ")) (got \"\(a.paletteStyle)\")")
         check(["overview", "media", "performance", "weather"].contains(c.dashboard.defaultTab.lowercased()), "dashboard.defaultTab", "must be \"overview\", \"media\", \"performance\" or \"weather\" (got \"\(c.dashboard.defaultTab)\")")
         check((1...1000).contains(c.clipboard.maxEntries), "clipboard.maxEntries", "must be between 1 and 1000 (got \(c.clipboard.maxEntries))")
         check((1...1024).contains(c.clipboard.maxSizeMB), "clipboard.maxSizeMB", "must be between 1 and 1024 (got \(c.clipboard.maxSizeMB))")

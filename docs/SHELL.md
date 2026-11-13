@@ -82,8 +82,13 @@ title, 16 pt subtitle, 15 pt padding, 48 pt search pill, at most 7 visible rows.
 - Apps scanned: `/Applications`, `~/Applications`, `/System/Applications` (+ Utilities), one
   sub-folder level.
 - `>` commands: `lock`, `sleep`, `shutdown`, `reboot`, `restart` (SkyRose itself), `logout` go through the session menu's
-  confirm step. `scheme`, `wallpaper`, `variant`, `transparency`, `random`, `settings` only show
-  an info toast ("later phase").
+  confirm step. `scheme`, `variant` and `transparency` fill in `>name ` and list their choices
+  (the current one has a check); Enter writes them to `config.toml` and the shell applies them
+  live. `>scheme `: wallpaper colours dark or light, every built-in scheme and the schemes of
+  SkyStore addons. `>variant `: the Material palette style of the wallpaper colours
+  (`appearance.paletteStyle`: tonalspot, vibrant, expressive, fidelity, content, fruitsalad,
+  rainbow, neutral, monochrome). `>transparency `: Off, Low, Normal, High. `>wallpaper ` is the
+  carousel, `random` picks a wallpaper, `settings` opens SkyRose Settings, `calculator` fills `=`.
 - `=` or plain math is a calculator; Enter copies the result.
 - Keys: Up/Down, Tab, Ctrl+J / Ctrl+K, Enter, Esc. Clicking outside closes it.
 

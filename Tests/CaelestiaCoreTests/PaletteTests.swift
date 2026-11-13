@@ -213,4 +213,15 @@ final class DashboardConfigParsingTests: XCTestCase {
         let back = try ConfigLoader.parse(toml: try ConfigLoader.serialize(c))
         XCTAssertEqual(back, c)
     }
+
+    func testPaletteStylesDiffer() {
+        let src = RGBA(r: 0x6a, g: 0x76, b: 0x9b)
+        let made = DynamicScheme.styles.map { DynamicScheme.make(source: src, style: $0) }
+        let distinct = ["tonalspot", "expressive", "fidelity", "fruitsalad", "neutral", "monochrome"]
+            .map { DynamicScheme.make(source: src, style: $0)[.primary] }
+        XCTAssertEqual(Set(distinct).count, distinct.count)
+        let mono = DynamicScheme.make(source: src, style: "monochrome")[.primary]
+        XCTAssertEqual(mono.r, mono.g); XCTAssertEqual(mono.g, mono.b)
+        XCTAssertEqual(made[1].variant, "vibrant")
+    }
 }

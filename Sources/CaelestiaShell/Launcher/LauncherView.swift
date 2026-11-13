@@ -19,6 +19,8 @@ public final class LauncherModel: ObservableObject {
     /// Slides the drawer: 0 = closed (below the frame), 1 = open.
     @Published public var shown = false
     public var apps: [LaunchableApp] = [] { didSet { refresh() } }
+    /// `>scheme `, `>variant ` and `>transparency ` choices (``LauncherCommand/options(_:addonSchemes:)``).
+    public var options: [String: [LauncherCommand]] = [:] { didSet { refresh() } }
     public var onActivate: (LauncherItem) -> Void = { _ in }
     public var onClose: () -> Void = {}
 
@@ -114,7 +116,7 @@ public final class LauncherModel: ObservableObject {
     public init() {}
 
     public func refresh() {
-        items = LauncherSearch.results(for: query, apps: apps)
+        items = LauncherSearch.results(for: query, apps: apps, options: options)
         selected = items.isEmpty ? 0 : min(selected, items.count - 1)
         if query.isEmpty || selected >= items.count { selected = 0 }
     }

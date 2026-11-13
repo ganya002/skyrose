@@ -176,6 +176,36 @@ final class LauncherSearchTests: XCTestCase {
         XCTAssertTrue(r.allSatisfy { if case .command = $0 { return true } else { return false } })
     }
 
+    func testSchemeVariantTransparencyListTheirChoices() {
+        var a = AppearanceConfig()
+        a.schemeMode = "dynamic"; a.paletteStyle = "vibrant"
+        let o = LauncherCommand.options(a, addonSchemes: [("dev.x.theme/ocean", "Ocean")])
+        let schemes = LauncherSearch.results(for: ">scheme ", apps: [], options: o)
+        XCTAssertEqual(schemes.count, 2 + SchemeLoader.builtInNames.count + 1)
+        XCTAssertEqual(names(LauncherSearch.results(for: ">scheme ocea", apps: [], options: o)).first, "Ocean")
+        XCTAssertEqual(LauncherSearch.results(for: ">variant ", apps: [], options: o).count, DynamicScheme.styles.count)
+        guard case .command(let vibrant) = LauncherSearch.results(for: ">variant vibr", apps: [], options: o).first else { return XCTFail() }
+        XCTAssertEqual(vibrant.icon, "check", "the current style is marked")
+        XCTAssertEqual(vibrant.effect, .setConfig([ConfigSetting(path: "appearance.schemeMode", value: .string("dynamic")),
+                                                   ConfigSetting(path: "appearance.paletteStyle", value: .string("vibrant"))]))
+        XCTAssertEqual(names(LauncherSearch.results(for: ">transparency ", apps: [], options: o)), ["Off", "Low", "Normal", "High"])
+        // Without the trailing space it is still the command list.
+        XCTAssertEqual(names(LauncherSearch.results(for: ">scheme", apps: [], options: o)).first, "scheme")
+    }
+
+    func testEveryLauncherChoiceIsAValidConfigEdit() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let api = ConfigAPI(file: dir.appendingPathComponent("config.toml"))
+        for list in LauncherCommand.options(AppearanceConfig()).values {
+            for c in list {
+                guard case .setConfig(let values) = c.effect else { return XCTFail(c.name) }
+                XCTAssertNoThrow(try api.set(values.map { ($0.path, $0.value) }), c.name)
+            }
+        }
+        XCTAssertEqual(api.load().appearance.transparencyBase, 0.55)
+    }
+
     func testCommandNoMatchIsEmpty() {
         XCTAssertTrue(LauncherSearch.results(for: ">zzzq", apps: []).isEmpty)
     }

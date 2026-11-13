@@ -616,6 +616,8 @@ public final class ShellController {
                                                   room: theme.overshootRoom(depth: body.height)), display: false)
             launcher.reset()
             launcher.apps = state.apps
+            launcher.options = LauncherCommand.options(state.config.appearance,
+                                                       addonSchemes: AddonStore().schemes().map { ($0.theme, $0.title) })
             launcher.currentWallpaper = displayedWallpaper
             launcher.wallpapers = state.wallpapers
             carouselPreviewing = false
@@ -875,10 +877,15 @@ public final class ShellController {
                     return
                 }
                 NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-            case .later(let why):
-                if c.name == "calculator" { launcher.query = "=" ; return }
+            case .fill(let text):
+                launcher.query = text
+            case .setConfig(let values):
                 close(.launcher)
-                toast(.info, title: ">\(c.name)", message: why)
+                do {
+                    try ConfigAPI().set(values.map { ($0.path, $0.value) })
+                } catch {
+                    toast(.error, title: c.name, message: error.localizedDescription)
+                }
             }
         case .calc(_, let result):
             guard let result else { return }

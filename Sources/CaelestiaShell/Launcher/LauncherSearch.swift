@@ -1,11 +1,14 @@
+import CaelestiaCore
 import Foundation
 
 /// A launcher action (`>` prefix, spec 5.3), as Caelestia lists them.
 public struct LauncherCommand: Hashable, Sendable, Identifiable {
     public enum Effect: Hashable, Sendable {
         case session(SessionAction)
-        /// Exists in Caelestia but needs a later phase (wallpaper, schemes, Settings).
-        case later(String)
+        /// Replaces the search text (`>calculator` turns into `=`).
+        case fill(String)
+        /// Writes these config keys in one edit (a `>scheme`, `>variant` or `>transparency` choice).
+        case setConfig([ConfigSetting])
         /// Opens one of the part-2 drawers (wallpaper picker).
         case drawer(Drawer)
         case randomWallpaper
@@ -31,11 +34,11 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
     }
 
     public static let all: [LauncherCommand] = [
-        LauncherCommand("calculator", "Do simple math equations", icon: "calculate", effect: .later("Type = followed by an expression")),
-        LauncherCommand("scheme", "Change the current colour scheme", icon: "palette", effect: .later("Set appearance.schemeMode = \"dynamic\" or \"static\" in config.toml")),
+        LauncherCommand("calculator", "Do simple math equations", icon: "calculate", effect: .fill("=")),
+        LauncherCommand("scheme", "Change the current colour scheme", icon: "palette", effect: .autocomplete("scheme")),
         LauncherCommand("wallpaper", "Change the current wallpaper", icon: "image", effect: .autocomplete("wallpaper")),
-        LauncherCommand("variant", "Change the current scheme variant", icon: "contrast", effect: .later("Scheme variants arrive with dynamic colour")),
-        LauncherCommand("transparency", "Change shell transparency", icon: "opacity", effect: .later("Transparency is set in config.toml for now")),
+        LauncherCommand("variant", "Change the current scheme variant", icon: "contrast", effect: .autocomplete("variant")),
+        LauncherCommand("transparency", "Change shell transparency", icon: "opacity", effect: .autocomplete("transparency")),
         LauncherCommand("random", "Switch to a random wallpaper", icon: "shuffle", effect: .randomWallpaper),
         LauncherCommand("lock", "Lock the current session", icon: "lock", effect: .session(.lock)),
         LauncherCommand("sleep", "Put the Mac to sleep", icon: "bedtime", effect: .session(.sleep)),
@@ -46,6 +49,52 @@ public struct LauncherCommand: Hashable, Sendable, Identifiable {
         LauncherCommand("settings", "Open SkyRose Settings", icon: "settings", effect: .openSettings),
         LauncherCommand("store", "Browse, install and update addons (SkyStore)", icon: "storefront", effect: .drawer(.store)),
     ]
+
+    /// The choices behind `>scheme `, `>variant ` and `>transparency `, keyed by command name.
+    /// `addonSchemes` are (theme id, title) of enabled SkyStore scheme addons. The current
+    /// choice gets a check icon.
+    public static func options(_ a: AppearanceConfig, addonSchemes: [(id: String, title: String)] = []) -> [String: [LauncherCommand]] {
+        let dynamic = SchemeResolver.isDynamic(a)
+        func pick(_ title: String, _ detail: String, current: Bool, icon: String, _ values: [(String, ConfigValue)]) -> LauncherCommand {
+            LauncherCommand(title, detail, icon: current ? "check" : icon, effect: .setConfig(values.map { ConfigSetting(path: $0.0, value: $0.1) }))
+        }
+        var schemes = ["dark", "light"].map { mode in
+            pick("Wallpaper colours (\(mode))", "Taken from your wallpaper, \(mode) mode",
+                 current: dynamic && a.variant.lowercased() == mode, icon: "wallpaper",
+                 [("appearance.schemeMode", .string("dynamic")), ("appearance.variant", .string(mode))])
+        }
+        let builtIn = SchemeLoader.builtInNames.map { ($0, SchemeLoader.builtInTitles[$0] ?? $0) }
+        let current = SchemeLoader.canonicalName(a.theme)
+        for (id, title) in builtIn + addonSchemes.map({ ($0.id, $0.title) }) {
+            schemes.append(pick(title, "Static scheme \(id)", current: !dynamic && current == id, icon: "palette",
+                                [("appearance.schemeMode", .string("static")), ("appearance.theme", .string(id))]))
+        }
+        let styleNotes = ["tonalspot": "Calm, the default", "vibrant": "Strong colour everywhere", "expressive": "Shifted, playful hues",
+                          "fidelity": "Close to the wallpaper colour", "content": "Close to the wallpaper colour, softer accents",
+                          "fruitsalad": "Bold, rotated hues", "rainbow": "Colourful accents on grey surfaces",
+                          "neutral": "Nearly grey", "monochrome": "Grey only"]
+        let variants = DynamicScheme.styles.map { s in
+            pick(s, (styleNotes[s] ?? "") + " (wallpaper colours)", current: dynamic && a.paletteStyle.lowercased() == s, icon: "contrast",
+                 [("appearance.schemeMode", .string("dynamic")), ("appearance.paletteStyle", .string(s))])
+        }
+        let levels: [(String, String, Double, Double)] = [("Low", "Mostly solid panels", 0.9, 0.5), ("Normal", "The default", 0.75, 0.35),
+                                                          ("High", "See-through panels", 0.55, 0.25)]
+        var transparency = [pick("Off", "Solid panels", current: !a.transparencyEnabled, icon: "opacity",
+                                 [("appearance.transparencyEnabled", .bool(false))])]
+        for (title, detail, base, layers) in levels {
+            transparency.append(pick(title, detail, current: a.transparencyEnabled && abs(a.transparencyBase - base) < 0.001 && abs(a.transparencyLayers - layers) < 0.001,
+                                     icon: "opacity", [("appearance.transparencyEnabled", .bool(true)), ("appearance.transparencyBase", .number(base)),
+                                                       ("appearance.transparencyLayers", .number(layers))]))
+        }
+        return ["scheme": schemes, "variant": variants, "transparency": transparency]
+    }
+}
+
+/// One config key and value a launcher choice writes.
+public struct ConfigSetting: Hashable, Sendable {
+    public var path: String
+    public var value: ConfigValue
+    public init(path: String, value: ConfigValue) { self.path = path; self.value = value }
 }
 
 /// One row of the launcher list.
@@ -86,20 +135,16 @@ public enum LauncherSearch {
     public static let commandPrefix = ">"
     public static let calcPrefix = "="
 
-    public static func results(for rawQuery: String, apps: [LaunchableApp], commands: [LauncherCommand] = LauncherCommand.all, limit: Int = 50) -> [LauncherItem] {
+    public static func results(for rawQuery: String, apps: [LaunchableApp], commands: [LauncherCommand] = LauncherCommand.all,
+                               options: [String: [LauncherCommand]] = [:], limit: Int = 50) -> [LauncherItem] {
+        // `>scheme dra`: the choices of that command, filtered by what follows its name.
+        if rawQuery.hasPrefix(commandPrefix), let space = rawQuery.firstIndex(of: " "),
+           let list = options[String(rawQuery[rawQuery.index(after: rawQuery.startIndex)..<space])] {
+            return rank(String(rawQuery[space...]).trimmingCharacters(in: .whitespaces), list)
+        }
         let query = rawQuery.trimmingCharacters(in: .whitespaces)
         if query.hasPrefix(commandPrefix) {
-            let rest = String(query.dropFirst()).trimmingCharacters(in: .whitespaces)
-            guard !rest.isEmpty else { return commands.map(LauncherItem.command) }
-            return commands
-                .compactMap { c -> (LauncherCommand, Int)? in
-                    let n = FuzzyMatcher.match(rest, in: c.name)?.score
-                    let d = FuzzyMatcher.match(rest, in: c.description).map { $0.score / 2 }
-                    guard let best = [n, d].compactMap({ $0 }).max() else { return nil }
-                    return (c, best)
-                }
-                .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name < $1.0.name }
-                .map { .command($0.0) }
+            return rank(String(query.dropFirst()).trimmingCharacters(in: .whitespaces), commands)
         }
         if query.hasPrefix(calcPrefix) {
             let expr = String(query.dropFirst()).trimmingCharacters(in: .whitespaces)
@@ -125,6 +170,20 @@ public enum LauncherSearch {
             $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name.localizedCaseInsensitiveCompare($1.0.name) == .orderedAscending
         }
         return items + ranked.prefix(limit).map { .app($0.0) }
+    }
+
+    /// Commands matching `rest` (name, or half weight on the description), best first; all of them, in order, for "".
+    static func rank(_ rest: String, _ commands: [LauncherCommand]) -> [LauncherItem] {
+        guard !rest.isEmpty else { return commands.map(LauncherItem.command) }
+        return commands
+            .compactMap { c -> (LauncherCommand, Int)? in
+                let n = FuzzyMatcher.match(rest, in: c.name)?.score
+                let d = FuzzyMatcher.match(rest, in: c.description).map { $0.score / 2 }
+                guard let best = [n, d].compactMap({ $0 }).max() else { return nil }
+                return (c, best)
+            }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.name < $1.0.name }
+            .map { .command($0.0) }
     }
 
     /// Best field score + frequency bonus; nil when nothing matches.

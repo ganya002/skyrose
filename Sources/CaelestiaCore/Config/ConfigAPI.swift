@@ -1,7 +1,7 @@
 import Foundation
 
 /// A value written through ``ConfigAPI``.
-public enum ConfigValue: Equatable, Sendable, CustomStringConvertible {
+public enum ConfigValue: Hashable, Sendable, CustomStringConvertible {
     case bool(Bool)
     case number(Double)
     case int(Int)
