@@ -42,6 +42,31 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Words the sidebar search also matches (the settings on the page).
+    public var keywords: String {
+        switch self {
+        case .general: return "mode wm shell login start onboarding tour menu bar dock"
+        case .appearance: return "theme colour color scheme wallpaper font dark light accent transparency"
+        case .windows: return "tiling gaps border focus follows mouse cursor animation resize"
+        case .catwm: return "engine layout dwindle master float motion speed bounce"
+        case .rules: return "app rule float workspace"
+        case .keybinds: return "shortcut key chord hotkey super"
+        case .shell: return "bar panels launcher dashboard sidebar osd notifications weather clipboard"
+        case .store: return "addons addon install creator clamshell colour picker"
+        case .terminal: return "kitty ghostty iterm wezterm font"
+        case .sipOff: return "sip helper scripting addition boot daemon"
+        case .permissions: return "accessibility input monitoring screen recording privacy"
+        case .backup: return "restore uninstall remove reset config"
+        case .about: return "version update restart release"
+        }
+    }
+
+    /// Every word of `query` is in the title or keywords.
+    public func matches(_ query: String) -> Bool {
+        let hay = (title + " " + keywords).lowercased()
+        return query.lowercased().split(separator: " ").allSatisfy { hay.contains($0) }
+    }
+
     /// Pages that only matter with the shell (dimmed in WM-only mode, still reachable).
     public var needsShell: Bool { self == .shell }
 }
@@ -52,6 +77,7 @@ public struct SettingsRoot: View {
     @State var page: SettingsPage
     /// The page to go back to from the CatWM panel.
     @State private var previous: SettingsPage = .general
+    @State private var query = ""
     var onClose: () -> Void
     var onRunOnboarding: () -> Void
     var onUninstall: (Bool) -> Void
@@ -134,18 +160,25 @@ public struct SettingsRoot: View {
                     Text("Settings").font(look.font(12)).foregroundStyle(look[.onSurfaceVariant])
                 }
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, 12)
             .animation(look.motion.quick, value: store.config.general.mode)
-            ForEach(SettingsPage.allCases) { p in
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .medium))
+                TextField("Search", text: $query)
+                    .textFieldStyle(.plain).font(look.font(13))
+                    .onSubmit { if let p = pages.first { go(p, look) } }
+                    .accessibilityIdentifier("settings.search")
+            }
+            .foregroundStyle(look[.onSurfaceVariant])
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Capsule().fill(look[.surfaceContainerHigh].opacity(0.7)))
+            .padding(.bottom, 8)
+            if pages.isEmpty {
+                Text("No page matches").font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).padding(.horizontal, 12)
+            }
+            ForEach(pages) { p in
                 let selected = p == page
-                Button {
-                    if p == .catwm {
-                        previous = page
-                        withAnimation(look.motion.morph) { page = p }
-                    } else {
-                        withAnimation(look.motion.page) { page = p }
-                    }
-                } label: {
+                Button { go(p, look) } label: {
                     HStack(spacing: 10) {
                         Image(systemName: p.icon).font(.system(size: 13, weight: .medium)).frame(width: 18)
                         Text(p.title).font(look.font(13.5, selected ? .semibold : .regular))
@@ -187,6 +220,20 @@ public struct SettingsRoot: View {
                 .fill(look[.surfaceContainerLow].opacity(0.6))
         )
         .padding(SettingsLook.panelInset)
+    }
+
+    private var pages: [SettingsPage] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        return q.isEmpty ? SettingsPage.allCases : SettingsPage.allCases.filter { $0.matches(q) }
+    }
+
+    private func go(_ p: SettingsPage, _ look: SettingsLook) {
+        if p == .catwm {
+            previous = page
+            withAnimation(look.motion.morph) { page = p }
+        } else {
+            withAnimation(look.motion.page) { page = p }
+        }
     }
 
     private var missingCount: Int? {

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Settings search.** A search field above the sidebar filters the pages by name and by the settings on them; Return opens the first match.
 - **Fix: CLI commands for the shell no longer report failure.** `skyrose picker`, `skyrose emoji` and other commands the shell handles said "not available yet" and exited 1, even though the shell ran them.
 - **Colour picker.** Super+Shift+C (or `skyrose picker`) opens the macOS eyedropper and copies the colour's hex value.
 - **Clamshell and the colour picker are SkyStore features.** They are listed under Categories › Built in and start installed. Uninstall or switch one off to turn it off; nothing is downloaded either way.
