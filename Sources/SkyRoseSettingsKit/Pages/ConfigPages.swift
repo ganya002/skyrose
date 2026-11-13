@@ -2,6 +2,7 @@ import AppKit
 import CaelestiaCore
 import CaelestiaShell
 import SwiftUI
+import UniformTypeIdentifiers
 import CaelestiaPlatform
 
 // MARK: - General
@@ -786,6 +787,7 @@ struct ShellPage: View {
                     SettingRow(title: "Lyrics", detail: "Synced lines from LRCLIB, cached on this Mac. Only the track name, artist, album and length are sent.", icon: "text.quote") {
                         PillToggle(isOn: store.bool(\.dashboard.lyrics, "dashboard.lyrics"), enabled: store.config.shell.enabled, accessibilityLabel: "Lyrics")
                     }
+                    SessionImageRow(store: store)
                 }
                 WeatherSettingsCard(store: store, enabled: store.config.shell.enabled)
             }
@@ -793,6 +795,36 @@ struct ShellPage: View {
             .allowsHitTesting(!wmOnly)
         }
         .animation(look.motion.page, value: wmOnly)
+    }
+}
+
+/// The session menu's picture (`appearance.sessionImage`): a GIF or image the user picks, or the moon.
+struct SessionImageRow: View {
+    @ObservedObject var store: SettingsStore
+    @Environment(\.look) var look
+
+    var body: some View {
+        let path = store.config.appearance.sessionImage
+        SettingRow(title: "Session menu picture",
+                   detail: path.isEmpty ? "The moon. Pick a GIF (it animates) or any image." : (path as NSString).lastPathComponent,
+                   icon: "photo") {
+            HStack(spacing: 6) {
+                if !path.isEmpty { PillButton(title: "Moon", kind: .outline) { set("") } }
+                PillButton(title: "Choose…", icon: "photo.on.rectangle", kind: .tonal) { pick() }
+            }
+        }
+    }
+
+    private func pick() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.gif, .image]
+        panel.canChooseDirectories = false
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures")
+        if panel.runModal() == .OK, let url = panel.url { set(url.path) }
+    }
+
+    private func set(_ path: String) {
+        store.set("appearance.sessionImage", .string(path), update: { $0.appearance.sessionImage = path })
     }
 }
 

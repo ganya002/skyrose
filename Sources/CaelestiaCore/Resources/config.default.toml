@@ -218,6 +218,9 @@ wallpaperRandomIntervalMinutes = 0
 # Session-only: nothing on disk changes, and quitting SkyRose or logging out puts the macOS
 # cursors back. The spinning wait cursor is never replaced (macOS cannot put it back once changed).
 cursor = "Bibata-Modern-Classic"
+# The picture between the session menu's buttons: a GIF (animated) or any image on this Mac, as a
+# path ("~/" works). Empty draws the moon.
+sessionImage = ""
 
 # =====================================================================================
 # Dashboard (shell.json dashboard.*)

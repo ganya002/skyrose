@@ -51,7 +51,7 @@ public enum SettingsPage: String, CaseIterable, Identifiable, Sendable {
         case .catwm: return "engine layout dwindle master float motion speed bounce"
         case .rules: return "app rule float workspace"
         case .keybinds: return "shortcut key chord hotkey super"
-        case .shell: return "bar panels launcher dashboard sidebar osd notifications weather clipboard"
+        case .shell: return "bar panels launcher dashboard sidebar osd notifications weather clipboard session gif picture moon bongo lyrics"
         case .store: return "addons addon install creator clamshell colour picker"
         case .terminal: return "kitty ghostty iterm wezterm font"
         case .sipOff: return "sip helper scripting addition boot daemon"

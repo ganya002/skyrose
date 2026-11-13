@@ -651,6 +651,7 @@ public final class ShellController {
                                                   room: theme.overshootRoom(depth: body.width)), display: false)
             panel.shove = 0
             session.reset()
+            session.setImage(path: state.config.appearance.sessionImage)
             hideOSD(animated: true)
             showSessionDim(id)
             session.shown = true

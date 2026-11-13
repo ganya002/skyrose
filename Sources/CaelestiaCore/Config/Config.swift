@@ -274,6 +274,9 @@ public struct AppearanceConfig: Codable, Equatable, Sendable {
     /// Cursor theme for this login session: a Mousecape cape identifier (e.g.
     /// "Bibata-Modern-Classic"), or "" for the macOS cursors. The wait cursor is never replaced.
     public var cursor: String = "Bibata-Modern-Classic"
+    /// The picture between the session menu's buttons (Caelestia `paths.sessionGif`): a GIF or any
+    /// image on this Mac; "" draws the moon.
+    public var sessionImage: String = ""
     public init() {}
 }
 

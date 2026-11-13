@@ -12,6 +12,16 @@ public final class SessionModel: ObservableObject {
     @Published public var focused = 0
     @Published public private(set) var armed: SessionAction?
     @Published public var shown = false
+    /// `appearance.sessionImage`, loaded when the menu opens (nil: the moon).
+    @Published public private(set) var image: NSImage?
+    private var imagePath = ""
+
+    /// Loads the picture again only when the path changed, so a GIF is decoded once.
+    public func setImage(path: String) {
+        guard path != imagePath else { return }
+        imagePath = path
+        image = path.isEmpty ? nil : NSImage(contentsOfFile: (path as NSString).expandingTildeInPath)
+    }
     private var armedAt: Date?
     public var now: () -> Date = Date.init
     public var onRun: (SessionAction) -> Void = { _ in }
@@ -102,7 +112,7 @@ struct SessionView: View {
                 VStack(spacing: SessionModel.spacing) {
                     button(.logout)
                     button(.shutdown)
-                    SessionMascot()
+                    SessionMascot(image: model.image)
                         .frame(width: SessionModel.button, height: SessionModel.button)
                     button(.sleep)
                     button(.reboot)
@@ -145,18 +155,48 @@ struct SessionView: View {
     }
 }
 
-/// The animated image slot between the buttons (Caelestia shows a character gif; ours is drawn).
+/// The image slot between the buttons: the user's picture (GIFs animate), else a drawn moon.
 struct SessionMascot: View {
+    var image: NSImage?
     @Environment(\.shellTheme) var theme
     @State private var bob = false
 
     var body: some View {
+        if let image {
+            AnimatedImage(image: image, animates: !theme.reduceMotion)
+                .clipShape(RoundedRectangle(cornerRadius: SessionModel.rounding, style: .continuous))
+                .accessibilityLabel("Session picture")
+        } else {
+            moon
+        }
+    }
+
+    private var moon: some View {
         MaterialIcon("bedtime", size: 34, fill: true)
             .symbolRenderingMode(.palette)
             .foregroundStyle(theme[.tertiary], theme[.primary])
             .offset(y: bob ? -4 : 4)
             .animation(theme.reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true), value: bob)
             .onAppear { bob = true }
+    }
+}
+
+/// NSImageView plays GIF frames itself; SwiftUI's Image shows only the first.
+struct AnimatedImage: NSViewRepresentable {
+    var image: NSImage
+    var animates: Bool
+
+    func makeNSView(context: Context) -> NSImageView {
+        let v = NSImageView()
+        v.imageScaling = .scaleProportionallyUpOrDown
+        v.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        v.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        return v
+    }
+
+    func updateNSView(_ v: NSImageView, context: Context) {
+        if v.image !== image { v.image = image }
+        v.animates = animates
     }
 }
 
