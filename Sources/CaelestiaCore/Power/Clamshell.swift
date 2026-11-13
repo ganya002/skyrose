@@ -146,21 +146,35 @@ public enum LidSleep {
         ["-n", pmset, "disablesleep", disabled ? "1" : "0"]
     }
 
+    /// `sudo` arguments for Low Power Mode (also in the rule, so the Controls tile needs no password).
+    public static func lowPowerArguments(on: Bool) -> [String] {
+        ["-n", pmset, "-a", "lowpowermode", on ? "1" : "0"]
+    }
+
     /// `SleepDisabled 1` in `pmset -g` output.
     public static func parseSleepDisabled(_ pmsetOutput: String) -> Bool {
         pmsetOutput.range(of: "SleepDisabled[[:space:]]+1", options: .regularExpression) != nil
     }
 
-    /// The sudoers line: only these two exact commands, as root, without a password.
+    /// The exact commands the rule allows: sleep on/off and Low Power Mode on/off, nothing else.
+    static let allowed = "\(pmset) disablesleep 0, \(pmset) disablesleep 1, \(pmset) -a lowpowermode 0, \(pmset) -a lowpowermode 1"
+
+    /// The sudoers line: only those exact commands, as root, without a password.
     public static func rule(user: String) -> String {
-        "\(user) ALL=(root) NOPASSWD: \(pmset) disablesleep 0, \(pmset) disablesleep 1"
+        "\(user) ALL=(root) NOPASSWD: \(allowed)"
+    }
+
+    /// Shell that installs the rule when already root (run with administrator privileges after
+    /// the user agreed in the macOS prompt): validated with `visudo -cf` before it goes in.
+    public static func rootInstallScript(user: String) -> String {
+        installCommand(user: user).replacingOccurrences(of: "&& sudo ", with: "&& ")
     }
 
     /// What the user runs once in a terminal to install the helper (SkyRose never does).
     /// Writes the rule to a temp file, validates it with `visudo -cf`, installs it root:wheel 0440.
     public static func installCommand(user: String) -> String {
         let safe = user.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil
-        let line = safe ? "'\(rule(user: user))'" : "\"$(id -un) ALL=(root) NOPASSWD: \(pmset) disablesleep 0, \(pmset) disablesleep 1\""
+        let line = safe ? "'\(rule(user: user))'" : "\"$(id -un) ALL=(root) NOPASSWD: \(allowed)\""
         let tmp = "/tmp/skyrose-sudoers"
         return "printf '%s\\n' \(line) > \(tmp) && /usr/sbin/visudo -cf \(tmp) && sudo install -o root -g wheel -m 0440 \(tmp) \(ruleFile) && sudo /usr/sbin/visudo -cf \(ruleFile) && rm \(tmp)"
     }

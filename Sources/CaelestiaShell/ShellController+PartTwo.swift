@@ -702,19 +702,26 @@ extension ShellController {
         }
     }
 
-    /// Low Power Mode is a root-only `pmset` setting: macOS asks for an administrator password.
+    /// Low Power Mode is a root-only `pmset` setting. `sudo -n` through SkyRose's scoped sudoers rule
+    /// first; without the rule, one administrator prompt switches it and installs the rule, so the
+    /// tile never asks again.
     func setLowPowerMode(_ on: Bool) {
         let c = popout.controls
         guard !c.lowPowerBusy else { return }
         c.lowPowerBusy = true
-        let script = "do shell script \"/usr/bin/pmset -a lowpowermode \(on ? 1 : 0)\" with administrator privileges with prompt \"SkyRose wants to turn Low Power Mode \(on ? "on" : "off").\""
+        let shell = "\(LidSleep.pmset) -a lowpowermode \(on ? 1 : 0) && \(LidSleep.rootInstallScript(user: NSUserName()))"
+            .replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "do shell script \"\(shell)\" with administrator privileges with prompt \"SkyRose wants to turn Low Power Mode \(on ? "on" : "off") and switch it without a password from now on.\""
         Task.detached { [weak self] in
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            p.arguments = ["-e", script]
-            p.standardOutput = FileHandle.nullDevice
-            p.standardError = FileHandle.nullDevice
-            let ok = (try? p.run()) != nil && { p.waitUntilExit(); return p.terminationStatus == 0 }()
+            func run(_ tool: String, _ args: [String]) -> Bool {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: tool)
+                p.arguments = args
+                p.standardOutput = FileHandle.nullDevice
+                p.standardError = FileHandle.nullDevice
+                return (try? p.run()) != nil && { p.waitUntilExit(); return p.terminationStatus == 0 }()
+            }
+            let ok = run(LidSleep.sudo, LidSleep.lowPowerArguments(on: on)) || run("/usr/bin/osascript", ["-e", script])
             await MainActor.run {
                 guard let self else { return }
                 self.popout.controls.lowPowerBusy = false

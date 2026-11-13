@@ -62,11 +62,16 @@ final class ClamshellTests: XCTestCase {
     }
 
     func testHelperRuleIsTheTwoCommandAllowlist() {
-        XCTAssertEqual(LidSleep.rule(user: "gabbo"), "gabbo ALL=(root) NOPASSWD: /usr/bin/pmset disablesleep 0, /usr/bin/pmset disablesleep 1")
+        let rule = "gabbo ALL=(root) NOPASSWD: /usr/bin/pmset disablesleep 0, /usr/bin/pmset disablesleep 1, /usr/bin/pmset -a lowpowermode 0, /usr/bin/pmset -a lowpowermode 1"
+        XCTAssertEqual(LidSleep.rule(user: "gabbo"), rule)
         let cmd = LidSleep.installCommand(user: "gabbo")
-        XCTAssertTrue(cmd.hasPrefix("printf '%s\\n' 'gabbo ALL=(root) NOPASSWD: /usr/bin/pmset disablesleep 0, /usr/bin/pmset disablesleep 1' > /tmp/skyrose-sudoers"))
+        XCTAssertTrue(cmd.hasPrefix("printf '%s\\n' '\(rule)' > /tmp/skyrose-sudoers"))
+        let root = LidSleep.rootInstallScript(user: "gabbo")
+        XCTAssertFalse(root.contains("&& sudo "))
+        XCTAssertEqual(root.components(separatedBy: "/usr/sbin/visudo -cf").count, 3, "visudo survives the sudo strip")
+        XCTAssertEqual(LidSleep.lowPowerArguments(on: true), ["-n", "/usr/bin/pmset", "-a", "lowpowermode", "1"])
         XCTAssertTrue(cmd.contains("/usr/sbin/visudo -cf /tmp/skyrose-sudoers && sudo install -o root -g wheel -m 0440 /tmp/skyrose-sudoers /etc/sudoers.d/skyrose"))
-        XCTAssertTrue(LidSleep.installCommand(user: "o'neil").contains("$(id -un)"), "odd names are not quoted into the command")
+        XCTAssertTrue(LidSleep.installCommand(user: "o'neil").contains("$(id -un) ALL=(root) NOPASSWD: /usr/bin/pmset disablesleep 0, /usr/bin/pmset disablesleep 1, /usr/bin/pmset -a lowpowermode 0"), "odd names are not quoted into the command")
     }
 
     func testDefaultConfigIsOff() {
