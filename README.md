@@ -2,6 +2,8 @@
 
 *(formerly "Caelestia for Mac"; the window manager is **SkyRose WM**)*
 
+*Official website here: **https://ground-pocket-866h.here.now/***
+
 A native macOS (Apple Silicon, macOS 14+) port of Gabby's Arch Linux desktop: **Hyprland**
 dwindle tiling + the **Caelestia** shell, so her muscle memory carries over — same keybinds
 (Super = left Option), gaps, 1 px periwinkle borders, 15 px corners, the left bar, launcher,
