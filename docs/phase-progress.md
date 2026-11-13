@@ -46,6 +46,7 @@ Resume here: read this table, then the newest section below.
 
 | C site | live on here.now: https://ground-pocket-866h.here.now/ (anonymous: expires unless claimed with the claim URL in archify-site/.herenow/state.json). `scripts/publish-herenow.sh` republishes | archify-site e2fd89b |
 | Leftovers 2026-11-13 | drawer close on an empty ws no longer follows the app (4/4 under CatWM, seen only with the old engine); Settings search (b019af7); CLI shell commands reported failure (9f05489). Not done live: boot-daemon toggle, Wi-Fi forget / wrong password, BT pairing / forget, Low Power Mode, AirDrop (need Gabby, admin prompts or other devices) | |
+| Live tests 2026-11-13 | Gabby at the Mac, all passed: media tab with a real song in Firefox (source pill, bongo cat, lyrics; long lines truncated, fixed 28102d4 to wrap); AirDrop tile opens AirDrop; Low Power Mode on/off (asked for a password on every switch: b343a99 adds `pmset -a lowpowermode 0\|1` to the scoped sudoers rule, one last prompt installs it; rule install not yet seen on this Mac); SIP-off toggle off/on without a password, `killall Dock` and the boot daemon reloads the helper; Bluetooth connect, forget, pair (WH-1000XM6); Wi-Fi wrong password, forget, rejoin | 28102d4, b343a99 |
 | v0.6.0 | version bump, tag; release files built in the scratchpad; publish blocked like 0.5.0 | (this commit) |
 
 Next: publish the v0.5.0 and v0.6.0 releases (Gabby), claim the here.now site, then third-party code addons (out of process).
