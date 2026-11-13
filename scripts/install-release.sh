@@ -2,8 +2,8 @@
 # SkyRose release installer. No sudo, no Xcode. The copy people download is this file, named install.sh.
 #
 # Do this, in order. A truncated download stops before main, so it cannot install halfway.
-#   curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.5.0/install.sh
-#   curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.5.0/install.sh.sha256
+#   curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.6.0/install.sh
+#   curl -fsSLO https://github.com/ganya002/skyrose/releases/download/v0.6.0/install.sh.sha256
 #   shasum -a 256 -c install.sh.sha256
 #   less install.sh
 #   sh install.sh --dry-run
@@ -32,7 +32,7 @@
 # SkyRose-<version>-arm64.zip.sha256 on the same GitHub release. Tests set SKYROSE_RELEASE_ZIP
 # and SKYROSE_RELEASE_SHA256. SKYROSE_RELEASE_PAYLOAD is a folder of apps that is already checked.
 
-VERSION=0.5.0
+VERSION=0.6.0
 BAKED_SHA256=""
 
 main() {

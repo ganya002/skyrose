@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.6.0 (2026-11-13)
+
+SkyStore app addons, Clamshell and a new colour picker as Store features, and Settings search. https://github.com/ganya002/skyrose/releases/tag/v0.6.0
+
 - **Settings search.** A search field above the sidebar filters the pages by name and by the settings on them; Return opens the first match.
 - **Fix: CLI commands for the shell no longer report failure.** `skyrose picker`, `skyrose emoji` and other commands the shell handles said "not available yet" and exited 1, even though the shell ran them.
 - **Colour picker.** Super+Shift+C (or `skyrose picker`) opens the macOS eyedropper and copies the colour's hex value.
