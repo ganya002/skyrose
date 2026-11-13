@@ -127,7 +127,7 @@ struct MediaDetails: View {
                 .foregroundStyle(m.available ? theme[.secondary] : theme[.outline])
                 .multilineTextAlignment(.center)
             if lyrics, m.available, !model.lyricLines.isEmpty {
-                LyricsColumn(model: model).frame(height: 120)
+                LyricsColumn(model: model).lineLimit(nil).frame(height: 120) // undo the stack's lineLimit(1): lyrics wrap
             }
             HStack(spacing: 8) {
                 TextIconButton(icon: "skip_previous", size: 26, action: model.onPrevious)
