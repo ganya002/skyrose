@@ -248,7 +248,7 @@ public final class ShellController {
         if servicesStarted {
             weatherController.configure(state.config.weather)
             clipboard.setLimits(maxEntries: state.config.clipboard.maxEntries, maxBytes: state.config.clipboard.maxBytes)
-            clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
+            refreshFeatures()
         }
         closeDisabledDrawers()
         if themeChanged { rebuildDrawers() }
@@ -1017,6 +1017,7 @@ public final class ShellController {
         case .captureRegion: takeScreenshot(.region)
         case .captureFull: takeScreenshot(.full)
         case .captureFreeze: takeScreenshot(.freeze)
+        case .pickerColor: pickColor()
         case .audioVolumeUp, .audioVolumeDown:
             // Media keys reach macOS too (fireAndPass): the system steps the volume and the
             // service reports it. From IPC / another chord nothing changes, so step ourselves.

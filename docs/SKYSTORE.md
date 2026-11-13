@@ -228,28 +228,24 @@ Key rotation: add the new public key to `trustedKeys` next to the old one, ship 
 with the new key, then remove the old key in a later release. If the key leaks, ship a release
 without it at once. Old SkyRose versions keep trusting it until they update.
 
-## Builtin features as first-party addons (next, before any third-party code)
+## Builtin features as first-party addons
 
-Decided 2026-11-11 (Gabby): the first code-carrying addons are SkyRose's own features, starting
-with clamshell and the colour picker, as first-party `feature` addons. Third-party code addons and
-their sandbox come only after that. Nothing is moved yet; the plan:
+Decided 2026-11-11 (Gabby), built 2026-11-13: SkyRose's own optional parts are `feature` addons,
+starting with **Clamshell** (`skyrose.clamshell`) and the **Colour picker** (`skyrose.colorpicker`).
 
-- A new kind, `feature`. Its manifest names a feature id (`skyrose.clamshell`) and carries no code.
-  Installing it **enables** a feature compiled into SkyRose, so no code is downloaded. Uninstalling
-  it disables the feature. The Store becomes the switchboard for optional parts.
-- Each such feature conforms to one small protocol in `CaelestiaShell`:
+- The code is compiled into SkyRose (`BuiltinFeature`). Installing one writes only a state record,
+  so nothing is downloaded. Uninstalling it or switching it off turns the feature off.
+- Every builtin starts installed the first time a SkyRose that has it runs (`features-seeded.json`
+  in the addons folder), so an update changes nothing. An uninstall sticks.
+- They are listed under Categories › Built in, also when the index is offline, and under Installed.
+  `skyrose store install|uninstall|enable|disable skyrose.clamshell` works too.
+- Off: Clamshell lets the Mac sleep with the lid closed again, its sidebar chip goes, and
+  `skyrose clamshell on` refuses. The colour picker bind shows a toast that says how to turn it on.
+- Panic and revocation use the data-addon path (`disableAll()`, `applyRevocations(_:)`), so a
+  panic switches builtins off too.
+- Builtin features alone never make SkyRose contact the index in the background.
+- Not done: a `ShellFeature` protocol with its own host API. Two features did not need one; it
+  comes with the first feature that adds bar items or binds of its own.
 
-      protocol ShellFeature: AnyObject {
-          static var id: String { get }                        // "skyrose.clamshell"
-          static var permissions: [AddonPermission] { get }    // shown in the Store
-          func start(host: ShellFeatureHost)                   // bar items, sidebar tiles, binds
-          func stop()                                          // panic / disable / uninstall
-      }
-
-  `ShellFeatureHost` exposes only what the shell already offers drawers (toasts, a sidebar tile,
-  a bar status icon, action handlers). `ShellController` keeps a registry
-  `[String: ShellFeature.Type]` and starts the ones `AddonStore` lists as enabled `feature` addons.
-- Panic and revocation use the same path as data addons: `AddonStore.disableAll()` and
-  `applyRevocations(_:)` change the state, and the registry stops what is no longer enabled.
 - Real third-party code addons run **out of process** (see the security doc). They get the same
   host API over a socket that is limited to their declared permissions.

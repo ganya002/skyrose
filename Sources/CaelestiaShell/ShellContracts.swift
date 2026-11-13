@@ -34,6 +34,8 @@ public final class ShellState: ObservableObject {
     @Published public var clamshell: ClamshellFacts
     /// Clamshell on/off, keep-awake and whether the `disablesleep` helper works.
     @Published public var lidSleep: LidSleepStatus
+    /// The Clamshell feature addon is installed and on (SkyStore › Built in).
+    @Published public var clamshellFeature = true
     @Published public var gameMode: Bool
     @Published public var recorder: RecorderInfo
     @Published public var media: MediaInfo

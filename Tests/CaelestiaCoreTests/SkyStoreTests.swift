@@ -445,6 +445,28 @@ final class SkyStoreTests: XCTestCase {
         XCTAssertThrowsError(try AddonCreator.scaffold(id: "test.dummy.widget", kind: .widget, in: tmp))
         XCTAssertThrowsError(try AddonCreator.scaffold(id: "Bad", kind: .scheme, in: tmp))
     }
+
+    // MARK: Builtin features
+
+    func testBuiltinFeaturesSeedOnceAndUninstallSticks() throws {
+        let s = store()
+        XCTAssertTrue(s.featureEnabled(BuiltinFeature.clamshell.id), "on after an update")
+        XCTAssertEqual(s.installed().filter { $0.kind == .feature }.count, BuiltinFeature.all.count)
+        try s.uninstall(BuiltinFeature.clamshell.id)
+        s.seedBuiltinFeatures()
+        XCTAssertFalse(s.featureEnabled(BuiltinFeature.clamshell.id), "an uninstall is not undone by the next seed")
+        try s.installBuiltin(BuiltinFeature.clamshell.id)
+        XCTAssertTrue(s.featureEnabled(BuiltinFeature.clamshell.id))
+        try s.setEnabled(BuiltinFeature.clamshell.id, false)
+        XCTAssertFalse(s.featureEnabled(BuiltinFeature.clamshell.id))
+        try s.installBuiltin(BuiltinFeature.clamshell.id)
+        XCTAssertFalse(s.featureEnabled(BuiltinFeature.clamshell.id), "install keeps a switched-off record off")
+        try s.setEnabled(BuiltinFeature.clamshell.id, true)
+        XCTAssertEqual(s.disableAll(), BuiltinFeature.all.count)
+        XCTAssertFalse(s.featureEnabled(BuiltinFeature.colorPicker.id), "panic switches features off too")
+        XCTAssertThrowsError(try s.installBuiltin("skyrose.nope"))
+    }
+
 }
 
 private extension AddonStore {

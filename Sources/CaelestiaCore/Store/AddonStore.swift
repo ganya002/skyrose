@@ -229,6 +229,46 @@ public final class AddonStore: @unchecked Sendable {
         if on { apps.activate(a) } else { apps.deactivate(a, removeAgent: true) }
     }
 
+    // MARK: Builtin features
+
+    var seededURL: URL { root.appendingPathComponent("features-seeded.json") }
+
+    /// Records each builtin feature as installed the first time this SkyRose sees it, so an update
+    /// keeps every feature on. A later uninstall sticks: a feature is seeded only once.
+    public func seedBuiltinFeatures() {
+        let seen = (try? JSONDecoder().decode([String].self, from: Data(contentsOf: seededURL))) ?? []
+        guard BuiltinFeature.all.contains(where: { !seen.contains($0.id) }) else { return }
+        try? locked {
+            let seen = (try? JSONDecoder().decode([String].self, from: Data(contentsOf: seededURL))) ?? []
+            let new = BuiltinFeature.all.filter { !seen.contains($0.id) }
+            guard !new.isEmpty else { return }
+            var list = installed()
+            for f in new where !list.contains(where: { $0.id == f.id }) { list.append(f.record(version: skyRoseVersion)) }
+            try save(list)
+            try JSONEncoder().encode(seen + new.map(\.id)).write(to: seededURL, options: .atomic)
+        }
+    }
+
+    /// Installs a builtin feature again after an uninstall (no download). An existing record,
+    /// revoked or off, is kept as it is.
+    @discardableResult
+    public func installBuiltin(_ id: String) throws -> InstalledAddon {
+        guard let f = BuiltinFeature.named(id) else { throw StoreError.notFound(id) }
+        seedBuiltinFeatures()
+        var item = f.record(version: skyRoseVersion)
+        try change { list in
+            if let old = list.first(where: { $0.id == id }) { item = old; return }
+            list.append(item)
+        }
+        return item
+    }
+
+    /// Off when uninstalled, switched off, turned off by a panic, or revoked.
+    public func featureEnabled(_ id: String) -> Bool {
+        seedBuiltinFeatures()
+        return installed(id)?.enabled ?? false
+    }
+
     /// App addons: records the setup result (`ready`, `pending`, `failed: …`).
     public func setSetup(_ id: String, _ value: String) throws {
         try change { list in

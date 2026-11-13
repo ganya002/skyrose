@@ -272,6 +272,10 @@ public final class ShellBridge: ShellHost {
             switch verb {
             case "on", "off":
                 guard cm.facts.hasLid else { return fail("this Mac has no lid") }
+                controller.refreshFeatures()
+                if verb == "on", !controller.state.clamshellFeature {
+                    return fail("Clamshell is off in SkyStore. Turn it on: skyrose store enable \(BuiltinFeature.clamshell.id)")
+                }
                 lid.setClamshell(verb == "on")
             case "status", "helper":
                 if cm.facts.hasLid { lid.refresh() }

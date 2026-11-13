@@ -57,7 +57,7 @@ final class StoreModelTests: XCTestCase {
         wait("index loads") { m.index != nil }
         XCTAssertEqual(m.visible.map(\.id), ["test.dummy.store"], "featured first")
         m.tab = .categories
-        XCTAssertEqual(m.shelves, ["Bar modules", "Colour scheme"])
+        XCTAssertEqual(m.shelves, ["Bar modules", "Built in", "Colour scheme"])
         XCTAssertEqual(m.visible.map(\.id), ["test.dummy.widget"])
         m.query = "widget"
         XCTAssertEqual(m.visible.map(\.id), ["test.dummy.widget"])
@@ -105,6 +105,24 @@ final class StoreModelTests: XCTestCase {
         // The manifest lists no permissions but the index does: refused as a mismatch, nothing installed.
         XCTAssertNotNil(m.errors[e.id])
         XCTAssertNil(m.installed(e.id))
+    }
+
+    func testBuiltinFeaturesAreListedOfflineAndReinstallWithoutDownload() {
+        let m = model([])
+        m.loadIndex = { _ in throw StoreError.io("offline") }
+        m.prepare()
+        wait("index fails") { m.indexError != nil }
+        XCTAssertEqual(Set(m.installed.map(\.id)), Set(BuiltinFeature.all.map(\.id)), "seeded as installed")
+        m.tab = .categories
+        XCTAssertEqual(m.visible.map(\.id).sorted(), BuiltinFeature.all.map(\.id).sorted())
+        let picker = m.entry(BuiltinFeature.colorPicker.id)!
+        XCTAssertEqual(m.action(for: picker), .installed)
+        m.uninstall(picker.id); m.uninstall(picker.id)
+        XCTAssertEqual(m.action(for: picker), .install)
+        m.install(picker) // arms: the clipboard permission is new again
+        m.install(picker)
+        XCTAssertEqual(m.action(for: picker), .installed)
+        XCTAssertTrue(m.addons.featureEnabled(picker.id))
     }
 
     func testIndexErrorIsShown() {

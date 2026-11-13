@@ -43,6 +43,6 @@ struct StorePage: View {
             }
             .animation(look.motion.page, value: store.config.store.creatorMode)
         }
-        .onAppear { installed = AddonStore().installed() }
+        .onAppear { let a = AddonStore(); a.seedBuiltinFeatures(); installed = a.installed() }
     }
 }

@@ -67,11 +67,17 @@ public final class StoreModel: ObservableObject {
         return addons.updates(index)
     }
 
-    public var shelves: [String] { Array(Set((index?.addons ?? []).map(\.shelf))).sorted() }
+    /// The index's entries plus SkyRose's builtin features (always listed, also offline).
+    var catalog: [StoreEntry] {
+        let indexed = index?.addons ?? []
+        return indexed + BuiltinFeature.all.filter { f in !indexed.contains { $0.id == f.id } }.map { $0.entry(skyRoseVersion: addons.skyRoseVersion) }
+    }
+
+    public var shelves: [String] { Array(Set(catalog.map(\.shelf))).sorted() }
 
     /// The grid for the current tab and search.
     public var visible: [StoreEntry] {
-        let all = (index?.addons ?? []).filter { $0.revoked == nil && $0.kind != .unknown }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let all = catalog.filter { $0.revoked == nil && $0.kind != .unknown }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if !query.trimmingCharacters(in: .whitespaces).isEmpty { return all.filter { $0.matches(query) } }
         switch tab {
         case .featured:
@@ -82,7 +88,7 @@ public final class StoreModel: ObservableObject {
         }
     }
 
-    public func entry(_ id: String) -> StoreEntry? { index?.entry(id) }
+    public func entry(_ id: String) -> StoreEntry? { catalog.first { $0.id == id } }
     public func installed(_ id: String) -> InstalledAddon? { installed.first { $0.id == id } }
 
     /// What the button for `entry` does next.
@@ -95,6 +101,7 @@ public final class StoreModel: ObservableObject {
     public func action(for e: StoreEntry) -> Action {
         if let a = installed(e.id), case .revoked(let why) = a.disabled { return .revoked(why) }
         if let why = e.revoked { return .revoked(why) }
+        if BuiltinFeature.named(e.id) != nil { return installed(e.id) == nil ? .install : .installed }
         guard addons.policy.installable[e.kind] != nil else { return .notSupported }
         let latest = e.latest(for: addons.skyRoseVersion)
         guard let a = installed(e.id) else { return latest == nil ? .needsNewerSkyRose : .install }
@@ -117,6 +124,7 @@ public final class StoreModel: ObservableObject {
         query = ""
         selected = nil
         confirming = nil
+        addons.seedBuiltinFeatures()
         installed = addons.installed()
         if fetchedAt.map({ Date().timeIntervalSince($0) > 600 }) ?? true || index == nil { refresh() }
     }
@@ -161,7 +169,8 @@ public final class StoreModel: ObservableObject {
 
     func backgroundCheck() {
         installed = addons.installed()
-        if !installed.isEmpty { refresh() }
+        // Builtin features alone never make SkyRose contact the index.
+        if installed.contains(where: { $0.kind != .feature }) { refresh() }
     }
 
     // MARK: Actions
@@ -176,6 +185,10 @@ public final class StoreModel: ObservableObject {
         }
         confirming = nil
         errors[e.id] = nil
+        if BuiltinFeature.named(e.id) != nil {
+            finish(e.id, Result { _ = try addons.installBuiltin(e.id) })
+            return
+        }
         busy[e.id] = StoreProgress(.checking)
         let addons = addons, source = source(config), id = e.id
         Task.detached {

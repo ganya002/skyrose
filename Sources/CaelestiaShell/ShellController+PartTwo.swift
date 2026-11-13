@@ -117,7 +117,7 @@ extension ShellController {
         }
         bluetooth.start()
         clamshell.onChange = { [weak self] f in self?.state.clamshell = f }
-        clamshell.keepAwakeWhenClosed = state.config.clamshell.keepAwake
+        refreshFeatures()
         clamshell.start()
         state.clamshell = clamshell.facts
         lidSleep.onChange = { [weak self] in

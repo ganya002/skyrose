@@ -6,7 +6,7 @@ extension ShellController {
     func startStore() {
         store.config = state.config.store
         store.onClose = { [weak self] in self?.close(.store) }
-        store.onContentChanged = { [weak self] in self?.refreshColors() }
+        store.onContentChanged = { [weak self] in self?.refreshColors(); self?.refreshFeatures() }
         store.onRevoked = { [weak self] list in
             for a in list {
                 _ = self?.toast(.warn, title: "\(a.name) was revoked", message: "SkyStore switched it off: \(a.status.replacingOccurrences(of: "revoked: ", with: ""))", icon: "block")

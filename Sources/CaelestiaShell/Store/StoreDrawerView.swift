@@ -85,7 +85,7 @@ struct StoreDrawerView: View {
             } else {
                 switch model.tab {
                 case .featured: indexGated { grid(model.visible, empty: "The index is empty.") }
-                case .categories: indexGated { categories }
+                case .categories: categories // the builtin features are listed even with the index offline
                 case .installed: installedList
                 case .updates: indexGated { updatesList }
                 }

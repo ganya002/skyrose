@@ -8,6 +8,7 @@ extension LocalCommands {
     static func store(_ verb: StoreVerb, invocation: CLIInvocation, client: IPCClient) -> Int32 {
         let config = ConfigLoader.loadUserOrDefault().config.store
         let addons = AddonStore()
+        addons.seedBuiltinFeatures()
         let creatorVerb: Bool
         switch verb {
         case .new, .validate, .pack, .submit: creatorVerb = true
@@ -41,6 +42,10 @@ extension LocalCommands {
                 let updates = addons.updates(index)
                 Console.out("\(index.addons.count) addon\(index.addons.count == 1 ? "" : "s") in the index; \(updates.count) update\(updates.count == 1 ? "" : "s")")
                 for u in updates { Console.out("  \(u.installed.id) \(u.installed.version) → \(u.version.version)") }
+            case .install(let id) where BuiltinFeature.named(id) != nil:
+                let a = try addons.installBuiltin(id)
+                Console.out("Installed \(a.name) (built into SkyRose, nothing downloaded).")
+                reload(client)
             case .install(let id):
                 let index = try StoreSource.from(config).loadIndex()
                 guard let entry = index.entry(id) else { throw StoreError.notFound(id) }

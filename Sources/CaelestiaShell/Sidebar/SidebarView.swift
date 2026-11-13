@@ -267,7 +267,7 @@ struct UtilitiesSection: View {
                 }
             }
             .accessibilityIdentifier("sidebar.keepAwake.timers")
-            if state.clamshell.hasLid {
+            if state.clamshell.hasLid, state.clamshellFeature {
                 // What closing the lid does now, and the Clamshell chip (SleepDisabled while on).
                 HStack(spacing: 6) {
                     MaterialIcon("laptopcomputer", size: 13).foregroundStyle(theme[.onSurfaceVariant])
