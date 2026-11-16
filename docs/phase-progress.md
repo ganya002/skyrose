@@ -51,6 +51,7 @@ Resume here: read this table, then the newest section below.
 
 Done 2026-11-13: v0.5.0 and v0.6.0 published, here.now site claimed. 0.7.0: widget addons (f568346 launcher choices, 1cb8acb widgets: sandbox, broker, sidebar card, scaffold; live: installed a scaffolded clock in a test home from a signed test index, ran it in the real WM, card showed, off killed it, uninstall clean).
 Look check 2026-11-13 (crops of launcher, dashboard, session, sidebar, utilities against Tests/fixtures/ref): layouts match. Differences left on purpose or for later: the recorder has no mode dropdown (SkyRose records full screen only; region recording would come first), quick toggles are the macOS set, the calendar week and clock follow the Mac's locale.
+0.7.1 (2026-11-16): session menu picture (`appearance.sessionImage`), binds through Carbon hot keys while Secure Input is on (7f0b1c4), Wi-Fi refuses 802.1X joins (65de396), borders restack when an app activates (020d173). Live tests done: AirDrop, Low Power Mode, boot daemon, Bluetooth pair/forget, Wi-Fi wrong password/forget.
 Next: network for widgets (host-pinning proxy), keymap addons, region screen recording.
 
 Notes for a fresh session:

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.7.1 (2026-11-16)
+
+Your own picture in the session menu, and fixes for hotkeys behind password fields, Wi-Fi on work networks and borders behind other apps. https://github.com/ganya002/skyrose/releases/tag/v0.7.1
+
 - **Your own picture in the session menu.** Settings › Shell › Panels › Session menu picture takes any image or GIF on your Mac (GIFs animate); Moon puts the drawn moon back. New key `appearance.sessionImage`.
 - **Fix: binds keep working while another app holds Secure Input.** Password fields in Firefox and password prompts in kitty blinded SkyRose's hotkeys for 15–40 s at a time, so SUPER + 1 and the rest did nothing. While Secure Input is on, the key + modifier binds now work through macOS hot keys (either Option key counts as SUPER until it ends).
 - **Fix: the focused window's border stays on top of it.** After another app's window (Sky's menu, say) and then a click back on a tiled window, the window came to the front but its border stayed behind the other app's window.
