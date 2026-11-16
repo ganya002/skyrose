@@ -51,6 +51,7 @@ public final class OverlayController {
     /// Targets whose window is on screen; only they have a surface.
     public private(set) var visibleTargets: Set<CGWindowID> = []
     private var spaceObserver: NSObjectProtocol?
+    private var activationObserver: NSObjectProtocol?
     private var link: CADisplayLink?
     /// Counters for `query overlays` / the debug overlay.
     public private(set) var ticks = 0
@@ -77,7 +78,21 @@ public final class OverlayController {
             ) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshVisibility() }
             }
+            // A click can raise a window without changing the scene (focus came back from an
+            // unmanaged window such as another app's panel): its border must follow it to the front.
+            activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.restack() }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.restack() }
+            }
         }
+    }
+
+    /// Puts every border back directly above its window.
+    public func restack() {
+        guard isEnabled else { return }
+        for (id, surface) in surfaces { surface.order(above: id) }
     }
 
     /// Re-reads which targets are on screen: surfaces of off-screen targets close, on-screen ones

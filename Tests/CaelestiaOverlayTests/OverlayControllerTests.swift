@@ -40,6 +40,14 @@ final class OverlayControllerTests: XCTestCase {
         }
     }
 
+    func testRestackOrdersEveryBorderAboveItsWindow() {
+        let c = makeController()
+        c.apply(OverlayScene(borders: [border(1), border(2)]))
+        c.restack()
+        for id: CGWindowID in [1, 2] { XCTAssertEqual(fake(c, id).orderedAbove.last, id) }
+        XCTAssertEqual(fake(c, 1).orderedAbove.count, 2)
+    }
+
     func testMovingFrameOfSameWindowsSkipsWindowServerQueryAndReorder() {
         var queries = 0
         let c = OverlayController(
