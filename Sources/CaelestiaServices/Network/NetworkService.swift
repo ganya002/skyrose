@@ -195,6 +195,8 @@ public final class NetworkService {
             }
             guard let network else { throw ServiceError.failed("\(ssid) is not in range") }
             let open = network.supportsSecurity(.none) || network.supportsSecurity(.OWE)
+            // 802.1X: CoreWLAN "joins" with any password and the login fails later, so never claim it worked.
+            if NetworkService.isEnterprise(network) { throw ServiceError.failed(NetworkService.needsEnterprise) }
             let secret = password
             // A known network joins with the password macOS already has. SkyRose never reads the
             // System keychain itself (that shows an administrator prompt).
@@ -231,6 +233,13 @@ public final class NetworkService {
         let text = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         return p.terminationStatus == 0 && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+
+    nonisolated static func isEnterprise(_ n: CWNetwork) -> Bool {
+        [CWSecurity.enterprise, .wpaEnterprise, .wpa2Enterprise, .wpa3Enterprise, .dynamicWEP].contains { n.supportsSecurity($0) }
+    }
+
+    /// The error `connect` throws for a work or school (802.1X) network SkyRose can't sign in to.
+    public static let needsEnterprise = "This network signs in with a username (802.1X). Join it in Wi-Fi settings."
 
     /// The error `connect` throws when a secured network has no password yet.
     public static let needsPassword = "This network needs a password."
