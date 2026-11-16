@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Your own picture in the session menu.** Settings › Shell › Panels › Session menu picture takes any image or GIF on your Mac (GIFs animate); Moon puts the drawn moon back. New key `appearance.sessionImage`.
+- **Fix: binds keep working while another app holds Secure Input.** Password fields in Firefox and password prompts in kitty blinded SkyRose's hotkeys for 15–40 s at a time, so SUPER + 1 and the rest did nothing. While Secure Input is on, the key + modifier binds now work through macOS hot keys (either Option key counts as SUPER until it ends).
+- **Fix: Wi-Fi no longer claims to join work or school (802.1X) networks.** macOS accepted any password there and the login failed afterwards, leaving the Mac without internet. SkyRose now says to join them in Wi-Fi settings.
+
 ## 0.7.0 (2026-11-13)
 
 Widget addons in SkyStore, and the launcher's scheme, variant and transparency commands. https://github.com/ganya002/skyrose/releases/tag/v0.7.0
