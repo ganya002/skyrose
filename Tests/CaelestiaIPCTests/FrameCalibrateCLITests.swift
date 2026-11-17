@@ -71,3 +71,15 @@ final class ScreenshotCLITests: XCTestCase {
         XCTAssertThrowsError(try CLIParser.parse(["screenshot", "area"]))
     }
 }
+
+final class RecordCLITests: XCTestCase {
+    func testRegionFlagAndRect() throws {
+        guard case let .ipc(pick) = try CLIParser.parse(["record", "-r"]).kind else { return XCTFail() }
+        XCTAssertEqual(pick.bool("region"), true)
+        XCTAssertNil(pick.string("rect"))
+        guard case let .ipc(rect) = try CLIParser.parse(["record", "--rect", "100,80,640,360"]).kind else { return XCTFail() }
+        XCTAssertEqual(rect.string("rect"), "100,80,640,360")
+        XCTAssertThrowsError(try CLIParser.parse(["record", "--rect", "100,80,640"]))
+        XCTAssertThrowsError(try CLIParser.parse(["record", "--rect", "0,0,1,1"]))
+    }
+}

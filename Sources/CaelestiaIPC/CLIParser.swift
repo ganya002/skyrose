@@ -172,7 +172,7 @@ public enum CLIParser {
     public static let programName = "skyrose"
 
     /// Options that take a value.
-    static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon", "--kind", "--repo"]
+    static let valueOptions: Set<String> = ["--socket", "--timeout", "--app", "--icon", "--kind", "--repo", "--rect"]
     /// Boolean options (long and short).
     static let flagOptions: Set<String> = Set(["--json", "--silent", "--yes", "-y", "-s", "-r", "-d", "--help", "-h", "--version", "-v", "--sound", "--region", "--delete", "--check", "--fix", "--password-stdin", "--purge"]).union(uninstallFlags)
     /// Passed through to scripts/uninstall.sh.
@@ -229,10 +229,18 @@ public enum CLIParser {
             inv.kind = try parseScreenshot(args, tokens)
         case "record":
             try rejectExtra("record", args)
-            inv.kind = .ipc(IPCRequest(.record, args: [
+            var recordArgs: [String: JSONValue] = [
                 "sound": .bool(tokens.has("-s", "--sound")),
                 "region": .bool(tokens.has("-r", "--region")),
-            ]))
+            ]
+            if let rect = tokens.options["--rect"] {
+                let n = rect.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+                guard n.count == 4, n[2] >= 2, n[3] >= 2 else {
+                    throw CLIUsageError.invalidArgument(command: "record", name: "--rect", value: rect, expected: "X,Y,W,H in points, top-left origin")
+                }
+                recordArgs["rect"] = .string(rect)
+            }
+            inv.kind = .ipc(IPCRequest(.record, args: recordArgs))
         case "clipboard":
             try rejectExtra("clipboard", args)
             inv.kind = .ipc(IPCRequest(.clipboard, args: ["delete": .bool(tokens.has("-d", "--delete"))]))
@@ -856,7 +864,7 @@ public enum CLIParser {
         ]),
         HelpSection(title: "Capture and utilities", topics: ["screenshot", "record", "clipboard", "emoji", "picker", "scheme", "wallpaper", "notify", "keepawake", "clamshell", "wifi", "bluetooth"], rows: [
             ("screenshot [region|freeze|window|full]", "Take a screenshot (default: region): saved to capture.folder + clipboard"),
-            ("record [-s] [-r]", "Start/stop the screen recorder (-s: system sound, -r: region)"),
+            ("record [-s] [-r] [--rect X,Y,W,H]", "Start/stop the screen recorder (-s: system sound, -r: pick a region, --rect: that region)"),
             ("clipboard [-d]", "Open clipboard history (-d: delete mode)"),
             ("emoji", "Open the emoji picker"),
             ("picker", "Open the colour picker"),

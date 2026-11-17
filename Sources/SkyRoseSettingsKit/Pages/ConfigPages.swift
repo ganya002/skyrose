@@ -768,6 +768,9 @@ struct ShellPage: View {
                     SettingRow(title: "Always visible", detail: "Off: it slides in when the pointer touches the left edge.", icon: "pin") {
                         PillToggle(isOn: store.bool(\.bar.persistent, "bar.persistent"), enabled: store.config.shell.enabled && store.config.bar.enabled, accessibilityLabel: "Bar always visible")
                     }
+                    SettingRow(title: "Hide bars over fullscreen apps and games", detail: "The bar and the frame fade out while a fullscreen window or a game is in front on that display.", icon: "gamecontroller") {
+                        PillToggle(isOn: store.bool(\.bar.hideOverFullscreen, "bar.hideOverFullscreen"), enabled: store.config.shell.enabled, accessibilityLabel: "Hide bars over fullscreen apps and games")
+                    }
                     ForEach(Array(Self.barModules.enumerated()), id: \.offset) { _, m in
                         SettingRow(title: m.2, icon: m.3) {
                             PillToggle(isOn: store.bool(m.0, m.1), enabled: store.config.shell.enabled && store.config.bar.enabled, accessibilityLabel: m.2)

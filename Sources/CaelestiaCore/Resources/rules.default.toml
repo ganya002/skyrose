@@ -214,6 +214,23 @@ appName = "steam_app_*|gamescope"
 [rule.effects]
 tag = "game"
 
+# Mac games that do not declare the games category: Roblox, Minecraft (the Java game window, not
+# its launcher).
+[[rule]]
+id = "tag-game-mac-apps"
+[rule.match]
+bundleID = "com.roblox.RobloxPlayer|net.minecraft.*|com.mojang.minecraft"
+[rule.effects]
+tag = "game"
+
+# The Java game window is titled "Minecraft* 1.21.4" (the launcher is "Minecraft Launcher").
+[[rule]]
+id = "tag-game-minecraft-java"
+[rule.match]
+titleRegex = "^Minecraft\\*? [0-9]"
+[rule.effects]
+tag = "game"
+
 # Popups (rules.lua xwl_popup): XWayland popups titled "win[0-9]+".
 [[rule]]
 id = "tag-popup-xwayland-titles"

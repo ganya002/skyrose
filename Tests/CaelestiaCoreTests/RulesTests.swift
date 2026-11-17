@@ -97,6 +97,15 @@ final class RulesTests: XCTestCase {
         XCTAssertEqual(r.effects.noAnim, true)
     }
 
+    func testMacGamesWithoutTheCategoryAreTagged() {
+        XCTAssertTrue(rules.resolve(for: WindowDescriptor(bundleID: "com.roblox.RobloxPlayer", appName: "Roblox")).tags.contains("game"))
+        XCTAssertTrue(rules.resolve(for: WindowDescriptor(bundleID: "", appName: "java", title: "Minecraft* 1.21.4")).tags.contains("game"))
+        XCTAssertTrue(rules.resolve(for: WindowDescriptor(bundleID: "", appName: "java", title: "Minecraft 1.20.1 - Singleplayer")).tags.contains("game"))
+        // Not the launchers, not Roblox Studio.
+        XCTAssertFalse(rules.resolve(for: WindowDescriptor(bundleID: "com.mojang.minecraftlauncher", appName: "Minecraft Launcher", title: "Minecraft Launcher")).tags.contains("game"))
+        XCTAssertFalse(rules.resolve(for: WindowDescriptor(bundleID: "com.Roblox.RobloxStudio", appName: "RobloxStudio")).tags.contains("game"))
+    }
+
     func testOrdinaryWindowsGetNoEffects() {
         XCTAssertEqual(effects("net.kovidgoyal.kitty", title: "~").float, nil)
         XCTAssertNil(effects("net.kovidgoyal.kitty", title: "~").workspace)

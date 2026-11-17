@@ -96,7 +96,7 @@ is unlinked and replaced; one that answers makes `start()` fail with `alreadyRun
 | `screenshot`         | `mode?: region\|freeze\|window\|full`              | `{mode, folder}` (result: toast) |
 | `keepawake`          | `state: on\|off\|status, seconds?`                  | `{enabled, until?, status}` |
 | `clamshell`          | `state?: on\|off\|status\|helper`                  | `{hasLid, lidClosed, onAC, externalDisplays, mode, via?, summary, enabled, keepAwakeActive, sleepDisabled, sleepDisabledBySkyRose, helper, helperCommand?, helperError?, closingCausesSleep?, keepAwake, holdingKeepAwake}` |
-| `record`             | `sound?: bool`, `region?: bool`                    | `{recording: bool, path?}` |
+| `record`             | `sound?: bool`, `region?: bool`, `rect?: "X,Y,W,H"` | `{recording: bool, picking?: bool, path?}` |
 | `clipboard`          | `delete?: bool`                                    | null   |
 | `emoji`              |                                                    | null   |
 | `scheme.set`         | `name: string`                                     | null   |

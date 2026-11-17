@@ -473,7 +473,7 @@ public enum IPCCommand: String, CaseIterable, Codable, Sendable, Hashable {
         case .screenshot:
             return IPCCommandSpec(.capture, "Take a screenshot (the picker runs in the shell; the result is a toast).", arguments: [.optional("mode", .string, help: "region (default) | freeze | window | full")], returns: "{mode, folder}")
         case .record:
-            return IPCCommandSpec(.capture, "Start/stop the screen recorder.", arguments: [.optional("sound", .bool, help: "capture system audio"), .optional("region", .bool, help: "pick a region")], returns: "{recording: bool, path?}")
+            return IPCCommandSpec(.capture, "Start/stop the screen recorder.", arguments: [.optional("sound", .bool, help: "capture system audio"), .optional("region", .bool, help: "pick a region"), .optional("rect", .string, help: "record this region: X,Y,W,H in points, top-left origin")], returns: "{recording: bool, picking?: bool, path?}")
         case .clipboard:
             return IPCCommandSpec(.misc, "Open clipboard history (or delete mode).", arguments: [.optional("delete", .bool, help: "open in delete mode")])
         case .emoji:

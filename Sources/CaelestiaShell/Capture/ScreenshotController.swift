@@ -23,8 +23,21 @@ public final class ScreenshotController {
     private var overlays: [SelectionPanel] = []
     private var frozen: [CGDirectDisplayID: CGImage] = [:]
     private var mode: CaptureMode = .region
+    /// Set while the picker chooses a region for something else (region recording): the pick
+    /// goes here (nil: cancelled) instead of becoming a screenshot.
+    private var regionHandler: ((CGRect?) -> Void)?
 
     public init() {}
+
+    /// Shows the region picker (drag a rectangle, click a window, or click the desktop for the
+    /// whole display) and hands the global top-left rectangle to `done`; nil when cancelled.
+    public func pickRegion(_ done: @escaping (CGRect?) -> Void) {
+        guard !isActive else { return }
+        isActive = true
+        mode = .region
+        regionHandler = done
+        showOverlays()
+    }
 
     // MARK: Start
 
@@ -62,6 +75,11 @@ public final class ScreenshotController {
         closeOverlays()
         isActive = false
         frozen = [:]
+        if let handler = regionHandler {
+            regionHandler = nil
+            handler(nil)
+            return
+        }
         onFinish?(.cancelled, nil)
     }
 
@@ -100,6 +118,12 @@ public final class ScreenshotController {
         case .window(let w):
             rect = w.bounds
             windowID = w.id
+        }
+        if let handler = regionHandler {
+            regionHandler = nil
+            isActive = false
+            handler(rect)
+            return
         }
         if !frozen.isEmpty {
             // Freeze: crop the still of the display holding the selection's centre.

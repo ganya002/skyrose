@@ -404,6 +404,9 @@ public struct BarConfig: Codable, Equatable, Sendable {
     public var statusIcons: [StatusIcon] = StatusIcon.defaults
     /// A Controls button under the status icons (Control Center and the menu-bar apps).
     public var controlsButton: Bool = true
+    /// The bar and the frame fade out on a display while a fullscreen window or a game
+    /// (rules tag `game`) is focused there.
+    public var hideOverFullscreen: Bool = true
     public init() {}
 
     public struct StatusIcon: Codable, Equatable, Sendable {

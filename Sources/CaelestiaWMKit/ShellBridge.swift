@@ -30,6 +30,15 @@ public final class ShellBridge: ShellHost {
         wm.shellBlocksPointerFocus = { [weak controller] point in
             controller?.blocksPointerFocus(at: point) ?? false
         }
+        // Games by the same rules that tag windows (`tag-game-*`); the title is the focused window's.
+        controller.isGameApp = { [weak wm, weak state] app in
+            guard let wm else { return false }
+            let info = AppInfoCache.shared.info(for: app)
+            let title = state?.activeWindow.flatMap { $0.bundleID == info.bundleID ? $0.title : nil } ?? ""
+            let d = WindowDescriptor(bundleID: info.bundleID, appName: info.name, title: title, category: info.category,
+                                     pid: app.processIdentifier)
+            return wm.rules.resolve(for: d).tags.contains("game")
+        }
     }
 
     /// Starts the shell, unless the config says WM-only mode or the shell is switched off (then
@@ -204,7 +213,17 @@ public final class ShellBridge: ShellHost {
             let recorder = controller.movieRecorder
             let path = recorder.outputURL?.path ?? ""
             let wasRecording = recorder.isRecording
-            controller.toggleRecording()
+            let rect = request.string("rect").flatMap { text -> CGRect? in
+                let n = text.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+                return n.count == 4 ? CGRect(x: n[0], y: n[1], width: n[2], height: n[3]) : nil
+            }
+            let region = !wasRecording && rect == nil && request.bool("region") == true
+            controller.toggleRecording(region: region, rect: wasRecording ? nil : rect)
+            if region {
+                // A second -r while the picker is open closes it.
+                return ok(.object(["recording": .bool(false), "picking": .bool(controller.screenshots.isActive),
+                                   "folder": .string(controller.recordingsFolder.path)]))
+            }
             return wasRecording ? ok(.object(["recording": .bool(false), "path": .string(path)]))
                 : ok(.object(["recording": .bool(true), "folder": .string(controller.recordingsFolder.path)]))
         case .keepAwake:

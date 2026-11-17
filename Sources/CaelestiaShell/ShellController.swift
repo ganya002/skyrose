@@ -134,6 +134,13 @@ public final class ShellController {
     var launcherDisplay: String?
     private var osdTimer = OSDTimer()
     public internal(set) var openDrawers: Set<Drawer> = []
+    /// Displays a focused fullscreen window or game covers (`bar.hideOverFullscreen`): no bar,
+    /// frame or hover zones there until it leaves (ShellController+Cover).
+    public internal(set) var coveredDisplays: Set<String> = []
+    /// Whether the rules tag an app `game` (set by the WM).
+    public var isGameApp: (NSRunningApplication) -> Bool = { _ in false }
+    var coverObservers: [NSObjectProtocol] = []
+    var coverTimer: Timer?
 
     /// A drawer or popout is open, or a toast sits under the point (top-left coordinates).
     public func blocksPointerFocus(at point: CGPoint) -> Bool {
@@ -210,6 +217,7 @@ public final class ShellController {
         refreshColors()
         resumeLiveWallpaper()
         startWidgets()
+        startCoverWatch()
     }
 
     /// Widget addons: their cards go to the sidebar, their toasts are named after them.
@@ -223,6 +231,7 @@ public final class ShellController {
 
     /// `shell.kill`: every surface goes; services keep running.
     public func stop() {
+        stopCoverWatch()
         liveWallpaper.stop(clearRecord: false)
         widgetHost.stop()
         calibration?.close()
@@ -265,6 +274,7 @@ public final class ShellController {
         closeDisabledDrawers()
         if themeChanged { rebuildDrawers() }
         rebuildSurfaces()
+        refreshCover()
     }
 
     // MARK: Frame + bar per display (R5)
@@ -290,7 +300,7 @@ public final class ShellController {
                 if let f = frames[d.id] { f.update(layout: layout, theme: theme) } else {
                     frames[d.id] = ScreenFrameWindow(displayID: d.id, layout: layout, theme: theme)
                 }
-                frames[d.id]?.show()
+                if !coveredDisplays.contains(d.id) { frames[d.id]?.show() }
             } else {
                 frames.removeValue(forKey: d.id)?.close()
             }
@@ -300,7 +310,7 @@ public final class ShellController {
                 bar.update(layout: layout, theme: theme)
                 let shown = vis.isShown
                 bar.setReveal(shown ? 1 : bar.reveal.target, animated: false)
-                bar.show()
+                if !coveredDisplays.contains(d.id) { bar.show() }
                 frames[d.id]?.setBarReveal(bar.reveal.value)
             } else {
                 bars.removeValue(forKey: d.id)?.close()
@@ -335,7 +345,7 @@ public final class ShellController {
     func pointerMoved(_ p: CGPoint) {
         let now = ProcessInfo.processInfo.systemUptime
         for (id, layout) in layouts {
-            guard var vis = visibility[id], !vis.persistent else { continue }
+            guard var vis = visibility[id], !vis.persistent, !coveredDisplays.contains(id) else { continue }
             let barStrip = layout.barFrame.insetBy(dx: 0, dy: 0)
             let over = p.x <= barStrip.maxX + BarVisibility.leaveMargin && p.x >= layout.area.minX - 1
                 && p.y >= layout.area.minY && p.y <= layout.area.maxY
@@ -354,7 +364,7 @@ public final class ShellController {
     /// Hit-tests the pointer against the shown bars' popout items (`BarModel.itemFrames`).
     func barHover(_ p: CGPoint) {
         var hit: (item: String, display: String, midY: Double)?
-        for (id, bar) in bars where bar.model.reveal > 0.5 {
+        for (id, bar) in bars where bar.model.reveal > 0.5 && !coveredDisplays.contains(id) {
             let f = bar.panel.frame
             guard f.contains(p) else { continue }
             let local = CGPoint(x: p.x - f.minX, y: f.maxY - p.y)
@@ -376,7 +386,7 @@ public final class ShellController {
 
     func edgeZone(_ p: CGPoint) -> (display: String, zone: EdgeDrag.Zone)? {
         guard isRunning else { return nil }
-        for (id, layout) in layouts {
+        for (id, layout) in layouts where !coveredDisplays.contains(id) {
             let sessionH = SessionModel.bodySize.height + 2 * theme.frameRounding
             if let z = EdgeDrag.zone(at: p, layout: layout, barReveal: bars[id]?.reveal.target ?? 0, sessionHeight: sessionH) {
                 let moduleOn = z == .session ? isModuleOn(.session) : isModuleOn(.sidebar)
@@ -478,7 +488,7 @@ public final class ShellController {
             if d == .osd { pokeOSD() } else { close(d) }
         }
 
-        guard let here, let sizes else { hoverPending = nil; return }
+        guard let here, let sizes, !coveredDisplays.contains(here.key) else { hoverPending = nil; return }
         let reveal = bars[here.key]?.reveal.target ?? 0
         let target = HoverReveal.Target.allCases.first { t in
             hoverMayOpen(t) && HoverReveal.contains(p, target: t, layout: here.value, barReveal: reveal, sizes: sizes, rounding: r, open: false)
@@ -1034,6 +1044,7 @@ public final class ShellController {
         case .shellKill: stop()
         case .shellRestart: restart()
         case .recordScreen: toggleRecording()
+        case .recordRegion: toggleRecording(region: true)
         case .captureRegion: takeScreenshot(.region)
         case .captureFull: takeScreenshot(.full)
         case .captureFreeze: takeScreenshot(.freeze)

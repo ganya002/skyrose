@@ -306,6 +306,27 @@ final class RevealNeverMovesWindowsTests: XCTestCase {
         assertUntouched(r, before, "persistent")
     }
 
+    /// `bar.hideOverFullscreen`: over a fullscreen app or game nothing reveals by accident.
+    func testACoveredDisplayIgnoresTheHotZoneHoverZonesAndEdgeDrags() throws {
+        let r = rig()
+        defer { r.shell.stop() }
+        let layout = try XCTUnwrap(r.shell.layouts["air"])
+        r.shell.coveredDisplays = ["air"]
+        r.shell.pointerMoved(CGPoint(x: layout.area.minX + 2, y: layout.area.midY))
+        XCTAssertFalse(r.shell.visibility["air"]?.isShown ?? true, "the left band stays off")
+        XCTAssertTrue(r.host.reserved.isEmpty)
+        let inner = layout.inner(barReveal: 0)
+        let topBand = CGPoint(x: inner.midX, y: inner.maxY + 4)
+        r.shell.hoverReveal(topBand, at: 100)
+        r.shell.hoverReveal(topBand, at: 101)
+        XCTAssertFalse(r.shell.isOpen(.dashboard), "no hover drawer")
+        XCTAssertNil(r.shell.edgeZone(CGPoint(x: layout.area.maxX - 1, y: layout.area.midY)), "no edge drag")
+        // Uncovered again: the band works as before.
+        r.shell.coveredDisplays = []
+        r.shell.pointerMoved(CGPoint(x: layout.area.minX + 2, y: layout.area.midY))
+        XCTAssertTrue(r.shell.visibility["air"]?.isShown ?? false)
+    }
+
     func testEdgeAndCornerHoverRevealsOpenAfterTheDwellAndCloseOnLeave() throws {
         let r = rig()
         defer { r.shell.stop() }

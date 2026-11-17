@@ -592,6 +592,15 @@ extension RuleSet {
             id: "tag-game-linux-classes",
             match: RuleMatch(appName: "steam_app_*|gamescope"),
             effects: RuleEffects(tag: "game")),
+        // Mac games without the games category: Roblox, Minecraft (the Java game window).
+        WindowRule(
+            id: "tag-game-mac-apps",
+            match: RuleMatch(bundleID: "com.roblox.RobloxPlayer|net.minecraft.*|com.mojang.minecraft"),
+            effects: RuleEffects(tag: "game")),
+        WindowRule(
+            id: "tag-game-minecraft-java",
+            match: RuleMatch(titleRegex: "^Minecraft\\*? [0-9]"),
+            effects: RuleEffects(tag: "game")),
 
         // Popups (tag popup; rules.lua xwl_popup)
         WindowRule(

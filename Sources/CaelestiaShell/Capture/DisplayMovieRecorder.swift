@@ -3,7 +3,7 @@ import CoreMedia
 import Foundation
 import ScreenCaptureKit
 
-/// Writes the main display to a .mov at 60 fps or faster, from inside SkyRose (the process that
+/// Writes the main display (or a region of one display) to a .mov at 60 fps or faster, from inside SkyRose (the process that
 /// already has Screen Recording permission). One recording at a time. The sample callback never
 /// touches the main thread.
 public final class DisplayMovieRecorder: NSObject, SCStreamOutput {
@@ -16,18 +16,28 @@ public final class DisplayMovieRecorder: NSObject, SCStreamOutput {
     private let queue = DispatchQueue(label: "com.skyrose.mac.record")
 
     /// Starts a recording into `folder`. Returns the file that `stop` will finish.
-    public func start(folder: URL) async throws -> URL {
+    /// `region` (global top-left points) records only that part of the display holding its
+    /// centre; nil records the main display.
+    public func start(folder: URL, region: CGRect? = nil) async throws -> URL {
         if isRecording { throw RecorderError.busy }
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-        let main = CGMainDisplayID()
-        guard let display = content.displays.first(where: { $0.displayID == main }) ?? content.displays.first else {
+        let wanted = region.flatMap { r in
+            content.displays.first { CGDisplayBounds($0.displayID).contains(CGPoint(x: r.midX, y: r.midY)) }?.displayID
+        } ?? CGMainDisplayID()
+        guard let display = content.displays.first(where: { $0.displayID == wanted }) ?? content.displays.first else {
             throw RecorderError.noDisplay
         }
         let filter = SCContentFilter(display: display, excludingWindows: [])
         let scale = Double(filter.pointPixelScale)
-        let width = max(2, Int((display.frame.width * scale).rounded()) & ~1)
-        let height = max(2, Int((display.frame.height * scale).rounded()) & ~1)
         let cfg = SCStreamConfiguration()
+        var size = display.frame.size
+        if let region {
+            guard let local = Self.sourceRect(region, in: CGDisplayBounds(display.displayID)) else { throw RecorderError.noDisplay }
+            cfg.sourceRect = local
+            size = local.size
+        }
+        let width = max(2, Int((size.width * scale).rounded()) & ~1)
+        let height = max(2, Int((size.height * scale).rounded()) & ~1)
         cfg.width = width
         cfg.height = height
         cfg.minimumFrameInterval = CMTime(value: 1, timescale: 120)
@@ -88,6 +98,14 @@ public final class DisplayMovieRecorder: NSObject, SCStreamOutput {
             sessionStarted = true
         }
         input.append(sample)
+    }
+
+    /// `region` clipped to `display` (both global top-left points), in display-local points and
+    /// whole points; nil when they do not overlap or the rest is under 2 × 2.
+    static func sourceRect(_ region: CGRect, in display: CGRect) -> CGRect? {
+        let r = region.intersection(display)
+        guard !r.isNull, r.width >= 2, r.height >= 2 else { return nil }
+        return r.offsetBy(dx: -display.minX, dy: -display.minY).integral.intersection(CGRect(origin: .zero, size: display.size))
     }
 
     public enum RecorderError: LocalizedError {

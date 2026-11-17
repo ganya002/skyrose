@@ -7,7 +7,8 @@ import AppKit
 //   --min-index I          apply --min only to window I (0-based)
 //   --slow MS              block the main thread MS ms on every resize (simulates a laggy app)
 //   --stubborn I           window I snaps back to its original size after each resize
-//   --control PATH         watch PATH for commands, one per line: "open", "close N", "quit"
+//   --control PATH         watch PATH for commands, one per line: "open", "close N", "quit",
+//                          "fullscreen N" (native toggle), "borderless N" (cover its screen), "front N"
 //   --title PREFIX         window title prefix (default "TestWindow")
 // Each window shows its index and title; colours cycle through a fixed palette.
 
@@ -111,6 +112,20 @@ final class TestWindowsApp: NSObject, NSApplicationDelegate, NSWindowDelegate {
             case "close":
                 if parts.count > 1, let n = Int(parts[1]), n < windows.count { windows[n].close() }
             case "quit": NSApp.terminate(nil)
+            // Native (green-button) fullscreen on and off.
+            case "fullscreen":
+                if parts.count > 1, let n = Int(parts[1]), n < windows.count { windows[n].toggleFullScreen(nil) }
+            // A game-style "fake fullscreen": borderless, covering its whole screen.
+            case "borderless":
+                if parts.count > 1, let n = Int(parts[1]), n < windows.count, let screen = windows[n].screen {
+                    windows[n].styleMask = [.borderless]
+                    windows[n].setFrame(screen.frame, display: true)
+                }
+            case "front":
+                if parts.count > 1, let n = Int(parts[1]), n < windows.count {
+                    NSApp.activate(ignoringOtherApps: true)
+                    windows[n].makeKeyAndOrderFront(nil)
+                }
             default: break
             }
         }
