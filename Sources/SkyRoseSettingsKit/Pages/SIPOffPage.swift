@@ -181,15 +181,22 @@ struct SIPAssistantCard: View {
                 stepRow(index + 1, step)
             }
             if let image = SIPCode.image(SIPAssistant.script(enabling)) {
-                HStack(alignment: .center, spacing: 14) {
-                    Image(nsImage: image).resizable().interpolation(.none).aspectRatio(contentMode: .fit)
-                        .frame(width: 140, height: 140)
+                // A small card of its own: a fixed 156 pt bitmap, clipped, so it never covers the steps or the sidebar.
+                VStack(alignment: .leading, spacing: 10) {
+                    Image(decorative: image, scale: 1).resizable().interpolation(.none)
+                        .frame(width: SIPCode.side, height: SIPCode.side)
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white))
                         .accessibilityLabel("QR code of the commands above")
                     Text("Scan this with your phone before you restart. It is only the commands above, so you can read them while the Mac is in Recovery.")
-                        .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant]).fixedSize(horizontal: false, vertical: true)
+                        .font(look.font(12.5)).foregroundStyle(look[.onSurfaceVariant])
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 260, alignment: .leading)
                 }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: SettingsLook.rowRadius, style: .continuous).fill(look[.surfaceContainerHighest]))
+                .clipShape(RoundedRectangle(cornerRadius: SettingsLook.rowRadius, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -214,16 +221,17 @@ struct SIPAssistantCard: View {
 }
 
 enum SIPCode {
-    static func image(_ text: String) -> NSImage? {
+    static let side: CGFloat = 156
+
+    /// A plain bitmap. An `NSCIImageRep` ignored SwiftUI's frame and drew the code at its own
+    /// 8x size over the rest of the page.
+    static func image(_ text: String) -> CGImage? {
         guard !text.isEmpty else { return nil }
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(text.utf8)
         filter.correctionLevel = "M"
         guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return nil }
-        let rep = NSCIImageRep(ciImage: output)
-        let image = NSImage(size: rep.size)
-        image.addRepresentation(rep)
-        return image
+        return CIContext(options: [.useSoftwareRenderer: false]).createCGImage(output, from: output.extent)
     }
 }
 
