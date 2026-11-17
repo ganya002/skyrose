@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.8.0 (2026-11-17)
+
+Region screen recording, and the shell steps aside for fullscreen apps and games.
+
+- **Record a region.** Super + Alt + Shift + R (or `skyrose record -r`) shows the screenshot picker: drag a rectangle, click a window, or click the desktop for the whole display, and only that part is recorded. Press the bind again (or `skyrose record`) to stop; pressed while the picker is still open, it closes the picker. `skyrose record --rect X,Y,W,H` records that region without the picker. The recording goes to the capture folder like a full-screen one.
+- **Fix: fullscreen games are no longer covered by the bar.** While a fullscreen window (the green button, or a borderless window covering the whole display) or a game is in front, the bar and the screen frame fade out on that display, and the left-edge and corner hover zones stay off there, so the game gets every click. They come back when the game loses focus, leaves fullscreen or quits. Other displays are untouched. Games are the apps the rules tag `game`: the App Store games categories, Steam's `steam_app_*`, and now Roblox and Minecraft (Java). Settings › Bar and Shell › Hide bars over fullscreen apps and games (on by default; `bar.hideOverFullscreen`).
+- **Fix: the QR code in Settings › SIP-off mode is a small card again.** It drew at many times its size over steps 4 and 5, their Copy buttons, the "Turning SIP back on" section and the sidebar. It is now a 156 pt code with its label in a rounded card inside the walkthrough.
+
 ## 0.7.1 (2026-11-16)
 
 Your own picture in the session menu, and fixes for hotkeys behind password fields, Wi-Fi on work networks and borders behind other apps. https://github.com/ganya002/skyrose/releases/tag/v0.7.1
